@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { StateDefinition } from "@/hooks/useBobAnimationConfig";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ImageUploaderWithStateProps {
   onUpload: (file: File, stateData: StateDefinition) => Promise<string>;
@@ -154,6 +155,13 @@ export const ImageUploaderWithState = ({
     setUploading(true);
 
     try {
+      // Check if state exists to show appropriate feedback
+      const { data: existing } = await supabase
+        .from("animation_states")
+        .select("title")
+        .eq("state_key", reactionType.trim())
+        .maybeSingle();
+
       const imageUrl = await onUpload(selectedFile, {
         reactionType: reactionType.trim(),
         name: name.trim(),
@@ -162,10 +170,17 @@ export const ImageUploaderWithState = ({
         sequenceOrder: seqNum,
       });
 
-      toast({
-        title: "Success!",
-        description: `State "${name}" created with image!`,
-      });
+      if (existing) {
+        toast({
+          title: "State Updated",
+          description: `Added image to existing "${existing.title}" state`,
+        });
+      } else {
+        toast({
+          title: "State Created",
+          description: `Created new "${name}" state with image`,
+        });
+      }
 
       onUploadComplete?.(imageUrl);
 
