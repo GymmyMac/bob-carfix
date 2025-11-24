@@ -5,8 +5,6 @@ import { ProductShelf } from "@/components/ProductShelf";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobChat } from "@/hooks/useBobChat";
 import { PLACEHOLDER_PRODUCTS } from "@/types/product";
-import { NavLink } from "@/components/NavLink";
-import { Button } from "@/components/ui/button";
 import { AdminButton } from "@/components/AdminButton";
 
 const Index = () => {
@@ -51,9 +49,6 @@ const Index = () => {
       {/* Navigation Bar */}
       <div className="fixed top-4 right-4 z-50 flex gap-2">
         <AdminButton />
-        <NavLink to="/bob-gallery">
-          <Button variant="outline" size="sm">View Bob Gallery</Button>
-        </NavLink>
       </div>
 
       {/* Desktop: Side-by-side layout */}
