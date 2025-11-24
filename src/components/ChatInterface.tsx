@@ -29,29 +29,8 @@ export const ChatInterface = ({
   return (
     <div className="w-full max-w-6xl mx-auto px-4 pb-8">
       <div className="bg-background border border-border rounded-lg shadow-lg overflow-hidden">
-        {/* Chat History */}
-        <div className="overflow-y-auto p-4 space-y-3 h-[180px] md:h-[200px]">
-          {messages.map((msg, idx) => (
-            <div
-              key={idx}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-[80%] rounded-lg px-4 py-2 text-sm md:text-base ${
-                  msg.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground"
-                }`}
-              >
-                {msg.content}
-              </div>
-            </div>
-          ))}
-          <div ref={chatEndRef} />
-        </div>
-
         {/* Input Area */}
-        <div className="p-4 border-t border-border bg-muted/50">
+        <div className="p-4 border-b border-border bg-muted/50">
           <div className="flex gap-2">
             <Input
               value={input}
@@ -72,6 +51,27 @@ export const ChatInterface = ({
               <Send className="h-4 w-4" />
             </Button>
           </div>
+        </div>
+
+        {/* Chat History */}
+        <div className="overflow-y-auto p-4 space-y-3 h-[180px] md:h-[200px]">
+          {[...messages].reverse().map((msg, idx) => (
+            <div
+              key={idx}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[80%] rounded-lg px-4 py-2 text-sm md:text-base ${
+                  msg.role === "user"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-foreground"
+                }`}
+              >
+                {msg.content}
+              </div>
+            </div>
+          ))}
+          <div ref={chatEndRef} />
         </div>
       </div>
     </div>
