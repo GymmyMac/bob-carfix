@@ -114,15 +114,6 @@ All colors MUST be HSL.
   }
 }
 
-@keyframes bob-breathe {
-  0%, 100% { 
-    transform: scale(1);
-  }
-  50% { 
-    transform: scale(1.015);
-  }
-}
-
 @keyframes bob-happy-bounce {
   0%, 100% { 
     transform: translateY(0px);
