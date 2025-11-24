@@ -33,29 +33,16 @@ export const BobWidget = () => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const talkIntervalRef = useRef<NodeJS.Timeout>();
 
-  // Load Bob images from Supabase storage
+  // Load Bob images from public folder
   useEffect(() => {
-    const loadImages = async () => {
-      const imageFiles = ["idle.png", "listening.png", "thinking.png", "talk-small.png", "talk-big.png", "happy.png", "grump.png"];
-      const urls: Record<string, string> = {};
-      
-      for (const file of imageFiles) {
-        const { data } = supabase.storage.from(BOB_IMAGE_BUCKET).getPublicUrl(file);
-        const key = file.replace(".png", "").replace("talk-small", "talking").replace("talk-big", "talking-alt");
-        urls[key] = data.publicUrl;
-      }
-      
-      setImageUrls({
-        idle: urls.idle,
-        listening: urls.listening,
-        thinking: urls.thinking,
-        talking: urls.talking,
-        happy: urls.happy,
-        grump: urls.grump
-      });
-    };
-    
-    loadImages();
+    setImageUrls({
+      idle: "/bob-animations/idle.png",
+      listening: "/bob-animations/listening.png",
+      thinking: "/bob-animations/thinking.png",
+      talking: "/bob-animations/talk-small.png",
+      happy: "/bob-animations/happy.png",
+      grump: "/bob-animations/grump.png"
+    });
   }, []);
 
   // Preload images
@@ -218,10 +205,7 @@ export const BobWidget = () => {
 
   const getCurrentImage = () => {
     if (animationState === "talking") {
-      const { data } = supabase.storage.from(BOB_IMAGE_BUCKET).getPublicUrl(
-        isTalkToggle ? "talk-big.png" : "talk-small.png"
-      );
-      return data.publicUrl;
+      return isTalkToggle ? "/bob-animations/talk-big.png" : "/bob-animations/talk-small.png";
     }
     return imageUrls[animationState] || imageUrls.idle;
   };
