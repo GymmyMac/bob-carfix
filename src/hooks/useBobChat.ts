@@ -9,13 +9,15 @@ export interface Message {
 
 interface UseBobChatProps {
   setAnimationState: (state: AnimationState) => void;
+  setTalkSpeed?: (speed: number) => void;
 }
 
-export const useBobChat = ({ setAnimationState }: UseBobChatProps) => {
+export const useBobChat = ({ setAnimationState, setTalkSpeed }: UseBobChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const lastContentTimeRef = useRef<number>(0);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -66,6 +68,9 @@ export const useBobChat = ({ setAnimationState }: UseBobChatProps) => {
       let assistantContent = "";
 
       setAnimationState("talking");
+      
+      // Start with fast talking speed
+      if (setTalkSpeed) setTalkSpeed(200);
 
       while (!streamDone) {
         const { done, value } = await reader.read();
@@ -92,6 +97,18 @@ export const useBobChat = ({ setAnimationState }: UseBobChatProps) => {
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (content) {
               assistantContent += content;
+              
+              // Track when content arrives for word-synced animation
+              lastContentTimeRef.current = Date.now();
+              
+              // Speed up mouth on active content
+              if (setTalkSpeed) setTalkSpeed(200);
+              
+              // Slow down on punctuation (natural pauses)
+              if (content.match(/[.,!?;]/)) {
+                if (setTalkSpeed) setTalkSpeed(500);
+              }
+              
               setMessages(prev => {
                 const last = prev[prev.length - 1];
                 if (last?.role === "assistant") {
@@ -109,6 +126,9 @@ export const useBobChat = ({ setAnimationState }: UseBobChatProps) => {
         }
       }
 
+      // Reset talk speed to default
+      if (setTalkSpeed) setTalkSpeed(400);
+      
       // Detect sentiment for post-response animation
       const lowerContent = assistantContent.toLowerCase();
       if (lowerContent.includes("sorry") || lowerContent.includes("unfortunately") || lowerContent.includes("can't") || lowerContent.includes("don't") || lowerContent.includes("expensive") || lowerContent.includes("unavailable")) {

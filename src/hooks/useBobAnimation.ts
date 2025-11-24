@@ -5,6 +5,7 @@ export type AnimationState = "idle" | "listening" | "thinking" | "talking" | "ha
 export const useBobAnimation = () => {
   const [animationState, setAnimationState] = useState<AnimationState>("idle");
   const [isTalkToggle, setIsTalkToggle] = useState(false);
+  const [talkSpeed, setTalkSpeed] = useState(400); // Dynamic talk speed
   const [imageUrls, setImageUrls] = useState<Record<AnimationState, string>>({
     idle: "",
     listening: "",
@@ -38,12 +39,15 @@ export const useBobAnimation = () => {
     });
   }, [imageUrls]);
 
-  // Handle talking animation toggle
+  // Handle talking animation toggle with dynamic speed
   useEffect(() => {
     if (animationState === "talking") {
+      if (talkIntervalRef.current) {
+        clearInterval(talkIntervalRef.current);
+      }
       talkIntervalRef.current = setInterval(() => {
         setIsTalkToggle(prev => !prev);
-      }, 400);
+      }, talkSpeed);
     } else {
       if (talkIntervalRef.current) {
         clearInterval(talkIntervalRef.current);
@@ -56,7 +60,7 @@ export const useBobAnimation = () => {
         clearInterval(talkIntervalRef.current);
       }
     };
-  }, [animationState]);
+  }, [animationState, talkSpeed]);
 
   const getCurrentImage = () => {
     if (animationState === "talking") {
@@ -69,6 +73,7 @@ export const useBobAnimation = () => {
     animationState,
     setAnimationState,
     getCurrentImage,
-    imageUrls
+    imageUrls,
+    setTalkSpeed
   };
 };
