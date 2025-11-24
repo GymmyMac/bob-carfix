@@ -6,25 +6,30 @@ import { AnimationState, BobAnimationConfig } from "@/hooks/useBobAnimationConfi
 import { useToast } from "@/hooks/use-toast";
 
 interface StateAssignmentCardProps {
+  stateId: string;
   state: AnimationState;
   title: string;
   description: string;
   assignments: BobAnimationConfig[];
   onDelete: (id: string) => Promise<void>;
+  onDeleteState: (stateId: string) => Promise<void>;
   onToggleActive: (id: string, isActive: boolean) => Promise<void>;
   onReorder: (id: string, newOrder: number) => Promise<void>;
 }
 
 export const StateAssignmentCard = ({
+  stateId,
   state,
   title,
   description,
   assignments,
   onDelete,
+  onDeleteState,
   onToggleActive,
   onReorder,
 }: StateAssignmentCardProps) => {
   const [loading, setLoading] = useState<string | null>(null);
+  const [deletingState, setDeletingState] = useState(false);
   const { toast } = useToast();
 
   const handleDelete = async (id: string) => {
@@ -86,11 +91,40 @@ export const StateAssignmentCard = ({
     }
   };
 
+  const handleDeleteState = async () => {
+    setDeletingState(true);
+    try {
+      await onDeleteState(stateId);
+      toast({ title: "State deleted successfully" });
+    } catch (error) {
+      console.error("Delete state error:", error);
+      toast({
+        title: "Failed to delete state",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingState(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>{description}</CardDescription>
+          </div>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleDeleteState}
+            disabled={deletingState}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Delete State
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {assignments.length === 0 ? (

@@ -16,6 +16,7 @@ const BobGallery = () => {
     uploadImageWithState,
     updateAnimation,
     deleteAnimation,
+    deleteState,
   } = useBobAnimationConfig();
 
   const [activeTab, setActiveTab] = useState("upload");
@@ -108,11 +109,13 @@ const BobGallery = () => {
               .map((state) => (
                 <StateAssignmentCard
                   key={state.id}
+                  stateId={state.id}
                   state={state.state_key}
                   title={state.title}
                   description={state.description || ""}
                   assignments={getAssignmentsByState(state.state_key)}
                   onDelete={deleteAnimation}
+                  onDeleteState={deleteState}
                   onToggleActive={(id, isActive) =>
                     updateAnimation(id, { is_active: isActive })
                   }
