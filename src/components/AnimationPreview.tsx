@@ -5,7 +5,7 @@ import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const AnimationPreview = () => {
-  const { animationState, setAnimationState, getCurrentImage } = useBobAnimation();
+  const { animationState, setAnimationState, getCurrentImage, setTalkSpeed } = useBobAnimation();
   const { states } = useBobAnimationConfig();
 
   const stateButtons = states
@@ -34,7 +34,13 @@ export const AnimationPreview = () => {
             <Button
               key={state}
               variant={animationState === state ? "default" : "outline"}
-              onClick={() => setAnimationState(state)}
+              onClick={() => {
+                setAnimationState(state);
+                // Match front-end chat timing for talking state
+                if (state === "talking") {
+                  setTalkSpeed(200);
+                }
+              }}
             >
               {label}
             </Button>
