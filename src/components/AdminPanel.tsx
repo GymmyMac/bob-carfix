@@ -8,8 +8,12 @@ import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye } from "lucide-react";
+import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image } from "lucide-react";
 import { useState, useEffect } from "react";
+import { ImageUploaderWithState } from "@/components/ImageUploaderWithState";
+import { StateAssignmentCard } from "@/components/StateAssignmentCard";
+import { AnimationPreview } from "@/components/AnimationPreview";
+import { useBobAnimationConfig, AnimationState as AnimationStateType } from "@/hooks/useBobAnimationConfig";
 
 interface AdminPanelProps {
   isOpen: boolean;
@@ -21,6 +25,17 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
   const animationControls = (window as any).bobAnimationControls;
   const chatControls = (window as any).bobChatControls;
   
+  // Bob Animation Config (for Gallery tab)
+  const {
+    configs,
+    states,
+    loading: galleryLoading,
+    uploadImageWithState,
+    updateAnimation,
+    deleteAnimation,
+    deleteState,
+  } = useBobAnimationConfig();
+  
   // Early return BEFORE any hooks
   if (!animationControls) {
     return null;
@@ -29,6 +44,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
   const [talkSpeed, setTalkSpeed] = useState(400);
   const [messageCount, setMessageCount] = useState(0);
   const [systemStatus, setSystemStatus] = useState<"online" | "offline">("online");
+  const [galleryTab, setGalleryTab] = useState("upload");
 
   const { 
     animationState, 
@@ -69,6 +85,39 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     setAnimationState("idle");
   };
 
+  const getAssignmentsByState = (state: AnimationStateType) => {
+    return configs
+      .filter((c) => c.animation_state === state)
+      .sort((a, b) => a.sequence_order - b.sequence_order);
+  };
+
+  const handleReorder = async (id: string, newOrder: number) => {
+    const config = configs.find((c) => c.id === id);
+    if (!config) return;
+
+    const sameStateConfigs = configs.filter(
+      (c) => c.animation_state === config.animation_state
+    );
+
+    const updates = sameStateConfigs.map(async (c) => {
+      if (c.id === id) {
+        return updateAnimation(id, { sequence_order: newOrder });
+      } else if (
+        c.sequence_order === newOrder &&
+        newOrder < config.sequence_order
+      ) {
+        return updateAnimation(c.id, { sequence_order: c.sequence_order + 1 });
+      } else if (
+        c.sequence_order === newOrder &&
+        newOrder > config.sequence_order
+      ) {
+        return updateAnimation(c.id, { sequence_order: c.sequence_order - 1 });
+      }
+    });
+
+    await Promise.all(updates.filter(Boolean));
+  };
+
   const stateButtons: Array<{ state: AnimationState; label: string; description: string }> = [
     { state: "idle", label: "Idle", description: "Anything else I can help with?" },
     { state: "thinking", label: "Thinking", description: "Thinking or researching" },
@@ -94,7 +143,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
         </DialogHeader>
 
         <Tabs defaultValue="controls" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="controls" className="gap-2">
               <Zap className="w-4 h-4" />
               Controls
@@ -106,6 +155,10 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
             <TabsTrigger value="monitor" className="gap-2">
               <Activity className="w-4 h-4" />
               Monitor
+            </TabsTrigger>
+            <TabsTrigger value="gallery" className="gap-2">
+              <Image className="w-4 h-4" />
+              Gallery
             </TabsTrigger>
           </TabsList>
 
@@ -369,6 +422,56 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* GALLERY TAB */}
+          <TabsContent value="gallery" className="space-y-6 mt-6">
+            {galleryLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <p className="text-muted-foreground">Loading gallery...</p>
+              </div>
+            ) : (
+              <Tabs value={galleryTab} onValueChange={setGalleryTab}>
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="upload">Upload & Define</TabsTrigger>
+                  <TabsTrigger value="assign">Assign to States</TabsTrigger>
+                  <TabsTrigger value="preview">Live Preview</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="upload" className="space-y-6 mt-4">
+                  <ImageUploaderWithState
+                    onUpload={uploadImageWithState}
+                    onUploadComplete={(url) => console.log("Uploaded:", url)}
+                  />
+                </TabsContent>
+
+                <TabsContent value="assign" className="space-y-6 mt-4">
+                  {states
+                    .filter((s) => s.is_active)
+                    .sort((a, b) => a.display_order - b.display_order)
+                    .map((state) => (
+                      <StateAssignmentCard
+                        key={state.id}
+                        stateId={state.id}
+                        state={state.state_key}
+                        title={state.title}
+                        description={state.description || ""}
+                        assignments={getAssignmentsByState(state.state_key)}
+                        onDelete={deleteAnimation}
+                        onDeleteState={deleteState}
+                        onToggleActive={(id, isActive) =>
+                          updateAnimation(id, { is_active: isActive })
+                        }
+                        onReorder={handleReorder}
+                      />
+                    ))}
+                </TabsContent>
+
+                <TabsContent value="preview" className="space-y-6 mt-4">
+                  <AnimationPreview />
+                </TabsContent>
+              </Tabs>
+            )}
           </TabsContent>
         </Tabs>
       </DialogContent>
