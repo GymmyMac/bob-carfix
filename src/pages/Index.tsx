@@ -22,6 +22,7 @@ const Index = () => {
   // Get dynamic state keys and state data from database configuration
   const { 
     states,
+    loading,
     getTalkingState, 
     getThinkingState, 
     getCompleteState, 
@@ -59,10 +60,12 @@ const Index = () => {
     onStreamComplete: stateTransitions.onStreamComplete
   });
   
-  // Initialize page load state transition
+  // Initialize page load state transition - wait for states to load
   useEffect(() => {
-    stateTransitions.initialize();
-  }, []);
+    if (!loading && states.length > 0) {
+      stateTransitions.initialize();
+    }
+  }, [loading, states.length, stateTransitions]);
 
   // Expose controls to AdminPanel via window object
   useEffect(() => {
