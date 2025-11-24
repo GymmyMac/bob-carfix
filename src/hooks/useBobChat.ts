@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { useBobAnimationConfig } from "./useBobAnimationConfig";
 
 export type AnimationState = string;
 
@@ -13,10 +12,21 @@ interface UseBobChatProps {
   setAnimationState: (state: AnimationState) => void;
   setTalkSpeed?: (speed: number) => void;
   manualMode?: boolean;
+  talkingState?: string;
+  thinkingState?: string;
+  completeState?: string;
+  idleState?: string;
 }
 
-export const useBobChat = ({ setAnimationState, setTalkSpeed, manualMode = false }: UseBobChatProps) => {
-  const { getTalkingState, getThinkingState, getCompleteState, getIdleState } = useBobAnimationConfig();
+export const useBobChat = ({ 
+  setAnimationState, 
+  setTalkSpeed, 
+  manualMode = false,
+  talkingState = "talk",
+  thinkingState = "research",
+  completeState = "complete",
+  idleState = "idle"
+}: UseBobChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -80,7 +90,6 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed, manualMode = false
       let assistantContent = "";
 
       if (!manualMode) {
-        const talkingState = getTalkingState() || "talk";
         safeSetState(talkingState);
         // Start with fast talking speed
         if (setTalkSpeed) setTalkSpeed(200);
@@ -147,8 +156,6 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed, manualMode = false
         if (setTalkSpeed) setTalkSpeed(400);
         
         // Post-response animation
-        const completeState = getCompleteState() || "complete";
-        const idleState = getIdleState() || "idle";
         safeSetState(completeState);
         setTimeout(() => safeSetState(idleState), 3000);
       }
@@ -156,7 +163,6 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed, manualMode = false
       console.error("Chat error:", error);
       toast.error("Failed to send message. Please try again.");
       if (!manualMode) {
-        const idleState = getIdleState() || "idle";
         safeSetState(idleState);
       }
     }
@@ -171,7 +177,6 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed, manualMode = false
     setIsLoading(true);
     
     if (!manualMode) {
-      const thinkingState = getThinkingState() || "research";
       safeSetState(thinkingState);
     }
 
