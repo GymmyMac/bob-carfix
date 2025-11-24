@@ -22,16 +22,32 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Desktop: Side-by-side layout */}
-      <div className="hidden lg:grid lg:grid-cols-[35%_65%] min-h-screen">
-        {/* Bob Area */}
-        <div className="flex items-center justify-center p-8 bg-muted/30 border-r border-border">
-          <BobCharacter 
-            currentImage={getCurrentImage()}
-            animationState={animationState}
-          />
+      <div className="hidden lg:grid lg:grid-cols-[40%_60%] min-h-screen">
+        {/* Bob + Chat Area (Left) */}
+        <div className="flex flex-col bg-muted/30 border-r border-border">
+          <div className="flex items-center justify-center p-8 flex-shrink-0">
+            <BobCharacter 
+              currentImage={getCurrentImage()}
+              animationState={animationState}
+            />
+          </div>
+          
+          <div className="px-6 pb-8 flex-1 flex items-end">
+            <ChatInterface
+              messages={messages}
+              input={input}
+              setInput={setInput}
+              isLoading={isLoading}
+              onSend={handleSend}
+              onKeyPress={handleKeyPress}
+              onInputFocus={handleInputFocus}
+              onInputBlur={handleInputBlur}
+              chatEndRef={chatEndRef}
+            />
+          </div>
         </div>
 
-        {/* Product Shelf Area */}
+        {/* Product Shelf Area (Right) */}
         <div className="bg-background">
           <ProductShelf 
             products={PLACEHOLDER_PRODUCTS}
@@ -50,27 +66,26 @@ const Index = () => {
           />
         </div>
 
+        <div className="px-4 pb-8 bg-muted/30">
+          <ChatInterface
+            messages={messages}
+            input={input}
+            setInput={setInput}
+            isLoading={isLoading}
+            onSend={handleSend}
+            onKeyPress={handleKeyPress}
+            onInputFocus={handleInputFocus}
+            onInputBlur={handleInputBlur}
+            chatEndRef={chatEndRef}
+          />
+        </div>
+
         <div className="py-8">
           <ProductShelf 
             products={PLACEHOLDER_PRODUCTS}
             onProductClick={(product) => console.log("Product clicked:", product)}
           />
         </div>
-      </div>
-
-      {/* Chat Interface - Full width at bottom on all screens */}
-      <div className="py-8 bg-muted/20">
-        <ChatInterface
-          messages={messages}
-          input={input}
-          setInput={setInput}
-          isLoading={isLoading}
-          onSend={handleSend}
-          onKeyPress={handleKeyPress}
-          onInputFocus={handleInputFocus}
-          onInputBlur={handleInputBlur}
-          chatEndRef={chatEndRef}
-        />
       </div>
     </div>
   );
