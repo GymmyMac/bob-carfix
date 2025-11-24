@@ -3,66 +3,22 @@ import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { AdminButton } from "@/components/AdminButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ImageUploader } from "@/components/ImageUploader";
-import { ImageLibrary } from "@/components/ImageLibrary";
+import { ImageUploaderWithState } from "@/components/ImageUploaderWithState";
 import { StateAssignmentCard } from "@/components/StateAssignmentCard";
 import { AnimationPreview } from "@/components/AnimationPreview";
-import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
-import { AnimationState } from "@/hooks/useBobAnimation";
-
-const stateConfig: {
-  state: AnimationState;
-  title: string;
-  description: string;
-}[] = [
-  {
-    state: "idle",
-    title: "Idle State",
-    description: "Default state - Anything else I can help with?",
-  },
-  {
-    state: "thinking",
-    title: "Thinking State",
-    description: "Used when researching or processing information",
-  },
-  {
-    state: "talking",
-    title: "Talking State",
-    description: "Used during conversational responses",
-  },
-  {
-    state: "happy",
-    title: "Happy State",
-    description: "Welcome, thank you, completing sales, being happy/laughing",
-  },
-  {
-    state: "complete",
-    title: "Complete State",
-    description: "Thank you, all done, great to see you come back soon",
-  },
-];
+import { useBobAnimationConfig, AnimationState } from "@/hooks/useBobAnimationConfig";
 
 const BobGallery = () => {
   const {
     configs,
-    uploadedImages,
+    states,
     loading,
-    uploadImage,
-    assignImageToState,
+    uploadImageWithState,
     updateAnimation,
     deleteAnimation,
-    deleteUnassignedImage,
   } = useBobAnimationConfig();
 
   const [activeTab, setActiveTab] = useState("upload");
-
-  // Get assigned image URLs
-  const assignedImageUrls = configs.map((c) => c.image_url);
-  
-  // Calculate unassigned images (images in storage but not in database)
-  const unassignedImages = uploadedImages.filter(
-    (url) => !assignedImageUrls.includes(url)
-  );
 
   const getAssignmentsByState = (state: AnimationState) => {
     return configs
@@ -103,17 +59,6 @@ const BobGallery = () => {
     await Promise.all(updates.filter(Boolean));
   };
 
-  const handleAssignImage = async (
-    imageUrl: string,
-    state: AnimationState,
-    description?: string
-  ) => {
-    const existingAssignments = getAssignmentsByState(state);
-    const nextSequence = existingAssignments.length + 1;
-    await assignImageToState(imageUrl, state, nextSequence, description);
-    // Data is already refreshed in the assignImageToState function
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -143,44 +88,37 @@ const BobGallery = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="upload">Upload</TabsTrigger>
-            <TabsTrigger value="library">Image Library</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="upload">Upload & Define</TabsTrigger>
             <TabsTrigger value="assign">Assign to States</TabsTrigger>
             <TabsTrigger value="preview">Live Preview</TabsTrigger>
           </TabsList>
 
           <TabsContent value="upload" className="space-y-6">
-            <ImageUploader
-              onUpload={uploadImage}
-              onUploadComplete={handleUploadComplete}
-            />
-          </TabsContent>
-
-          <TabsContent value="library" className="space-y-6">
-            <ImageLibrary
-              uploadedImages={unassignedImages}
-              onAssign={handleAssignImage}
-              onDelete={deleteUnassignedImage}
-              assignedImageUrls={assignedImageUrls}
+            <ImageUploaderWithState
+              onUpload={uploadImageWithState}
+              onUploadComplete={(url) => console.log("Uploaded:", url)}
             />
           </TabsContent>
 
           <TabsContent value="assign" className="space-y-6">
-            {stateConfig.map((config) => (
-              <StateAssignmentCard
-                key={config.state}
-                state={config.state}
-                title={config.title}
-                description={config.description}
-                assignments={getAssignmentsByState(config.state)}
-                onDelete={deleteAnimation}
-                onToggleActive={(id, isActive) =>
-                  updateAnimation(id, { is_active: isActive })
-                }
-                onReorder={handleReorder}
-              />
-            ))}
+            {states
+              .filter((s) => s.is_active)
+              .sort((a, b) => a.display_order - b.display_order)
+              .map((state) => (
+                <StateAssignmentCard
+                  key={state.id}
+                  state={state.state_key}
+                  title={state.title}
+                  description={state.description || ""}
+                  assignments={getAssignmentsByState(state.state_key)}
+                  onDelete={deleteAnimation}
+                  onToggleActive={(id, isActive) =>
+                    updateAnimation(id, { is_active: isActive })
+                  }
+                  onReorder={handleReorder}
+                />
+              ))}
           </TabsContent>
 
           <TabsContent value="preview" className="space-y-6">
