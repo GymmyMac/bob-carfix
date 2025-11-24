@@ -17,17 +17,18 @@ interface AdminPanelProps {
 }
 
 export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
-  const [talkSpeed, setTalkSpeed] = useState(400);
-  const [messageCount, setMessageCount] = useState(0);
-  const [systemStatus, setSystemStatus] = useState<"online" | "offline">("online");
-  
   // Access the animation controls from the parent via window object (set in Index.tsx)
   const animationControls = (window as any).bobAnimationControls;
   const chatControls = (window as any).bobChatControls;
   
+  // Early return BEFORE any hooks
   if (!animationControls) {
     return null;
   }
+
+  const [talkSpeed, setTalkSpeed] = useState(400);
+  const [messageCount, setMessageCount] = useState(0);
+  const [systemStatus, setSystemStatus] = useState<"online" | "offline">("online");
 
   const { 
     animationState, 
