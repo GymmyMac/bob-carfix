@@ -1,0 +1,167 @@
+import { useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
+import { AnimationState } from "./useBobAnimation";
+
+export interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface UseBobChatProps {
+  setAnimationState: (state: AnimationState) => void;
+}
+
+export const useBobChat = ({ setAnimationState }: UseBobChatProps) => {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Send initial greeting
+  useEffect(() => {
+    if (messages.length === 0) {
+      setMessages([{
+        role: "assistant",
+        content: "G'day! Bob from CARFIX here. How can I help ya today?"
+      }]);
+    }
+  }, []);
+
+  const streamChat = async (userMessage: Message) => {
+    const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bob-chat`;
+    
+    try {
+      const resp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ messages: [...messages, userMessage] }),
+      });
+
+      if (!resp.ok) {
+        if (resp.status === 429) {
+          toast.error("Rate limit exceeded. Please try again later.");
+          return;
+        }
+        if (resp.status === 402) {
+          toast.error("Payment required. Please add credits to your workspace.");
+          return;
+        }
+        throw new Error("Failed to start stream");
+      }
+
+      if (!resp.body) throw new Error("No response body");
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+      let streamDone = false;
+      let assistantContent = "";
+
+      setAnimationState("talking");
+
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") {
+            streamDone = true;
+            break;
+          }
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) {
+              assistantContent += content;
+              setMessages(prev => {
+                const last = prev[prev.length - 1];
+                if (last?.role === "assistant") {
+                  return prev.map((m, i) => 
+                    i === prev.length - 1 ? { ...m, content: assistantContent } : m
+                  );
+                }
+                return [...prev, { role: "assistant", content: assistantContent }];
+              });
+            }
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+
+      // Detect sentiment for post-response animation
+      const lowerContent = assistantContent.toLowerCase();
+      if (lowerContent.includes("sorry") || lowerContent.includes("unfortunately") || lowerContent.includes("can't") || lowerContent.includes("don't") || lowerContent.includes("expensive") || lowerContent.includes("unavailable")) {
+        setAnimationState("grump");
+      } else {
+        setAnimationState("happy");
+      }
+
+      setTimeout(() => setAnimationState("idle"), 3000);
+    } catch (error) {
+      console.error("Chat error:", error);
+      toast.error("Failed to send message. Please try again.");
+      setAnimationState("idle");
+    }
+  };
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMessage: Message = { role: "user", content: input };
+    setMessages(prev => [...prev, userMessage]);
+    setInput("");
+    setIsLoading(true);
+    setAnimationState("thinking");
+
+    await streamChat(userMessage);
+    setIsLoading(false);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleInputFocus = () => {
+    if (!isLoading) setAnimationState("listening");
+  };
+
+  const handleInputBlur = () => {
+    if (!isLoading) setAnimationState("idle");
+  };
+
+  return {
+    messages,
+    input,
+    setInput,
+    isLoading,
+    handleSend,
+    handleKeyPress,
+    handleInputFocus,
+    handleInputBlur,
+    chatEndRef
+  };
+};
