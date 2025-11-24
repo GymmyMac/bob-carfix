@@ -25,14 +25,14 @@ const Index = () => {
       <div className="hidden lg:grid lg:grid-cols-[40%_60%] min-h-screen">
         {/* Bob + Chat Area (Left) */}
         <div className="flex flex-col bg-muted/30 border-r border-border">
-          <div className="flex items-center justify-center p-8 flex-shrink-0">
+          <div className="flex items-center justify-center pt-8 px-8 flex-shrink-0">
             <BobCharacter 
               currentImage={getCurrentImage()}
               animationState={animationState}
             />
           </div>
           
-          <div className="px-6 pb-8 flex-1 flex items-end">
+          <div className="px-6 pb-8 pt-2">
             <ChatInterface
               messages={messages}
               input={input}
@@ -58,26 +58,28 @@ const Index = () => {
 
       {/* Mobile/Tablet: Stacked layout */}
       <div className="lg:hidden">
-        <div className="bg-muted/30 py-12 px-4">
-          <BobCharacter 
-            currentImage={getCurrentImage()}
-            animationState={animationState}
-            className="max-w-sm mx-auto"
-          />
-        </div>
-
-        <div className="px-4 pb-8 bg-muted/30">
-          <ChatInterface
-            messages={messages}
-            input={input}
-            setInput={setInput}
-            isLoading={isLoading}
-            onSend={handleSend}
-            onKeyPress={handleKeyPress}
-            onInputFocus={handleInputFocus}
-            onInputBlur={handleInputBlur}
-            chatEndRef={chatEndRef}
-          />
+        <div className="bg-muted/30 px-4">
+          <div className="pt-12">
+            <BobCharacter 
+              currentImage={getCurrentImage()}
+              animationState={animationState}
+              className="max-w-sm mx-auto"
+            />
+          </div>
+          
+          <div className="pt-2 pb-8">
+            <ChatInterface
+              messages={messages}
+              input={input}
+              setInput={setInput}
+              isLoading={isLoading}
+              onSend={handleSend}
+              onKeyPress={handleKeyPress}
+              onInputFocus={handleInputFocus}
+              onInputBlur={handleInputBlur}
+              chatEndRef={chatEndRef}
+            />
+          </div>
         </div>
 
         <div className="py-8">
