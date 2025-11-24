@@ -6,7 +6,7 @@ import { useBobChat } from "@/hooks/useBobChat";
 import { PLACEHOLDER_PRODUCTS } from "@/types/product";
 
 const Index = () => {
-  const { animationState, setAnimationState, getCurrentImage } = useBobAnimation();
+  const { animationState, setAnimationState, getCurrentImage, setTalkSpeed } = useBobAnimation();
   const {
     messages,
     input,
@@ -17,7 +17,7 @@ const Index = () => {
     handleInputFocus,
     handleInputBlur,
     chatEndRef
-  } = useBobChat({ setAnimationState });
+  } = useBobChat({ setAnimationState, setTalkSpeed });
 
   return (
     <div className="min-h-screen bg-background">

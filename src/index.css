@@ -103,3 +103,58 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Bob Animation Keyframes */
+@keyframes bob-float {
+  0%, 100% { 
+    transform: translateY(0px);
+  }
+  50% { 
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes bob-breathe {
+  0%, 100% { 
+    transform: scale(1);
+  }
+  50% { 
+    transform: scale(1.015);
+  }
+}
+
+@keyframes bob-happy-bounce {
+  0%, 100% { 
+    transform: translateY(0px);
+  }
+  25% { 
+    transform: translateY(-15px);
+  }
+  50% { 
+    transform: translateY(0px);
+  }
+  75% { 
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes bob-grump-shake {
+  0%, 100% { 
+    transform: translateX(0px) rotate(0deg);
+  }
+  25% { 
+    transform: translateX(-4px) rotate(-1deg);
+  }
+  75% { 
+    transform: translateX(4px) rotate(1deg);
+  }
+}
+
+@keyframes bob-talk-pulse {
+  0%, 100% { 
+    transform: scale(1);
+  }
+  50% { 
+    transform: scale(1.02);
+  }
+}
