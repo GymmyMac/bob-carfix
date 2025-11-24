@@ -21,6 +21,10 @@ export interface AnimationStateDefinition {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  animation_speed: number | null;
+  pause_duration: number | null;
+  loop_count: number | null;
+  chat_trigger: string | null;
 }
 
 export interface StateDefinition {
@@ -407,6 +411,30 @@ export const useBobAnimationConfig = () => {
   const getIdleState = () => 
     states.find(s => s.state_key === 'idle' || s.title.toLowerCase().includes('idle'))?.state_key;
 
+  const updateStateSettings = async (
+    stateId: string,
+    updates: {
+      animation_speed?: number;
+      pause_duration?: number;
+      loop_count?: number;
+      chat_trigger?: string | null;
+    }
+  ) => {
+    try {
+      const { error } = await supabase
+        .from('animation_states')
+        .update(updates)
+        .eq('id', stateId);
+      
+      if (error) throw error;
+      
+      await fetchStates();
+    } catch (error) {
+      console.error('Error updating state settings:', error);
+      throw error;
+    }
+  };
+
   return {
     configs,
     states,
@@ -420,6 +448,7 @@ export const useBobAnimationConfig = () => {
     deleteAnimation,
     deleteUnassignedImage,
     deleteState,
+    updateStateSettings,
     refetch: fetchConfigs,
     refreshImages: listUploadedImages,
     getStateByKey,

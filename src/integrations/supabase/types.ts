@@ -16,31 +16,43 @@ export type Database = {
     Tables: {
       animation_states: {
         Row: {
+          animation_speed: number | null
+          chat_trigger: string | null
           created_at: string
           description: string | null
           display_order: number
           id: string
           is_active: boolean
+          loop_count: number | null
+          pause_duration: number | null
           state_key: string
           title: string
           updated_at: string
         }
         Insert: {
+          animation_speed?: number | null
+          chat_trigger?: string | null
           created_at?: string
           description?: string | null
           display_order?: number
           id?: string
           is_active?: boolean
+          loop_count?: number | null
+          pause_duration?: number | null
           state_key: string
           title: string
           updated_at?: string
         }
         Update: {
+          animation_speed?: number | null
+          chat_trigger?: string | null
           created_at?: string
           description?: string | null
           display_order?: number
           id?: string
           is_active?: boolean
+          loop_count?: number | null
+          pause_duration?: number | null
           state_key?: string
           title?: string
           updated_at?: string

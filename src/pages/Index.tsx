@@ -7,6 +7,7 @@ import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 import { useBobChat } from "@/hooks/useBobChat";
 import { PLACEHOLDER_PRODUCTS } from "@/types/product";
 import { AdminButton } from "@/components/AdminButton";
+import { useBobStateTransitions } from "@/hooks/useBobStateTransitions";
 
 const Index = () => {
   const { 
@@ -18,8 +19,22 @@ const Index = () => {
     setManualMode
   } = useBobAnimation();
   
-  // Get dynamic state keys from database configuration
-  const { getTalkingState, getThinkingState, getCompleteState, getIdleState } = useBobAnimationConfig();
+  // Get dynamic state keys and state data from database configuration
+  const { 
+    states,
+    getTalkingState, 
+    getThinkingState, 
+    getCompleteState, 
+    getIdleState 
+  } = useBobAnimationConfig();
+  
+  // Initialize state transition system
+  const stateTransitions = useBobStateTransitions({
+    states,
+    setAnimationState,
+    setTalkSpeed,
+    manualMode
+  });
   
   const {
     messages,
@@ -39,8 +54,15 @@ const Index = () => {
     talkingState: getTalkingState() || "talk",
     thinkingState: getThinkingState() || "research",
     completeState: getCompleteState() || "complete",
-    idleState: getIdleState() || "idle"
+    idleState: getIdleState() || "idle",
+    onStreamStart: stateTransitions.onStreamStart,
+    onStreamComplete: stateTransitions.onStreamComplete
   });
+  
+  // Initialize page load state transition
+  useEffect(() => {
+    stateTransitions.initialize();
+  }, []);
 
   // Expose controls to AdminPanel via window object
   useEffect(() => {

@@ -20,10 +20,10 @@ export const useBobAnimation = () => {
     const fetchImages = async () => {
       const { supabase } = await import("@/integrations/supabase/client");
       
-      // Fetch active states
+      // Fetch active states with their animation settings
       const { data: statesData } = await supabase
         .from("animation_states")
-        .select("state_key")
+        .select("*")
         .eq("is_active", true)
         .order("display_order");
 
@@ -39,7 +39,7 @@ export const useBobAnimation = () => {
         .order("sequence_order");
 
       if (data && data.length > 0) {
-        const newImageMap: Record<string, string> = {};
+        const newImageMap: Record<string, any> = {};
         const newAlternates: Record<string, string[]> = {};
 
         stateKeys.forEach((key) => {
@@ -48,7 +48,14 @@ export const useBobAnimation = () => {
             .map((config) => config.image_url);
 
           if (stateImages.length > 0) {
-            newImageMap[key] = stateImages[0];
+            // Store state info with images
+            const stateInfo = statesData?.find(s => s.state_key === key);
+            newImageMap[key] = {
+              url: stateImages[0],
+              animation_speed: stateInfo?.animation_speed || 400,
+              pause_duration: stateInfo?.pause_duration || 0,
+              loop_count: stateInfo?.loop_count || 0,
+            };
             newAlternates[key] = stateImages;
           }
         });
@@ -75,7 +82,8 @@ export const useBobAnimation = () => {
     }
   }, [availableStates, animationState]);
 
-  // Generic sequence animation for ALL states with multiple images
+  // Enhanced sequence animation for ALL states with multiple images
+  // Supports loop_count, pause_duration, and per-state animation_speed
   useEffect(() => {
     const alternates = alternateImages[animationState];
     
@@ -88,10 +96,51 @@ export const useBobAnimation = () => {
     if (alternates && alternates.length > 1) {
       setSequenceIndex(0); // Reset to first frame on state change
       
-      // Cycle through all images in sequence
-      animationIntervalRef.current = setInterval(() => {
-        setSequenceIndex(prev => (prev + 1) % alternates.length);
-      }, talkSpeed);
+      // Get state-specific settings from stored data
+      const stateInfo = imageUrlsMap[animationState] as any;
+      
+      const speed = stateInfo?.animation_speed || talkSpeed || 400;
+      const loopCount = stateInfo?.loop_count || 0; // 0 = infinite
+      const pauseDuration = stateInfo?.pause_duration || 0;
+      
+      let currentLoop = 0;
+      let isPaused = false;
+      
+      const animate = () => {
+        animationIntervalRef.current = setInterval(() => {
+          if (isPaused) return;
+          
+          setSequenceIndex(prev => {
+            const nextIndex = (prev + 1) % alternates.length;
+            
+            // Check if we completed a loop
+            if (nextIndex === 0) {
+              currentLoop++;
+              
+              // Stop if we've reached loop limit
+              if (loopCount > 0 && currentLoop >= loopCount) {
+                clearInterval(animationIntervalRef.current!);
+                
+                // Pause before restarting
+                if (pauseDuration > 0) {
+                  isPaused = true;
+                  setTimeout(() => {
+                    currentLoop = 0; // Reset
+                    isPaused = false;
+                    animate(); // Restart
+                  }, pauseDuration);
+                }
+                
+                return prev; // Hold on last frame
+              }
+            }
+            
+            return nextIndex;
+          });
+        }, speed);
+      };
+      
+      animate();
     } else {
       // Single image or no images - no animation needed
       setSequenceIndex(0);
@@ -102,7 +151,7 @@ export const useBobAnimation = () => {
         clearInterval(animationIntervalRef.current);
       }
     };
-  }, [animationState, alternateImages, talkSpeed]);
+  }, [animationState, alternateImages, talkSpeed, imageUrlsMap]);
 
   const getCurrentImage = () => {
     const alternates = alternateImages[animationState];
