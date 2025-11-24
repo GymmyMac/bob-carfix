@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -9,14 +10,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { AnimationState } from "@/hooks/useBobAnimation";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 
 interface ImageLibraryProps {
   uploadedImages: string[];
   onAssign: (imageUrl: string, state: AnimationState, description?: string) => Promise<void>;
   onDelete: (imageUrl: string) => Promise<void>;
+  assignedImageUrls: string[];
 }
 
 const stateOptions: { value: AnimationState; label: string }[] = [
@@ -27,26 +29,34 @@ const stateOptions: { value: AnimationState; label: string }[] = [
   { value: "complete", label: "Complete" },
 ];
 
-export const ImageLibrary = ({ uploadedImages, onAssign, onDelete }: ImageLibraryProps) => {
+export const ImageLibrary = ({ uploadedImages, onAssign, onDelete, assignedImageUrls }: ImageLibraryProps) => {
   const [selectedStates, setSelectedStates] = useState<Record<string, AnimationState>>({});
   const [descriptions, setDescriptions] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState<string | null>(null);
+  const [loading, setLoading] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
 
-  const handleAssign = async (imageUrl: string) => {
-    const state = selectedStates[imageUrl];
+  const handleAssign = async (imageUrl: string, quickState?: AnimationState) => {
+    const state = quickState || selectedStates[imageUrl];
+    const description = descriptions[imageUrl];
+    
     if (!state) {
       toast({
-        title: "Please select a state",
+        title: "Select a state",
+        description: "Please select an animation state before assigning.",
         variant: "destructive",
       });
       return;
     }
 
-    setLoading(imageUrl);
+    setLoading((prev) => ({ ...prev, [imageUrl]: true }));
+
     try {
-      await onAssign(imageUrl, state, descriptions[imageUrl]);
-      toast({ title: "Image assigned successfully" });
+      await onAssign(imageUrl, state, description);
+      toast({
+        title: "Success",
+        description: `Image assigned to ${state} state.`,
+      });
+      // Clear selections after successful assignment
       setSelectedStates((prev) => {
         const newStates = { ...prev };
         delete newStates[imageUrl];
@@ -57,36 +67,46 @@ export const ImageLibrary = ({ uploadedImages, onAssign, onDelete }: ImageLibrar
         delete newDesc[imageUrl];
         return newDesc;
       });
-    } catch (error) {
-      console.error("Assign error:", error);
+    } catch (error: any) {
+      console.error("Assignment error:", error);
       toast({
-        title: "Failed to assign image",
+        title: "Assignment failed",
+        description: error?.message || "Failed to assign image. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setLoading(null);
+      setLoading((prev) => ({ ...prev, [imageUrl]: false }));
     }
   };
 
   const handleDelete = async (imageUrl: string) => {
-    if (!confirm("Are you sure you want to delete this image?")) return;
+    const isAssigned = assignedImageUrls.includes(imageUrl);
+    
+    const confirmMessage = isAssigned
+      ? "This image is assigned to an animation state. Are you sure you want to delete it?"
+      : "Are you sure you want to delete this image?";
 
-    setLoading(imageUrl);
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    setLoading((prev) => ({ ...prev, [imageUrl]: true }));
+
     try {
-      const fileName = imageUrl.split("/").pop();
-      if (fileName) {
-        await supabase.storage.from("bob-images").remove([fileName]);
-      }
       await onDelete(imageUrl);
-      toast({ title: "Image deleted" });
-    } catch (error) {
+      toast({
+        title: "Success",
+        description: "Image deleted successfully.",
+      });
+    } catch (error: any) {
       console.error("Delete error:", error);
       toast({
-        title: "Failed to delete image",
+        title: "Delete failed",
+        description: error?.message || "Failed to delete image. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setLoading(null);
+      setLoading((prev) => ({ ...prev, [imageUrl]: false }));
     }
   };
 
@@ -101,67 +121,91 @@ export const ImageLibrary = ({ uploadedImages, onAssign, onDelete }: ImageLibrar
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {uploadedImages.map((imageUrl) => (
-        <div key={imageUrl} className="border rounded-lg p-4 space-y-4 bg-card">
-          <div className="aspect-square bg-muted rounded-md overflow-hidden">
-            <img
-              src={imageUrl}
-              alt="Uploaded Bob"
-              className="w-full h-full object-contain"
-            />
-          </div>
-          <div className="space-y-2">
-            <Select
-              value={selectedStates[imageUrl] || ""}
-              onValueChange={(value) =>
-                setSelectedStates((prev) => ({
-                  ...prev,
-                  [imageUrl]: value as AnimationState,
-                }))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select state" />
-              </SelectTrigger>
-              <SelectContent>
-                {stateOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              placeholder="Description (optional)"
-              value={descriptions[imageUrl] || ""}
-              onChange={(e) =>
-                setDescriptions((prev) => ({
-                  ...prev,
-                  [imageUrl]: e.target.value,
-                }))
-              }
-            />
-            <div className="flex gap-2">
-              <Button
-                onClick={() => handleAssign(imageUrl)}
-                disabled={!selectedStates[imageUrl] || loading === imageUrl}
-                className="flex-1"
-              >
-                Assign
-              </Button>
-              <Button
-                variant="destructive"
-                size="icon"
-                onClick={() => handleDelete(imageUrl)}
-                disabled={loading === imageUrl}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      ))}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {uploadedImages.map((imageUrl) => {
+        const isAssigned = assignedImageUrls.includes(imageUrl);
+        
+        return (
+          <Card key={imageUrl}>
+            <CardContent className="p-4">
+              <div className="relative">
+                <img
+                  src={imageUrl}
+                  alt="Uploaded Bob"
+                  className="w-full h-48 object-contain rounded-md mb-4 bg-muted"
+                />
+                {isAssigned && (
+                  <Badge className="absolute top-2 right-2" variant="secondary">
+                    <Check className="w-3 h-3 mr-1" />
+                    Assigned
+                  </Badge>
+                )}
+              </div>
+              
+              <div className="space-y-3">
+                <Select
+                  value={selectedStates[imageUrl] || ""}
+                  onValueChange={(value) =>
+                    setSelectedStates((prev) => ({ ...prev, [imageUrl]: value as AnimationState }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select state" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stateOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Input
+                  placeholder="Description (optional)"
+                  value={descriptions[imageUrl] || ""}
+                  onChange={(e) =>
+                    setDescriptions((prev) => ({ ...prev, [imageUrl]: e.target.value }))
+                  }
+                />
+
+                <div className="grid grid-cols-3 gap-2">
+                  {stateOptions.slice(0, 3).map((option) => (
+                    <Button
+                      key={option.value}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAssign(imageUrl, option.value as AnimationState)}
+                      disabled={loading[imageUrl]}
+                      className="text-xs"
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleAssign(imageUrl)}
+                    disabled={loading[imageUrl] || !selectedStates[imageUrl]}
+                    className="flex-1"
+                  >
+                    Assign
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    onClick={() => handleDelete(imageUrl)}
+                    disabled={loading[imageUrl]}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 };

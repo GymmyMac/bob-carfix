@@ -61,17 +61,19 @@ export const ImageUploader = ({ onUpload, onUploadComplete }: ImageUploaderProps
       const imageUrl = await onUpload(file);
       toast({
         title: "Upload successful",
-        description: "Image has been uploaded successfully.",
+        description: "Image uploaded! View it in the Image Library tab.",
       });
       onUploadComplete?.(imageUrl);
       setPreview(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Upload error:", error);
+      const errorMessage = error?.message || "Failed to upload image. Please try again.";
       toast({
         title: "Upload failed",
-        description: "Failed to upload image. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
+      setPreview(null);
     } finally {
       setUploading(false);
     }

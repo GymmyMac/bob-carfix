@@ -45,20 +45,23 @@ const stateConfig: {
 const BobGallery = () => {
   const {
     configs,
+    uploadedImages,
     loading,
     uploadImage,
     assignImageToState,
     updateAnimation,
     deleteAnimation,
+    deleteUnassignedImage,
   } = useBobAnimationConfig();
 
   const [activeTab, setActiveTab] = useState("upload");
 
-  const assignedImageUrls = new Set(configs.map((c) => c.image_url));
-  const allUploadedImages: string[] = []; // This would need to fetch from storage bucket
-
-  const unassignedImages = allUploadedImages.filter(
-    (url) => !assignedImageUrls.has(url)
+  // Get assigned image URLs
+  const assignedImageUrls = configs.map((c) => c.image_url);
+  
+  // Calculate unassigned images (images in storage but not in database)
+  const unassignedImages = uploadedImages.filter(
+    (url) => !assignedImageUrls.includes(url)
   );
 
   const getAssignmentsByState = (state: AnimationState) => {
@@ -68,7 +71,8 @@ const BobGallery = () => {
   };
 
   const handleUploadComplete = (imageUrl: string) => {
-    setActiveTab("library");
+    console.log("Image uploaded:", imageUrl);
+    // Data is already refreshed in the uploadImage function
   };
 
   const handleReorder = async (id: string, newOrder: number) => {
@@ -104,10 +108,10 @@ const BobGallery = () => {
     state: AnimationState,
     description?: string
   ) => {
-    const existingCount = configs.filter(
-      (c) => c.animation_state === state
-    ).length;
-    await assignImageToState(imageUrl, state, existingCount + 1, description);
+    const existingAssignments = getAssignmentsByState(state);
+    const nextSequence = existingAssignments.length + 1;
+    await assignImageToState(imageUrl, state, nextSequence, description);
+    // Data is already refreshed in the assignImageToState function
   };
 
   if (loading) {
@@ -157,7 +161,8 @@ const BobGallery = () => {
             <ImageLibrary
               uploadedImages={unassignedImages}
               onAssign={handleAssignImage}
-              onDelete={deleteAnimation}
+              onDelete={deleteUnassignedImage}
+              assignedImageUrls={assignedImageUrls}
             />
           </TabsContent>
 
