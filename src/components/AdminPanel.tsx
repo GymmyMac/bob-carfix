@@ -36,6 +36,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     updateAnimation,
     deleteAnimation,
     deleteState,
+    updateStateSettings,
   } = useBobAnimationConfig();
   
   // Access the animation controls from the parent via window object (set in Index.tsx)
@@ -223,30 +224,69 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
               </CardContent>
             </Card>
 
-            {/* State Control Buttons */}
+            {/* State Management */}
             <Card>
               <CardHeader>
-                <CardTitle>Manual Animation Control</CardTitle>
+                <CardTitle>State Management</CardTitle>
                 <CardDescription>
-                  {manualMode ? "Click any state to change Bob's animation" : "Enable manual mode to control animations"}
+                  Quick state triggers and configuration overview
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {stateButtons.map(({ state, label, description }) => (
-                    <Button
-                      key={state}
-                      variant={animationState === state ? "default" : "outline"}
-                      className="h-auto flex-col items-start p-4 text-left"
-                      onClick={() => handleStateChange(state)}
-                      disabled={!manualMode}
-                    >
-                      <span className="font-semibold text-base">{label}</span>
-                      <span className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                        {description}
-                      </span>
-                    </Button>
-                  ))}
+              <CardContent className="space-y-4">
+                {/* Quick State Triggers */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Quick State Triggers</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {stateButtons.map(({ state, label, chatTrigger }) => (
+                      <Button
+                        key={state}
+                        variant={animationState === state ? "default" : "outline"}
+                        size="sm"
+                        className="justify-start gap-2"
+                        onClick={() => handleStateChange(state)}
+                        disabled={!manualMode}
+                      >
+                        <span className="font-medium">{label}</span>
+                        {chatTrigger && (
+                          <Badge variant="secondary" className="text-xs px-1">
+                            {chatTrigger.split("_")[0]}
+                          </Badge>
+                        )}
+                      </Button>
+                    ))}
+                  </div>
+                  {!manualMode && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Enable manual mode above to test state triggers
+                    </p>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Configuration Summary */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Configuration Summary</Label>
+                  <div className="space-y-2">
+                    {stateButtons.map(({ state, label, speed, pauseDuration, loopCount, chatTrigger }) => (
+                      <div key={state} className="flex items-center justify-between text-sm p-2 rounded bg-muted/50">
+                        <span className="font-medium">{label}</span>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span>{speed}ms</span>
+                          <span>Pause: {pauseDuration}ms</span>
+                          <span>Loops: {loopCount === 0 ? "∞" : loopCount}</span>
+                          {chatTrigger && (
+                            <Badge variant="outline" className="text-xs">
+                              {chatTrigger.replace("_", " ")}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    For detailed configuration, see Gallery → Assign to States
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -464,6 +504,10 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                         state={state.state_key}
                         title={state.title}
                         description={state.description || ""}
+                        animationSpeed={state.animation_speed || 400}
+                        pauseDuration={state.pause_duration || 0}
+                        loopCount={state.loop_count || 0}
+                        chatTrigger={state.chat_trigger || null}
                         assignments={getAssignmentsByState(state.state_key)}
                         onDelete={deleteAnimation}
                         onDeleteState={deleteState}
@@ -471,6 +515,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                           updateAnimation(id, { is_active: isActive })
                         }
                         onReorder={handleReorder}
+                        onUpdateSettings={updateStateSettings}
                       />
                     ))}
                 </TabsContent>
