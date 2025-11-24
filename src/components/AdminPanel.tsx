@@ -41,6 +41,21 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
   // Access the animation controls from the parent via window object (set in Index.tsx)
   const animationControls = (window as any).bobAnimationControls;
   const chatControls = (window as any).bobChatControls;
+
+  // Update message count when chat changes - MUST be called before early return
+  useEffect(() => {
+    if (chatControls?.messages) {
+      setMessageCount(chatControls.messages.length);
+    }
+  }, [chatControls?.messages]);
+
+  // Update talk speed - MUST be called before early return
+  useEffect(() => {
+    const setGlobalTalkSpeed = animationControls?.setTalkSpeed;
+    if (setGlobalTalkSpeed) {
+      setGlobalTalkSpeed(talkSpeed);
+    }
+  }, [talkSpeed, animationControls]);
   
   // Early return AFTER all hooks are called
   if (!animationControls) {
@@ -55,20 +70,6 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     getCurrentImage,
     setTalkSpeed: setGlobalTalkSpeed
   } = animationControls;
-
-  // Update message count when chat changes
-  useEffect(() => {
-    if (chatControls?.messages) {
-      setMessageCount(chatControls.messages.length);
-    }
-  }, [chatControls?.messages]);
-
-  // Update talk speed
-  useEffect(() => {
-    if (setGlobalTalkSpeed) {
-      setGlobalTalkSpeed(talkSpeed);
-    }
-  }, [talkSpeed, setGlobalTalkSpeed]);
 
   const handleStateChange = (state: AnimationState) => {
     setAnimationState(state);
