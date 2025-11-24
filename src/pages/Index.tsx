@@ -102,7 +102,7 @@ const Index = () => {
             />
           </div>
           
-          <div className="px-6 pb-8 pt-2">
+          <div className="px-6 pb-8 pt-2 flex-1 min-h-0 flex flex-col">
             <ChatInterface
               messages={messages}
               input={input}
@@ -140,7 +140,7 @@ const Index = () => {
             />
           </div>
           
-          <div className="pt-2 pb-8">
+          <div className="pt-2 pb-8 flex-1 min-h-0 flex flex-col">
           <ChatInterface
             messages={messages}
             input={input}

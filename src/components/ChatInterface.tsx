@@ -123,7 +123,7 @@ export const ChatInterface = ({
         </div>
 
         {/* Chat History */}
-        <div className="overflow-y-auto p-4 space-y-3 h-[216px] md:h-[240px]">
+        <div className="overflow-y-auto p-4 space-y-3 h-[300px] md:h-[400px]">
           {[...messages].reverse().map((msg, idx) => (
             <div
               key={idx}
