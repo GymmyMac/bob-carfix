@@ -12,26 +12,55 @@ export const useBobAnimation = () => {
   const talkIntervalRef = useRef<NodeJS.Timeout>();
   const thinkIntervalRef = useRef<NodeJS.Timeout>();
 
-  // Image URLs for conversational states
-  const imageUrlsMap: Record<AnimationState, string> = {
+  // Fetch image URLs from database configuration
+  const [imageUrlsMap, setImageUrlsMap] = useState<Record<AnimationState, string>>({
     idle: "/bob-animations/idle.png",
     thinking: "/bob-animations/thinking.png",
     talking: "/bob-animations/talk-small.png",
     happy: "/bob-animations/happy.png",
     complete: "/bob-animations/23628891-3eb9-40bf-b2f5-dda69129038a.png"
-  };
+  });
 
-  // Preload all images
+  const [alternateImages, setAlternateImages] = useState<Partial<Record<AnimationState, string[]>>>({});
+
+  // Fetch and preload images from database
   useEffect(() => {
-    const allImages = [
-      ...Object.values(imageUrlsMap),
-      "/bob-animations/Bob talk small.png",
-      "/bob-animations/Bob thinking.png"
-    ];
-    allImages.forEach(url => {
-      const img = new Image();
-      img.src = url;
-    });
+    const fetchImages = async () => {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data } = await supabase
+        .from("bob_animations")
+        .select("*")
+        .eq("is_active", true)
+        .order("sequence_order");
+
+      if (data && data.length > 0) {
+        const newImageMap: Record<AnimationState, string> = {} as Record<AnimationState, string>;
+        const newAlternates: Partial<Record<AnimationState, string[]>> = {};
+
+        data.forEach((config) => {
+          const state = config.animation_state as AnimationState;
+          if (!newImageMap[state]) {
+            newImageMap[state] = config.image_url;
+          }
+          if (!newAlternates[state]) {
+            newAlternates[state] = [];
+          }
+          newAlternates[state]!.push(config.image_url);
+        });
+
+        setImageUrlsMap(newImageMap);
+        setAlternateImages(newAlternates);
+
+        // Preload all images
+        const allImageUrls = data.map((d) => d.image_url);
+        allImageUrls.forEach((url) => {
+          const img = new Image();
+          img.src = url;
+        });
+      }
+    };
+
+    fetchImages();
   }, []);
 
   // Handle talking animation toggle
@@ -81,12 +110,14 @@ export const useBobAnimation = () => {
   }, [animationState]);
 
   const getCurrentImage = () => {
-    if (animationState === "talking") {
-      return isTalkToggle ? "/bob-animations/Bob talk small.png" : "/bob-animations/talk-small.png";
+    const alternates = alternateImages[animationState];
+    
+    if (animationState === "talking" && alternates && alternates.length > 1) {
+      return isTalkToggle ? alternates[1] : alternates[0];
     }
     
-    if (animationState === "thinking") {
-      return isThinkToggle ? "/bob-animations/Bob thinking.png" : "/bob-animations/thinking.png";
+    if (animationState === "thinking" && alternates && alternates.length > 1) {
+      return isThinkToggle ? alternates[1] : alternates[0];
     }
     
     return imageUrlsMap[animationState] || imageUrlsMap.idle;
