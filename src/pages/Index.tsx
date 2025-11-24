@@ -3,6 +3,7 @@ import { BobCharacter } from "@/components/BobCharacter";
 import { ChatInterface } from "@/components/ChatInterface";
 import { ProductShelf } from "@/components/ProductShelf";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
+import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 import { useBobChat } from "@/hooks/useBobChat";
 import { PLACEHOLDER_PRODUCTS } from "@/types/product";
 import { AdminButton } from "@/components/AdminButton";
@@ -17,6 +18,9 @@ const Index = () => {
     setManualMode
   } = useBobAnimation();
   
+  // Get dynamic state keys from database configuration
+  const { getTalkingState, getThinkingState, getCompleteState, getIdleState } = useBobAnimationConfig();
+  
   const {
     messages,
     input,
@@ -28,7 +32,15 @@ const Index = () => {
     handleInputBlur,
     chatEndRef,
     clearMessages
-  } = useBobChat({ setAnimationState, setTalkSpeed, manualMode });
+  } = useBobChat({ 
+    setAnimationState, 
+    setTalkSpeed, 
+    manualMode,
+    talkingState: getTalkingState() || "talk",
+    thinkingState: getThinkingState() || "research",
+    completeState: getCompleteState() || "complete",
+    idleState: getIdleState() || "idle"
+  });
 
   // Expose controls to AdminPanel via window object
   useEffect(() => {
