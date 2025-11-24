@@ -1,0 +1,4 @@
+project_id = "gjoguxzstsihhxvdgpto"
+
+[functions.bob-chat]
+verify_jwt = false
