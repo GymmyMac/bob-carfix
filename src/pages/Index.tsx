@@ -4,6 +4,8 @@ import { ProductShelf } from "@/components/ProductShelf";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobChat } from "@/hooks/useBobChat";
 import { PLACEHOLDER_PRODUCTS } from "@/types/product";
+import { NavLink } from "@/components/NavLink";
+import { Button } from "@/components/ui/button";
 
 const Index = () => {
   const { animationState, setAnimationState, getCurrentImage, setTalkSpeed } = useBobAnimation();
@@ -21,6 +23,13 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Navigation Bar */}
+      <div className="fixed top-4 right-4 z-50">
+        <NavLink to="/bob-gallery">
+          <Button variant="outline" size="sm">View Bob Gallery</Button>
+        </NavLink>
+      </div>
+
       {/* Desktop: Side-by-side layout */}
       <div className="hidden lg:grid lg:grid-cols-[40%_60%] min-h-screen">
         {/* Bob + Chat Area (Left) */}
