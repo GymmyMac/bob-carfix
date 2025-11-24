@@ -10,9 +10,10 @@ export interface Message {
 interface UseBobChatProps {
   setAnimationState: (state: AnimationState) => void;
   setTalkSpeed?: (speed: number) => void;
+  manualMode?: boolean;
 }
 
-export const useBobChat = ({ setAnimationState, setTalkSpeed }: UseBobChatProps) => {
+export const useBobChat = ({ setAnimationState, setTalkSpeed, manualMode = false }: UseBobChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -67,10 +68,11 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed }: UseBobChatProps)
       let streamDone = false;
       let assistantContent = "";
 
-      setAnimationState("talking");
-      
-      // Start with fast talking speed
-      if (setTalkSpeed) setTalkSpeed(200);
+      if (!manualMode) {
+        setAnimationState("talking");
+        // Start with fast talking speed
+        if (setTalkSpeed) setTalkSpeed(200);
+      }
 
       while (!streamDone) {
         const { done, value } = await reader.read();
@@ -101,12 +103,14 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed }: UseBobChatProps)
               // Track when content arrives for word-synced animation
               lastContentTimeRef.current = Date.now();
               
-              // Speed up mouth on active content
-              if (setTalkSpeed) setTalkSpeed(200);
-              
-              // Slow down on punctuation (natural pauses)
-              if (content.match(/[.,!?;]/)) {
-                if (setTalkSpeed) setTalkSpeed(500);
+              if (!manualMode) {
+                // Speed up mouth on active content
+                if (setTalkSpeed) setTalkSpeed(200);
+                
+                // Slow down on punctuation (natural pauses)
+                if (content.match(/[.,!?;]/)) {
+                  if (setTalkSpeed) setTalkSpeed(500);
+                }
               }
               
               setMessages(prev => {
@@ -126,16 +130,20 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed }: UseBobChatProps)
         }
       }
 
-      // Reset talk speed to default
-      if (setTalkSpeed) setTalkSpeed(400);
-      
-      // Post-response animation
-      setAnimationState("happy");
-      setTimeout(() => setAnimationState("idle"), 3000);
+      if (!manualMode) {
+        // Reset talk speed to default
+        if (setTalkSpeed) setTalkSpeed(400);
+        
+        // Post-response animation
+        setAnimationState("happy");
+        setTimeout(() => setAnimationState("idle"), 3000);
+      }
     } catch (error) {
       console.error("Chat error:", error);
       toast.error("Failed to send message. Please try again.");
-      setAnimationState("idle");
+      if (!manualMode) {
+        setAnimationState("idle");
+      }
     }
   };
 
@@ -146,7 +154,10 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed }: UseBobChatProps)
     setMessages(prev => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
-    setAnimationState("thinking");
+    
+    if (!manualMode) {
+      setAnimationState("thinking");
+    }
 
     await streamChat(userMessage);
     setIsLoading(false);
@@ -167,6 +178,13 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed }: UseBobChatProps)
     // No state change on blur - stay in current state
   };
 
+  const clearMessages = () => {
+    setMessages([{
+      role: "assistant",
+      content: "G'day! Bob from CARFIX here. How can I help ya today?"
+    }]);
+  };
+
   return {
     messages,
     input,
@@ -176,6 +194,7 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed }: UseBobChatProps)
     handleKeyPress,
     handleInputFocus,
     handleInputBlur,
-    chatEndRef
+    chatEndRef,
+    clearMessages
   };
 };

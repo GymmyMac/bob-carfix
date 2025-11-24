@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { BobCharacter } from "@/components/BobCharacter";
 import { ChatInterface } from "@/components/ChatInterface";
 import { ProductShelf } from "@/components/ProductShelf";
@@ -6,9 +7,18 @@ import { useBobChat } from "@/hooks/useBobChat";
 import { PLACEHOLDER_PRODUCTS } from "@/types/product";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
+import { AdminButton } from "@/components/AdminButton";
 
 const Index = () => {
-  const { animationState, setAnimationState, getCurrentImage, setTalkSpeed } = useBobAnimation();
+  const { 
+    animationState, 
+    setAnimationState, 
+    getCurrentImage, 
+    setTalkSpeed,
+    manualMode,
+    setManualMode
+  } = useBobAnimation();
+  
   const {
     messages,
     input,
@@ -18,13 +28,29 @@ const Index = () => {
     handleKeyPress,
     handleInputFocus,
     handleInputBlur,
-    chatEndRef
-  } = useBobChat({ setAnimationState, setTalkSpeed });
+    chatEndRef,
+    clearMessages
+  } = useBobChat({ setAnimationState, setTalkSpeed, manualMode });
+
+  // Expose controls to AdminPanel via window object
+  useEffect(() => {
+    (window as any).bobAnimationControls = {
+      animationState,
+      setAnimationState,
+      getCurrentImage,
+      manualMode,
+      setManualMode
+    };
+    (window as any).bobChatControls = {
+      clearMessages
+    };
+  }, [animationState, getCurrentImage, manualMode, setAnimationState, setManualMode, clearMessages]);
 
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation Bar */}
-      <div className="fixed top-4 right-4 z-50">
+      <div className="fixed top-4 right-4 z-50 flex gap-2">
+        <AdminButton />
         <NavLink to="/bob-gallery">
           <Button variant="outline" size="sm">View Bob Gallery</Button>
         </NavLink>

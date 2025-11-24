@@ -7,6 +7,7 @@ export const useBobAnimation = () => {
   const [isTalkToggle, setIsTalkToggle] = useState(false);
   const [isThinkToggle, setIsThinkToggle] = useState(false);
   const [talkSpeed, setTalkSpeed] = useState(400);
+  const [manualMode, setManualMode] = useState(false);
   
   const talkIntervalRef = useRef<NodeJS.Timeout>();
   const thinkIntervalRef = useRef<NodeJS.Timeout>();
@@ -96,6 +97,8 @@ export const useBobAnimation = () => {
     setAnimationState,
     getCurrentImage,
     imageUrls: imageUrlsMap,
-    setTalkSpeed
+    setTalkSpeed,
+    manualMode,
+    setManualMode
   };
 };
