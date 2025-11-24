@@ -1,10 +1,15 @@
 import { AnimationState } from "@/hooks/useBobAnimation";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, RotateCcw } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye } from "lucide-react";
+import { useState, useEffect } from "react";
 
 interface AdminPanelProps {
   isOpen: boolean;
@@ -12,8 +17,13 @@ interface AdminPanelProps {
 }
 
 export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
+  const [talkSpeed, setTalkSpeed] = useState(400);
+  const [messageCount, setMessageCount] = useState(0);
+  const [systemStatus, setSystemStatus] = useState<"online" | "offline">("online");
+  
   // Access the animation controls from the parent via window object (set in Index.tsx)
   const animationControls = (window as any).bobAnimationControls;
+  const chatControls = (window as any).bobChatControls;
   
   if (!animationControls) {
     return null;
@@ -24,17 +34,32 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     setAnimationState, 
     manualMode, 
     setManualMode,
-    getCurrentImage 
+    getCurrentImage,
+    setTalkSpeed: setGlobalTalkSpeed
   } = animationControls;
+
+  // Update message count when chat changes
+  useEffect(() => {
+    if (chatControls?.messages) {
+      setMessageCount(chatControls.messages.length);
+    }
+  }, [chatControls?.messages]);
+
+  // Update talk speed
+  useEffect(() => {
+    if (setGlobalTalkSpeed) {
+      setGlobalTalkSpeed(talkSpeed);
+    }
+  }, [talkSpeed, setGlobalTalkSpeed]);
 
   const handleStateChange = (state: AnimationState) => {
     setAnimationState(state);
   };
 
   const handleClearChat = () => {
-    const chatControls = (window as any).bobChatControls;
     if (chatControls?.clearMessages) {
       chatControls.clearMessages();
+      setMessageCount(0);
     }
   };
 
@@ -53,94 +78,298 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-2xl">
+            <Settings className="w-6 h-6" />
             Bob Admin Control Panel
-            <Badge variant={manualMode ? "destructive" : "secondary"}>
+            <Badge variant={manualMode ? "destructive" : "secondary"} className="text-sm">
               {manualMode ? "Manual" : "Auto"}
             </Badge>
           </DialogTitle>
+          <DialogDescription>
+            Full control over Bob's behavior, animations, and system monitoring
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Current State Display */}
-          <div className="border border-border rounded-lg p-4 bg-muted/30">
-            <div className="flex items-center gap-4">
-              <div className="w-32 h-32 flex-shrink-0">
-                <img
-                  src={getCurrentImage()}
-                  alt="Bob current state"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Current State</p>
-                <p className="text-2xl font-semibold capitalize">{animationState}</p>
-              </div>
-            </div>
-          </div>
+        <Tabs defaultValue="controls" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="controls" className="gap-2">
+              <Zap className="w-4 h-4" />
+              Controls
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="gap-2">
+              <Settings className="w-4 h-4" />
+              Settings
+            </TabsTrigger>
+            <TabsTrigger value="monitor" className="gap-2">
+              <Activity className="w-4 h-4" />
+              Monitor
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Auto Mode Toggle */}
-          <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-            <div>
-              <Label htmlFor="auto-mode" className="text-base font-medium">
-                Auto Mode
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                {manualMode 
-                  ? "Bob is in manual control mode" 
-                  : "Bob responds automatically to chat"}
-              </p>
-            </div>
-            <Switch
-              id="auto-mode"
-              checked={!manualMode}
-              onCheckedChange={(checked) => setManualMode(!checked)}
-            />
-          </div>
+          {/* CONTROLS TAB */}
+          <TabsContent value="controls" className="space-y-6 mt-6">
+            {/* Current State Display */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Eye className="w-5 h-5" />
+                  Current State
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <div className="w-32 h-32 flex-shrink-0 border rounded-lg overflow-hidden bg-muted/50">
+                    <img
+                      src={getCurrentImage()}
+                      alt="Bob current state"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-muted-foreground mb-1">Animation State</p>
+                    <p className="text-3xl font-bold capitalize mb-2">{animationState}</p>
+                    <Badge variant={systemStatus === "online" ? "default" : "destructive"}>
+                      System {systemStatus}
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* State Control Buttons */}
-          <div className="space-y-2">
-            <Label className="text-base font-medium">Manual State Control</Label>
-            <div className="grid grid-cols-2 gap-3">
-              {stateButtons.map(({ state, label, description }) => (
+            {/* Auto Mode Toggle */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="auto-mode" className="text-lg font-semibold">
+                      Automatic Mode
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {manualMode 
+                        ? "Bob is under manual control - animations won't respond to chat" 
+                        : "Bob responds automatically to chat interactions"}
+                    </p>
+                  </div>
+                  <Switch
+                    id="auto-mode"
+                    checked={!manualMode}
+                    onCheckedChange={(checked) => setManualMode(!checked)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* State Control Buttons */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Manual Animation Control</CardTitle>
+                <CardDescription>
+                  {manualMode ? "Click any state to change Bob's animation" : "Enable manual mode to control animations"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {stateButtons.map(({ state, label, description }) => (
+                    <Button
+                      key={state}
+                      variant={animationState === state ? "default" : "outline"}
+                      className="h-auto flex-col items-start p-4 text-left"
+                      onClick={() => handleStateChange(state)}
+                      disabled={!manualMode}
+                    >
+                      <span className="font-semibold text-base">{label}</span>
+                      <span className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        {description}
+                      </span>
+                    </Button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="flex gap-3">
                 <Button
-                  key={state}
-                  variant={animationState === state ? "default" : "outline"}
-                  className="h-auto flex-col items-start p-4 text-left"
-                  onClick={() => handleStateChange(state)}
-                  disabled={!manualMode}
+                  variant="outline"
+                  className="flex-1 gap-2"
+                  onClick={handleClearChat}
                 >
-                  <span className="font-semibold">{label}</span>
-                  <span className="text-xs text-muted-foreground mt-1">
-                    {description}
-                  </span>
+                  <Trash2 className="w-4 h-4" />
+                  Clear Chat
                 </Button>
-              ))}
-            </div>
-          </div>
+                <Button
+                  variant="outline"
+                  className="flex-1 gap-2"
+                  onClick={handleResetToAuto}
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Reset to Auto
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              className="flex-1 gap-2"
-              onClick={handleClearChat}
-            >
-              <Trash2 className="w-4 h-4" />
-              Clear Chat
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1 gap-2"
-              onClick={handleResetToAuto}
-            >
-              <RotateCcw className="w-4 h-4" />
-              Reset to Auto
-            </Button>
-          </div>
-        </div>
+          {/* SETTINGS TAB */}
+          <TabsContent value="settings" className="space-y-6 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Timer className="w-5 h-5" />
+                  Talk Speed Control
+                </CardTitle>
+                <CardDescription>
+                  Adjust how fast Bob's mouth moves when speaking
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <Label>Talk Speed: {talkSpeed}ms</Label>
+                    <span className="text-sm text-muted-foreground">
+                      {talkSpeed < 300 ? "Fast" : talkSpeed > 500 ? "Slow" : "Normal"}
+                    </span>
+                  </div>
+                  <Slider
+                    value={[talkSpeed]}
+                    onValueChange={(values) => setTalkSpeed(values[0])}
+                    min={100}
+                    max={800}
+                    step={50}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                    <span>Fast (100ms)</span>
+                    <span>Slow (800ms)</span>
+                  </div>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Preview Changes</p>
+                    <p className="text-sm text-muted-foreground">Set to talking state to test speed</p>
+                  </div>
+                  <Button 
+                    size="sm"
+                    onClick={() => {
+                      setManualMode(true);
+                      setAnimationState("talking");
+                    }}
+                  >
+                    Test Talk Speed
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Animation Settings</CardTitle>
+                <CardDescription>Future animation customization options</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Additional animation controls and customization options coming soon...
+                </p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* MONITOR TAB */}
+          <TabsContent value="monitor" className="space-y-6 mt-6">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Total Messages
+                  </CardTitle>
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{messageCount}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Messages in current conversation
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    System Status
+                  </CardTitle>
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold capitalize">{systemStatus}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    All systems operational
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Current Mode
+                  </CardTitle>
+                  <Zap className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{manualMode ? "Manual" : "Auto"}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {manualMode ? "Under manual control" : "Automatic responses"}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Talk Speed
+                  </CardTitle>
+                  <Timer className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{talkSpeed}ms</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Mouth animation interval
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Animation State Log</CardTitle>
+                <CardDescription>Current Bob animation state details</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 font-mono text-sm">
+                  <div className="flex justify-between p-2 bg-muted rounded">
+                    <span className="text-muted-foreground">State:</span>
+                    <span className="font-semibold">{animationState}</span>
+                  </div>
+                  <div className="flex justify-between p-2 bg-muted rounded">
+                    <span className="text-muted-foreground">Mode:</span>
+                    <span className="font-semibold">{manualMode ? "Manual" : "Automatic"}</span>
+                  </div>
+                  <div className="flex justify-between p-2 bg-muted rounded">
+                    <span className="text-muted-foreground">Image:</span>
+                    <span className="font-semibold text-xs truncate max-w-[200px]">
+                      {getCurrentImage().split('/').pop()}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
