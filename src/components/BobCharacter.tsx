@@ -14,10 +14,10 @@ export const BobCharacter = ({ currentImage, animationState, className = "" }: B
         return "animate-[bob-float_3s_ease-in-out_infinite]";
       case "happy":
         return "animate-[bob-happy-bounce_0.6s_ease-in-out]";
-      case "grump":
-        return "animate-[bob-grump-shake_0.5s_ease-in-out]";
       case "talking":
         return "animate-[bob-talk-pulse_0.4s_ease-in-out_infinite]";
+      case "complete":
+        return "animate-[bob-happy-bounce_0.6s_ease-in-out]";
       default:
         return "";
     }
