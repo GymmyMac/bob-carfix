@@ -119,13 +119,19 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     await Promise.all(updates.filter(Boolean));
   };
 
-  const stateButtons: Array<{ state: AnimationState; label: string; description: string }> = [
-    { state: "idle", label: "Idle", description: "Anything else I can help with?" },
-    { state: "thinking", label: "Thinking", description: "Thinking or researching" },
-    { state: "talking", label: "Talking", description: "Bob's talking" },
-    { state: "happy", label: "Happy", description: "Welcome, thank you, completing a sale" },
-    { state: "complete", label: "Complete", description: "Thank you, all done" },
-  ];
+  // Dynamic state buttons loaded from database
+  const stateButtons = states
+    .filter((s) => s.is_active)
+    .sort((a, b) => a.display_order - b.display_order)
+    .map((s) => ({
+      state: s.state_key,
+      label: s.title,
+      description: s.description || "No description",
+      speed: s.animation_speed || 400,
+      pauseDuration: s.pause_duration || 0,
+      loopCount: s.loop_count || 0,
+      chatTrigger: s.chat_trigger || null
+    }));
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

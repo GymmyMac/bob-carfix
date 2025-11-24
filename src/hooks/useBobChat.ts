@@ -16,6 +16,8 @@ interface UseBobChatProps {
   thinkingState?: string;
   completeState?: string;
   idleState?: string;
+  onStreamStart?: () => void;
+  onStreamComplete?: () => void;
 }
 
 export const useBobChat = ({ 
@@ -25,7 +27,9 @@ export const useBobChat = ({
   talkingState = "talk",
   thinkingState = "research",
   completeState = "complete",
-  idleState = "idle"
+  idleState = "idle",
+  onStreamStart,
+  onStreamComplete
 }: UseBobChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -90,9 +94,14 @@ export const useBobChat = ({
       let assistantContent = "";
 
       if (!manualMode) {
-        safeSetState(talkingState);
-        // Start with fast talking speed
-        if (setTalkSpeed) setTalkSpeed(200);
+        // Trigger streaming response state
+        if (onStreamStart) {
+          onStreamStart();
+        } else {
+          // Fallback if no transition system
+          safeSetState(talkingState);
+          if (setTalkSpeed) setTalkSpeed(200);
+        }
       }
 
       while (!streamDone) {
@@ -156,8 +165,13 @@ export const useBobChat = ({
         if (setTalkSpeed) setTalkSpeed(400);
         
         // Post-response animation
-        safeSetState(completeState);
-        setTimeout(() => safeSetState(idleState), 3000);
+        if (onStreamComplete) {
+          onStreamComplete();
+        } else {
+          // Fallback if no transition system
+          safeSetState(completeState);
+          setTimeout(() => safeSetState(idleState), 3000);
+        }
       }
     } catch (error) {
       console.error("Chat error:", error);
