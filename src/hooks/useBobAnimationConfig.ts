@@ -269,18 +269,47 @@ export const useBobAnimationConfig = () => {
   };
 
   const upsertState = async (stateData: StateDefinition) => {
-    const existing = states.find((s) => s.state_key === stateData.reactionType);
+    // Query database directly instead of using React state to avoid race conditions
+    const { data: existing, error: fetchError } = await supabase
+      .from("animation_states")
+      .select("*")
+      .eq("state_key", stateData.reactionType)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
 
     if (existing) {
+      // State exists - update if needed
+      const updates: any = {};
+      let needsUpdate = false;
+
       if (existing.display_order !== stateData.displayOrder) {
+        updates.display_order = stateData.displayOrder;
+        needsUpdate = true;
+      }
+
+      if (existing.title !== stateData.name) {
+        updates.title = stateData.name;
+        needsUpdate = true;
+      }
+
+      if ((existing.description || null) !== (stateData.description || null)) {
+        updates.description = stateData.description || null;
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
         const { error } = await supabase
           .from("animation_states")
-          .update({ display_order: stateData.displayOrder })
+          .update(updates)
           .eq("id", existing.id);
+        
         if (error) throw error;
       }
+
       return existing.id;
     } else {
+      // State doesn't exist - create new one
       const { data, error } = await supabase
         .from("animation_states")
         .insert({
@@ -298,18 +327,35 @@ export const useBobAnimationConfig = () => {
   };
 
   const uploadImageWithState = async (file: File, stateData: StateDefinition) => {
-    const imageUrl = await uploadImage(file);
-    await upsertState(stateData);
-    await assignImageToState(
-      imageUrl,
-      stateData.reactionType,
-      stateData.sequenceOrder,
-      stateData.description
-    );
-    await fetchStates();
-    await fetchConfigs();
-    await listUploadedImages();
-    return imageUrl;
+    try {
+      // Upload image first
+      const imageUrl = await uploadImage(file);
+      
+      // Upsert state (now with direct DB query - no race condition)
+      await upsertState(stateData);
+      
+      // Assign image to state
+      await assignImageToState(
+        imageUrl,
+        stateData.reactionType,
+        stateData.sequenceOrder,
+        stateData.description
+      );
+      
+      // Refresh all data
+      await fetchStates();
+      await fetchConfigs();
+      await listUploadedImages();
+      
+      return imageUrl;
+    } catch (error) {
+      console.error("Upload failed:", error);
+      // Re-throw with more context
+      if (error instanceof Error) {
+        throw new Error(`Upload failed: ${error.message}`);
+      }
+      throw error;
+    }
   };
 
   return {
