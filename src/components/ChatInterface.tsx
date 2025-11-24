@@ -30,7 +30,7 @@ export const ChatInterface = ({
     <div className="w-full max-w-6xl mx-auto px-4 pb-8">
       <div className="bg-background border border-border rounded-lg shadow-lg overflow-hidden">
         {/* Chat History */}
-        <div className="overflow-y-auto p-4 space-y-3 h-[300px] md:h-[400px]">
+        <div className="overflow-y-auto p-4 space-y-3 h-[180px] md:h-[200px]">
           {messages.map((msg, idx) => (
             <div
               key={idx}
