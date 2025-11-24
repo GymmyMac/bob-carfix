@@ -251,6 +251,36 @@ export const useBobAnimationConfig = () => {
     }
   };
 
+  const deleteState = async (stateId: string): Promise<void> => {
+    try {
+      const state = states.find((s) => s.id === stateId);
+      if (!state) throw new Error("State not found");
+
+      // First, delete all animations for this state
+      const stateConfigs = configs.filter(
+        (c) => c.animation_state === state.state_key
+      );
+
+      for (const config of stateConfigs) {
+        await deleteAnimation(config.id);
+      }
+
+      // Then delete the state
+      const { error } = await supabase
+        .from("animation_states")
+        .delete()
+        .eq("id", stateId);
+
+      if (error) throw error;
+
+      // Refresh data
+      await fetchStates();
+    } catch (error) {
+      console.error("Error deleting state:", error);
+      throw error;
+    }
+  };
+
   const deleteImageFromStorage = async (imageUrl: string) => {
     try {
       // Extract filename from URL
@@ -370,6 +400,7 @@ export const useBobAnimationConfig = () => {
     updateAnimation,
     deleteAnimation,
     deleteUnassignedImage,
+    deleteState,
     refetch: fetchConfigs,
     refreshImages: listUploadedImages,
   };
