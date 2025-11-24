@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AnimationState } from "@/hooks/useBobAnimation";
-import { BobAnimationConfig } from "@/hooks/useBobAnimationConfig";
+import { AnimationState, BobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 import { useToast } from "@/hooks/use-toast";
 
 interface StateAssignmentCardProps {

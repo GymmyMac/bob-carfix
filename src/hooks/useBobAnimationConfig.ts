@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { AnimationState } from "./useBobAnimation";
+
+export type AnimationState = string;
 
 export interface BobAnimationConfig {
   id: string;
@@ -11,8 +12,28 @@ export interface BobAnimationConfig {
   description: string | null;
 }
 
+export interface AnimationStateDefinition {
+  id: string;
+  state_key: string;
+  title: string;
+  description: string | null;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StateDefinition {
+  reactionType: string;
+  name: string;
+  description?: string;
+  displayOrder: number;
+  sequenceOrder: number;
+}
+
 export const useBobAnimationConfig = () => {
   const [configs, setConfigs] = useState<BobAnimationConfig[]>([]);
+  const [states, setStates] = useState<AnimationStateDefinition[]>([]);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,6 +52,21 @@ export const useBobAnimationConfig = () => {
     } catch (error) {
       console.error("Error fetching animation configs:", error);
       setLoading(false);
+    }
+  };
+
+  const fetchStates = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("animation_states")
+        .select("*")
+        .eq("is_active", true)
+        .order("display_order");
+
+      if (error) throw error;
+      setStates((data || []) as AnimationStateDefinition[]);
+    } catch (error) {
+      console.error("Error fetching states:", error);
     }
   };
 
@@ -58,10 +94,11 @@ export const useBobAnimationConfig = () => {
 
   useEffect(() => {
     fetchConfigs();
+    fetchStates();
     listUploadedImages();
 
-    // Subscribe to realtime updates
-    const channel = supabase
+    // Subscribe to realtime updates for animations
+    const animChannel = supabase
       .channel("bob_animations_changes")
       .on(
         "postgres_changes",
@@ -76,8 +113,25 @@ export const useBobAnimationConfig = () => {
       )
       .subscribe();
 
+    // Subscribe to realtime updates for states
+    const stateChannel = supabase
+      .channel("animation_states_changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "animation_states",
+        },
+        () => {
+          fetchStates();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(animChannel);
+      supabase.removeChannel(stateChannel);
     };
   }, []);
 
@@ -214,12 +268,58 @@ export const useBobAnimationConfig = () => {
     }
   };
 
+  const upsertState = async (stateData: StateDefinition) => {
+    const existing = states.find((s) => s.state_key === stateData.reactionType);
+
+    if (existing) {
+      if (existing.display_order !== stateData.displayOrder) {
+        const { error } = await supabase
+          .from("animation_states")
+          .update({ display_order: stateData.displayOrder })
+          .eq("id", existing.id);
+        if (error) throw error;
+      }
+      return existing.id;
+    } else {
+      const { data, error } = await supabase
+        .from("animation_states")
+        .insert({
+          state_key: stateData.reactionType,
+          title: stateData.name,
+          description: stateData.description || null,
+          display_order: stateData.displayOrder,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data.id;
+    }
+  };
+
+  const uploadImageWithState = async (file: File, stateData: StateDefinition) => {
+    const imageUrl = await uploadImage(file);
+    await upsertState(stateData);
+    await assignImageToState(
+      imageUrl,
+      stateData.reactionType,
+      stateData.sequenceOrder,
+      stateData.description
+    );
+    await fetchStates();
+    await fetchConfigs();
+    await listUploadedImages();
+    return imageUrl;
+  };
+
   return {
     configs,
+    states,
     uploadedImages,
     loading,
     getActiveImagesByState,
     uploadImage,
+    uploadImageWithState,
     assignImageToState,
     updateAnimation,
     deleteAnimation,

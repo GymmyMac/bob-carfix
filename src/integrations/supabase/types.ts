@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      animation_states: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          state_key: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          state_key: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          state_key?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bob_animations: {
         Row: {
           animation_state: string

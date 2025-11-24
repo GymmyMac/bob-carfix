@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { AnimationState } from "./useBobAnimation";
+
+export type AnimationState = string;
 
 export interface Message {
   role: "user" | "assistant";
@@ -34,6 +35,14 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed, manualMode = false
       }]);
     }
   }, []);
+
+  const safeSetState = (state: AnimationState) => {
+    try {
+      setAnimationState(state);
+    } catch (error) {
+      console.warn(`State "${state}" not available, staying in current state`);
+    }
+  };
 
   const streamChat = async (userMessage: Message) => {
     const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bob-chat`;
@@ -69,7 +78,7 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed, manualMode = false
       let assistantContent = "";
 
       if (!manualMode) {
-        setAnimationState("talking");
+        safeSetState("talking");
         // Start with fast talking speed
         if (setTalkSpeed) setTalkSpeed(200);
       }
@@ -135,14 +144,14 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed, manualMode = false
         if (setTalkSpeed) setTalkSpeed(400);
         
         // Post-response animation
-        setAnimationState("happy");
-        setTimeout(() => setAnimationState("idle"), 3000);
+        safeSetState("happy");
+        setTimeout(() => safeSetState("idle"), 3000);
       }
     } catch (error) {
       console.error("Chat error:", error);
       toast.error("Failed to send message. Please try again.");
       if (!manualMode) {
-        setAnimationState("idle");
+        safeSetState("idle");
       }
     }
   };
@@ -156,7 +165,7 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed, manualMode = false
     setIsLoading(true);
     
     if (!manualMode) {
-      setAnimationState("thinking");
+      safeSetState("thinking");
     }
 
     await streamChat(userMessage);

@@ -1,25 +1,24 @@
 import { BobCharacter } from "./BobCharacter";
 import { Button } from "@/components/ui/button";
-import { AnimationState, useBobAnimation } from "@/hooks/useBobAnimation";
+import { useBobAnimation } from "@/hooks/useBobAnimation";
+import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-const stateButtons: { state: AnimationState; label: string }[] = [
-  { state: "idle", label: "Idle" },
-  { state: "thinking", label: "Thinking" },
-  { state: "talking", label: "Talking" },
-  { state: "happy", label: "Happy" },
-  { state: "complete", label: "Complete" },
-];
 
 export const AnimationPreview = () => {
   const { animationState, setAnimationState, getCurrentImage } = useBobAnimation();
+  const { states } = useBobAnimationConfig();
+
+  const stateButtons = states
+    .filter((s) => s.is_active)
+    .sort((a, b) => a.display_order - b.display_order)
+    .map((s) => ({ state: s.state_key, label: s.title }));
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Live Preview</CardTitle>
         <CardDescription>
-          Test how Bob looks with your assigned animations
+          Test how Bob looks with your defined states
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

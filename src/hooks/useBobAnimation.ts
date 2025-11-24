@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 
-export type AnimationState = "idle" | "thinking" | "talking" | "happy" | "complete";
+export type AnimationState = string;
 
 export const useBobAnimation = () => {
   const [animationState, setAnimationState] = useState<AnimationState>("idle");
@@ -13,39 +13,46 @@ export const useBobAnimation = () => {
   const thinkIntervalRef = useRef<NodeJS.Timeout>();
 
   // Fetch image URLs from database configuration
-  const [imageUrlsMap, setImageUrlsMap] = useState<Record<AnimationState, string>>({
-    idle: "/bob-animations/idle.png",
-    thinking: "/bob-animations/thinking.png",
-    talking: "/bob-animations/talk-small.png",
-    happy: "/bob-animations/happy.png",
-    complete: "/bob-animations/23628891-3eb9-40bf-b2f5-dda69129038a.png"
-  });
-
-  const [alternateImages, setAlternateImages] = useState<Partial<Record<AnimationState, string[]>>>({});
+  const [imageUrlsMap, setImageUrlsMap] = useState<Record<string, string>>({});
+  const [alternateImages, setAlternateImages] = useState<Record<string, string[]>>({});
+  const [availableStates, setAvailableStates] = useState<string[]>([]);
 
   // Fetch and preload images from database
   useEffect(() => {
     const fetchImages = async () => {
       const { supabase } = await import("@/integrations/supabase/client");
+      
+      // Fetch active states
+      const { data: statesData } = await supabase
+        .from("animation_states")
+        .select("state_key")
+        .eq("is_active", true)
+        .order("display_order");
+
+      const stateKeys = statesData?.map((s) => s.state_key) || [];
+      setAvailableStates(stateKeys);
+
+      // Fetch image assignments
       const { data } = await supabase
         .from("bob_animations")
         .select("*")
         .eq("is_active", true)
+        .order("animation_state")
         .order("sequence_order");
 
       if (data && data.length > 0) {
-        const newImageMap: Record<AnimationState, string> = {} as Record<AnimationState, string>;
-        const newAlternates: Partial<Record<AnimationState, string[]>> = {};
+        const newImageMap: Record<string, string> = {};
+        const newAlternates: Record<string, string[]> = {};
 
-        data.forEach((config) => {
-          const state = config.animation_state as AnimationState;
-          if (!newImageMap[state]) {
-            newImageMap[state] = config.image_url;
+        stateKeys.forEach((key) => {
+          const stateImages = data
+            .filter((config) => config.animation_state === key)
+            .map((config) => config.image_url);
+
+          if (stateImages.length > 0) {
+            newImageMap[key] = stateImages[0];
+            newAlternates[key] = stateImages;
           }
-          if (!newAlternates[state]) {
-            newAlternates[state] = [];
-          }
-          newAlternates[state]!.push(config.image_url);
         });
 
         setImageUrlsMap(newImageMap);
@@ -112,15 +119,24 @@ export const useBobAnimation = () => {
   const getCurrentImage = () => {
     const alternates = alternateImages[animationState];
     
-    if (animationState === "talking" && alternates && alternates.length > 1) {
+    if (!alternates || alternates.length === 0) {
+      // Fallback to first available state with images
+      const fallbackState = availableStates.find((s) => alternateImages[s]?.length > 0);
+      if (fallbackState) {
+        return alternateImages[fallbackState][0];
+      }
+      return "";
+    }
+
+    if (animationState === "talking" && alternates.length > 1) {
       return isTalkToggle ? alternates[1] : alternates[0];
     }
     
-    if (animationState === "thinking" && alternates && alternates.length > 1) {
+    if (animationState === "thinking" && alternates.length > 1) {
       return isThinkToggle ? alternates[1] : alternates[0];
     }
     
-    return imageUrlsMap[animationState] || imageUrlsMap.idle;
+    return alternates[0];
   };
 
   return {
@@ -128,8 +144,9 @@ export const useBobAnimation = () => {
     setAnimationState,
     getCurrentImage,
     imageUrls: imageUrlsMap,
+    availableStates,
     setTalkSpeed,
     manualMode,
-    setManualMode
+    setManualMode,
   };
 };
