@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Mic, MicOff } from "lucide-react";
+import { Send, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 import { Message } from "@/hooks/useBobChat";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useEffect } from "react";
@@ -15,6 +15,9 @@ interface ChatInterfaceProps {
   onInputFocus: () => void;
   onInputBlur: () => void;
   chatEndRef: React.RefObject<HTMLDivElement>;
+  isMuted?: boolean;
+  onToggleMute?: () => void;
+  isSpeaking?: boolean;
 }
 
 export const ChatInterface = ({
@@ -26,7 +29,10 @@ export const ChatInterface = ({
   onKeyPress,
   onInputFocus,
   onInputBlur,
-  chatEndRef
+  chatEndRef,
+  isMuted = false,
+  onToggleMute,
+  isSpeaking = false
 }: ChatInterfaceProps) => {
   const {
     isListening,
@@ -74,6 +80,21 @@ export const ChatInterface = ({
               disabled={isLoading}
               className="flex-1"
             />
+            {onToggleMute && (
+              <Button
+                onClick={onToggleMute}
+                size="icon"
+                variant="outline"
+                className={`shrink-0 ${isSpeaking ? 'animate-pulse' : ''}`}
+                title={isMuted ? "Unmute Bob's voice" : "Mute Bob's voice"}
+              >
+                {isMuted ? (
+                  <VolumeX className="h-4 w-4" />
+                ) : (
+                  <Volume2 className="h-4 w-4" />
+                )}
+              </Button>
+            )}
             {isSupported && (
               <Button
                 onClick={toggleListening}

@@ -47,7 +47,10 @@ const Index = () => {
     handleInputFocus,
     handleInputBlur,
     chatEndRef,
-    clearMessages
+    clearMessages,
+    isMuted,
+    toggleMute,
+    isSpeaking
   } = useBobChat({ 
     setAnimationState, 
     setTalkSpeed, 
@@ -110,6 +113,9 @@ const Index = () => {
               onInputFocus={handleInputFocus}
               onInputBlur={handleInputBlur}
               chatEndRef={chatEndRef}
+              isMuted={isMuted}
+              onToggleMute={toggleMute}
+              isSpeaking={isSpeaking}
             />
           </div>
         </div>
@@ -135,17 +141,20 @@ const Index = () => {
           </div>
           
           <div className="pt-2 pb-8">
-            <ChatInterface
-              messages={messages}
-              input={input}
-              setInput={setInput}
-              isLoading={isLoading}
-              onSend={handleSend}
-              onKeyPress={handleKeyPress}
-              onInputFocus={handleInputFocus}
-              onInputBlur={handleInputBlur}
-              chatEndRef={chatEndRef}
-            />
+          <ChatInterface
+            messages={messages}
+            input={input}
+            setInput={setInput}
+            isLoading={isLoading}
+            onSend={handleSend}
+            onKeyPress={handleKeyPress}
+            onInputFocus={handleInputFocus}
+            onInputBlur={handleInputBlur}
+            chatEndRef={chatEndRef}
+            isMuted={isMuted}
+            onToggleMute={toggleMute}
+            isSpeaking={isSpeaking}
+          />
           </div>
         </div>
 

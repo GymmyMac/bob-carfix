@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { useSpeechSynthesis } from "./useSpeechSynthesis";
 
 export type AnimationState = string;
 
@@ -34,8 +35,33 @@ export const useBobChat = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const lastContentTimeRef = useRef<number>(0);
+  const latestAssistantMessageRef = useRef<string>("");
+
+  // Speech synthesis for Bob's voice
+  const { speak, stop: stopSpeech, isSpeaking } = useSpeechSynthesis({
+    onStart: () => {
+      // Keep Bob in talking state while speaking
+      if (!manualMode) {
+        safeSetState(talkingState);
+        if (setTalkSpeed) setTalkSpeed(200);
+      }
+    },
+    onEnd: () => {
+      // Transition to complete state when speech finishes
+      if (!manualMode) {
+        if (setTalkSpeed) setTalkSpeed(400);
+        if (onStreamComplete) {
+          onStreamComplete();
+        } else {
+          safeSetState(completeState);
+          setTimeout(() => safeSetState(idleState), 3000);
+        }
+      }
+    }
+  });
 
   // Auto-scroll chat
   useEffect(() => {
@@ -160,15 +186,19 @@ export const useBobChat = ({
         }
       }
 
-      if (!manualMode) {
-        // Reset talk speed to default
+      // Store latest assistant message for speech
+      latestAssistantMessageRef.current = assistantContent;
+
+      // Speak the response if not muted
+      if (!isMuted && assistantContent.trim()) {
+        speak(assistantContent);
+      } else if (!manualMode) {
+        // If muted, do normal animation transitions
         if (setTalkSpeed) setTalkSpeed(400);
         
-        // Post-response animation
         if (onStreamComplete) {
           onStreamComplete();
         } else {
-          // Fallback if no transition system
           safeSetState(completeState);
           setTimeout(() => safeSetState(idleState), 3000);
         }
@@ -185,6 +215,9 @@ export const useBobChat = ({
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
+    // Stop any ongoing speech when user sends new message
+    stopSpeech();
+
     const userMessage: Message = { role: "user", content: input };
     setMessages(prev => [...prev, userMessage]);
     setInput("");
@@ -196,6 +229,14 @@ export const useBobChat = ({
 
     await streamChat(userMessage);
     setIsLoading(false);
+  };
+
+  const toggleMute = () => {
+    setIsMuted(prev => !prev);
+    if (!isMuted) {
+      // If muting, stop current speech
+      stopSpeech();
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -230,6 +271,9 @@ export const useBobChat = ({
     handleInputFocus,
     handleInputBlur,
     chatEndRef,
-    clearMessages
+    clearMessages,
+    isMuted,
+    toggleMute,
+    isSpeaking
   };
 };
