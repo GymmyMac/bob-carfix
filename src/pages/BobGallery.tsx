@@ -1,5 +1,6 @@
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
+import { AdminButton } from "@/components/AdminButton";
 
 const BobGallery = () => {
   const bobImages = [
@@ -48,9 +49,12 @@ const BobGallery = () => {
             <h1 className="text-4xl font-bold text-foreground mb-2">Bob Animation Gallery</h1>
             <p className="text-muted-foreground">7 conversational state images for Bob</p>
           </div>
-          <NavLink to="/">
-            <Button>Back to Home</Button>
-          </NavLink>
+          <div className="flex items-center gap-2">
+            <AdminButton />
+            <NavLink to="/">
+              <Button>Back to Home</Button>
+            </NavLink>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
