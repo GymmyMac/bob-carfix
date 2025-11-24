@@ -1,7 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send } from "lucide-react";
+import { Send, Mic, MicOff } from "lucide-react";
 import { Message } from "@/hooks/useBobChat";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { useEffect } from "react";
 
 interface ChatInterfaceProps {
   messages: Message[];
@@ -26,11 +28,41 @@ export const ChatInterface = ({
   onInputBlur,
   chatEndRef
 }: ChatInterfaceProps) => {
+  const {
+    isListening,
+    transcript,
+    interimTranscript,
+    error: sttError,
+    isSupported,
+    toggleListening
+  } = useSpeechRecognition({
+    onTranscript: (text) => setInput(text),
+    language: 'en-NZ'
+  });
+
+  // Update input with interim transcript for real-time feedback
+  useEffect(() => {
+    if (interimTranscript) {
+      setInput(interimTranscript);
+    }
+  }, [interimTranscript, setInput]);
+
   return (
     <div className="w-full max-w-6xl mx-auto px-4 pb-8">
       <div className="bg-background border border-border rounded-lg shadow-lg overflow-hidden">
         {/* Input Area */}
         <div className="p-4 border-b border-border bg-muted/50">
+          {isListening && (
+            <div className="mb-2 text-sm text-muted-foreground flex items-center gap-2">
+              <span className="inline-block w-2 h-2 bg-destructive rounded-full animate-pulse" />
+              Listening... Speak now
+            </div>
+          )}
+          {sttError && (
+            <div className="mb-2 text-sm text-destructive">
+              {sttError}
+            </div>
+          )}
           <div className="flex gap-2">
             <Input
               value={input}
@@ -42,6 +74,22 @@ export const ChatInterface = ({
               disabled={isLoading}
               className="flex-1"
             />
+            {isSupported && (
+              <Button
+                onClick={toggleListening}
+                disabled={isLoading}
+                size="icon"
+                variant={isListening ? "destructive" : "outline"}
+                className={`shrink-0 ${isListening ? 'animate-pulse' : ''}`}
+                title={isListening ? "Stop recording" : "Start voice input"}
+              >
+                {isListening ? (
+                  <MicOff className="h-4 w-4" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
+              </Button>
+            )}
             <Button
               onClick={onSend}
               disabled={isLoading || !input.trim()}
