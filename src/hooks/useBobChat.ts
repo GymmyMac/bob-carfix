@@ -129,14 +129,8 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed }: UseBobChatProps)
       // Reset talk speed to default
       if (setTalkSpeed) setTalkSpeed(400);
       
-      // Detect sentiment for post-response animation
-      const lowerContent = assistantContent.toLowerCase();
-      if (lowerContent.includes("sorry") || lowerContent.includes("unfortunately") || lowerContent.includes("can't") || lowerContent.includes("don't") || lowerContent.includes("expensive") || lowerContent.includes("unavailable")) {
-        setAnimationState("grump");
-      } else {
-        setAnimationState("happy");
-      }
-
+      // Post-response animation
+      setAnimationState("happy");
       setTimeout(() => setAnimationState("idle"), 3000);
     } catch (error) {
       console.error("Chat error:", error);
@@ -166,11 +160,11 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed }: UseBobChatProps)
   };
 
   const handleInputFocus = () => {
-    if (!isLoading) setAnimationState("listening");
+    // No state change on focus - stay in current state
   };
 
   const handleInputBlur = () => {
-    if (!isLoading) setAnimationState("idle");
+    // No state change on blur - stay in current state
   };
 
   return {

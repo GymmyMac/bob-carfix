@@ -3,39 +3,42 @@ import { Button } from "@/components/ui/button";
 
 const BobGallery = () => {
   const bobImages = [
-    // Core state images
-    { name: "Idle", path: "/bob-animations/idle.png", category: "Core States" },
-    { name: "Listening", path: "/bob-animations/listening.png", category: "Core States" },
-    { name: "Thinking", path: "/bob-animations/thinking.png", category: "Core States" },
-    { name: "Talk Small", path: "/bob-animations/talk-small.png", category: "Core States" },
-    { name: "Talk Big", path: "/bob-animations/talk-big.png", category: "Core States" },
-    { name: "Happy", path: "/bob-animations/happy.png", category: "Core States" },
-    { name: "Grump", path: "/bob-animations/grump.png", category: "Core States" },
-    
-    // Blink sequence
-    { name: "Blink Closing", path: "/bob-animations/idle-blink-closing.png", category: "Blink Sequence" },
-    { name: "Blink Closed", path: "/bob-animations/idle-blink-closed.png", category: "Blink Sequence" },
-    { name: "Blink Opening", path: "/bob-animations/idle-blink-opening.png", category: "Blink Sequence" },
-    
-    // Head turn sequence
-    { name: "Head Slight Left", path: "/bob-animations/idle-head-slight-left.png", category: "Head Turn Sequence" },
-    { name: "Head Left", path: "/bob-animations/idle-head-left.png", category: "Head Turn Sequence" },
-    { name: "Head Center", path: "/bob-animations/idle-head-center.png", category: "Head Turn Sequence" },
-    { name: "Head Slight Right", path: "/bob-animations/idle-head-slight-right.png", category: "Head Turn Sequence" },
-    { name: "Head Right", path: "/bob-animations/idle-head-right.png", category: "Head Turn Sequence" },
-    { name: "Head Return", path: "/bob-animations/idle-head-return.png", category: "Head Turn Sequence" },
-    
-    // Ear scratch sequence
-    { name: "Ear Scratch 1", path: "/bob-animations/idle-ear-scratch-1.png", category: "Ear Scratch Sequence" },
-    { name: "Ear Scratch 2", path: "/bob-animations/idle-ear-scratch-2.png", category: "Ear Scratch Sequence" },
-    { name: "Ear Scratch 3", path: "/bob-animations/idle-ear-scratch-3.png", category: "Ear Scratch Sequence" },
-    { name: "Ear Scratch 4", path: "/bob-animations/idle-ear-scratch-4.png", category: "Ear Scratch Sequence" },
-    
-    // Catalogue lookup
-    { name: "Catalogue Lookup", path: "/bob-animations/idle-catalogue.png", category: "Special Actions" },
+    { 
+      name: "Happy", 
+      path: "/bob-animations/happy.png", 
+      purpose: "Welcome, thank you, completing a sale, being happy/laughing"
+    },
+    { 
+      name: "Idle", 
+      path: "/bob-animations/idle.png", 
+      purpose: "Default state - Anything else I can help with?"
+    },
+    { 
+      name: "Thinking (1)", 
+      path: "/bob-animations/thinking.png", 
+      purpose: "Used in succession within Thinking or Researching state"
+    },
+    { 
+      name: "Thinking (2)", 
+      path: "/bob-animations/Bob thinking.png", 
+      purpose: "Used in succession within Thinking or Researching state"
+    },
+    { 
+      name: "Talk Small (1)", 
+      path: "/bob-animations/talk-small.png", 
+      purpose: "Used within conversational state of Bob's talking"
+    },
+    { 
+      name: "Talk Small (2)", 
+      path: "/bob-animations/Bob talk small.png", 
+      purpose: "Used within conversational state of Bob's talking"
+    },
+    { 
+      name: "Complete", 
+      path: "/bob-animations/23628891-3eb9-40bf-b2f5-dda69129038a.png", 
+      purpose: "Thank you, all done, great to see you come back soon"
+    },
   ];
-
-  const categories = Array.from(new Set(bobImages.map(img => img.category)));
 
   return (
     <div className="min-h-screen bg-background">
@@ -43,41 +46,35 @@ const BobGallery = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold text-foreground mb-2">Bob Animation Gallery</h1>
-            <p className="text-muted-foreground">All 22 Bob animation images for review</p>
+            <p className="text-muted-foreground">7 conversational state images for Bob</p>
           </div>
           <NavLink to="/">
             <Button>Back to Home</Button>
           </NavLink>
         </div>
 
-        {categories.map((category) => (
-          <div key={category} className="mb-12">
-            <h2 className="text-2xl font-semibold text-foreground mb-6 pb-2 border-b border-border">
-              {category}
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-              {bobImages
-                .filter((img) => img.category === category)
-                .map((image) => (
-                  <div
-                    key={image.name}
-                    className="flex flex-col items-center p-4 bg-card rounded-lg border border-border hover:border-primary transition-colors"
-                  >
-                    <div className="w-full aspect-square bg-muted rounded-md overflow-hidden mb-3 flex items-center justify-center">
-                      <img
-                        src={image.path}
-                        alt={image.name}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <p className="text-sm font-medium text-foreground text-center">
-                      {image.name}
-                    </p>
-                  </div>
-                ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {bobImages.map((image) => (
+            <div
+              key={image.name}
+              className="flex flex-col p-6 bg-card rounded-lg border border-border hover:border-primary transition-colors"
+            >
+              <div className="w-full aspect-square bg-muted rounded-md overflow-hidden mb-4 flex items-center justify-center">
+                <img
+                  src={image.path}
+                  alt={image.name}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                {image.name}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {image.purpose}
+              </p>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );

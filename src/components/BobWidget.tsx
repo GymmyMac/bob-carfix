@@ -5,14 +5,12 @@ import { Send, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-type AnimationState = "idle" | "listening" | "thinking" | "talking" | "happy" | "grump";
+type AnimationState = "idle" | "thinking" | "talking" | "happy" | "complete";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
 }
-
-const BOB_IMAGE_BUCKET = "bob-images";
 
 export const BobWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -21,33 +19,38 @@ export const BobWidget = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [animationState, setAnimationState] = useState<AnimationState>("idle");
   const [isTalkToggle, setIsTalkToggle] = useState(false);
+  const [isThinkToggle, setIsThinkToggle] = useState(false);
   const [imageUrls, setImageUrls] = useState<Record<AnimationState, string>>({
     idle: "",
-    listening: "",
     thinking: "",
     talking: "",
     happy: "",
-    grump: ""
+    complete: ""
   });
   
   const chatEndRef = useRef<HTMLDivElement>(null);
   const talkIntervalRef = useRef<NodeJS.Timeout>();
+  const thinkIntervalRef = useRef<NodeJS.Timeout>();
 
   // Load Bob images from public folder
   useEffect(() => {
     setImageUrls({
       idle: "/bob-animations/idle.png",
-      listening: "/bob-animations/listening.png",
       thinking: "/bob-animations/thinking.png",
       talking: "/bob-animations/talk-small.png",
       happy: "/bob-animations/happy.png",
-      grump: "/bob-animations/grump.png"
+      complete: "/bob-animations/23628891-3eb9-40bf-b2f5-dda69129038a.png"
     });
   }, []);
 
   // Preload images
   useEffect(() => {
-    Object.values(imageUrls).forEach(url => {
+    const allImages = [
+      ...Object.values(imageUrls),
+      "/bob-animations/Bob talk small.png",
+      "/bob-animations/Bob thinking.png"
+    ];
+    allImages.forEach(url => {
       if (url) {
         const img = new Image();
         img.src = url;
@@ -71,6 +74,26 @@ export const BobWidget = () => {
     return () => {
       if (talkIntervalRef.current) {
         clearInterval(talkIntervalRef.current);
+      }
+    };
+  }, [animationState]);
+
+  // Handle thinking animation toggle
+  useEffect(() => {
+    if (animationState === "thinking") {
+      thinkIntervalRef.current = setInterval(() => {
+        setIsThinkToggle(prev => !prev);
+      }, 600);
+    } else {
+      if (thinkIntervalRef.current) {
+        clearInterval(thinkIntervalRef.current);
+      }
+      setIsThinkToggle(false);
+    }
+    
+    return () => {
+      if (thinkIntervalRef.current) {
+        clearInterval(thinkIntervalRef.current);
       }
     };
   }, [animationState]);
@@ -167,14 +190,8 @@ export const BobWidget = () => {
         }
       }
 
-      // Detect sentiment for post-response animation
-      const lowerContent = assistantContent.toLowerCase();
-      if (lowerContent.includes("sorry") || lowerContent.includes("unfortunately") || lowerContent.includes("can't")) {
-        setAnimationState("grump");
-      } else {
-        setAnimationState("happy");
-      }
-
+      // Post-response animation
+      setAnimationState("happy");
       setTimeout(() => setAnimationState("idle"), 3000);
     } catch (error) {
       console.error("Chat error:", error);
@@ -205,8 +222,13 @@ export const BobWidget = () => {
 
   const getCurrentImage = () => {
     if (animationState === "talking") {
-      return isTalkToggle ? "/bob-animations/talk-big.png" : "/bob-animations/talk-small.png";
+      return isTalkToggle ? "/bob-animations/Bob talk small.png" : "/bob-animations/talk-small.png";
     }
+    
+    if (animationState === "thinking") {
+      return isThinkToggle ? "/bob-animations/Bob thinking.png" : "/bob-animations/thinking.png";
+    }
+    
     return imageUrls[animationState] || imageUrls.idle;
   };
 
@@ -284,8 +306,6 @@ export const BobWidget = () => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
-            onFocus={() => !isLoading && setAnimationState("listening")}
-            onBlur={() => !isLoading && setAnimationState("idle")}
             placeholder="Ask Bob about car parts..."
             disabled={isLoading}
             className="flex-1"
