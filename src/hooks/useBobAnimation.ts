@@ -6,38 +6,26 @@ export const useBobAnimation = () => {
   const [animationState, setAnimationState] = useState<AnimationState>("idle");
   const [isTalkToggle, setIsTalkToggle] = useState(false);
   const [talkSpeed, setTalkSpeed] = useState(400); // Dynamic talk speed
-  const [imageUrls, setImageUrls] = useState<Record<AnimationState, string>>({
-    idle: "",
-    listening: "",
-    thinking: "",
-    talking: "",
-    happy: "",
-    grump: ""
-  });
   
   const talkIntervalRef = useRef<NodeJS.Timeout>();
 
-  // Load Bob images from public folder
-  useEffect(() => {
-    setImageUrls({
-      idle: "/bob-animations/idle.png",
-      listening: "/bob-animations/listening.png",
-      thinking: "/bob-animations/thinking.png",
-      talking: "/bob-animations/talk-small.png",
-      happy: "/bob-animations/happy.png",
-      grump: "/bob-animations/grump.png"
-    });
-  }, []);
+  // Define Bob images from public folder directly (no state needed)
+  const imageUrlsMap: Record<AnimationState, string> = {
+    idle: "/bob-animations/idle.png",
+    listening: "/bob-animations/listening.png",
+    thinking: "/bob-animations/thinking.png",
+    talking: "/bob-animations/talk-small.png",
+    happy: "/bob-animations/happy.png",
+    grump: "/bob-animations/grump.png"
+  };
 
   // Preload images
   useEffect(() => {
-    Object.values(imageUrls).forEach(url => {
-      if (url) {
-        const img = new Image();
-        img.src = url;
-      }
+    Object.values(imageUrlsMap).forEach(url => {
+      const img = new Image();
+      img.src = url;
     });
-  }, [imageUrls]);
+  }, []);
 
   // Handle talking animation toggle with dynamic speed
   useEffect(() => {
@@ -66,14 +54,14 @@ export const useBobAnimation = () => {
     if (animationState === "talking") {
       return isTalkToggle ? "/bob-animations/talk-big.png" : "/bob-animations/talk-small.png";
     }
-    return imageUrls[animationState] || imageUrls.idle;
+    return imageUrlsMap[animationState] || imageUrlsMap.idle;
   };
 
   return {
     animationState,
     setAnimationState,
     getCurrentImage,
-    imageUrls,
+    imageUrls: imageUrlsMap,
     setTalkSpeed
   };
 };
