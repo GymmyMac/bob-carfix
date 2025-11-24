@@ -21,9 +21,11 @@ interface AdminPanelProps {
 }
 
 export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
-  // Access the animation controls from the parent via window object (set in Index.tsx)
-  const animationControls = (window as any).bobAnimationControls;
-  const chatControls = (window as any).bobChatControls;
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
+  const [talkSpeed, setTalkSpeed] = useState(400);
+  const [messageCount, setMessageCount] = useState(0);
+  const [systemStatus, setSystemStatus] = useState<"online" | "offline">("online");
+  const [galleryTab, setGalleryTab] = useState("upload");
   
   // Bob Animation Config (for Gallery tab)
   const {
@@ -36,15 +38,14 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     deleteState,
   } = useBobAnimationConfig();
   
-  // Early return BEFORE any hooks
+  // Access the animation controls from the parent via window object (set in Index.tsx)
+  const animationControls = (window as any).bobAnimationControls;
+  const chatControls = (window as any).bobChatControls;
+  
+  // Early return AFTER all hooks are called
   if (!animationControls) {
     return null;
   }
-
-  const [talkSpeed, setTalkSpeed] = useState(400);
-  const [messageCount, setMessageCount] = useState(0);
-  const [systemStatus, setSystemStatus] = useState<"online" | "offline">("online");
-  const [galleryTab, setGalleryTab] = useState("upload");
 
   const { 
     animationState, 
