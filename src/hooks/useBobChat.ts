@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { useBobAnimationConfig } from "./useBobAnimationConfig";
 
 export type AnimationState = string;
 
@@ -15,6 +16,7 @@ interface UseBobChatProps {
 }
 
 export const useBobChat = ({ setAnimationState, setTalkSpeed, manualMode = false }: UseBobChatProps) => {
+  const { getTalkingState, getThinkingState, getCompleteState, getIdleState } = useBobAnimationConfig();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -78,7 +80,8 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed, manualMode = false
       let assistantContent = "";
 
       if (!manualMode) {
-        safeSetState("talking");
+        const talkingState = getTalkingState() || "talk";
+        safeSetState(talkingState);
         // Start with fast talking speed
         if (setTalkSpeed) setTalkSpeed(200);
       }
@@ -144,14 +147,17 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed, manualMode = false
         if (setTalkSpeed) setTalkSpeed(400);
         
         // Post-response animation
-        safeSetState("happy");
-        setTimeout(() => safeSetState("idle"), 3000);
+        const completeState = getCompleteState() || "complete";
+        const idleState = getIdleState() || "idle";
+        safeSetState(completeState);
+        setTimeout(() => safeSetState(idleState), 3000);
       }
     } catch (error) {
       console.error("Chat error:", error);
       toast.error("Failed to send message. Please try again.");
       if (!manualMode) {
-        safeSetState("idle");
+        const idleState = getIdleState() || "idle";
+        safeSetState(idleState);
       }
     }
   };
@@ -165,7 +171,8 @@ export const useBobChat = ({ setAnimationState, setTalkSpeed, manualMode = false
     setIsLoading(true);
     
     if (!manualMode) {
-      safeSetState("thinking");
+      const thinkingState = getThinkingState() || "research";
+      safeSetState(thinkingState);
     }
 
     await streamChat(userMessage);

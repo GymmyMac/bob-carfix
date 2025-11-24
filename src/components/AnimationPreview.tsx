@@ -6,7 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 export const AnimationPreview = () => {
   const { animationState, setAnimationState, getCurrentImage, setTalkSpeed } = useBobAnimation();
-  const { states } = useBobAnimationConfig();
+  const { states, getTalkingState } = useBobAnimationConfig();
+  
+  const talkingStateKey = getTalkingState();
 
   const stateButtons = states
     .filter((s) => s.is_active)
@@ -37,7 +39,7 @@ export const AnimationPreview = () => {
               onClick={() => {
                 setAnimationState(state);
                 // Match front-end chat timing for talking state
-                if (state === "talking") {
+                if (state === talkingStateKey) {
                   setTalkSpeed(200);
                 }
               }}

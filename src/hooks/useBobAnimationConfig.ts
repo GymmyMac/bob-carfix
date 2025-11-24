@@ -388,6 +388,25 @@ export const useBobAnimationConfig = () => {
     }
   };
 
+  // Dynamic state helpers - find states by role/purpose
+  const getStateByKey = (stateKey: string) => 
+    states.find(s => s.state_key === stateKey);
+  
+  const getDefaultState = () => 
+    states.find(s => s.display_order === 1)?.state_key || states[0]?.state_key || 'idle';
+  
+  const getTalkingState = () => 
+    states.find(s => s.state_key === 'talk' || s.title.toLowerCase().includes('talk'))?.state_key;
+  
+  const getThinkingState = () => 
+    states.find(s => s.state_key === 'research' || s.title.toLowerCase().includes('research') || s.title.toLowerCase().includes('think'))?.state_key;
+  
+  const getCompleteState = () => 
+    states.find(s => s.state_key === 'complete' || s.title.toLowerCase().includes('complete') || s.title.toLowerCase().includes('done'))?.state_key;
+  
+  const getIdleState = () => 
+    states.find(s => s.state_key === 'idle' || s.title.toLowerCase().includes('idle'))?.state_key;
+
   return {
     configs,
     states,
@@ -403,5 +422,11 @@ export const useBobAnimationConfig = () => {
     deleteState,
     refetch: fetchConfigs,
     refreshImages: listUploadedImages,
+    getStateByKey,
+    getDefaultState,
+    getTalkingState,
+    getThinkingState,
+    getCompleteState,
+    getIdleState,
   };
 };
