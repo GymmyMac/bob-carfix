@@ -1,27 +1,77 @@
-import { BobWidget } from "@/components/BobWidget";
+import { BobCharacter } from "@/components/BobCharacter";
+import { ChatInterface } from "@/components/ChatInterface";
+import { ProductShelf } from "@/components/ProductShelf";
+import { useBobAnimation } from "@/hooks/useBobAnimation";
+import { useBobChat } from "@/hooks/useBobChat";
+import { PLACEHOLDER_PRODUCTS } from "@/types/product";
 
 const Index = () => {
+  const { animationState, setAnimationState, getCurrentImage } = useBobAnimation();
+  const {
+    messages,
+    input,
+    setInput,
+    isLoading,
+    handleSend,
+    handleKeyPress,
+    handleInputFocus,
+    handleInputBlur,
+    chatEndRef
+  } = useBobChat({ setAnimationState });
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center max-w-2xl mx-auto px-4">
-        <h1 className="mb-4 text-4xl font-bold">Bob Widget Demo</h1>
-        <p className="text-xl text-muted-foreground mb-6">
-          Testing ground for the CARFIX Bob assistant. Click the Bob icon in the bottom-right corner to start chatting!
-        </p>
-        <div className="bg-muted rounded-lg p-6 text-left">
-          <h2 className="text-lg font-semibold mb-3">Features:</h2>
-          <ul className="space-y-2 text-muted-foreground">
-            <li>✓ Animated Bob character with multiple states</li>
-            <li>✓ AI-powered chat using Lovable AI (Gemini)</li>
-            <li>✓ Kiwi personality and auto parts expertise</li>
-            <li>✓ Sentiment-based animations (happy/grump)</li>
-            <li>✓ Streaming responses for natural conversation</li>
-            <li>⏳ Future: ElevenLabs TTS integration</li>
-            <li>⏳ Future: Supabase parts lookup</li>
-          </ul>
+    <div className="min-h-screen bg-background">
+      {/* Desktop: Side-by-side layout */}
+      <div className="hidden lg:grid lg:grid-cols-[35%_65%] min-h-screen">
+        {/* Bob Area */}
+        <div className="flex items-center justify-center p-8 bg-muted/30 border-r border-border">
+          <BobCharacter 
+            currentImage={getCurrentImage()}
+            animationState={animationState}
+          />
+        </div>
+
+        {/* Product Shelf Area */}
+        <div className="bg-background">
+          <ProductShelf 
+            products={PLACEHOLDER_PRODUCTS}
+            onProductClick={(product) => console.log("Product clicked:", product)}
+          />
         </div>
       </div>
-      <BobWidget />
+
+      {/* Mobile/Tablet: Stacked layout */}
+      <div className="lg:hidden">
+        <div className="bg-muted/30 py-12 px-4">
+          <BobCharacter 
+            currentImage={getCurrentImage()}
+            animationState={animationState}
+            className="max-w-sm mx-auto"
+          />
+        </div>
+
+        <div className="py-8">
+          <ProductShelf 
+            products={PLACEHOLDER_PRODUCTS}
+            onProductClick={(product) => console.log("Product clicked:", product)}
+          />
+        </div>
+      </div>
+
+      {/* Chat Interface - Full width at bottom on all screens */}
+      <div className="py-8 bg-muted/20">
+        <ChatInterface
+          messages={messages}
+          input={input}
+          setInput={setInput}
+          isLoading={isLoading}
+          onSend={handleSend}
+          onKeyPress={handleKeyPress}
+          onInputFocus={handleInputFocus}
+          onInputBlur={handleInputBlur}
+          chatEndRef={chatEndRef}
+        />
+      </div>
     </div>
   );
 };
