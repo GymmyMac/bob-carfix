@@ -3,14 +3,12 @@ import { useState, useEffect, useRef } from "react";
 export type AnimationState = string;
 
 export const useBobAnimation = () => {
-  const [animationState, setAnimationState] = useState<AnimationState>("idle");
-  const [isTalkToggle, setIsTalkToggle] = useState(false);
-  const [isThinkToggle, setIsThinkToggle] = useState(false);
+  const [animationState, setAnimationState] = useState<AnimationState>("");
+  const [sequenceIndex, setSequenceIndex] = useState(0);
   const [talkSpeed, setTalkSpeed] = useState(400);
   const [manualMode, setManualMode] = useState(false);
   
-  const talkIntervalRef = useRef<NodeJS.Timeout>();
-  const thinkIntervalRef = useRef<NodeJS.Timeout>();
+  const animationIntervalRef = useRef<NodeJS.Timeout>();
 
   // Fetch image URLs from database configuration
   const [imageUrlsMap, setImageUrlsMap] = useState<Record<string, string>>({});
@@ -70,51 +68,41 @@ export const useBobAnimation = () => {
     fetchImages();
   }, []);
 
-  // Handle talking animation toggle
+  // Initialize animation state from database
   useEffect(() => {
-    if (animationState === "talking") {
-      if (talkIntervalRef.current) {
-        clearInterval(talkIntervalRef.current);
-      }
-      talkIntervalRef.current = setInterval(() => {
-        setIsTalkToggle(prev => !prev);
+    if (availableStates.length > 0 && !animationState) {
+      setAnimationState(availableStates[0]);
+    }
+  }, [availableStates, animationState]);
+
+  // Generic sequence animation for ALL states with multiple images
+  useEffect(() => {
+    const alternates = alternateImages[animationState];
+    
+    // Clear any existing interval
+    if (animationIntervalRef.current) {
+      clearInterval(animationIntervalRef.current);
+    }
+    
+    // If state has multiple images, cycle through them
+    if (alternates && alternates.length > 1) {
+      setSequenceIndex(0); // Reset to first frame on state change
+      
+      // Cycle through all images in sequence
+      animationIntervalRef.current = setInterval(() => {
+        setSequenceIndex(prev => (prev + 1) % alternates.length);
       }, talkSpeed);
     } else {
-      if (talkIntervalRef.current) {
-        clearInterval(talkIntervalRef.current);
-      }
-      setIsTalkToggle(false);
+      // Single image or no images - no animation needed
+      setSequenceIndex(0);
     }
     
     return () => {
-      if (talkIntervalRef.current) {
-        clearInterval(talkIntervalRef.current);
+      if (animationIntervalRef.current) {
+        clearInterval(animationIntervalRef.current);
       }
     };
-  }, [animationState, talkSpeed]);
-
-  // Handle thinking animation toggle
-  useEffect(() => {
-    if (animationState === "thinking") {
-      if (thinkIntervalRef.current) {
-        clearInterval(thinkIntervalRef.current);
-      }
-      thinkIntervalRef.current = setInterval(() => {
-        setIsThinkToggle(prev => !prev);
-      }, 600);
-    } else {
-      if (thinkIntervalRef.current) {
-        clearInterval(thinkIntervalRef.current);
-      }
-      setIsThinkToggle(false);
-    }
-    
-    return () => {
-      if (thinkIntervalRef.current) {
-        clearInterval(thinkIntervalRef.current);
-      }
-    };
-  }, [animationState]);
+  }, [animationState, alternateImages, talkSpeed]);
 
   const getCurrentImage = () => {
     const alternates = alternateImages[animationState];
@@ -127,16 +115,9 @@ export const useBobAnimation = () => {
       }
       return "";
     }
-
-    if (animationState === "talking" && alternates.length > 1) {
-      return isTalkToggle ? alternates[1] : alternates[0];
-    }
     
-    if (animationState === "thinking" && alternates.length > 1) {
-      return isThinkToggle ? alternates[1] : alternates[0];
-    }
-    
-    return alternates[0];
+    // Return current frame in sequence (works for ALL states)
+    return alternates[sequenceIndex] || alternates[0];
   };
 
   return {
