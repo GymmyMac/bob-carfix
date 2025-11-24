@@ -19,7 +19,7 @@ export const BobCharacter = ({
         <img 
           src={currentImage} 
           alt={`Bob ${animationState}`} 
-          className={`max-w-full max-h-full object-contain transition-all duration-300 ${getAnimationClass()}`}
+          className={`w-[320px] h-[400px] object-contain transition-all duration-300 ${getAnimationClass()}`}
         />
       </div>
       
