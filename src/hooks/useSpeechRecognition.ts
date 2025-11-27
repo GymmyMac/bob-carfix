@@ -52,6 +52,14 @@ export const useSpeechRecognition = ({
   
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const lastFinalTranscriptRef = useRef<string>('');
+  const onTranscriptRef = useRef(onTranscript);
+  const onSpeechEndRef = useRef(onSpeechEnd);
+
+  // Keep refs up to date
+  useEffect(() => {
+    onTranscriptRef.current = onTranscript;
+    onSpeechEndRef.current = onSpeechEnd;
+  }, [onTranscript, onSpeechEnd]);
 
   useEffect(() => {
     // Check if browser supports Speech Recognition
@@ -87,8 +95,8 @@ export const useSpeechRecognition = ({
         if (finalText) {
           lastFinalTranscriptRef.current = finalText;
           setTranscript(finalText);
-          if (onTranscript) {
-            onTranscript(finalText);
+          if (onTranscriptRef.current) {
+            onTranscriptRef.current(finalText);
           }
         }
         setInterimTranscript(interimText);
@@ -117,8 +125,8 @@ export const useSpeechRecognition = ({
         setInterimTranscript('');
         
         // Trigger onSpeechEnd if we have a final transcript
-        if (lastFinalTranscriptRef.current && onSpeechEnd) {
-          onSpeechEnd(lastFinalTranscriptRef.current);
+        if (lastFinalTranscriptRef.current && onSpeechEndRef.current) {
+          onSpeechEndRef.current(lastFinalTranscriptRef.current);
         }
         lastFinalTranscriptRef.current = ''; // Reset for next session
       };
@@ -131,7 +139,7 @@ export const useSpeechRecognition = ({
         recognitionRef.current.stop();
       }
     };
-  }, [language, onTranscript, onSpeechEnd]);
+  }, [language]);
 
   const startListening = () => {
     if (recognitionRef.current && !isListening) {
