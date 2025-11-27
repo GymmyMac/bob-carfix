@@ -22,6 +22,7 @@ export type Database = {
           description: string | null
           display_order: number
           id: string
+          idle_timeout_ms: number | null
           is_active: boolean
           loop_count: number | null
           pause_duration: number | null
@@ -36,6 +37,7 @@ export type Database = {
           description?: string | null
           display_order?: number
           id?: string
+          idle_timeout_ms?: number | null
           is_active?: boolean
           loop_count?: number | null
           pause_duration?: number | null
@@ -50,6 +52,7 @@ export type Database = {
           description?: string | null
           display_order?: number
           id?: string
+          idle_timeout_ms?: number | null
           is_active?: boolean
           loop_count?: number | null
           pause_duration?: number | null

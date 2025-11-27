@@ -319,6 +319,43 @@ export const useBobAnimationConfig = () => {
     }
   };
 
+  const getIdleTimeoutSettings = () => {
+    const idleState = states.find(s => 
+      s.chat_trigger === 'awaiting_input' || 
+      s.state_key === 'idle' || 
+      s.title.toLowerCase().includes('idle')
+    );
+    
+    return {
+      enabled: idleState?.idle_timeout_ms != null && idleState.idle_timeout_ms > 0,
+      timeoutMs: idleState?.idle_timeout_ms || 30000
+    };
+  };
+
+  const updateIdleTimeout = async (timeoutMs: number | null) => {
+    try {
+      const idleState = states.find(s => 
+        s.chat_trigger === 'awaiting_input' || 
+        s.state_key === 'idle' || 
+        s.title.toLowerCase().includes('idle')
+      );
+      
+      if (!idleState) throw new Error('Idle state not found');
+      
+      const { error } = await supabase
+        .from('animation_states')
+        .update({ idle_timeout_ms: timeoutMs })
+        .eq('id', idleState.id);
+      
+      if (error) throw error;
+      
+      invalidateCache();
+    } catch (error) {
+      console.error('Error updating idle timeout:', error);
+      throw error;
+    }
+  };
+
   return {
     configs,
     states,
@@ -340,5 +377,7 @@ export const useBobAnimationConfig = () => {
     getThinkingState,
     getCompleteState,
     getIdleState,
+    getIdleTimeoutSettings,
+    updateIdleTimeout,
   };
 };
