@@ -23,6 +23,7 @@ export const useBobStateTransitions = ({
 }: UseBobStateTransitionsProps) => {
   const [chatStage, setChatStage] = useState<ChatStage>('page_load');
   const [isInitialized, setIsInitialized] = useState(false);
+  const [idleStartTime, setIdleStartTime] = useState<number | null>(null);
 
   // Find state by chat trigger
   const getStateForTrigger = useCallback((trigger: string) => {
@@ -62,6 +63,7 @@ export const useBobStateTransitions = ({
     setTimeout(() => {
       setChatStage('awaiting_input');
       transitionTo('awaiting_input');
+      setIdleStartTime(Date.now()); // Start idle timer after initial greeting
     }, 3000);
   }, [isInitialized, manualMode, transitionTo]);
 
@@ -69,6 +71,7 @@ export const useBobStateTransitions = ({
   const onUserInput = useCallback(() => {
     setChatStage('processing_input');
     transitionTo('processing_input');
+    setIdleStartTime(null); // Reset idle timer on user interaction
   }, [transitionTo]);
 
   const onStreamStart = useCallback(() => {
@@ -84,8 +87,44 @@ export const useBobStateTransitions = ({
     setTimeout(() => {
       setChatStage('awaiting_input');
       transitionTo('awaiting_input');
+      setIdleStartTime(Date.now()); // Start idle timer
     }, 3000);
   }, [transitionTo]);
+
+  // Idle timeout effect - loops back to welcome state
+  useEffect(() => {
+    if (chatStage !== 'awaiting_input' || manualMode || !idleStartTime) {
+      return;
+    }
+
+    // Get idle timeout settings from state
+    const idleState = states.find(s => 
+      s.chat_trigger === 'awaiting_input' || 
+      s.state_key === 'idle' || 
+      s.title.toLowerCase().includes('idle')
+    );
+    
+    const idleTimeoutMs = idleState?.idle_timeout_ms;
+    
+    // If no timeout configured or disabled, don't set timer
+    if (!idleTimeoutMs || idleTimeoutMs <= 0) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      // Transition back to welcome state (page_load)
+      transitionTo('page_load');
+      
+      // After wave animation completes, return to idle
+      setTimeout(() => {
+        setChatStage('awaiting_input');
+        transitionTo('awaiting_input');
+        setIdleStartTime(Date.now()); // Reset for next loop
+      }, 3000);
+    }, idleTimeoutMs);
+
+    return () => clearTimeout(timer);
+  }, [chatStage, manualMode, idleStartTime, states, transitionTo]);
 
   return {
     chatStage,

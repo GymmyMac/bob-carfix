@@ -14,6 +14,7 @@ import { ImageUploaderWithState } from "@/components/ImageUploaderWithState";
 import { StateAssignmentCard } from "@/components/StateAssignmentCard";
 import { AnimationPreview } from "@/components/AnimationPreview";
 import { CSVChunkUploader } from "@/components/CSVChunkUploader";
+import { IdleLoopSettings } from "@/components/IdleLoopSettings";
 import { useBobAnimationConfig, AnimationState as AnimationStateType } from "@/hooks/useBobAnimationConfig";
 
 interface AdminPanelProps {
@@ -376,13 +377,16 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
 
             <Card>
               <CardHeader>
-                <CardTitle>Animation Settings</CardTitle>
-                <CardDescription>Future animation customization options</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <RotateCcw className="w-5 h-5" />
+                  Idle Loop Settings
+                </CardTitle>
+                <CardDescription>
+                  Configure Bob to wave periodically when idle
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Additional animation controls and customization options coming soon...
-                </p>
+              <CardContent className="space-y-4">
+                <IdleLoopSettings />
               </CardContent>
             </Card>
           </TabsContent>

@@ -23,6 +23,7 @@ export interface AnimationStateDefinition {
   pause_duration: number | null;
   loop_count: number | null;
   chat_trigger: string | null;
+  idle_timeout_ms: number | null;
 }
 
 export interface BobAnimationData {
