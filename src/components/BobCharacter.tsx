@@ -16,14 +16,14 @@ export const BobCharacter = ({
     // All animations disabled
     return "";
   };
-  return <div className={`flex flex-col items-center justify-center gap-6 ${className}`}>
+  return <div className={`flex flex-col items-center justify-center gap-6 w-full ${className}`}>
       <div className="relative w-full h-[400px] flex items-center justify-center">
         {/* Backdrop Layer - behind Bob */}
         {backdropUrl && (
           <img 
             src={backdropUrl} 
             alt="Backdrop" 
-            className="absolute inset-0 z-0 w-full h-full object-cover rounded-lg"
+            className="absolute inset-0 z-0 w-full h-full object-cover"
           />
         )}
         
