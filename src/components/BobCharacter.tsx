@@ -25,7 +25,7 @@ export const BobCharacter = ({
           <img 
             src={backdropUrl} 
             alt="Backdrop" 
-            className="absolute inset-0 z-0 w-full h-full object-cover"
+            className="absolute inset-0 z-0 w-full h-full object-cover object-bottom"
           />
         )}
         
