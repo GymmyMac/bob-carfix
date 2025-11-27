@@ -100,6 +100,9 @@ export const useBobAnimationConfig = () => {
     if (error) {
       throw error;
     }
+    
+    // Invalidate cache to refresh data
+    invalidateCache();
   };
 
   const deleteAnimation = async (id: string) => {
