@@ -31,7 +31,7 @@ export const BobCharacter = ({
         <img 
           src={currentImage} 
           alt={`Bob ${animationState}`} 
-          className={`relative z-10 w-[320px] h-[400px] object-contain transition-all duration-300 ${getAnimationClass()}`}
+          className={`relative z-10 w-[320px] h-[400px] object-contain transition-all duration-300 translate-y-5 ${getAnimationClass()}`}
         />
       </div>
       
