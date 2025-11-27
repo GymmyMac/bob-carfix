@@ -43,6 +43,14 @@ export const ChatInterface = ({
     toggleListening
   } = useSpeechRecognition({
     onTranscript: (text) => setInput(text),
+    onSpeechEnd: (text) => {
+      // Auto-send after a brief delay so user sees the transcribed text
+      if (text.trim() && !isLoading) {
+        setTimeout(() => {
+          onSend();
+        }, 300);
+      }
+    },
     language: 'en-NZ'
   });
 

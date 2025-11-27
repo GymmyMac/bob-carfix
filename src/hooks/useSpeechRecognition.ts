@@ -35,11 +35,13 @@ interface Window {
 
 interface UseSpeechRecognitionProps {
   onTranscript?: (transcript: string) => void;
+  onSpeechEnd?: (transcript: string) => void;
   language?: string;
 }
 
 export const useSpeechRecognition = ({
   onTranscript,
+  onSpeechEnd,
   language = 'en-NZ'
 }: UseSpeechRecognitionProps = {}) => {
   const [isListening, setIsListening] = useState(false);
@@ -49,6 +51,7 @@ export const useSpeechRecognition = ({
   const [isSupported, setIsSupported] = useState(false);
   
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const lastFinalTranscriptRef = useRef<string>('');
 
   useEffect(() => {
     // Check if browser supports Speech Recognition
@@ -82,6 +85,7 @@ export const useSpeechRecognition = ({
         }
 
         if (finalText) {
+          lastFinalTranscriptRef.current = finalText;
           setTranscript(finalText);
           if (onTranscript) {
             onTranscript(finalText);
@@ -111,6 +115,12 @@ export const useSpeechRecognition = ({
       recognition.onend = () => {
         setIsListening(false);
         setInterimTranscript('');
+        
+        // Trigger onSpeechEnd if we have a final transcript
+        if (lastFinalTranscriptRef.current && onSpeechEnd) {
+          onSpeechEnd(lastFinalTranscriptRef.current);
+        }
+        lastFinalTranscriptRef.current = ''; // Reset for next session
       };
 
       recognitionRef.current = recognition;
@@ -121,7 +131,7 @@ export const useSpeechRecognition = ({
         recognitionRef.current.stop();
       }
     };
-  }, [language, onTranscript]);
+  }, [language, onTranscript, onSpeechEnd]);
 
   const startListening = () => {
     if (recognitionRef.current && !isListening) {
