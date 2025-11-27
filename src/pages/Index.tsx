@@ -99,7 +99,7 @@ const Index = () => {
       <div className="hidden lg:grid lg:grid-cols-[40%_60%] min-h-screen">
         {/* Bob + Chat Area (Left) */}
         <div className="flex flex-col bg-muted/30 border-r border-border">
-          <div className="flex items-center justify-center pt-8 px-8 flex-shrink-0">
+          <div className="flex items-center justify-center pt-8 flex-shrink-0">
             <BobCharacter 
               currentImage={getCurrentImage()}
               animationState={animationState}
