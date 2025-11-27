@@ -95,6 +95,54 @@ export type Database = {
         }
         Relationships: []
       }
+      oem_crossover: {
+        Row: {
+          barcode: string | null
+          comp_part_no: string | null
+          created_at: string
+          ic1_code: string | null
+          ic1_code_desc: string | null
+          ic2_code: string | null
+          ic2_code_desc: string | null
+          id: string
+          oem_no: string | null
+          part_no: string | null
+          sku: string | null
+          updated_at: string
+          usage_type: string | null
+        }
+        Insert: {
+          barcode?: string | null
+          comp_part_no?: string | null
+          created_at?: string
+          ic1_code?: string | null
+          ic1_code_desc?: string | null
+          ic2_code?: string | null
+          ic2_code_desc?: string | null
+          id?: string
+          oem_no?: string | null
+          part_no?: string | null
+          sku?: string | null
+          updated_at?: string
+          usage_type?: string | null
+        }
+        Update: {
+          barcode?: string | null
+          comp_part_no?: string | null
+          created_at?: string
+          ic1_code?: string | null
+          ic1_code_desc?: string | null
+          ic2_code?: string | null
+          ic2_code_desc?: string | null
+          id?: string
+          oem_no?: string | null
+          part_no?: string | null
+          sku?: string | null
+          updated_at?: string
+          usage_type?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
