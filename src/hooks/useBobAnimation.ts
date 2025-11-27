@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useBobAnimationData } from "./useBobAnimationData";
 
 export type AnimationState = string;
 
@@ -10,70 +11,46 @@ export const useBobAnimation = () => {
   
   const animationIntervalRef = useRef<NodeJS.Timeout>();
 
-  // Fetch image URLs from database configuration
-  const [imageUrlsMap, setImageUrlsMap] = useState<Record<string, string>>({});
-  const [alternateImages, setAlternateImages] = useState<Record<string, string[]>>({});
-  const [availableStates, setAvailableStates] = useState<string[]>([]);
+  // Use centralized cached data
+  const { data, isLoading } = useBobAnimationData();
 
-  // Fetch and preload images from database
-  useEffect(() => {
-    const fetchImages = async () => {
-      const { supabase } = await import("@/integrations/supabase/client");
-      
-      // Fetch active states with their animation settings
-      const { data: statesData } = await supabase
-        .from("animation_states")
-        .select("*")
-        .eq("is_active", true)
-        .order("display_order");
+  // Derive state-specific data from cached results
+  const { imageUrlsMap, alternateImages, availableStates } = useMemo(() => {
+    if (!data) {
+      return { 
+        imageUrlsMap: {}, 
+        alternateImages: {}, 
+        availableStates: [] 
+      };
+    }
 
-      const stateKeys = statesData?.map((s) => s.state_key) || [];
-      setAvailableStates(stateKeys);
+    const newImageMap: Record<string, any> = {};
+    const newAlternates: Record<string, string[]> = {};
+    const stateKeys = data.states.map(s => s.state_key);
 
-      // Fetch image assignments
-      const { data } = await supabase
-        .from("bob_animations")
-        .select("*")
-        .eq("is_active", true)
-        .order("animation_state")
-        .order("sequence_order");
+    stateKeys.forEach((key) => {
+      const stateImages = data.configs
+        .filter((config) => config.animation_state === key)
+        .map((config) => config.image_url);
 
-      if (data && data.length > 0) {
-        const newImageMap: Record<string, any> = {};
-        const newAlternates: Record<string, string[]> = {};
-
-        stateKeys.forEach((key) => {
-          const stateImages = data
-            .filter((config) => config.animation_state === key)
-            .map((config) => config.image_url);
-
-          if (stateImages.length > 0) {
-            // Store state info with images
-            const stateInfo = statesData?.find(s => s.state_key === key);
-            newImageMap[key] = {
-              url: stateImages[0],
-              animation_speed: stateInfo?.animation_speed || 400,
-              pause_duration: stateInfo?.pause_duration || 0,
-              loop_count: stateInfo?.loop_count || 0,
-            };
-            newAlternates[key] = stateImages;
-          }
-        });
-
-        setImageUrlsMap(newImageMap);
-        setAlternateImages(newAlternates);
-
-        // Preload all images
-        const allImageUrls = data.map((d) => d.image_url);
-        allImageUrls.forEach((url) => {
-          const img = new Image();
-          img.src = url;
-        });
+      if (stateImages.length > 0) {
+        const stateInfo = data.states.find(s => s.state_key === key);
+        newImageMap[key] = {
+          url: stateImages[0],
+          animation_speed: stateInfo?.animation_speed || 400,
+          pause_duration: stateInfo?.pause_duration || 0,
+          loop_count: stateInfo?.loop_count || 0,
+        };
+        newAlternates[key] = stateImages;
       }
-    };
+    });
 
-    fetchImages();
-  }, []);
+    return {
+      imageUrlsMap: newImageMap,
+      alternateImages: newAlternates,
+      availableStates: stateKeys,
+    };
+  }, [data]);
 
   // Initialize animation state from database
   useEffect(() => {

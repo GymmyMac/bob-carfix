@@ -1,31 +1,13 @@
-import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { 
+  useBobAnimationData, 
+  useInvalidateBobAnimationData,
+  type BobAnimationConfig,
+  type AnimationStateDefinition 
+} from "./useBobAnimationData";
 
 export type AnimationState = string;
-
-export interface BobAnimationConfig {
-  id: string;
-  animation_state: AnimationState;
-  image_url: string;
-  sequence_order: number;
-  is_active: boolean;
-  description: string | null;
-}
-
-export interface AnimationStateDefinition {
-  id: string;
-  state_key: string;
-  title: string;
-  description: string | null;
-  display_order: number;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  animation_speed: number | null;
-  pause_duration: number | null;
-  loop_count: number | null;
-  chat_trigger: string | null;
-}
+export type { BobAnimationConfig, AnimationStateDefinition };
 
 export interface StateDefinition {
   reactionType: string;
@@ -36,108 +18,14 @@ export interface StateDefinition {
 }
 
 export const useBobAnimationConfig = () => {
-  const [configs, setConfigs] = useState<BobAnimationConfig[]>([]);
-  const [states, setStates] = useState<AnimationStateDefinition[]>([]);
-  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Use centralized cached data
+  const { data, isLoading } = useBobAnimationData();
+  const invalidateCache = useInvalidateBobAnimationData();
 
-  const fetchConfigs = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("bob_animations")
-        .select("*")
-        .order("animation_state")
-        .order("sequence_order");
-
-      if (error) throw error;
-
-      setConfigs((data || []) as BobAnimationConfig[]);
-      setLoading(false);
-    } catch (error) {
-      console.error("Error fetching animation configs:", error);
-      setLoading(false);
-    }
-  };
-
-  const fetchStates = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("animation_states")
-        .select("*")
-        .eq("is_active", true)
-        .order("display_order");
-
-      if (error) throw error;
-      setStates((data || []) as AnimationStateDefinition[]);
-    } catch (error) {
-      console.error("Error fetching states:", error);
-    }
-  };
-
-  const listUploadedImages = async () => {
-    try {
-      const { data, error } = await supabase.storage
-        .from("bob-images")
-        .list();
-
-      if (error) throw error;
-
-      const urls = (data || []).map((file) => {
-        const { data: urlData } = supabase.storage
-          .from("bob-images")
-          .getPublicUrl(file.name);
-        return urlData.publicUrl;
-      });
-
-      setUploadedImages(urls);
-    } catch (error) {
-      console.error("Error listing uploaded images:", error);
-      setUploadedImages([]);
-    }
-  };
-
-  useEffect(() => {
-    fetchConfigs();
-    fetchStates();
-    listUploadedImages();
-
-    // Subscribe to realtime updates for animations
-    const animChannel = supabase
-      .channel("bob_animations_changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "bob_animations",
-        },
-        () => {
-          fetchConfigs();
-        }
-      )
-      .subscribe();
-
-    // Subscribe to realtime updates for states
-    const stateChannel = supabase
-      .channel("animation_states_changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "animation_states",
-        },
-        () => {
-          fetchStates();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(animChannel);
-      supabase.removeChannel(stateChannel);
-    };
-  }, []);
+  const configs = data?.configs || [];
+  const states = data?.states || [];
+  const uploadedImages = data?.uploadedImages || [];
+  const loading = isLoading;
 
   const getActiveImagesByState = (state: AnimationState): string[] => {
     return configs
@@ -165,8 +53,8 @@ export const useBobAnimationConfig = () => {
 
       const { data } = supabase.storage.from("bob-images").getPublicUrl(filePath);
 
-      // Refresh uploaded images list
-      await listUploadedImages();
+      // Invalidate cache to refresh data
+      invalidateCache();
 
       return data.publicUrl;
     } catch (error) {
@@ -192,9 +80,8 @@ export const useBobAnimationConfig = () => {
 
       if (error) throw error;
 
-      // Refresh both configs and uploaded images
-      await fetchConfigs();
-      await listUploadedImages();
+      // Invalidate cache to refresh data
+      invalidateCache();
     } catch (error) {
       console.error("Error assigning image:", error);
       throw error;
@@ -236,9 +123,8 @@ export const useBobAnimationConfig = () => {
         }
       }
 
-      // Refresh data
-      await fetchConfigs();
-      await listUploadedImages();
+      // Invalidate cache to refresh data
+      invalidateCache();
     } catch (error) {
       console.error("Error deleting animation:", error);
       throw error;
@@ -248,7 +134,7 @@ export const useBobAnimationConfig = () => {
   const deleteUnassignedImage = async (imageUrl: string) => {
     try {
       await deleteImageFromStorage(imageUrl);
-      await listUploadedImages();
+      invalidateCache();
     } catch (error) {
       console.error("Error deleting unassigned image:", error);
       throw error;
@@ -277,8 +163,8 @@ export const useBobAnimationConfig = () => {
 
       if (error) throw error;
 
-      // Refresh data
-      await fetchStates();
+      // Invalidate cache to refresh data
+      invalidateCache();
     } catch (error) {
       console.error("Error deleting state:", error);
       throw error;
@@ -376,10 +262,8 @@ export const useBobAnimationConfig = () => {
         stateData.description
       );
       
-      // Refresh all data
-      await fetchStates();
-      await fetchConfigs();
-      await listUploadedImages();
+      // Invalidate cache to refresh all data
+      invalidateCache();
       
       return imageUrl;
     } catch (error) {
@@ -428,7 +312,7 @@ export const useBobAnimationConfig = () => {
       
       if (error) throw error;
       
-      await fetchStates();
+      invalidateCache();
     } catch (error) {
       console.error('Error updating state settings:', error);
       throw error;
@@ -449,8 +333,7 @@ export const useBobAnimationConfig = () => {
     deleteUnassignedImage,
     deleteState,
     updateStateSettings,
-    refetch: fetchConfigs,
-    refreshImages: listUploadedImages,
+    refetch: invalidateCache,
     getStateByKey,
     getDefaultState,
     getTalkingState,
