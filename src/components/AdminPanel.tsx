@@ -15,6 +15,7 @@ import { StateAssignmentCard } from "@/components/StateAssignmentCard";
 import { AnimationPreview } from "@/components/AnimationPreview";
 import { CSVChunkUploader } from "@/components/CSVChunkUploader";
 import { IdleLoopSettings } from "@/components/IdleLoopSettings";
+import { BackdropManager } from "@/components/BackdropManager";
 import { useBobAnimationConfig, AnimationState as AnimationStateType } from "@/hooks/useBobAnimationConfig";
 
 interface AdminPanelProps {
@@ -154,7 +155,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
         </DialogHeader>
 
         <Tabs defaultValue="controls" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="controls" className="gap-2">
               <Zap className="w-4 h-4" />
               Controls
@@ -170,6 +171,10 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
             <TabsTrigger value="gallery" className="gap-2">
               <Image className="w-4 h-4" />
               Gallery
+            </TabsTrigger>
+            <TabsTrigger value="backdrop" className="gap-2">
+              <Image className="w-4 h-4" />
+              Backdrop
             </TabsTrigger>
             <TabsTrigger value="data" className="gap-2">
               <Database className="w-4 h-4" />
@@ -539,6 +544,11 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
           {/* DATA TAB */}
           <TabsContent value="data" className="space-y-6 mt-6">
             <CSVChunkUploader />
+          </TabsContent>
+
+          {/* BACKDROP TAB */}
+          <TabsContent value="backdrop" className="space-y-6 mt-6">
+            <BackdropManager />
           </TabsContent>
         </Tabs>
       </DialogContent>

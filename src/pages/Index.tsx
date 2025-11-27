@@ -8,6 +8,7 @@ import { useBobChat } from "@/hooks/useBobChat";
 import { PLACEHOLDER_PRODUCTS } from "@/types/product";
 import { AdminButton } from "@/components/AdminButton";
 import { useBobStateTransitions } from "@/hooks/useBobStateTransitions";
+import { useBobBackdrop } from "@/hooks/useBobBackdrop";
 
 const Index = () => {
   const { 
@@ -18,6 +19,9 @@ const Index = () => {
     manualMode,
     setManualMode
   } = useBobAnimation();
+  
+  // Get backdrop data
+  const { activeBackdrop } = useBobBackdrop();
   
   // Get dynamic state keys and state data from database configuration
   const { 
@@ -99,6 +103,7 @@ const Index = () => {
             <BobCharacter 
               currentImage={getCurrentImage()}
               animationState={animationState}
+              backdropUrl={activeBackdrop?.image_url}
             />
           </div>
           
@@ -136,6 +141,7 @@ const Index = () => {
             <BobCharacter 
               currentImage={getCurrentImage()}
               animationState={animationState}
+              backdropUrl={activeBackdrop?.image_url}
               className="max-w-sm mx-auto"
             />
           </div>
