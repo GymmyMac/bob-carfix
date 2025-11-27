@@ -8,11 +8,12 @@ import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image } from "lucide-react";
+import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image, Database } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ImageUploaderWithState } from "@/components/ImageUploaderWithState";
 import { StateAssignmentCard } from "@/components/StateAssignmentCard";
 import { AnimationPreview } from "@/components/AnimationPreview";
+import { CSVChunkUploader } from "@/components/CSVChunkUploader";
 import { useBobAnimationConfig, AnimationState as AnimationStateType } from "@/hooks/useBobAnimationConfig";
 
 interface AdminPanelProps {
@@ -152,7 +153,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
         </DialogHeader>
 
         <Tabs defaultValue="controls" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="controls" className="gap-2">
               <Zap className="w-4 h-4" />
               Controls
@@ -168,6 +169,10 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
             <TabsTrigger value="gallery" className="gap-2">
               <Image className="w-4 h-4" />
               Gallery
+            </TabsTrigger>
+            <TabsTrigger value="data" className="gap-2">
+              <Database className="w-4 h-4" />
+              Data
             </TabsTrigger>
           </TabsList>
 
@@ -525,6 +530,11 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                 </TabsContent>
               </Tabs>
             )}
+          </TabsContent>
+
+          {/* DATA TAB */}
+          <TabsContent value="data" className="space-y-6 mt-6">
+            <CSVChunkUploader />
           </TabsContent>
         </Tabs>
       </DialogContent>
