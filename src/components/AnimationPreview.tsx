@@ -5,7 +5,7 @@ import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const AnimationPreview = () => {
-  const { animationState, setAnimationState, getCurrentImage, setTalkSpeed } = useBobAnimation();
+  const { animationState, setAnimationState, getCurrentImage, getCurrentOffset, setTalkSpeed } = useBobAnimation();
   const { states, getTalkingState } = useBobAnimationConfig();
   
   const talkingStateKey = getTalkingState();
@@ -28,6 +28,7 @@ export const AnimationPreview = () => {
           <BobCharacter
             currentImage={getCurrentImage()}
             animationState={animationState}
+            verticalOffset={getCurrentOffset()}
             className="max-w-md mx-auto"
           />
         </div>

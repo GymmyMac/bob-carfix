@@ -4,12 +4,14 @@ interface BobCharacterProps {
   animationState: AnimationState;
   backdropUrl?: string;
   className?: string;
+  verticalOffset?: number;
 }
 export const BobCharacter = ({
   currentImage,
   animationState,
   backdropUrl,
-  className = ""
+  className = "",
+  verticalOffset = 0
 }: BobCharacterProps) => {
   // Determine animation classes based on state
   const getAnimationClass = () => {
@@ -31,7 +33,8 @@ export const BobCharacter = ({
         <img 
           src={currentImage} 
           alt={`Bob ${animationState}`} 
-          className={`relative z-10 w-[320px] h-[400px] object-contain transition-all duration-300 translate-y-5 ${getAnimationClass()}`}
+          className={`relative z-10 w-[320px] h-[400px] object-contain transition-all duration-300 ${getAnimationClass()}`}
+          style={{ transform: `translateY(${verticalOffset}px)` }}
         />
       </div>
       

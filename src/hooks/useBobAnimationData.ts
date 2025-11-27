@@ -8,6 +8,7 @@ export interface BobAnimationConfig {
   sequence_order: number;
   is_active: boolean;
   description: string | null;
+  vertical_offset: number;
 }
 
 export interface AnimationStateDefinition {

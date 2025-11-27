@@ -15,6 +15,7 @@ const Index = () => {
     animationState, 
     setAnimationState, 
     getCurrentImage, 
+    getCurrentOffset,
     setTalkSpeed,
     manualMode,
     setManualMode
@@ -104,6 +105,7 @@ const Index = () => {
               currentImage={getCurrentImage()}
               animationState={animationState}
               backdropUrl={activeBackdrop?.image_url}
+              verticalOffset={getCurrentOffset()}
             />
           </div>
           
@@ -143,6 +145,7 @@ const Index = () => {
               animationState={animationState}
               backdropUrl={activeBackdrop?.image_url}
               className="max-w-sm mx-auto"
+              verticalOffset={getCurrentOffset()}
             />
           </div>
           

@@ -530,6 +530,9 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                         }
                         onReorder={handleReorder}
                         onUpdateSettings={updateStateSettings}
+                        onUpdateOffset={(id, offset) =>
+                          updateAnimation(id, { vertical_offset: offset })
+                        }
                       />
                     ))}
                 </TabsContent>
