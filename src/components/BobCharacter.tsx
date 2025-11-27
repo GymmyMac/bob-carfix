@@ -19,7 +19,7 @@ export const BobCharacter = ({
     return "";
   };
   return <div className={`flex flex-col items-center justify-center gap-6 w-full ${className}`}>
-      <div className="relative w-full h-[400px] flex items-center justify-center">
+      <div className="relative w-full h-[400px] flex items-end justify-center">
         {/* Backdrop Layer - behind Bob */}
         {backdropUrl && (
           <img 
@@ -34,7 +34,7 @@ export const BobCharacter = ({
           src={currentImage} 
           alt={`Bob ${animationState}`} 
           className={`relative z-10 w-[320px] h-[400px] object-contain ${getAnimationClass()}`}
-          style={{ transform: `translateY(${verticalOffset}px)` }}
+          style={{ marginBottom: `${verticalOffset}px` }}
         />
       </div>
       
