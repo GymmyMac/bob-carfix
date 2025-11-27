@@ -98,7 +98,7 @@ const Index = () => {
       {/* Desktop: Side-by-side layout */}
       <div className="hidden lg:grid lg:grid-cols-[40%_60%] min-h-screen">
         {/* Bob + Chat Area (Left) */}
-        <div className="flex flex-col bg-muted/30 border-r border-border">
+        <div className="flex flex-col border-r border-border">
           <div className="flex items-center justify-center pt-8 flex-shrink-0">
             <BobCharacter 
               currentImage={getCurrentImage()}
@@ -136,7 +136,7 @@ const Index = () => {
 
       {/* Mobile/Tablet: Stacked layout */}
       <div className="lg:hidden">
-        <div className="bg-muted/30 px-4">
+        <div className="px-4">
           <div className="pt-12">
             <BobCharacter 
               currentImage={getCurrentImage()}
