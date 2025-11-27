@@ -15,23 +15,27 @@ export const useBobAnimation = () => {
   const { data, isLoading } = useBobAnimationData();
 
   // Derive state-specific data from cached results
-  const { imageUrlsMap, alternateImages, availableStates } = useMemo(() => {
+  const { imageUrlsMap, alternateImages, offsetsMap, availableStates } = useMemo(() => {
     if (!data) {
       return { 
         imageUrlsMap: {}, 
         alternateImages: {}, 
+        offsetsMap: {},
         availableStates: [] 
       };
     }
 
     const newImageMap: Record<string, any> = {};
     const newAlternates: Record<string, string[]> = {};
+    const newOffsetsMap: Record<string, number[]> = {};
     const stateKeys = data.states.map(s => s.state_key);
 
     stateKeys.forEach((key) => {
-      const stateImages = data.configs
-        .filter((config) => config.animation_state === key)
-        .map((config) => config.image_url);
+      const stateConfigs = data.configs
+        .filter((config) => config.animation_state === key);
+      
+      const stateImages = stateConfigs.map((config) => config.image_url);
+      const stateOffsets = stateConfigs.map((config) => config.vertical_offset || 0);
 
       if (stateImages.length > 0) {
         const stateInfo = data.states.find(s => s.state_key === key);
@@ -42,12 +46,14 @@ export const useBobAnimation = () => {
           loop_count: stateInfo?.loop_count || 0,
         };
         newAlternates[key] = stateImages;
+        newOffsetsMap[key] = stateOffsets;
       }
     });
 
     return {
       imageUrlsMap: newImageMap,
       alternateImages: newAlternates,
+      offsetsMap: newOffsetsMap,
       availableStates: stateKeys,
     };
   }, [data]);
@@ -146,10 +152,27 @@ export const useBobAnimation = () => {
     return alternates[sequenceIndex] || alternates[0];
   };
 
+  const getCurrentOffset = () => {
+    const offsets = offsetsMap[animationState];
+    
+    if (!offsets || offsets.length === 0) {
+      // Fallback to first available state with offsets
+      const fallbackState = availableStates.find((s) => offsetsMap[s]?.length > 0);
+      if (fallbackState) {
+        return offsetsMap[fallbackState][0];
+      }
+      return 0;
+    }
+    
+    // Return current frame's offset in sequence
+    return offsets[sequenceIndex] || offsets[0];
+  };
+
   return {
     animationState,
     setAnimationState,
     getCurrentImage,
+    getCurrentOffset,
     imageUrls: imageUrlsMap,
     availableStates,
     setTalkSpeed,

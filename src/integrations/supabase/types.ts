@@ -73,6 +73,7 @@ export type Database = {
           sequence_order: number
           updated_at: string
           uploaded_at: string
+          vertical_offset: number | null
         }
         Insert: {
           animation_state: string
@@ -84,6 +85,7 @@ export type Database = {
           sequence_order?: number
           updated_at?: string
           uploaded_at?: string
+          vertical_offset?: number | null
         }
         Update: {
           animation_state?: string
@@ -95,6 +97,7 @@ export type Database = {
           sequence_order?: number
           updated_at?: string
           uploaded_at?: string
+          vertical_offset?: number | null
         }
         Relationships: []
       }

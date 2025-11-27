@@ -31,6 +31,7 @@ interface StateAssignmentCardProps {
     loop_count?: number;
     chat_trigger?: string | null;
   }) => Promise<void>;
+  onUpdateOffset: (id: string, offset: number) => Promise<void>;
 }
 
 export const StateAssignmentCard = ({
@@ -48,6 +49,7 @@ export const StateAssignmentCard = ({
   onToggleActive,
   onReorder,
   onUpdateSettings,
+  onUpdateOffset,
 }: StateAssignmentCardProps) => {
   const [loading, setLoading] = useState<string | null>(null);
   const [deletingState, setDeletingState] = useState(false);
@@ -57,6 +59,8 @@ export const StateAssignmentCard = ({
   const [localLoops, setLocalLoops] = useState(loopCount);
   const [localTrigger, setLocalTrigger] = useState<string | null>(chatTrigger);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [editingOffset, setEditingOffset] = useState<string | null>(null);
+  const [localOffset, setLocalOffset] = useState(0);
   const { toast } = useToast();
 
   const handleDelete = async (id: string) => {
@@ -152,6 +156,20 @@ export const StateAssignmentCard = ({
       });
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  const handleUpdateOffset = async (id: string) => {
+    try {
+      await onUpdateOffset(id, localOffset);
+      setEditingOffset(null);
+      toast({ title: "Vertical offset updated" });
+    } catch (error) {
+      console.error("Update offset error:", error);
+      toast({
+        title: "Failed to update offset",
+        variant: "destructive",
+      });
     }
   };
 
@@ -303,75 +321,125 @@ export const StateAssignmentCard = ({
             {assignments.map((assignment, index) => (
               <div
                 key={assignment.id}
-                className={`flex items-center gap-4 p-4 border rounded-lg transition-opacity ${
+                className={`space-y-3 p-4 border rounded-lg transition-opacity ${
                   !assignment.is_active ? "opacity-50" : ""
                 }`}
               >
-                <div className="w-20 h-20 bg-muted rounded-md overflow-hidden flex-shrink-0">
-                  <img
-                    src={assignment.image_url}
-                    alt={`${state} ${assignment.sequence_order}`}
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">
-                    Sequence {assignment.sequence_order}
-                  </p>
-                  {assignment.description && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {assignment.description}
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 bg-muted rounded-md overflow-hidden flex-shrink-0">
+                    <img
+                      src={assignment.image_url}
+                      alt={`${state} ${assignment.sequence_order}`}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">
+                      Sequence {assignment.sequence_order}
                     </p>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {assignment.is_active ? "Active" : "Inactive"}
-                  </p>
+                    {assignment.description && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {assignment.description}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {assignment.is_active ? "Active" : "Inactive"} • Offset: {assignment.vertical_offset}px
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    {assignments.length > 1 && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleReorder(assignment.id, "up")}
+                          disabled={index === 0 || loading === assignment.id}
+                        >
+                          <ChevronUp className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleReorder(assignment.id, "down")}
+                          disabled={
+                            index === assignments.length - 1 ||
+                            loading === assignment.id
+                          }
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() =>
+                        handleToggleActive(assignment.id, assignment.is_active)
+                      }
+                      disabled={loading === assignment.id}
+                    >
+                      <span className="text-xs">
+                        {assignment.is_active ? "Hide" : "Show"}
+                      </span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(assignment.id)}
+                      disabled={loading === assignment.id}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  {assignments.length > 1 && (
-                    <>
+                
+                {/* Vertical Offset Control */}
+                {editingOffset === assignment.id ? (
+                  <div className="space-y-2 pt-2 border-t">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Vertical Offset (px)</Label>
+                      <span className="text-xs font-medium">{localOffset}px</span>
+                    </div>
+                    <Slider
+                      value={[localOffset]}
+                      onValueChange={(values) => setLocalOffset(values[0])}
+                      min={-50}
+                      max={50}
+                      step={1}
+                      className="w-full"
+                    />
+                    <div className="flex gap-2">
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleReorder(assignment.id, "up")}
-                        disabled={index === 0 || loading === assignment.id}
+                        size="sm"
+                        variant="default"
+                        onClick={() => handleUpdateOffset(assignment.id)}
+                        className="flex-1"
                       >
-                        <ChevronUp className="w-4 h-4" />
+                        Save
                       </Button>
                       <Button
+                        size="sm"
                         variant="ghost"
-                        size="icon"
-                        onClick={() => handleReorder(assignment.id, "down")}
-                        disabled={
-                          index === assignments.length - 1 ||
-                          loading === assignment.id
-                        }
+                        onClick={() => setEditingOffset(null)}
+                        className="flex-1"
                       >
-                        <ChevronDown className="w-4 h-4" />
+                        Cancel
                       </Button>
-                    </>
-                  )}
+                    </div>
+                  </div>
+                ) : (
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() =>
-                      handleToggleActive(assignment.id, assignment.is_active)
-                    }
-                    disabled={loading === assignment.id}
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingOffset(assignment.id);
+                      setLocalOffset(assignment.vertical_offset);
+                    }}
+                    className="w-full text-xs"
                   >
-                    <span className="text-xs">
-                      {assignment.is_active ? "Hide" : "Show"}
-                    </span>
+                    Adjust Vertical Position
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(assignment.id)}
-                    disabled={loading === assignment.id}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
+                )}
               </div>
             ))}
           </div>
