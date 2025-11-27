@@ -403,8 +403,8 @@ export const StateAssignmentCard = ({
                     <Slider
                       value={[localOffset]}
                       onValueChange={(values) => setLocalOffset(values[0])}
-                      min={-50}
-                      max={50}
+                      min={-100}
+                      max={100}
                       step={1}
                       className="w-full"
                     />
