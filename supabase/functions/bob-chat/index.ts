@@ -13,22 +13,22 @@ serve(async (req) => {
 
   try {
     const { messages } = await req.json();
-    const XAI_API_KEY = Deno.env.get("XAI_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
-    if (!XAI_API_KEY) {
-      throw new Error("XAI_API_KEY is not configured");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     console.log('Bob chat request received with', messages.length, 'messages');
 
-    const response = await fetch("https://api.x.ai/v1/chat/completions", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${XAI_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "grok-3",
+        model: "google/gemini-2.5-flash",
         messages: [
           { 
             role: "system", 
@@ -50,20 +50,20 @@ serve(async (req) => {
       }
       if (response.status === 402) {
         console.error('Payment required');
-        return new Response(JSON.stringify({ error: "Payment required, please check your xAI account." }), {
+        return new Response(JSON.stringify({ error: "Payment required, please add funds to your Lovable AI workspace." }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const errorText = await response.text();
-      console.error("Grok API error:", response.status, errorText);
-      return new Response(JSON.stringify({ error: "Grok API error" }), {
+      console.error("AI gateway error:", response.status, errorText);
+      return new Response(JSON.stringify({ error: "AI gateway error" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log('Streaming response from Grok');
+    console.log('Streaming response from AI gateway');
     return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
