@@ -34,7 +34,7 @@ export const BobCharacter = ({
         <img 
           src={currentImage} 
           alt={`Bob ${animationState}`} 
-          className={`relative z-10 w-[80%] max-w-[320px] h-auto object-contain ${getAnimationClass()}`}
+          className={`relative z-10 w-[55%] max-w-[220px] h-auto object-contain ${getAnimationClass()}`}
           style={{ marginBottom: `${verticalOffset}%` }}
         />
       </div>
