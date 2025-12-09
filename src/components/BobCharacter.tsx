@@ -20,7 +20,7 @@ export const BobCharacter = ({
   };
   return (
     <div className={`flex flex-col items-center justify-center gap-6 w-full ${className}`}>
-      <div className="relative w-full max-w-[600px] mx-auto aspect-[4/5] flex items-end justify-center overflow-hidden">
+      <div className="relative w-full max-w-[600px] mx-auto aspect-[16/9] flex items-end justify-center overflow-hidden">
         {/* Backdrop Layer - behind Bob */}
         {backdropUrl && (
           <img 
