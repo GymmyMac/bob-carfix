@@ -18,8 +18,9 @@ export const BobCharacter = ({
     // All animations disabled
     return "";
   };
-  return <div className={`flex flex-col items-center justify-center gap-6 w-full ${className}`}>
-      <div className="relative w-full h-[400px] flex items-end justify-center">
+  return (
+    <div className={`flex flex-col items-center justify-center gap-6 w-full ${className}`}>
+      <div className="relative w-full max-w-[600px] mx-auto aspect-[4/5] flex items-end justify-center overflow-hidden">
         {/* Backdrop Layer - behind Bob */}
         {backdropUrl && (
           <img 
@@ -29,14 +30,14 @@ export const BobCharacter = ({
           />
         )}
         
-        {/* Bob Layer - in front */}
+        {/* Bob Layer - scales proportionally with container */}
         <img 
           src={currentImage} 
           alt={`Bob ${animationState}`} 
-          className={`relative z-10 w-[320px] h-[400px] object-contain ${getAnimationClass()}`}
-          style={{ marginBottom: `${verticalOffset}px` }}
+          className={`relative z-10 w-[80%] max-w-[320px] h-auto object-contain ${getAnimationClass()}`}
+          style={{ marginBottom: `${verticalOffset}%` }}
         />
       </div>
-      
-    </div>;
+    </div>
+  );
 };

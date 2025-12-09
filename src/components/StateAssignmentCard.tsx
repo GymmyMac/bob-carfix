@@ -343,7 +343,7 @@ export const StateAssignmentCard = ({
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground mt-1">
-                      {assignment.is_active ? "Active" : "Inactive"} • Offset: {assignment.vertical_offset}px
+                      {assignment.is_active ? "Active" : "Inactive"} • Offset: {assignment.vertical_offset}%
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -397,15 +397,15 @@ export const StateAssignmentCard = ({
                 {editingOffset === assignment.id ? (
                   <div className="space-y-2 pt-2 border-t">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs">Vertical Offset (px)</Label>
-                      <span className="text-xs font-medium">{localOffset}px</span>
+                      <Label className="text-xs">Vertical Offset (%)</Label>
+                      <span className="text-xs font-medium">{localOffset}%</span>
                     </div>
                     <Slider
                       value={[localOffset]}
                       onValueChange={(values) => setLocalOffset(values[0])}
-                      min={-100}
-                      max={100}
-                      step={1}
+                      min={-15}
+                      max={15}
+                      step={0.5}
                       className="w-full"
                     />
                     <div className="flex gap-2">
