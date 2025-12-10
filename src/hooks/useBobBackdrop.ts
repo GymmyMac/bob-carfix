@@ -10,6 +10,8 @@ interface BobBackdrop {
   display_order: number;
   created_at: string;
   updated_at: string;
+  counter_overlay_url: string | null;
+  counter_height_percent: number | null;
 }
 
 export const useBobBackdrop = () => {

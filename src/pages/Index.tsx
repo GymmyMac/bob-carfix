@@ -105,6 +105,8 @@ const Index = () => {
               currentImage={getCurrentImage()}
               animationState={animationState}
               backdropUrl={activeBackdrop?.image_url}
+              counterOverlayUrl={activeBackdrop?.counter_overlay_url ?? undefined}
+              counterHeightPercent={activeBackdrop?.counter_height_percent ?? 12}
               verticalOffset={getCurrentOffset()}
             />
           </div>
@@ -144,6 +146,8 @@ const Index = () => {
               currentImage={getCurrentImage()}
               animationState={animationState}
               backdropUrl={activeBackdrop?.image_url}
+              counterOverlayUrl={activeBackdrop?.counter_overlay_url ?? undefined}
+              counterHeightPercent={activeBackdrop?.counter_height_percent ?? 12}
               className="max-w-sm mx-auto"
               verticalOffset={getCurrentOffset()}
             />
