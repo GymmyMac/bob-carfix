@@ -1,104 +1,100 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 interface UseSpeechSynthesisProps {
   onStart?: () => void;
   onEnd?: () => void;
-  rate?: number;
-  pitch?: number;
-  language?: string;
 }
 
 export const useSpeechSynthesis = ({
   onStart,
   onEnd,
-  rate = 0.95,
-  pitch = 1.0,
-  language = 'en-NZ'
 }: UseSpeechSynthesisProps = {}) => {
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isSupported, setIsSupported] = useState(false);
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  useEffect(() => {
-    setIsSupported('speechSynthesis' in window);
-  }, []);
+  const speak = useCallback(async (text: string) => {
+    if (!text.trim()) return;
 
-  const getVoice = useCallback(() => {
-    if (!isSupported) return null;
-    
-    const voices = window.speechSynthesis.getVoices();
-    
-    // Try to find Kiwi/Aussie voice
-    const preferredVoice = voices.find(v => 
-      v.lang.startsWith('en-NZ') || 
-      v.lang.startsWith('en-AU')
-    );
-    
-    if (preferredVoice) return preferredVoice;
-    
-    // Fallback to any English voice
-    return voices.find(v => v.lang.startsWith('en')) || voices[0];
-  }, [isSupported]);
-
-  const speak = useCallback((text: string) => {
-    if (!isSupported || !text.trim()) return;
-
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = rate;
-    utterance.pitch = pitch;
-    utterance.lang = language;
-    
-    const voice = getVoice();
-    if (voice) {
-      utterance.voice = voice;
+    // Stop any current playback
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
     }
 
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-      onStart?.();
-    };
+    setIsSpeaking(true);
+    onStart?.();
 
-    utterance.onend = () => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bob-tts`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ text }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("TTS request failed:", errorData);
+        throw new Error("TTS request failed");
+      }
+
+      const { audioContent } = await response.json();
+      
+      // Create audio element and play
+      const audio = new Audio(`data:audio/mp3;base64,${audioContent}`);
+      audioRef.current = audio;
+
+      audio.onended = () => {
+        setIsSpeaking(false);
+        onEnd?.();
+        audioRef.current = null;
+      };
+
+      audio.onerror = () => {
+        console.warn("Audio playback error");
+        setIsSpeaking(false);
+        onEnd?.();
+        audioRef.current = null;
+      };
+
+      await audio.play();
+    } catch (error) {
+      console.error("Speech synthesis error:", error);
       setIsSpeaking(false);
       onEnd?.();
-    };
-
-    utterance.onerror = () => {
-      setIsSpeaking(false);
-      console.warn('Speech synthesis error');
-    };
-
-    utteranceRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
-  }, [isSupported, rate, pitch, language, getVoice, onStart, onEnd]);
+    }
+  }, [onStart, onEnd]);
 
   const stop = useCallback(() => {
-    if (!isSupported) return;
-    window.speechSynthesis.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     setIsSpeaking(false);
-  }, [isSupported]);
+  }, []);
 
   const pause = useCallback(() => {
-    if (!isSupported) return;
-    window.speechSynthesis.pause();
-  }, [isSupported]);
+    audioRef.current?.pause();
+  }, []);
 
   const resume = useCallback(() => {
-    if (!isSupported) return;
-    window.speechSynthesis.resume();
-  }, [isSupported]);
+    audioRef.current?.play();
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (isSupported) {
-        window.speechSynthesis.cancel();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
     };
-  }, [isSupported]);
+  }, []);
 
   return {
     speak,
@@ -106,6 +102,6 @@ export const useSpeechSynthesis = ({
     pause,
     resume,
     isSpeaking,
-    isSupported
+    isSupported: true, // Always supported since we use backend API
   };
 };
