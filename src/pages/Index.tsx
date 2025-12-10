@@ -9,6 +9,8 @@ import { PLACEHOLDER_PRODUCTS } from "@/types/product";
 import { AdminButton } from "@/components/AdminButton";
 import { useBobStateTransitions } from "@/hooks/useBobStateTransitions";
 import { useBobBackdrop } from "@/hooks/useBobBackdrop";
+import bobBgWall from "@/assets/bob-bg-wall.png";
+import bobCounter from "@/assets/bob-counter.png";
 
 const Index = () => {
   const { 
@@ -104,8 +106,8 @@ const Index = () => {
             <BobCharacter 
               currentImage={getCurrentImage()}
               animationState={animationState}
-              backdropUrl={activeBackdrop?.image_url}
-              counterOverlayUrl={activeBackdrop?.counter_overlay_url ?? undefined}
+              backdropUrl={bobBgWall}
+              counterOverlayUrl={bobCounter}
               counterHeightPercent={activeBackdrop?.counter_height_percent ?? 12}
               verticalOffset={getCurrentOffset()}
             />
@@ -145,8 +147,8 @@ const Index = () => {
             <BobCharacter 
               currentImage={getCurrentImage()}
               animationState={animationState}
-              backdropUrl={activeBackdrop?.image_url}
-              counterOverlayUrl={activeBackdrop?.counter_overlay_url ?? undefined}
+              backdropUrl={bobBgWall}
+              counterOverlayUrl={bobCounter}
               counterHeightPercent={activeBackdrop?.counter_height_percent ?? 12}
               className="max-w-sm mx-auto"
               verticalOffset={getCurrentOffset()}
