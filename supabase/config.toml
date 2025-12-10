@@ -2,3 +2,6 @@ project_id = "gjoguxzstsihhxvdgpto"
 
 [functions.bob-chat]
 verify_jwt = false
+
+[functions.bob-tts]
+verify_jwt = false
