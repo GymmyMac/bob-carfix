@@ -103,6 +103,8 @@ export type Database = {
       }
       bob_backdrops: {
         Row: {
+          counter_height_percent: number | null
+          counter_overlay_url: string | null
           created_at: string
           display_order: number
           id: string
@@ -112,6 +114,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          counter_height_percent?: number | null
+          counter_overlay_url?: string | null
           created_at?: string
           display_order?: number
           id?: string
@@ -121,6 +125,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          counter_height_percent?: number | null
+          counter_overlay_url?: string | null
           created_at?: string
           display_order?: number
           id?: string
