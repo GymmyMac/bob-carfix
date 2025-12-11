@@ -8,7 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image, Database } from "lucide-react";
+import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image, Database, Volume2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ImageUploaderWithState } from "@/components/ImageUploaderWithState";
 import { StateAssignmentCard } from "@/components/StateAssignmentCard";
@@ -16,6 +16,7 @@ import { AnimationPreview } from "@/components/AnimationPreview";
 import { CSVChunkUploader } from "@/components/CSVChunkUploader";
 import { IdleLoopSettings } from "@/components/IdleLoopSettings";
 import { BackdropManager } from "@/components/BackdropManager";
+import { VoiceSettings } from "@/components/VoiceSettings";
 import { useBobAnimationConfig, AnimationState as AnimationStateType } from "@/hooks/useBobAnimationConfig";
 
 interface AdminPanelProps {
@@ -392,6 +393,21 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <IdleLoopSettings />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Volume2 className="w-5 h-5" />
+                  Bob's Voice
+                </CardTitle>
+                <CardDescription>
+                  Choose Bob's text-to-speech voice accent and style
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <VoiceSettings />
               </CardContent>
             </Card>
           </TabsContent>

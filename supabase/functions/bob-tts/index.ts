@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { text } = await req.json();
+    const { text, voice: requestVoice } = await req.json();
     const apiKey = Deno.env.get("GOOGLE_CLOUD_TTS_API_KEY");
     
     if (!apiKey) {
@@ -23,7 +23,48 @@ serve(async (req) => {
       throw new Error("No text provided");
     }
 
-    console.log(`Generating TTS for text: "${text.substring(0, 50)}..."`);
+    // Determine voice: use request voice, or fetch from database, or use default
+    let voiceName = requestVoice;
+    
+    if (!voiceName) {
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL");
+        const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY");
+        
+        if (supabaseUrl && supabaseKey) {
+          const settingResponse = await fetch(
+            `${supabaseUrl}/rest/v1/bob_settings?setting_key=eq.tts_voice&select=setting_value`,
+            {
+              headers: {
+                apikey: supabaseKey,
+                Authorization: `Bearer ${supabaseKey}`,
+              },
+            }
+          );
+          
+          if (settingResponse.ok) {
+            const settings = await settingResponse.json();
+            if (settings?.[0]?.setting_value) {
+              voiceName = settings[0].setting_value;
+              console.log(`Using voice from database: ${voiceName}`);
+            }
+          }
+        }
+      } catch (dbError) {
+        console.warn("Could not fetch voice from database:", dbError);
+      }
+    }
+    
+    // Default fallback
+    if (!voiceName) {
+      voiceName = "en-AU-Neural2-B";
+      console.log(`Using default voice: ${voiceName}`);
+    }
+
+    // Extract language code from voice name (e.g., "en-AU-Neural2-B" -> "en-AU")
+    const languageCode = voiceName.split("-").slice(0, 2).join("-");
+
+    console.log(`Generating TTS for text: "${text.substring(0, 50)}..." with voice: ${voiceName}`);
 
     const response = await fetch(
       `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
@@ -33,8 +74,8 @@ serve(async (req) => {
         body: JSON.stringify({
           input: { text },
           voice: {
-            languageCode: "en-AU",
-            name: "en-AU-Neural2-B", // Australian male Neural2 voice (alternative)
+            languageCode,
+            name: voiceName,
           },
           audioConfig: {
             audioEncoding: "MP3",
