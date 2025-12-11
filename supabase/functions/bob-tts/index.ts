@@ -1,5 +1,23 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+// Convert plain text to SSML with pronunciation fixes
+function convertToSSML(text: string): string {
+  // Escape XML special characters first
+  let escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  
+  // Replace CARFIX with phoneme pronunciation (case-insensitive)
+  // IPA: ˈkɑɹ.fɪks = "CAR-fix" with stress on first syllable
+  escaped = escaped.replace(
+    /CARFIX/gi,
+    '<phoneme alphabet="ipa" ph="ˈkɑɹ.fɪks">CARFIX</phoneme>'
+  );
+  
+  return `<speak>${escaped}</speak>`;
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -72,7 +90,7 @@ serve(async (req) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          input: { text },
+          input: { ssml: convertToSSML(text) },
           voice: {
             languageCode,
             name: voiceName,
