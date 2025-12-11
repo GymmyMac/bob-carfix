@@ -3,11 +3,12 @@ import {
   useBobAnimationData, 
   useInvalidateBobAnimationData,
   type BobAnimationConfig,
-  type AnimationStateDefinition 
+  type AnimationStateDefinition,
+  type BobLook 
 } from "./useBobAnimationData";
 
 export type AnimationState = string;
-export type { BobAnimationConfig, AnimationStateDefinition };
+export type { BobAnimationConfig, AnimationStateDefinition, BobLook };
 
 export interface StateDefinition {
   reactionType: string;
@@ -17,14 +18,16 @@ export interface StateDefinition {
   sequenceOrder: number;
 }
 
-export const useBobAnimationConfig = () => {
-  // Use centralized cached data
-  const { data, isLoading } = useBobAnimationData();
+export const useBobAnimationConfig = (lookId?: string | null) => {
+  // Use centralized cached data with optional look filtering
+  const { data, isLoading } = useBobAnimationData(lookId);
   const invalidateCache = useInvalidateBobAnimationData();
 
   const configs = data?.configs || [];
   const states = data?.states || [];
   const uploadedImages = data?.uploadedImages || [];
+  const looks = data?.looks || [];
+  const activeLookId = data?.activeLookId || null;
   const loading = isLoading;
 
   const getActiveImagesByState = (state: AnimationState): string[] => {
@@ -67,15 +70,18 @@ export const useBobAnimationConfig = () => {
     imageUrl: string,
     state: AnimationState,
     sequenceOrder: number = 1,
-    description?: string
+    description?: string,
+    targetLookId?: string | null
   ) => {
     try {
+      const lookToUse = targetLookId || activeLookId;
       const { error } = await supabase.from("bob_animations").insert({
         animation_state: state,
         image_url: imageUrl,
         sequence_order: sequenceOrder,
         description: description || null,
         is_active: true,
+        look_id: lookToUse,
       });
 
       if (error) throw error;
@@ -191,13 +197,20 @@ export const useBobAnimationConfig = () => {
     }
   };
 
-  const upsertState = async (stateData: StateDefinition) => {
+  const upsertState = async (stateData: StateDefinition, targetLookId?: string | null) => {
+    const lookToUse = targetLookId || activeLookId;
+    
     // Query database directly instead of using React state to avoid race conditions
-    const { data: existing, error: fetchError } = await supabase
+    let query = supabase
       .from("animation_states")
       .select("*")
-      .eq("state_key", stateData.reactionType)
-      .maybeSingle();
+      .eq("state_key", stateData.reactionType);
+    
+    if (lookToUse) {
+      query = query.eq("look_id", lookToUse);
+    }
+    
+    const { data: existing, error: fetchError } = await query.maybeSingle();
 
     if (fetchError) throw fetchError;
 
@@ -240,6 +253,7 @@ export const useBobAnimationConfig = () => {
           title: stateData.name,
           description: stateData.description || null,
           display_order: stateData.displayOrder,
+          look_id: lookToUse,
         })
         .select()
         .single();
@@ -249,20 +263,23 @@ export const useBobAnimationConfig = () => {
     }
   };
 
-  const uploadImageWithState = async (file: File, stateData: StateDefinition) => {
+  const uploadImageWithState = async (file: File, stateData: StateDefinition, targetLookId?: string | null) => {
     try {
+      const lookToUse = targetLookId || activeLookId;
+      
       // Upload image first
       const imageUrl = await uploadImage(file);
       
       // Upsert state (now with direct DB query - no race condition)
-      await upsertState(stateData);
+      await upsertState(stateData, lookToUse);
       
       // Assign image to state
       await assignImageToState(
         imageUrl,
         stateData.reactionType,
         stateData.sequenceOrder,
-        stateData.description
+        stateData.description,
+        lookToUse
       );
       
       // Invalidate cache to refresh all data
@@ -363,6 +380,8 @@ export const useBobAnimationConfig = () => {
     configs,
     states,
     uploadedImages,
+    looks,
+    activeLookId,
     loading,
     getActiveImagesByState,
     uploadImage,

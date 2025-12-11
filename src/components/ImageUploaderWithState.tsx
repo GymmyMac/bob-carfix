@@ -11,11 +11,13 @@ import { supabase } from "@/integrations/supabase/client";
 interface ImageUploaderWithStateProps {
   onUpload: (file: File, stateData: StateDefinition) => Promise<string>;
   onUploadComplete?: (imageUrl: string) => void;
+  lookId?: string | null;
 }
 
 export const ImageUploaderWithState = ({
   onUpload,
   onUploadComplete,
+  lookId,
 }: ImageUploaderWithStateProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -156,11 +158,16 @@ export const ImageUploaderWithState = ({
 
     try {
       // Check if state exists to show appropriate feedback
-      const { data: existing } = await supabase
+      let existingQuery = supabase
         .from("animation_states")
         .select("title")
-        .eq("state_key", reactionType.trim())
-        .maybeSingle();
+        .eq("state_key", reactionType.trim());
+      
+      if (lookId) {
+        existingQuery = existingQuery.eq("look_id", lookId);
+      }
+      
+      const { data: existing } = await existingQuery.maybeSingle();
 
       const imageUrl = await onUpload(selectedFile, {
         reactionType: reactionType.trim(),

@@ -9,6 +9,7 @@ export interface BobAnimationConfig {
   is_active: boolean;
   description: string | null;
   vertical_offset: number;
+  look_id: string | null;
 }
 
 export interface AnimationStateDefinition {
@@ -25,39 +26,75 @@ export interface AnimationStateDefinition {
   loop_count: number | null;
   chat_trigger: string | null;
   idle_timeout_ms: number | null;
+  look_id: string | null;
+}
+
+export interface BobLook {
+  id: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface BobAnimationData {
   states: AnimationStateDefinition[];
   configs: BobAnimationConfig[];
   uploadedImages: string[];
+  looks: BobLook[];
+  activeLookId: string | null;
 }
 
 /**
  * Centralized React Query hook for Bob's animation data.
  * Fetches once, caches for 5 minutes, deduplicates requests across components.
+ * @param lookId - Optional look ID to filter by. If not provided, returns data for active look.
  */
-export const useBobAnimationData = () => {
+export const useBobAnimationData = (lookId?: string | null) => {
   return useQuery<BobAnimationData>({
-    queryKey: ['bob-animation-data'],
+    queryKey: ['bob-animation-data', lookId],
     queryFn: async () => {
-      // Fetch animation states
-      const { data: states, error: statesError } = await supabase
+      // Fetch all looks
+      const { data: looks, error: looksError } = await supabase
+        .from("bob_looks")
+        .select("*")
+        .order("display_order");
+
+      if (looksError) throw looksError;
+
+      // Determine which look to use
+      const activeLook = (looks || []).find((l: BobLook) => l.is_active);
+      const targetLookId = lookId || activeLook?.id || null;
+
+      // Fetch animation states for the target look
+      let statesQuery = supabase
         .from("animation_states")
         .select("*")
         .eq("is_active", true)
         .order("display_order");
 
+      if (targetLookId) {
+        statesQuery = statesQuery.eq("look_id", targetLookId);
+      }
+
+      const { data: states, error: statesError } = await statesQuery;
       if (statesError) throw statesError;
 
-      // Fetch animation configurations
-      const { data: configs, error: configsError } = await supabase
+      // Fetch animation configurations for the target look
+      let configsQuery = supabase
         .from("bob_animations")
         .select("*")
         .eq("is_active", true)
         .order("animation_state")
         .order("sequence_order");
 
+      if (targetLookId) {
+        configsQuery = configsQuery.eq("look_id", targetLookId);
+      }
+
+      const { data: configs, error: configsError } = await configsQuery;
       if (configsError) throw configsError;
 
       // List uploaded images from storage
@@ -84,6 +121,8 @@ export const useBobAnimationData = () => {
         states: (states || []) as AnimationStateDefinition[],
         configs: (configs || []) as BobAnimationConfig[],
         uploadedImages,
+        looks: (looks || []) as BobLook[],
+        activeLookId: targetLookId,
       };
     },
     staleTime: 5 * 60 * 1000,  // Consider data fresh for 5 minutes

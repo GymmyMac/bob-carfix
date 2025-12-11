@@ -24,6 +24,7 @@ export type Database = {
           id: string
           idle_timeout_ms: number | null
           is_active: boolean
+          look_id: string | null
           loop_count: number | null
           pause_duration: number | null
           state_key: string
@@ -39,6 +40,7 @@ export type Database = {
           id?: string
           idle_timeout_ms?: number | null
           is_active?: boolean
+          look_id?: string | null
           loop_count?: number | null
           pause_duration?: number | null
           state_key: string
@@ -54,13 +56,22 @@ export type Database = {
           id?: string
           idle_timeout_ms?: number | null
           is_active?: boolean
+          look_id?: string | null
           loop_count?: number | null
           pause_duration?: number | null
           state_key?: string
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "animation_states_look_id_fkey"
+            columns: ["look_id"]
+            isOneToOne: false
+            referencedRelation: "bob_looks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bob_animations: {
         Row: {
@@ -70,6 +81,7 @@ export type Database = {
           id: string
           image_url: string
           is_active: boolean
+          look_id: string | null
           sequence_order: number
           updated_at: string
           uploaded_at: string
@@ -82,6 +94,7 @@ export type Database = {
           id?: string
           image_url: string
           is_active?: boolean
+          look_id?: string | null
           sequence_order?: number
           updated_at?: string
           uploaded_at?: string
@@ -94,12 +107,21 @@ export type Database = {
           id?: string
           image_url?: string
           is_active?: boolean
+          look_id?: string | null
           sequence_order?: number
           updated_at?: string
           uploaded_at?: string
           vertical_offset?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "bob_animations_look_id_fkey"
+            columns: ["look_id"]
+            isOneToOne: false
+            referencedRelation: "bob_looks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bob_backdrops: {
         Row: {
@@ -134,6 +156,36 @@ export type Database = {
           is_active?: boolean
           name?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      bob_looks: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
         }
         Relationships: []
       }

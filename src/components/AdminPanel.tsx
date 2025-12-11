@@ -17,6 +17,7 @@ import { CSVChunkUploader } from "@/components/CSVChunkUploader";
 import { IdleLoopSettings } from "@/components/IdleLoopSettings";
 import { BackdropManager } from "@/components/BackdropManager";
 import { VoiceSettings } from "@/components/VoiceSettings";
+import { LooksManager } from "@/components/LooksManager";
 import { useBobAnimationConfig, AnimationState as AnimationStateType } from "@/hooks/useBobAnimationConfig";
 
 interface AdminPanelProps {
@@ -30,18 +31,30 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
   const [messageCount, setMessageCount] = useState(0);
   const [systemStatus, setSystemStatus] = useState<"online" | "offline">("online");
   const [galleryTab, setGalleryTab] = useState("upload");
+  const [selectedLookId, setSelectedLookId] = useState<string | null>(null);
   
-  // Bob Animation Config (for Gallery tab)
+  // Bob Animation Config (for Gallery tab) - filtered by selected look
   const {
     configs,
     states,
+    looks,
+    activeLookId,
     loading: galleryLoading,
     uploadImageWithState,
     updateAnimation,
     deleteAnimation,
     deleteState,
     updateStateSettings,
-  } = useBobAnimationConfig();
+    refetch,
+  } = useBobAnimationConfig(selectedLookId);
+  
+  // Initialize selectedLookId when looks load
+  useEffect(() => {
+    if (looks.length > 0 && !selectedLookId) {
+      const activeLook = looks.find((l) => l.is_active);
+      setSelectedLookId(activeLook?.id || looks[0]?.id || null);
+    }
+  }, [looks, selectedLookId]);
   
   // Access the animation controls from the parent via window object (set in Index.tsx)
   const animationControls = (window as any).bobAnimationControls;
@@ -504,6 +517,14 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
 
           {/* GALLERY TAB */}
           <TabsContent value="gallery" className="space-y-6 mt-6">
+            {/* Looks Manager */}
+            <LooksManager
+              looks={looks}
+              selectedLookId={selectedLookId}
+              onSelectLook={setSelectedLookId}
+              onRefresh={refetch}
+            />
+            
             {galleryLoading ? (
               <div className="flex items-center justify-center py-12">
                 <p className="text-muted-foreground">Loading gallery...</p>
@@ -518,39 +539,46 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
 
                 <TabsContent value="upload" className="space-y-6 mt-4">
                   <ImageUploaderWithState
-                    onUpload={uploadImageWithState}
+                    onUpload={(file, stateData) => uploadImageWithState(file, stateData, selectedLookId)}
                     onUploadComplete={(url) => console.log("Uploaded:", url)}
+                    lookId={selectedLookId}
                   />
                 </TabsContent>
 
                 <TabsContent value="assign" className="space-y-6 mt-4">
-                  {states
-                    .filter((s) => s.is_active)
-                    .sort((a, b) => a.display_order - b.display_order)
-                    .map((state) => (
-                      <StateAssignmentCard
-                        key={state.id}
-                        stateId={state.id}
-                        state={state.state_key}
-                        title={state.title}
-                        description={state.description || ""}
-                        animationSpeed={state.animation_speed || 400}
-                        pauseDuration={state.pause_duration || 0}
-                        loopCount={state.loop_count || 0}
-                        chatTrigger={state.chat_trigger || null}
-                        assignments={getAssignmentsByState(state.state_key)}
-                        onDelete={deleteAnimation}
-                        onDeleteState={deleteState}
-                        onToggleActive={(id, isActive) =>
-                          updateAnimation(id, { is_active: isActive })
-                        }
-                        onReorder={handleReorder}
-                        onUpdateSettings={updateStateSettings}
-                        onUpdateOffset={(id, offset) =>
-                          updateAnimation(id, { vertical_offset: offset })
-                        }
-                      />
-                    ))}
+                  {states.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No states found for this look. Upload images to create states.
+                    </div>
+                  ) : (
+                    states
+                      .filter((s) => s.is_active)
+                      .sort((a, b) => a.display_order - b.display_order)
+                      .map((state) => (
+                        <StateAssignmentCard
+                          key={state.id}
+                          stateId={state.id}
+                          state={state.state_key}
+                          title={state.title}
+                          description={state.description || ""}
+                          animationSpeed={state.animation_speed || 400}
+                          pauseDuration={state.pause_duration || 0}
+                          loopCount={state.loop_count || 0}
+                          chatTrigger={state.chat_trigger || null}
+                          assignments={getAssignmentsByState(state.state_key)}
+                          onDelete={deleteAnimation}
+                          onDeleteState={deleteState}
+                          onToggleActive={(id, isActive) =>
+                            updateAnimation(id, { is_active: isActive })
+                          }
+                          onReorder={handleReorder}
+                          onUpdateSettings={updateStateSettings}
+                          onUpdateOffset={(id, offset) =>
+                            updateAnimation(id, { vertical_offset: offset })
+                          }
+                        />
+                      ))
+                  )}
                 </TabsContent>
 
                 <TabsContent value="preview" className="space-y-6 mt-4">
