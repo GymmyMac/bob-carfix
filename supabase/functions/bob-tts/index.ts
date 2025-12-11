@@ -34,7 +34,7 @@ serve(async (req) => {
           input: { text },
           voice: {
             languageCode: "en-AU",
-            name: "en-AU-Neural2-D", // Australian male Neural2 voice
+            name: "en-AU-Neural2-B", // Australian male Neural2 voice (alternative)
           },
           audioConfig: {
             audioEncoding: "MP3",
