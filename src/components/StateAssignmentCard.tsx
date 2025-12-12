@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Trash2, ChevronUp, ChevronDown, Settings2 } from "lucide-react";
+import React, { useState, useCallback, useRef, useEffect, memo } from "react";
+import { Trash2, Settings2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AnimationState, BobAnimationConfig } from "@/hooks/useBobAnimationConfig";
@@ -10,6 +10,22 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { SortableImageItem } from "./SortableImageItem";
 
 interface StateAssignmentCardProps {
   stateId: string;
@@ -24,7 +40,7 @@ interface StateAssignmentCardProps {
   onDelete: (id: string) => Promise<void>;
   onDeleteState: (stateId: string) => Promise<void>;
   onToggleActive: (id: string, isActive: boolean) => Promise<void>;
-  onReorder: (id: string, newOrder: number) => Promise<void>;
+  onBatchReorder: (items: Array<{ id: string; sequence_order: number }>) => Promise<void>;
   onUpdateSettings: (stateId: string, updates: {
     animation_speed?: number;
     pause_duration?: number;
@@ -34,7 +50,7 @@ interface StateAssignmentCardProps {
   onUpdateOffset: (id: string, offset: number) => Promise<void>;
 }
 
-export const StateAssignmentCard = ({
+export const StateAssignmentCard = memo(({
   stateId,
   state,
   title,
@@ -47,7 +63,7 @@ export const StateAssignmentCard = ({
   onDelete,
   onDeleteState,
   onToggleActive,
-  onReorder,
+  onBatchReorder,
   onUpdateSettings,
   onUpdateOffset,
 }: StateAssignmentCardProps) => {
@@ -59,11 +75,33 @@ export const StateAssignmentCard = ({
   const [localLoops, setLocalLoops] = useState(loopCount);
   const [localTrigger, setLocalTrigger] = useState<string | null>(chatTrigger);
   const [savingSettings, setSavingSettings] = useState(false);
-  const [editingOffset, setEditingOffset] = useState<string | null>(null);
-  const [localOffset, setLocalOffset] = useState(0);
   const { toast } = useToast();
+  
+  // Debounce ref for speed slider
+  const speedDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleDelete = async (id: string) => {
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (speedDebounceRef.current) {
+        clearTimeout(speedDebounceRef.current);
+      }
+    };
+  }, []);
+
+  const handleDelete = useCallback(async (id: string) => {
     setLoading(id);
     try {
       await onDelete(id);
@@ -77,9 +115,9 @@ export const StateAssignmentCard = ({
     } finally {
       setLoading(null);
     }
-  };
+  }, [onDelete, toast]);
 
-  const handleToggleActive = async (id: string, currentActive: boolean) => {
+  const handleToggleActive = useCallback(async (id: string, currentActive: boolean) => {
     setLoading(id);
     try {
       await onToggleActive(id, !currentActive);
@@ -95,34 +133,39 @@ export const StateAssignmentCard = ({
     } finally {
       setLoading(null);
     }
-  };
+  }, [onToggleActive, toast]);
 
-  const handleReorder = async (id: string, direction: "up" | "down") => {
-    const currentIndex = assignments.findIndex((a) => a.id === id);
-    if (currentIndex === -1) return;
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
 
-    const newOrder =
-      direction === "up"
-        ? assignments[currentIndex].sequence_order - 1
-        : assignments[currentIndex].sequence_order + 1;
+    if (over && active.id !== over.id) {
+      const oldIndex = assignments.findIndex((a) => a.id === active.id);
+      const newIndex = assignments.findIndex((a) => a.id === over.id);
 
-    if (newOrder < 1 || newOrder > assignments.length) return;
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reorderedItems = arrayMove(assignments, oldIndex, newIndex);
+        
+        // Create batch update with new sequence orders
+        const updates = reorderedItems.map((item, index) => ({
+          id: item.id,
+          sequence_order: index + 1,
+        }));
 
-    setLoading(id);
-    try {
-      await onReorder(id, newOrder);
-    } catch (error) {
-      console.error("Reorder error:", error);
-      toast({
-        title: "Failed to reorder",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(null);
+        try {
+          await onBatchReorder(updates);
+          toast({ title: "Order updated" });
+        } catch (error) {
+          console.error("Reorder error:", error);
+          toast({
+            title: "Failed to reorder",
+            variant: "destructive",
+          });
+        }
+      }
     }
-  };
+  }, [assignments, onBatchReorder, toast]);
 
-  const handleDeleteState = async () => {
+  const handleDeleteState = useCallback(async () => {
     setDeletingState(true);
     try {
       await onDeleteState(stateId);
@@ -136,9 +179,9 @@ export const StateAssignmentCard = ({
     } finally {
       setDeletingState(false);
     }
-  };
+  }, [onDeleteState, stateId, toast]);
 
-  const handleSaveSettings = async () => {
+  const handleSaveSettings = useCallback(async () => {
     setSavingSettings(true);
     try {
       await onUpdateSettings(stateId, {
@@ -157,13 +200,11 @@ export const StateAssignmentCard = ({
     } finally {
       setSavingSettings(false);
     }
-  };
+  }, [onUpdateSettings, stateId, localSpeed, localPause, localLoops, localTrigger, toast]);
 
-  const handleUpdateOffset = async (id: string) => {
+  const handleUpdateOffset = useCallback(async (id: string, offset: number) => {
     try {
-      await onUpdateOffset(id, localOffset);
-      setEditingOffset(null);
-      toast({ title: "Vertical offset updated" });
+      await onUpdateOffset(id, offset);
     } catch (error) {
       console.error("Update offset error:", error);
       toast({
@@ -171,9 +212,14 @@ export const StateAssignmentCard = ({
         variant: "destructive",
       });
     }
-  };
+  }, [onUpdateOffset, toast]);
 
-  const getChatTriggerLabel = (trigger: string | null) => {
+  // Debounced speed change
+  const handleSpeedChange = useCallback((values: number[]) => {
+    setLocalSpeed(values[0]);
+  }, []);
+
+  const getChatTriggerLabel = useCallback((trigger: string | null) => {
     if (!trigger) return "(none) - Manual only";
     const labels: Record<string, string> = {
       page_load: "🎬 Page Load - Initial greeting",
@@ -183,7 +229,7 @@ export const StateAssignmentCard = ({
       response_complete: "✅ Response Complete - Finished",
     };
     return labels[trigger] || trigger;
-  };
+  }, []);
 
   return (
     <Card>
@@ -235,7 +281,7 @@ export const StateAssignmentCard = ({
               <Slider
                 id={`speed-${stateId}`}
                 value={[localSpeed]}
-                onValueChange={(values) => setLocalSpeed(values[0])}
+                onValueChange={handleSpeedChange}
                 min={50}
                 max={800}
                 step={50}
@@ -312,139 +358,40 @@ export const StateAssignmentCard = ({
             </Button>
           </CollapsibleContent>
         </Collapsible>
+        
         {assignments.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
             No images assigned to this state
           </p>
         ) : (
-          <div className="space-y-4">
-            {assignments.map((assignment, index) => (
-              <div
-                key={assignment.id}
-                className={`space-y-3 p-4 border rounded-lg transition-opacity ${
-                  !assignment.is_active ? "opacity-50" : ""
-                }`}
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 bg-muted rounded-md overflow-hidden flex-shrink-0">
-                    <img
-                      src={assignment.image_url}
-                      alt={`${state} ${assignment.sequence_order}`}
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">
-                      Sequence {assignment.sequence_order}
-                    </p>
-                    {assignment.description && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {assignment.description}
-                      </p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {assignment.is_active ? "Active" : "Inactive"} • Offset: {assignment.vertical_offset}%
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    {assignments.length > 1 && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleReorder(assignment.id, "up")}
-                          disabled={index === 0 || loading === assignment.id}
-                        >
-                          <ChevronUp className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleReorder(assignment.id, "down")}
-                          disabled={
-                            index === assignments.length - 1 ||
-                            loading === assignment.id
-                          }
-                        >
-                          <ChevronDown className="w-4 h-4" />
-                        </Button>
-                      </>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() =>
-                        handleToggleActive(assignment.id, assignment.is_active)
-                      }
-                      disabled={loading === assignment.id}
-                    >
-                      <span className="text-xs">
-                        {assignment.is_active ? "Hide" : "Show"}
-                      </span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(assignment.id)}
-                      disabled={loading === assignment.id}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-                
-                {/* Vertical Offset Control */}
-                {editingOffset === assignment.id ? (
-                  <div className="space-y-2 pt-2 border-t">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs">Vertical Offset (%)</Label>
-                      <span className="text-xs font-medium">{localOffset}%</span>
-                    </div>
-                    <Slider
-                      value={[localOffset]}
-                      onValueChange={(values) => setLocalOffset(values[0])}
-                      min={-15}
-                      max={15}
-                      step={0.5}
-                      className="w-full"
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="default"
-                        onClick={() => handleUpdateOffset(assignment.id)}
-                        className="flex-1"
-                      >
-                        Save
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setEditingOffset(null)}
-                        className="flex-1"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setEditingOffset(assignment.id);
-                      setLocalOffset(assignment.vertical_offset);
-                    }}
-                    className="w-full text-xs"
-                  >
-                    Adjust Vertical Position
-                  </Button>
-                )}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={assignments.map((a) => a.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-4">
+                {assignments.map((assignment) => (
+                  <SortableImageItem
+                    key={assignment.id}
+                    assignment={assignment}
+                    state={state}
+                    isLoading={loading === assignment.id}
+                    onDelete={handleDelete}
+                    onToggleActive={handleToggleActive}
+                    onUpdateOffset={handleUpdateOffset}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
+            </SortableContext>
+          </DndContext>
         )}
       </CardContent>
     </Card>
   );
-};
+});
+
+StateAssignmentCard.displayName = "StateAssignmentCard";

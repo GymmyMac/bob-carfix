@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -6,13 +6,17 @@ import { Separator } from "@/components/ui/separator";
 import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 import { useToast } from "@/hooks/use-toast";
 
-export const IdleLoopSettings = () => {
+export const IdleLoopSettings = memo(() => {
   const { getIdleTimeoutSettings, updateIdleTimeout } = useBobAnimationConfig();
   const { toast } = useToast();
   
   const settings = getIdleTimeoutSettings();
   const [enabled, setEnabled] = useState(settings.enabled);
   const [timeoutSeconds, setTimeoutSeconds] = useState(Math.round(settings.timeoutMs / 1000));
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Debounce ref for slider
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const settings = getIdleTimeoutSettings();
@@ -20,7 +24,16 @@ export const IdleLoopSettings = () => {
     setTimeoutSeconds(Math.round(settings.timeoutMs / 1000));
   }, [getIdleTimeoutSettings]);
 
-  const handleToggle = async (checked: boolean) => {
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
+  const handleToggle = useCallback(async (checked: boolean) => {
     try {
       setEnabled(checked);
       if (checked) {
@@ -47,21 +60,31 @@ export const IdleLoopSettings = () => {
       });
       setEnabled(!checked);
     }
-  };
+  }, [timeoutSeconds, updateIdleTimeout, toast]);
 
-  const handleTimeoutChange = async (values: number[]) => {
+  const handleTimeoutChange = useCallback((values: number[]) => {
     const newTimeout = values[0];
     setTimeoutSeconds(newTimeout);
     
-    // Only update if enabled
+    // Only update if enabled, with debounce
     if (enabled) {
-      try {
-        await updateIdleTimeout(newTimeout * 1000);
-      } catch (error) {
-        console.error("Error updating timeout:", error);
+      // Clear existing timeout
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
       }
+      
+      setIsSaving(true);
+      debounceRef.current = setTimeout(async () => {
+        try {
+          await updateIdleTimeout(newTimeout * 1000);
+        } catch (error) {
+          console.error("Error updating timeout:", error);
+        } finally {
+          setIsSaving(false);
+        }
+      }, 500);
     }
-  };
+  }, [enabled, updateIdleTimeout]);
 
   return (
     <div className="space-y-4">
@@ -85,7 +108,10 @@ export const IdleLoopSettings = () => {
 
       <div className={enabled ? "" : "opacity-50 pointer-events-none"}>
         <div className="flex justify-between mb-2">
-          <Label>Timeout Duration: {timeoutSeconds} seconds</Label>
+          <Label>
+            Timeout Duration: {timeoutSeconds} seconds
+            {isSaving && <span className="text-xs text-muted-foreground ml-2">(saving...)</span>}
+          </Label>
           <span className="text-sm text-muted-foreground">
             {timeoutSeconds < 15 ? "Very Fast" : timeoutSeconds < 30 ? "Fast" : timeoutSeconds < 60 ? "Normal" : "Slow"}
           </span>
@@ -114,4 +140,6 @@ export const IdleLoopSettings = () => {
       </div>
     </div>
   );
-};
+});
+
+IdleLoopSettings.displayName = "IdleLoopSettings";

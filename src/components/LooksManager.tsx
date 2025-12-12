@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useCallback, memo } from "react";
 import { Plus, Trash2, Check, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +28,7 @@ interface LooksManagerProps {
   onRefresh: () => void;
 }
 
-export const LooksManager = ({
+export const LooksManager = memo(({
   looks,
   selectedLookId,
   onSelectLook,
@@ -45,7 +45,7 @@ export const LooksManager = ({
   const activeLook = looks.find((l) => l.is_active);
   const selectedLook = looks.find((l) => l.id === selectedLookId);
 
-  const handleCreateLook = async () => {
+  const handleCreateLook = useCallback(async () => {
     if (!newLookName.trim()) {
       toast({
         title: "Name required",
@@ -96,9 +96,9 @@ export const LooksManager = ({
     } finally {
       setIsCreating(false);
     }
-  };
+  }, [newLookName, newLookDescription, looks, toast, onRefresh, onSelectLook]);
 
-  const handleDeleteLook = async (lookId: string) => {
+  const handleDeleteLook = useCallback(async (lookId: string) => {
     const look = looks.find((l) => l.id === lookId);
     if (!look) return;
 
@@ -142,9 +142,9 @@ export const LooksManager = ({
     } finally {
       setIsDeleting(false);
     }
-  };
+  }, [looks, selectedLookId, activeLook, toast, onRefresh, onSelectLook]);
 
-  const handleSetActiveLook = async (lookId: string) => {
+  const handleSetActiveLook = useCallback(async (lookId: string) => {
     const look = looks.find((l) => l.id === lookId);
     if (!look || look.is_active) return;
 
@@ -182,7 +182,7 @@ export const LooksManager = ({
     } finally {
       setIsActivating(false);
     }
-  };
+  }, [looks, toast, onRefresh]);
 
   return (
     <Card className="mb-6">
@@ -332,4 +332,6 @@ export const LooksManager = ({
       </CardContent>
     </Card>
   );
-};
+});
+
+LooksManager.displayName = "LooksManager";

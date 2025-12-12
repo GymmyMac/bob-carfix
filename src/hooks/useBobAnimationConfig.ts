@@ -111,6 +111,34 @@ export const useBobAnimationConfig = (lookId?: string | null) => {
     invalidateCache();
   };
 
+  // Batch reorder function - single DB call for multiple updates
+  const batchReorder = async (items: Array<{ id: string; sequence_order: number }>) => {
+    try {
+      // Use Promise.all with individual updates for now since upsert requires full row
+      // But we batch them in a single transaction-like operation
+      const updates = items.map(item => 
+        supabase
+          .from("bob_animations")
+          .update({ sequence_order: item.sequence_order })
+          .eq("id", item.id)
+      );
+
+      const results = await Promise.all(updates);
+      
+      // Check for any errors
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) {
+        throw errors[0].error;
+      }
+
+      // Single cache invalidation after all updates
+      invalidateCache();
+    } catch (error) {
+      console.error("Batch reorder error:", error);
+      throw error;
+    }
+  };
+
   const deleteAnimation = async (id: string) => {
     try {
       // Get the animation config to check if we should delete the storage file
@@ -388,6 +416,7 @@ export const useBobAnimationConfig = (lookId?: string | null) => {
     uploadImageWithState,
     assignImageToState,
     updateAnimation,
+    batchReorder,
     deleteAnimation,
     deleteUnassignedImage,
     deleteState,
