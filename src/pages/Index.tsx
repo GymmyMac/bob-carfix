@@ -19,7 +19,6 @@ const Index = () => {
     getCurrentImage, 
     getCurrentOffset,
     getCurrentScale,
-    setTalkSpeed,
     manualMode,
     setManualMode
   } = useBobAnimation();
@@ -41,7 +40,6 @@ const Index = () => {
   const stateTransitions = useBobStateTransitions({
     states,
     setAnimationState,
-    setTalkSpeed,
     manualMode
   });
   
@@ -61,7 +59,6 @@ const Index = () => {
     isSpeaking
   } = useBobChat({ 
     setAnimationState, 
-    setTalkSpeed, 
     manualMode,
     talkingState: getTalkingState() || "talk",
     thinkingState: getThinkingState() || "research",

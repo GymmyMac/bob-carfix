@@ -139,7 +139,7 @@ export const useBobAnimation = () => {
         clearInterval(animationIntervalRef.current);
       }
     };
-  }, [animationState, alternateImages, talkSpeed, imageUrlsMap]);
+  }, [animationState, alternateImages, imageUrlsMap]);
 
   const getCurrentImage = () => {
     const alternates = alternateImages[animationState];

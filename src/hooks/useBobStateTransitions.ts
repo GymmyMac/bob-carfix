@@ -11,14 +11,12 @@ type ChatStage =
 interface UseBobStateTransitionsProps {
   states: AnimationStateDefinition[];
   setAnimationState: (state: string) => void;
-  setTalkSpeed: (speed: number) => void;
   manualMode: boolean;
 }
 
 export const useBobStateTransitions = ({
   states,
   setAnimationState,
-  setTalkSpeed,
   manualMode
 }: UseBobStateTransitionsProps) => {
   const [chatStage, setChatStage] = useState<ChatStage>('page_load');
@@ -47,9 +45,9 @@ export const useBobStateTransitions = ({
     const state = getStateForTrigger(trigger);
     if (state) {
       setAnimationState(state.state_key);
-      setTalkSpeed(state.animation_speed || 400);
+      // Speed is read from state config in useBobAnimation
     }
-  }, [manualMode, getStateForTrigger, setAnimationState, setTalkSpeed]);
+  }, [manualMode, getStateForTrigger, setAnimationState]);
 
   // Initialize page load sequence
   const initialize = useCallback(() => {
