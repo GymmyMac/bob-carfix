@@ -19,7 +19,16 @@ interface UseBobChatProps {
   listenState?: string;
   onStreamStart?: () => void;
   onStreamComplete?: () => void;
+  onShowingProduct?: () => void;
 }
+
+// Keywords that indicate Bob is recommending products
+const PRODUCT_KEYWORDS = [
+  'recommend', 'suggest', 'need', 'part', 'filter', 'brake', 'rotor',
+  'oil', 'price', '$', 'stock', 'available', 'pads', 'disc', 'spark plug',
+  'battery', 'clutch', 'alternator', 'starter', 'muffler', 'exhaust',
+  'service pack', 'add-on', 'tyre shine', 'windscreen wash'
+];
 
 export const useBobChat = ({ 
   setAnimationState, 
@@ -30,7 +39,8 @@ export const useBobChat = ({
   idleState = "idle",
   listenState = "talk_pause",
   onStreamStart,
-  onStreamComplete
+  onStreamComplete,
+  onShowingProduct
 }: UseBobChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -168,12 +178,19 @@ export const useBobChat = ({
       // Store latest assistant message for speech
       latestAssistantMessageRef.current = assistantContent;
 
+      // Check if response contains product recommendations
+      const hasProductContent = PRODUCT_KEYWORDS.some(keyword => 
+        assistantContent.toLowerCase().includes(keyword.toLowerCase())
+      );
+
       // Speak the response if not muted
       if (!isMuted && assistantContent.trim()) {
         speak(assistantContent);
       } else if (!manualMode) {
-        // If muted, do normal animation transitions (go to listen, not idle)
-        if (onStreamComplete) {
+        // If muted, trigger appropriate animation based on content
+        if (hasProductContent && onShowingProduct) {
+          onShowingProduct();
+        } else if (onStreamComplete) {
           onStreamComplete();
         } else {
           safeSetState(completeState);

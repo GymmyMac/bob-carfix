@@ -7,7 +7,8 @@ type ChatStage =
   | 'idle'              // True idle after timeout - relaxed/bored
   | 'processing_input' 
   | 'streaming_response' 
-  | 'response_complete';
+  | 'response_complete'
+  | 'showing_product';  // Bob is presenting product recommendations
 
 interface UseBobStateTransitionsProps {
   states: AnimationStateDefinition[];
@@ -141,6 +142,26 @@ export const useBobStateTransitions = ({
     }, 3000);
   }, [transitionTo, transitionToListen]);
 
+  // Showing product state - when Bob recommends parts
+  const onShowingProduct = useCallback(() => {
+    setChatStage('showing_product');
+    
+    // Look for state with showing_product trigger, or fallback to state_key match
+    const showingState = states.find(s => 
+      s.chat_trigger === 'showing_product' || 
+      s.state_key === 'showing_product'
+    );
+    
+    if (showingState) {
+      setAnimationState(showingState.state_key);
+    }
+
+    // Return to listen state after showing product animation
+    setTimeout(() => {
+      transitionToListen();
+    }, 4000); // Slightly longer to show off the product
+  }, [states, setAnimationState, transitionToListen]);
+
   // Cleanup timer on unmount
   useEffect(() => {
     return () => clearIdleTimer();
@@ -152,6 +173,7 @@ export const useBobStateTransitions = ({
     onUserInput,
     onStreamStart,
     onStreamComplete,
+    onShowingProduct,
     getStateSettings
   };
 };
