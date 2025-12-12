@@ -1,14 +1,19 @@
-import React, { useState, useEffect, useRef, useCallback, memo } from "react";
+import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
+import { useBobAnimationData } from "@/hooks/useBobAnimationData";
 import { useToast } from "@/hooks/use-toast";
 
 export const IdleLoopSettings = memo(() => {
   const { getIdleTimeoutSettings, updateIdleTimeout } = useBobAnimationConfig();
+  const { data } = useBobAnimationData();
   const { toast } = useToast();
+  
+  // Derive states array for dependency tracking
+  const states = useMemo(() => data?.states || [], [data?.states]);
   
   const settings = getIdleTimeoutSettings();
   const [enabled, setEnabled] = useState(settings.enabled);
@@ -18,11 +23,12 @@ export const IdleLoopSettings = memo(() => {
   // Debounce ref for slider
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Sync local state when data changes from realtime updates
   useEffect(() => {
     const settings = getIdleTimeoutSettings();
     setEnabled(settings.enabled);
     setTimeoutSeconds(Math.round(settings.timeoutMs / 1000));
-  }, [getIdleTimeoutSettings]);
+  }, [states, getIdleTimeoutSettings]);
 
   // Cleanup debounce on unmount
   useEffect(() => {

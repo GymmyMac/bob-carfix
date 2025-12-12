@@ -101,6 +101,23 @@ export const StateAssignmentCard = memo(({
     };
   }, []);
 
+  // Sync local state when props change (e.g., after refetch from realtime)
+  useEffect(() => {
+    setLocalSpeed(animationSpeed);
+  }, [animationSpeed]);
+
+  useEffect(() => {
+    setLocalPause(pauseDuration);
+  }, [pauseDuration]);
+
+  useEffect(() => {
+    setLocalLoops(loopCount);
+  }, [loopCount]);
+
+  useEffect(() => {
+    setLocalTrigger(chatTrigger);
+  }, [chatTrigger]);
+
   const handleDelete = useCallback(async (id: string) => {
     setLoading(id);
     try {
