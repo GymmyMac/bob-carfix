@@ -344,6 +344,9 @@ export const useBobAnimationConfig = (lookId?: string | null) => {
   
   const getIdleState = () => 
     states.find(s => s.state_key === 'idle' || s.title.toLowerCase().includes('idle'))?.state_key;
+  
+  const getListenState = () => 
+    states.find(s => s.chat_trigger === 'awaiting_input' || s.state_key === 'talk_pause' || s.title.toLowerCase().includes('listen') || s.title.toLowerCase().includes('pause'))?.state_key;
 
   const updateStateSettings = async (
     stateId: string,
@@ -431,6 +434,7 @@ export const useBobAnimationConfig = (lookId?: string | null) => {
     getThinkingState,
     getCompleteState,
     getIdleState,
+    getListenState,
     getIdleTimeoutSettings,
     updateIdleTimeout,
   };
