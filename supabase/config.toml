@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.bob-tts]
 verify_jwt = false
+
+[functions.analyze-animation-batch]
+verify_jwt = false

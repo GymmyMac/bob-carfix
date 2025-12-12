@@ -9,7 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image, Database, Volume2 } from "lucide-react";
+import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image, Database, Volume2, Wand2 } from "lucide-react";
 import { ImageUploaderWithState } from "@/components/ImageUploaderWithState";
 import { StateAssignmentCard } from "@/components/StateAssignmentCard";
 import { AnimationPreview } from "@/components/AnimationPreview";
@@ -18,6 +18,7 @@ import { IdleLoopSettings } from "@/components/IdleLoopSettings";
 import { BackdropManager } from "@/components/BackdropManager";
 import { VoiceSettings } from "@/components/VoiceSettings";
 import { LooksManager } from "@/components/LooksManager";
+import { AIAnimationBuilder } from "@/components/AIAnimationBuilder";
 import { useBobAnimationConfig, AnimationState as AnimationStateType } from "@/hooks/useBobAnimationConfig";
 
 interface AdminPanelProps {
@@ -523,11 +524,22 @@ export const AdminPanel = memo(({ isOpen, onClose }: AdminPanelProps) => {
               </div>
             ) : (
               <Tabs value={galleryTab} onValueChange={setGalleryTab}>
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="ai-builder" className="gap-1">
+                    <Wand2 className="w-3 h-3" />
+                    AI Builder
+                  </TabsTrigger>
                   <TabsTrigger value="upload">Upload & Define</TabsTrigger>
                   <TabsTrigger value="assign">Assign to States</TabsTrigger>
                   <TabsTrigger value="preview">Live Preview</TabsTrigger>
                 </TabsList>
+
+                <TabsContent value="ai-builder" className="space-y-6 mt-4">
+                  <AIAnimationBuilder
+                    lookId={selectedLookId}
+                    onComplete={() => setGalleryTab("assign")}
+                  />
+                </TabsContent>
 
                 <TabsContent value="upload" className="space-y-6 mt-4">
                   <ImageUploaderWithState
