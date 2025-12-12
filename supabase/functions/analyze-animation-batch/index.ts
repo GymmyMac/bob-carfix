@@ -8,7 +8,7 @@ const corsHeaders = {
 
 interface ImageData {
   filename: string;
-  base64: string; // base64 encoded image data
+  base64: string;
 }
 
 interface AnalyzedImage {
@@ -22,7 +22,6 @@ interface AnalyzedImage {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -44,61 +43,35 @@ serve(async (req) => {
 
     console.log(`Analyzing ${images.length} images with vision AI`);
 
-    // Build multimodal content with all images for AI to analyze together
-    const content: any[] = [
-      {
-        type: "text",
-        text: `You are an AI assistant that analyzes animation frames for a character named "Bob" who appears in these images.
+    // Build the content array with images
+    const content: any[] = [];
+    
+    // Add the text prompt first
+    content.push({
+      type: "text",
+      text: `You are analyzing ${images.length} animation frames for a character named "Bob".
 
-TASK 1: Analyze the filenames to organize images into animation states and sequences.
-TASK 2: CRITICAL - Analyze the VISUAL SIZE of the Bob character in EACH image. Some frames may have Bob drawn slightly larger or smaller. Calculate scale factors to normalize Bob's visual size across all frames.
+FILENAMES: ${images.map((img, i) => `${i + 1}. ${img.filename}`).join(', ')}
 
-FILENAME LIST:
-${images.map((img, i) => `${i + 1}. ${img.filename}`).join('\n')}
+INSTRUCTIONS:
+1. Look at each image and identify what animation state it belongs to (idle, talk, wave, thinking, happy, etc.)
+2. For each image, estimate Bob's visual CHARACTER SIZE relative to the others
+3. Pick the MEDIAN size as reference (scale=100)
+4. Calculate scale factors: if Bob looks BIGGER than median, scale<100; if SMALLER, scale>100
 
-RULES FOR STATE ORGANIZATION:
-1. Group images by detected animation state (e.g., "idle", "talk", "wave", "thinking", "happy")
-2. Look for naming patterns to infer state and sequence:
-   - Common patterns: "idle_1.png", "talk-frame-2.png", "bob_wave_03.png", "talking_a.png"
-   - Numbers or letters often indicate sequence order within a state
-3. Generate friendly state titles (e.g., "talk" → "Talk Animation", "idle" → "Idle State")
-4. Suggest appropriate animation speeds:
-   - Talking/mouth movements: 200ms (fast)
-   - Idle/breathing: 400-600ms (slow)
-   - Waving/actions: 300ms (medium)
-   - Default: 400ms
-5. If you can't determine a pattern, use "misc" as state_key
+OUTPUT FORMAT - Return ONLY a JSON array, no markdown:
+[{"filename":"name.png","state_key":"idle","state_title":"Idle Animation","sequence_order":1,"suggested_speed":400,"suggested_scale":100,"description":"Frame description"}]
 
-RULES FOR SCALE NORMALIZATION (CRITICAL):
-1. Look at EACH image and estimate how large Bob's character appears visually
-2. Pick a REFERENCE size (the median/most common character size across all images)
-3. For each image, calculate what scale percentage (50-200) would make Bob match the reference size
-4. If Bob looks LARGER than reference → scale < 100 (shrink it)
-5. If Bob looks SMALLER than reference → scale > 100 (enlarge it)
-6. If Bob is the right size → scale = 100
-7. Example: If image 3 has Bob drawn 20% larger than others, suggested_scale should be ~83 (to shrink him to match)
+Speed guidelines: talking=200ms, idle=400-600ms, actions=300ms
+Scale range: 50-200 (100=no change)`
+    });
 
-Return ONLY a valid JSON array with this structure (no markdown, no explanation):
-[
-  {
-    "filename": "original_filename.png",
-    "state_key": "talk",
-    "state_title": "Talk Animation",
-    "sequence_order": 1,
-    "suggested_speed": 200,
-    "suggested_scale": 100,
-    "description": "Talking frame 1"
-  }
-]`
-      }
-    ];
-
-    // Add all images for vision analysis
+    // Add each image
     for (const img of images) {
       content.push({
         type: "image_url",
         image_url: {
-          url: img.base64 // Already includes data:image/... prefix
+          url: img.base64
         }
       });
     }
@@ -112,10 +85,6 @@ Return ONLY a valid JSON array with this structure (no markdown, no explanation)
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { 
-            role: 'system', 
-            content: 'You are a helpful assistant that analyzes animation frames using computer vision. Always respond with valid JSON only, no markdown formatting.' 
-          },
           { 
             role: 'user', 
             content: content 
@@ -141,17 +110,47 @@ Return ONLY a valid JSON array with this structure (no markdown, no explanation)
         );
       }
       
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw new Error(`AI gateway error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
     const responseContent = data.choices?.[0]?.message?.content;
     
-    if (!responseContent) {
-      throw new Error("No content returned from AI");
-    }
+    console.log('AI raw response length:', responseContent?.length || 0);
+    console.log('AI raw response:', responseContent?.substring(0, 500));
 
-    console.log('AI raw response:', responseContent);
+    if (!responseContent || responseContent.trim().length < 10) {
+      console.error('AI returned empty or too short response:', responseContent);
+      // Fallback: generate basic analysis from filenames only
+      const fallbackAnalyzed = images.map((img, index) => {
+        const filename = img.filename.toLowerCase();
+        let state_key = 'misc';
+        let state_title = 'Misc';
+        let suggested_speed = 400;
+        
+        if (filename.includes('idle')) { state_key = 'idle'; state_title = 'Idle Animation'; suggested_speed = 500; }
+        else if (filename.includes('talk')) { state_key = 'talk'; state_title = 'Talk Animation'; suggested_speed = 200; }
+        else if (filename.includes('wave')) { state_key = 'wave'; state_title = 'Wave Animation'; suggested_speed = 300; }
+        else if (filename.includes('think')) { state_key = 'thinking'; state_title = 'Thinking Animation'; suggested_speed = 400; }
+        else if (filename.includes('happy')) { state_key = 'happy'; state_title = 'Happy Animation'; suggested_speed = 300; }
+        
+        return {
+          filename: img.filename,
+          state_key,
+          state_title,
+          sequence_order: index + 1,
+          suggested_speed,
+          suggested_scale: 100, // Default to no scaling when AI fails
+          description: `Frame ${index + 1}`,
+        };
+      });
+      
+      console.log('Using fallback analysis:', fallbackAnalyzed);
+      return new Response(
+        JSON.stringify({ analyzed: fallbackAnalyzed, fallback: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Parse the JSON response - handle markdown code blocks if present
     let analyzed: AnalyzedImage[];
@@ -159,31 +158,53 @@ Return ONLY a valid JSON array with this structure (no markdown, no explanation)
       let jsonStr = responseContent.trim();
       // Remove markdown code blocks if present
       if (jsonStr.startsWith('```')) {
-        jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+        const startIndex = jsonStr.indexOf('[');
+        const endIndex = jsonStr.lastIndexOf(']');
+        if (startIndex !== -1 && endIndex !== -1) {
+          jsonStr = jsonStr.substring(startIndex, endIndex + 1);
+        } else {
+          throw new Error('Could not find JSON array in response');
+        }
       }
+      // Also try removing just json marker
+      jsonStr = jsonStr.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+      
       analyzed = JSON.parse(jsonStr);
     } catch (parseError) {
       console.error('Failed to parse AI response:', responseContent);
-      throw new Error(`Failed to parse AI response: ${parseError}`);
+      // Use fallback
+      const fallbackAnalyzed = images.map((img, index) => ({
+        filename: img.filename,
+        state_key: 'misc',
+        state_title: 'Animation',
+        sequence_order: index + 1,
+        suggested_speed: 400,
+        suggested_scale: 100,
+        description: `Frame ${index + 1}`,
+      }));
+      
+      return new Response(
+        JSON.stringify({ analyzed: fallbackAnalyzed, fallback: true, parseError: String(parseError) }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Validate the response structure
     if (!Array.isArray(analyzed)) {
       throw new Error("AI response is not an array");
     }
 
-    // Ensure all required fields are present and validate scale range
+    // Validate and ensure all required fields
     const validated = analyzed.map((item, index) => ({
-      filename: item.filename || images[index].filename,
+      filename: item.filename || images[index]?.filename || `image_${index}.png`,
       state_key: (item.state_key || 'misc').toLowerCase().replace(/[^a-z0-9_]/g, '_'),
       state_title: item.state_title || item.state_key || 'Misc',
       sequence_order: item.sequence_order || index + 1,
       suggested_speed: item.suggested_speed || 400,
-      suggested_scale: Math.min(200, Math.max(50, item.suggested_scale || 100)), // Clamp 50-200
+      suggested_scale: Math.min(200, Math.max(50, item.suggested_scale || 100)),
       description: item.description || '',
     }));
 
-    console.log('Analyzed results:', validated);
+    console.log('Analyzed results:', validated.length, 'images');
 
     return new Response(
       JSON.stringify({ analyzed: validated }),
