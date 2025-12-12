@@ -48,6 +48,7 @@ interface StateAssignmentCardProps {
     chat_trigger?: string | null;
   }) => Promise<void>;
   onUpdateOffset: (id: string, offset: number) => Promise<void>;
+  onUpdateScale: (id: string, scale: number) => Promise<void>;
 }
 
 export const StateAssignmentCard = memo(({
@@ -66,6 +67,7 @@ export const StateAssignmentCard = memo(({
   onBatchReorder,
   onUpdateSettings,
   onUpdateOffset,
+  onUpdateScale,
 }: StateAssignmentCardProps) => {
   const [loading, setLoading] = useState<string | null>(null);
   const [deletingState, setDeletingState] = useState(false);
@@ -400,6 +402,7 @@ export const StateAssignmentCard = memo(({
                     onDelete={handleDelete}
                     onToggleActive={handleToggleActive}
                     onUpdateOffset={handleUpdateOffset}
+                    onUpdateScale={onUpdateScale}
                   />
                 ))}
               </div>

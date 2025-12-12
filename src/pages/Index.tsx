@@ -18,6 +18,7 @@ const Index = () => {
     setAnimationState, 
     getCurrentImage, 
     getCurrentOffset,
+    getCurrentScale,
     setTalkSpeed,
     manualMode,
     setManualMode
@@ -110,6 +111,7 @@ const Index = () => {
               counterOverlayUrl={bobCounter}
               counterHeightPercent={activeBackdrop?.counter_height_percent ?? 12}
               verticalOffset={getCurrentOffset()}
+              scale={getCurrentScale()}
             />
           </div>
           
@@ -152,6 +154,7 @@ const Index = () => {
               counterHeightPercent={activeBackdrop?.counter_height_percent ?? 12}
               className="max-w-sm mx-auto"
               verticalOffset={getCurrentOffset()}
+              scale={getCurrentScale()}
             />
           </div>
           

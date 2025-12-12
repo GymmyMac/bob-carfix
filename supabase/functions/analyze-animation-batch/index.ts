@@ -6,9 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface FileInfo {
+interface ImageData {
   filename: string;
-  index: number;
+  base64: string; // base64 encoded image data
 }
 
 interface AnalyzedImage {
@@ -17,6 +17,7 @@ interface AnalyzedImage {
   state_title: string;
   sequence_order: number;
   suggested_speed: number;
+  suggested_scale: number;
   description: string;
 }
 
@@ -27,11 +28,11 @@ serve(async (req) => {
   }
 
   try {
-    const { filenames } = await req.json() as { filenames: string[] };
+    const { images } = await req.json() as { images: ImageData[] };
     
-    if (!filenames || !Array.isArray(filenames) || filenames.length === 0) {
+    if (!images || !Array.isArray(images) || images.length === 0) {
       return new Response(
-        JSON.stringify({ error: "No filenames provided" }),
+        JSON.stringify({ error: "No images provided" }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -41,29 +42,41 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log(`Analyzing ${filenames.length} files:`, filenames);
+    console.log(`Analyzing ${images.length} images with vision AI`);
 
-    const prompt = `You are an AI assistant that analyzes animation image filenames to organize them into animation states and sequences.
+    // Build multimodal content with all images for AI to analyze together
+    const content: any[] = [
+      {
+        type: "text",
+        text: `You are an AI assistant that analyzes animation frames for a character named "Bob" who appears in these images.
 
-Given this list of image filenames for an animated character named "Bob", analyze them and return a JSON array organizing them into animation states with proper sequence ordering.
+TASK 1: Analyze the filenames to organize images into animation states and sequences.
+TASK 2: CRITICAL - Analyze the VISUAL SIZE of the Bob character in EACH image. Some frames may have Bob drawn slightly larger or smaller. Calculate scale factors to normalize Bob's visual size across all frames.
 
-FILENAMES:
-${filenames.map((f, i) => `${i + 1}. ${f}`).join('\n')}
+FILENAME LIST:
+${images.map((img, i) => `${i + 1}. ${img.filename}`).join('\n')}
 
-RULES:
+RULES FOR STATE ORGANIZATION:
 1. Group images by detected animation state (e.g., "idle", "talk", "wave", "thinking", "happy")
 2. Look for naming patterns to infer state and sequence:
    - Common patterns: "idle_1.png", "talk-frame-2.png", "bob_wave_03.png", "talking_a.png"
    - Numbers or letters often indicate sequence order within a state
-   - Words like "idle", "talk", "wave", "think", "happy", "complete", "hello", "greeting" indicate states
 3. Generate friendly state titles (e.g., "talk" → "Talk Animation", "idle" → "Idle State")
 4. Suggest appropriate animation speeds:
    - Talking/mouth movements: 200ms (fast)
    - Idle/breathing: 400-600ms (slow)
    - Waving/actions: 300ms (medium)
    - Default: 400ms
-5. If you can't determine a pattern, use "misc" as state_key with sequence based on filename order
-6. state_key should be lowercase with underscores (e.g., "talk", "idle", "wave_hello")
+5. If you can't determine a pattern, use "misc" as state_key
+
+RULES FOR SCALE NORMALIZATION (CRITICAL):
+1. Look at EACH image and estimate how large Bob's character appears visually
+2. Pick a REFERENCE size (the median/most common character size across all images)
+3. For each image, calculate what scale percentage (50-200) would make Bob match the reference size
+4. If Bob looks LARGER than reference → scale < 100 (shrink it)
+5. If Bob looks SMALLER than reference → scale > 100 (enlarge it)
+6. If Bob is the right size → scale = 100
+7. Example: If image 3 has Bob drawn 20% larger than others, suggested_scale should be ~83 (to shrink him to match)
 
 Return ONLY a valid JSON array with this structure (no markdown, no explanation):
 [
@@ -73,9 +86,22 @@ Return ONLY a valid JSON array with this structure (no markdown, no explanation)
     "state_title": "Talk Animation",
     "sequence_order": 1,
     "suggested_speed": 200,
+    "suggested_scale": 100,
     "description": "Talking frame 1"
   }
-]`;
+]`
+      }
+    ];
+
+    // Add all images for vision analysis
+    for (const img of images) {
+      content.push({
+        type: "image_url",
+        image_url: {
+          url: img.base64 // Already includes data:image/... prefix
+        }
+      });
+    }
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -86,8 +112,14 @@ Return ONLY a valid JSON array with this structure (no markdown, no explanation)
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: 'You are a helpful assistant that analyzes animation filenames. Always respond with valid JSON only, no markdown formatting.' },
-          { role: 'user', content: prompt }
+          { 
+            role: 'system', 
+            content: 'You are a helpful assistant that analyzes animation frames using computer vision. Always respond with valid JSON only, no markdown formatting.' 
+          },
+          { 
+            role: 'user', 
+            content: content 
+          }
         ],
       }),
     });
@@ -113,25 +145,25 @@ Return ONLY a valid JSON array with this structure (no markdown, no explanation)
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const responseContent = data.choices?.[0]?.message?.content;
     
-    if (!content) {
+    if (!responseContent) {
       throw new Error("No content returned from AI");
     }
 
-    console.log('AI raw response:', content);
+    console.log('AI raw response:', responseContent);
 
     // Parse the JSON response - handle markdown code blocks if present
     let analyzed: AnalyzedImage[];
     try {
-      let jsonStr = content.trim();
+      let jsonStr = responseContent.trim();
       // Remove markdown code blocks if present
       if (jsonStr.startsWith('```')) {
         jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
       }
       analyzed = JSON.parse(jsonStr);
     } catch (parseError) {
-      console.error('Failed to parse AI response:', content);
+      console.error('Failed to parse AI response:', responseContent);
       throw new Error(`Failed to parse AI response: ${parseError}`);
     }
 
@@ -140,13 +172,14 @@ Return ONLY a valid JSON array with this structure (no markdown, no explanation)
       throw new Error("AI response is not an array");
     }
 
-    // Ensure all required fields are present
+    // Ensure all required fields are present and validate scale range
     const validated = analyzed.map((item, index) => ({
-      filename: item.filename || filenames[index],
+      filename: item.filename || images[index].filename,
       state_key: (item.state_key || 'misc').toLowerCase().replace(/[^a-z0-9_]/g, '_'),
       state_title: item.state_title || item.state_key || 'Misc',
       sequence_order: item.sequence_order || index + 1,
       suggested_speed: item.suggested_speed || 400,
+      suggested_scale: Math.min(200, Math.max(50, item.suggested_scale || 100)), // Clamp 50-200
       description: item.description || '',
     }));
 

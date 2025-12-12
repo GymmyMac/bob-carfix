@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useState, useRef, useEffect } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Trash2 } from "lucide-react";
+import { GripVertical, Trash2, Move, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ interface SortableImageItemProps {
   onDelete: (id: string) => void;
   onToggleActive: (id: string, isActive: boolean) => void;
   onUpdateOffset: (id: string, offset: number) => void;
+  onUpdateScale: (id: string, scale: number) => void;
 }
 
 export const SortableImageItem = memo(({
@@ -23,11 +24,16 @@ export const SortableImageItem = memo(({
   onDelete,
   onToggleActive,
   onUpdateOffset,
+  onUpdateScale,
 }: SortableImageItemProps) => {
   const [editingOffset, setEditingOffset] = useState(false);
+  const [editingScale, setEditingScale] = useState(false);
   const [localOffset, setLocalOffset] = useState(assignment.vertical_offset);
+  const [localScale, setLocalScale] = useState(assignment.scale ?? 100);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
-  const isEditingRef = useRef(false); // Track if user is actively editing to prevent sync
+  const scaleDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const isEditingRef = useRef(false);
+  const isEditingScaleRef = useRef(false);
 
   const {
     attributes,
@@ -55,10 +61,9 @@ export const SortableImageItem = memo(({
 
   const handleOffsetChange = useCallback((values: number[]) => {
     const newOffset = values[0];
-    isEditingRef.current = true; // Mark as editing to prevent sync
+    isEditingRef.current = true;
     setLocalOffset(newOffset);
     
-    // Debounce the actual update
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
@@ -67,26 +72,57 @@ export const SortableImageItem = memo(({
     }, 300);
   }, [onUpdateOffset, assignment.id]);
 
+  const handleScaleChange = useCallback((values: number[]) => {
+    const newScale = values[0];
+    isEditingScaleRef.current = true;
+    setLocalScale(newScale);
+    
+    if (scaleDebounceRef.current) {
+      clearTimeout(scaleDebounceRef.current);
+    }
+    scaleDebounceRef.current = setTimeout(() => {
+      onUpdateScale(assignment.id, newScale);
+    }, 300);
+  }, [onUpdateScale, assignment.id]);
+
   const handleSaveOffset = useCallback(() => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
     onUpdateOffset(assignment.id, localOffset);
-    isEditingRef.current = false; // Done editing, allow sync
+    isEditingRef.current = false;
     setEditingOffset(false);
   }, [onUpdateOffset, assignment.id, localOffset]);
 
   const handleCancelOffset = useCallback(() => {
-    isEditingRef.current = false; // Done editing, allow sync
-    setLocalOffset(assignment.vertical_offset); // Reset to original
+    isEditingRef.current = false;
+    setLocalOffset(assignment.vertical_offset);
     setEditingOffset(false);
   }, [assignment.vertical_offset]);
 
-  // Cleanup timeout on unmount
+  const handleSaveScale = useCallback(() => {
+    if (scaleDebounceRef.current) {
+      clearTimeout(scaleDebounceRef.current);
+    }
+    onUpdateScale(assignment.id, localScale);
+    isEditingScaleRef.current = false;
+    setEditingScale(false);
+  }, [onUpdateScale, assignment.id, localScale]);
+
+  const handleCancelScale = useCallback(() => {
+    isEditingScaleRef.current = false;
+    setLocalScale(assignment.scale ?? 100);
+    setEditingScale(false);
+  }, [assignment.scale]);
+
+  // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
+      }
+      if (scaleDebounceRef.current) {
+        clearTimeout(scaleDebounceRef.current);
       }
     };
   }, []);
@@ -97,6 +133,13 @@ export const SortableImageItem = memo(({
       setLocalOffset(assignment.vertical_offset);
     }
   }, [assignment.vertical_offset]);
+
+  // Sync local scale when assignment changes - but only if not actively editing
+  useEffect(() => {
+    if (!isEditingScaleRef.current) {
+      setLocalScale(assignment.scale ?? 100);
+    }
+  }, [assignment.scale]);
 
   return (
     <div
@@ -135,7 +178,7 @@ export const SortableImageItem = memo(({
             </p>
           )}
           <p className="text-xs text-muted-foreground mt-1">
-            {assignment.is_active ? "Active" : "Inactive"} • Offset: {assignment.vertical_offset}%
+            {assignment.is_active ? "Active" : "Inactive"} • Offset: {assignment.vertical_offset}% • Scale: {assignment.scale ?? 100}%
           </p>
         </div>
         <div className="flex gap-2">
@@ -164,7 +207,10 @@ export const SortableImageItem = memo(({
       {editingOffset ? (
         <div className="space-y-2 pt-2 border-t">
           <div className="flex items-center justify-between">
-            <Label className="text-xs">Vertical Offset (%)</Label>
+            <Label className="text-xs flex items-center gap-1">
+              <Move className="w-3 h-3" />
+              Vertical Offset (%)
+            </Label>
             <span className="text-xs font-medium">{localOffset}%</span>
           </div>
           <Slider
@@ -194,15 +240,63 @@ export const SortableImageItem = memo(({
             </Button>
           </div>
         </div>
+      ) : editingScale ? (
+        <div className="space-y-2 pt-2 border-t">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs flex items-center gap-1">
+              <ZoomIn className="w-3 h-3" />
+              Scale (%)
+            </Label>
+            <span className="text-xs font-medium">{localScale}%</span>
+          </div>
+          <Slider
+            value={[localScale]}
+            onValueChange={handleScaleChange}
+            min={50}
+            max={150}
+            step={1}
+            className="w-full"
+          />
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="default"
+              onClick={handleSaveScale}
+              className="flex-1"
+            >
+              Save
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleCancelScale}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
       ) : (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setEditingOffset(true)}
-          className="w-full text-xs"
-        >
-          Adjust Vertical Position
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setEditingOffset(true)}
+            className="flex-1 text-xs"
+          >
+            <Move className="w-3 h-3 mr-1" />
+            Adjust Position
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setEditingScale(true)}
+            className="flex-1 text-xs"
+          >
+            <ZoomIn className="w-3 h-3 mr-1" />
+            Adjust Scale
+          </Button>
+        </div>
       )}
     </div>
   );

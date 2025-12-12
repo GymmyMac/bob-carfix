@@ -8,6 +8,7 @@ interface BobCharacterProps {
   counterHeightPercent?: number;
   className?: string;
   verticalOffset?: number;
+  scale?: number;
 }
 
 export const BobCharacter = ({
@@ -17,10 +18,14 @@ export const BobCharacter = ({
   counterOverlayUrl,
   counterHeightPercent = 12,
   className = "",
-  verticalOffset = 0
+  verticalOffset = 0,
+  scale = 100
 }: BobCharacterProps) => {
   // Calculate Bob's bottom position: offset + counter height so Bob sits above the counter
   const bobBottomPercent = verticalOffset + counterHeightPercent;
+  
+  // Calculate width based on scale (base 55% adjusted by scale factor)
+  const scaledWidth = 55 * (scale / 100);
 
   return (
     <div className={`flex flex-col items-center justify-center gap-6 w-full ${className}`}>
@@ -34,12 +39,17 @@ export const BobCharacter = ({
           />
         )}
         
-        {/* Layer 2: Bob (z-10) - positioned from bottom, above counter */}
+        {/* Layer 2: Bob (z-10) - positioned from bottom, above counter, with scale applied */}
         <img 
           src={currentImage} 
           alt={`Bob ${animationState}`} 
-          className="absolute z-10 w-[55%] max-w-[220px] h-auto object-contain left-1/2 -translate-x-1/2"
-          style={{ bottom: `${bobBottomPercent}%` }}
+          className="absolute z-10 h-auto object-contain left-1/2 -translate-x-1/2"
+          style={{ 
+            bottom: `${bobBottomPercent}%`,
+            width: `${scaledWidth}%`,
+            maxWidth: `${220 * (scale / 100)}px`,
+            transformOrigin: 'center bottom'
+          }}
         />
 
         {/* Layer 3: Counter Overlay (z-20) - anchored to bottom */}

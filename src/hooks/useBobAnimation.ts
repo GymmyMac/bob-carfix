@@ -15,12 +15,13 @@ export const useBobAnimation = () => {
   const { data, isLoading } = useBobAnimationData();
 
   // Derive state-specific data from cached results
-  const { imageUrlsMap, alternateImages, offsetsMap, availableStates } = useMemo(() => {
+  const { imageUrlsMap, alternateImages, offsetsMap, scalesMap, availableStates } = useMemo(() => {
     if (!data) {
       return { 
         imageUrlsMap: {}, 
         alternateImages: {}, 
         offsetsMap: {},
+        scalesMap: {},
         availableStates: [] 
       };
     }
@@ -28,6 +29,7 @@ export const useBobAnimation = () => {
     const newImageMap: Record<string, any> = {};
     const newAlternates: Record<string, string[]> = {};
     const newOffsetsMap: Record<string, number[]> = {};
+    const newScalesMap: Record<string, number[]> = {};
     const stateKeys = data.states.map(s => s.state_key);
 
     stateKeys.forEach((key) => {
@@ -36,6 +38,7 @@ export const useBobAnimation = () => {
       
       const stateImages = stateConfigs.map((config) => config.image_url);
       const stateOffsets = stateConfigs.map((config) => config.vertical_offset || 0);
+      const stateScales = stateConfigs.map((config) => config.scale || 100);
 
       if (stateImages.length > 0) {
         const stateInfo = data.states.find(s => s.state_key === key);
@@ -47,6 +50,7 @@ export const useBobAnimation = () => {
         };
         newAlternates[key] = stateImages;
         newOffsetsMap[key] = stateOffsets;
+        newScalesMap[key] = stateScales;
       }
     });
 
@@ -54,6 +58,7 @@ export const useBobAnimation = () => {
       imageUrlsMap: newImageMap,
       alternateImages: newAlternates,
       offsetsMap: newOffsetsMap,
+      scalesMap: newScalesMap,
       availableStates: stateKeys,
     };
   }, [data]);
@@ -168,11 +173,28 @@ export const useBobAnimation = () => {
     return offsets[sequenceIndex] || offsets[0];
   };
 
+  const getCurrentScale = () => {
+    const scales = scalesMap[animationState];
+    
+    if (!scales || scales.length === 0) {
+      // Fallback to first available state with scales
+      const fallbackState = availableStates.find((s) => scalesMap[s]?.length > 0);
+      if (fallbackState) {
+        return scalesMap[fallbackState][0];
+      }
+      return 100;
+    }
+    
+    // Return current frame's scale in sequence
+    return scales[sequenceIndex] || scales[0];
+  };
+
   return {
     animationState,
     setAnimationState,
     getCurrentImage,
     getCurrentOffset,
+    getCurrentScale,
     imageUrls: imageUrlsMap,
     availableStates,
     setTalkSpeed,
