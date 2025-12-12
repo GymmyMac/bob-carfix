@@ -137,7 +137,11 @@ export const useBobAnimationData = (lookId?: string | null) => {
 export const useInvalidateBobAnimationData = () => {
   const queryClient = useQueryClient();
   
-  return () => {
-    queryClient.invalidateQueries({ queryKey: ['bob-animation-data'] });
+  return async () => {
+    await queryClient.invalidateQueries({ queryKey: ['bob-animation-data'] });
+    await queryClient.refetchQueries({ 
+      queryKey: ['bob-animation-data'],
+      type: 'all'
+    });
   };
 };
