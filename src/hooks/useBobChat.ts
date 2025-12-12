@@ -11,7 +11,6 @@ export interface Message {
 
 interface UseBobChatProps {
   setAnimationState: (state: AnimationState) => void;
-  setTalkSpeed?: (speed: number) => void;
   manualMode?: boolean;
   talkingState?: string;
   thinkingState?: string;
@@ -23,7 +22,6 @@ interface UseBobChatProps {
 
 export const useBobChat = ({ 
   setAnimationState, 
-  setTalkSpeed, 
   manualMode = false,
   talkingState = "talk",
   thinkingState = "research",
@@ -46,13 +44,11 @@ export const useBobChat = ({
       // Keep Bob in talking state while speaking
       if (!manualMode) {
         safeSetState(talkingState);
-        if (setTalkSpeed) setTalkSpeed(200);
       }
     },
     onEnd: () => {
       // Transition to complete state when speech finishes
       if (!manualMode) {
-        if (setTalkSpeed) setTalkSpeed(400);
         if (onStreamComplete) {
           onStreamComplete();
         } else {
@@ -174,8 +170,6 @@ export const useBobChat = ({
         speak(assistantContent);
       } else if (!manualMode) {
         // If muted, do normal animation transitions
-        if (setTalkSpeed) setTalkSpeed(400);
-        
         if (onStreamComplete) {
           onStreamComplete();
         } else {
