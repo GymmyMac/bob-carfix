@@ -119,16 +119,9 @@ export const useBobChat = ({
       let streamDone = false;
       let assistantContent = "";
 
-      if (!manualMode) {
-        // Trigger streaming response state
-        if (onStreamStart) {
-          onStreamStart();
-        } else {
-          // Fallback if no transition system
-          safeSetState(talkingState);
-          if (setTalkSpeed) setTalkSpeed(200);
-        }
-      }
+      // Stay in thinking state during text streaming
+      // Talking animation will be triggered by useSpeechSynthesis.onStart
+      // when audio actually begins playing
 
       while (!streamDone) {
         const { done, value } = await reader.read();
@@ -155,19 +148,6 @@ export const useBobChat = ({
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (content) {
               assistantContent += content;
-              
-              // Track when content arrives for word-synced animation
-              lastContentTimeRef.current = Date.now();
-              
-              if (!manualMode) {
-                // Speed up mouth on active content
-                if (setTalkSpeed) setTalkSpeed(200);
-                
-                // Slow down on punctuation (natural pauses)
-                if (content.match(/[.,!?;]/)) {
-                  if (setTalkSpeed) setTalkSpeed(500);
-                }
-              }
               
               setMessages(prev => {
                 const last = prev[prev.length - 1];
