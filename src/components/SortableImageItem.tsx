@@ -27,6 +27,7 @@ export const SortableImageItem = memo(({
   const [editingOffset, setEditingOffset] = useState(false);
   const [localOffset, setLocalOffset] = useState(assignment.vertical_offset);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const isEditingRef = useRef(false); // Track if user is actively editing to prevent sync
 
   const {
     attributes,
@@ -54,6 +55,7 @@ export const SortableImageItem = memo(({
 
   const handleOffsetChange = useCallback((values: number[]) => {
     const newOffset = values[0];
+    isEditingRef.current = true; // Mark as editing to prevent sync
     setLocalOffset(newOffset);
     
     // Debounce the actual update
@@ -70,8 +72,15 @@ export const SortableImageItem = memo(({
       clearTimeout(debounceRef.current);
     }
     onUpdateOffset(assignment.id, localOffset);
+    isEditingRef.current = false; // Done editing, allow sync
     setEditingOffset(false);
   }, [onUpdateOffset, assignment.id, localOffset]);
+
+  const handleCancelOffset = useCallback(() => {
+    isEditingRef.current = false; // Done editing, allow sync
+    setLocalOffset(assignment.vertical_offset); // Reset to original
+    setEditingOffset(false);
+  }, [assignment.vertical_offset]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -82,9 +91,11 @@ export const SortableImageItem = memo(({
     };
   }, []);
 
-  // Sync local offset when assignment changes
+  // Sync local offset when assignment changes - but only if not actively editing
   useEffect(() => {
-    setLocalOffset(assignment.vertical_offset);
+    if (!isEditingRef.current) {
+      setLocalOffset(assignment.vertical_offset);
+    }
   }, [assignment.vertical_offset]);
 
   return (
@@ -176,7 +187,7 @@ export const SortableImageItem = memo(({
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => setEditingOffset(false)}
+              onClick={handleCancelOffset}
               className="flex-1"
             >
               Cancel
