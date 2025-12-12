@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useBobAnimationData } from "./useBobAnimationData";
 
 export type AnimationState = string;
@@ -13,6 +13,9 @@ export const useBobAnimation = () => {
 
   // Use centralized cached data
   const { data, isLoading } = useBobAnimationData();
+
+  // Ref to store imageUrlsMap for animation effect without causing restarts
+  const imageUrlsMapRef = useRef<Record<string, any>>({});
 
   // Derive state-specific data from cached results
   const { imageUrlsMap, alternateImages, offsetsMap, scalesMap, availableStates } = useMemo(() => {
@@ -63,6 +66,11 @@ export const useBobAnimation = () => {
     };
   }, [data]);
 
+  // Keep ref updated with latest imageUrlsMap
+  useEffect(() => {
+    imageUrlsMapRef.current = imageUrlsMap;
+  }, [imageUrlsMap]);
+
   // Initialize animation state from database
   useEffect(() => {
     if (availableStates.length > 0 && !animationState) {
@@ -84,8 +92,8 @@ export const useBobAnimation = () => {
     if (alternates && alternates.length > 1) {
       setSequenceIndex(0); // Reset to first frame on state change
       
-      // Get state-specific settings from stored data
-      const stateInfo = imageUrlsMap[animationState] as any;
+      // Get state-specific settings from ref (avoids dependency on imageUrlsMap)
+      const stateInfo = imageUrlsMapRef.current[animationState] as any;
       
       const speed = stateInfo?.animation_speed || talkSpeed || 400;
       const loopCount = stateInfo?.loop_count || 0; // 0 = infinite
@@ -139,7 +147,8 @@ export const useBobAnimation = () => {
         clearInterval(animationIntervalRef.current);
       }
     };
-  }, [animationState, alternateImages, imageUrlsMap]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [animationState, alternateImages]); // Removed imageUrlsMap - use ref instead
 
   const getCurrentImage = () => {
     const alternates = alternateImages[animationState];
