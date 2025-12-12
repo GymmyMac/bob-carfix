@@ -98,38 +98,44 @@ export const useBobAnimationData = (lookId?: string | null) => {
 
       if (looksError) throw looksError;
 
-      // Determine which look to use
+      // Determine which look to use - ALWAYS require a valid look ID
       const activeLook = (looks || []).find((l: BobLook) => l.is_active);
-      const targetLookId = lookId || activeLook?.id || null;
+      const targetLookId = lookId || activeLook?.id || (looks && looks[0]?.id) || null;
 
-      // Fetch animation states for the target look
-      let statesQuery = supabase
+      // If no looks exist, return empty data
+      if (!targetLookId) {
+        return {
+          states: [],
+          configs: [],
+          uploadedImages: [],
+          looks: (looks || []) as BobLook[],
+          activeLookId: null,
+        };
+      }
+
+      // Fetch animation states for the target look - ALWAYS filter by look_id
+      const { data: states, error: statesError } = await supabase
         .from("animation_states")
         .select("*")
         .eq("is_active", true)
+        .eq("look_id", targetLookId)
         .order("display_order");
-
-      if (targetLookId) {
-        statesQuery = statesQuery.eq("look_id", targetLookId);
-      }
-
-      const { data: states, error: statesError } = await statesQuery;
       if (statesError) throw statesError;
 
-      // Fetch animation configurations for the target look
-      let configsQuery = supabase
+      // Fetch animation configurations for the target look - ALWAYS filter by look_id
+      const { data: configs, error: configsError } = await supabase
         .from("bob_animations")
         .select("*")
         .eq("is_active", true)
+        .eq("look_id", targetLookId)
         .order("animation_state")
         .order("sequence_order");
 
-      if (targetLookId) {
-        configsQuery = configsQuery.eq("look_id", targetLookId);
-      }
-
-      const { data: configs, error: configsError } = await configsQuery;
       if (configsError) throw configsError;
+
+      // Filter configs to only include those with valid state keys
+      const validStateKeys = new Set((states || []).map((s: AnimationStateDefinition) => s.state_key));
+      const filteredConfigs = (configs || []).filter((c: BobAnimationConfig) => validStateKeys.has(c.animation_state));
 
       // List uploaded images from storage
       const { data: files, error: filesError } = await supabase.storage
@@ -146,14 +152,14 @@ export const useBobAnimationData = (lookId?: string | null) => {
       });
 
       // Preload all animation images for smooth transitions
-      configs?.forEach((config) => {
+      filteredConfigs.forEach((config: BobAnimationConfig) => {
         const img = new Image();
         img.src = config.image_url;
       });
 
       return {
         states: (states || []) as AnimationStateDefinition[],
-        configs: (configs || []) as BobAnimationConfig[],
+        configs: filteredConfigs as BobAnimationConfig[],
         uploadedImages,
         looks: (looks || []) as BobLook[],
         activeLookId: targetLookId,
