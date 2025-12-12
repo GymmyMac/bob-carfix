@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -49,10 +50,43 @@ export interface BobAnimationData {
 
 /**
  * Centralized React Query hook for Bob's animation data.
- * Fetches once, caches for 5 minutes, deduplicates requests across components.
+ * Fetches once, caches for 30 seconds, deduplicates requests across components.
+ * Includes realtime subscriptions for automatic updates.
  * @param lookId - Optional look ID to filter by. If not provided, returns data for active look.
  */
 export const useBobAnimationData = (lookId?: string | null) => {
+  const queryClient = useQueryClient();
+
+  // Set up realtime subscriptions for automatic cache invalidation
+  useEffect(() => {
+    const statesChannel = supabase
+      .channel('animation-states-changes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'animation_states'
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['bob-animation-data'] });
+      })
+      .subscribe();
+
+    const animationsChannel = supabase
+      .channel('bob-animations-changes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'bob_animations'
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['bob-animation-data'] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(statesChannel);
+      supabase.removeChannel(animationsChannel);
+    };
+  }, [queryClient]);
+
   return useQuery<BobAnimationData>({
     queryKey: ['bob-animation-data', lookId],
     queryFn: async () => {
@@ -125,8 +159,8 @@ export const useBobAnimationData = (lookId?: string | null) => {
         activeLookId: targetLookId,
       };
     },
-    staleTime: 5 * 60 * 1000,  // Consider data fresh for 5 minutes
-    gcTime: 10 * 60 * 1000,    // Keep in cache for 10 minutes
+    staleTime: 30 * 1000,      // Consider data fresh for 30 seconds
+    gcTime: 5 * 60 * 1000,     // Keep in cache for 5 minutes
   });
 };
 
