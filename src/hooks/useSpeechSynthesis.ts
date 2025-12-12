@@ -21,9 +21,7 @@ export const useSpeechSynthesis = ({
       audioRef.current = null;
     }
 
-    setIsSpeaking(true);
-    onStart?.();
-
+    // Don't set speaking state here - wait until audio actually plays
     try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bob-tts`,
@@ -45,9 +43,15 @@ export const useSpeechSynthesis = ({
 
       const { audioContent } = await response.json();
       
-      // Create audio element and play
+      // Create audio element
       const audio = new Audio(`data:audio/mp3;base64,${audioContent}`);
       audioRef.current = audio;
+
+      // Trigger onStart only when audio actually begins playing
+      audio.onplay = () => {
+        setIsSpeaking(true);
+        onStart?.();
+      };
 
       audio.onended = () => {
         setIsSpeaking(false);
