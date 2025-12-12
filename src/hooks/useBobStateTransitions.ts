@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { AnimationStateDefinition } from "./useBobAnimationConfig";
 
 type ChatStage = 
   | 'page_load' 
-  | 'awaiting_input' 
+  | 'awaiting_input'    // "Listen" state - actively waiting for user input
+  | 'idle'              // True idle after timeout - relaxed/bored
   | 'processing_input' 
   | 'streaming_response' 
   | 'response_complete';
@@ -14,6 +15,8 @@ interface UseBobStateTransitionsProps {
   manualMode: boolean;
 }
 
+const IDLE_TIMEOUT_MS = 60000; // 60 seconds before transitioning to idle
+
 export const useBobStateTransitions = ({
   states,
   setAnimationState,
@@ -21,11 +24,29 @@ export const useBobStateTransitions = ({
 }: UseBobStateTransitionsProps) => {
   const [chatStage, setChatStage] = useState<ChatStage>('page_load');
   const [isInitialized, setIsInitialized] = useState(false);
-  const [idleStartTime, setIdleStartTime] = useState<number | null>(null);
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Find state by chat trigger
   const getStateForTrigger = useCallback((trigger: string) => {
     return states.find(s => s.chat_trigger === trigger && s.is_active);
+  }, [states]);
+
+  // Find listen state (awaiting_input trigger or talk_pause)
+  const getListenState = useCallback(() => {
+    return states.find(s => 
+      s.chat_trigger === 'awaiting_input' || 
+      s.state_key === 'talk_pause' || 
+      s.title.toLowerCase().includes('listen') ||
+      s.title.toLowerCase().includes('pause')
+    );
+  }, [states]);
+
+  // Find true idle state
+  const getIdleState = useCallback(() => {
+    return states.find(s => 
+      s.state_key === 'idle' || 
+      s.title.toLowerCase().includes('idle')
+    );
   }, [states]);
 
   // Get state settings with defaults
@@ -38,6 +59,29 @@ export const useBobStateTransitions = ({
     };
   }, [states]);
 
+  // Clear idle timer
+  const clearIdleTimer = useCallback(() => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+  }, []);
+
+  // Start idle timer - transitions to true idle after 60 seconds
+  const startIdleTimer = useCallback(() => {
+    clearIdleTimer();
+    
+    if (manualMode) return;
+
+    idleTimerRef.current = setTimeout(() => {
+      const idleState = getIdleState();
+      if (idleState) {
+        setChatStage('idle');
+        setAnimationState(idleState.state_key);
+      }
+    }, IDLE_TIMEOUT_MS);
+  }, [manualMode, getIdleState, setAnimationState, clearIdleTimer]);
+
   // Trigger state transition
   const transitionTo = useCallback((trigger: string) => {
     if (manualMode) return;
@@ -45,9 +89,20 @@ export const useBobStateTransitions = ({
     const state = getStateForTrigger(trigger);
     if (state) {
       setAnimationState(state.state_key);
-      // Speed is read from state config in useBobAnimation
     }
   }, [manualMode, getStateForTrigger, setAnimationState]);
+
+  // Transition to listen state
+  const transitionToListen = useCallback(() => {
+    if (manualMode) return;
+    
+    const listenState = getListenState();
+    if (listenState) {
+      setChatStage('awaiting_input');
+      setAnimationState(listenState.state_key);
+      startIdleTimer();
+    }
+  }, [manualMode, getListenState, setAnimationState, startIdleTimer]);
 
   // Initialize page load sequence
   const initialize = useCallback(() => {
@@ -57,72 +112,39 @@ export const useBobStateTransitions = ({
     setChatStage('page_load');
     transitionTo('page_load');
 
-    // After greeting animation, transition to awaiting input
+    // After greeting animation, transition to listen state (not idle)
     setTimeout(() => {
-      setChatStage('awaiting_input');
-      transitionTo('awaiting_input');
-      setIdleStartTime(Date.now()); // Start idle timer after initial greeting
+      transitionToListen();
     }, 3000);
-  }, [isInitialized, manualMode, transitionTo]);
+  }, [isInitialized, manualMode, transitionTo, transitionToListen]);
 
   // Chat event handlers
   const onUserInput = useCallback(() => {
+    clearIdleTimer(); // Reset idle timer on user interaction
     setChatStage('processing_input');
     transitionTo('processing_input');
-    setIdleStartTime(null); // Reset idle timer on user interaction
-  }, [transitionTo]);
+  }, [transitionTo, clearIdleTimer]);
 
   const onStreamStart = useCallback(() => {
+    clearIdleTimer();
     setChatStage('streaming_response');
     transitionTo('streaming_response');
-  }, [transitionTo]);
+  }, [transitionTo, clearIdleTimer]);
 
   const onStreamComplete = useCallback(() => {
     setChatStage('response_complete');
     transitionTo('response_complete');
 
-    // Return to awaiting input after completion animation
+    // Return to listen state after completion animation (not idle)
     setTimeout(() => {
-      setChatStage('awaiting_input');
-      transitionTo('awaiting_input');
-      setIdleStartTime(Date.now()); // Start idle timer
+      transitionToListen();
     }, 3000);
-  }, [transitionTo]);
+  }, [transitionTo, transitionToListen]);
 
-  // Idle timeout effect - loops back to welcome state
+  // Cleanup timer on unmount
   useEffect(() => {
-    if (chatStage !== 'awaiting_input' || manualMode || !idleStartTime) {
-      return;
-    }
-
-    // Get idle timeout settings from state
-    const idleState = states.find(s => 
-      s.chat_trigger === 'awaiting_input' || 
-      s.state_key === 'idle' || 
-      s.title.toLowerCase().includes('idle')
-    );
-    
-    const idleTimeoutMs = idleState?.idle_timeout_ms;
-    
-    // If no timeout configured or disabled, don't set timer
-    if (!idleTimeoutMs || idleTimeoutMs <= 0) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      // Transition back to welcome state (page_load)
-      transitionTo('page_load');
-      
-      // After wave animation completes, return to idle
-      setTimeout(() => {
-        setChatStage('awaiting_input');
-        transitionTo('awaiting_input');
-        setIdleStartTime(Date.now()); // Reset for next loop
-      }, 3000);
-    }, idleTimeoutMs);
-
-    return () => clearTimeout(timer);
-  }, [chatStage, manualMode, idleStartTime, states, transitionTo]);
+    return () => clearIdleTimer();
+  }, [clearIdleTimer]);
 
   return {
     chatStage,

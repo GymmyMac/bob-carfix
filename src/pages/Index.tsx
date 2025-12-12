@@ -33,7 +33,8 @@ const Index = () => {
     getTalkingState, 
     getThinkingState, 
     getCompleteState, 
-    getIdleState 
+    getIdleState,
+    getListenState 
   } = useBobAnimationConfig();
   
   // Initialize state transition system
@@ -64,6 +65,7 @@ const Index = () => {
     thinkingState: getThinkingState() || "research",
     completeState: getCompleteState() || "complete",
     idleState: getIdleState() || "idle",
+    listenState: getListenState() || "talk_pause",
     onStreamStart: stateTransitions.onStreamStart,
     onStreamComplete: stateTransitions.onStreamComplete
   });

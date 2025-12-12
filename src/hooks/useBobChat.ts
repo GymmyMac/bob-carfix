@@ -16,6 +16,7 @@ interface UseBobChatProps {
   thinkingState?: string;
   completeState?: string;
   idleState?: string;
+  listenState?: string;
   onStreamStart?: () => void;
   onStreamComplete?: () => void;
 }
@@ -27,6 +28,7 @@ export const useBobChat = ({
   thinkingState = "research",
   completeState = "complete",
   idleState = "idle",
+  listenState = "talk_pause",
   onStreamStart,
   onStreamComplete
 }: UseBobChatProps) => {
@@ -47,13 +49,14 @@ export const useBobChat = ({
       }
     },
     onEnd: () => {
-      // Transition to complete state when speech finishes
+      // Transition to listen state when speech finishes (not idle - idle comes after 60s timeout)
       if (!manualMode) {
         if (onStreamComplete) {
           onStreamComplete();
         } else {
           safeSetState(completeState);
-          setTimeout(() => safeSetState(idleState), 3000);
+          // Go to listen state, not idle - idle is triggered by useBobStateTransitions after 60s
+          setTimeout(() => safeSetState(listenState), 3000);
         }
       }
     }
@@ -169,12 +172,12 @@ export const useBobChat = ({
       if (!isMuted && assistantContent.trim()) {
         speak(assistantContent);
       } else if (!manualMode) {
-        // If muted, do normal animation transitions
+        // If muted, do normal animation transitions (go to listen, not idle)
         if (onStreamComplete) {
           onStreamComplete();
         } else {
           safeSetState(completeState);
-          setTimeout(() => safeSetState(idleState), 3000);
+          setTimeout(() => safeSetState(listenState), 3000);
         }
       }
     } catch (error) {
