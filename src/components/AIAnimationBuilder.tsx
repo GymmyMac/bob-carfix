@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Upload, Wand2, Loader2, Check, X, GripVertical, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Upload, Wand2, Loader2, Check, X, GripVertical, Trash2, ArrowRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useBobAnimationConfig, StateDefinition } from "@/hooks/useBobAnimationConfig";
@@ -55,12 +56,18 @@ interface AIAnimationBuilderProps {
 // Sortable image item component
 const SortableImageItem = memo(({ 
   image, 
+  currentStateKey,
+  availableStates,
   onRemove,
-  onUpdateDescription 
+  onUpdateDescription,
+  onMoveToState,
 }: { 
   image: AnalyzedImage; 
+  currentStateKey: string;
+  availableStates: Array<{ state_key: string; state_title: string }>;
   onRemove: () => void;
   onUpdateDescription: (desc: string) => void;
+  onMoveToState: (targetStateKey: string) => void;
 }) => {
   const {
     attributes,
@@ -76,6 +83,9 @@ const SortableImageItem = memo(({
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
+
+  // Filter out current state from available options
+  const otherStates = availableStates.filter(s => s.state_key !== currentStateKey);
 
   return (
     <div
@@ -100,9 +110,24 @@ const SortableImageItem = memo(({
           className="h-6 text-xs mt-1"
         />
       </div>
-      <Badge variant="secondary" className="text-xs">
+      <Badge variant="secondary" className="text-xs shrink-0">
         #{image.sequence_order}
       </Badge>
+      {otherStates.length > 0 && (
+        <Select onValueChange={onMoveToState}>
+          <SelectTrigger className="h-7 w-[100px] text-xs">
+            <ArrowRight className="w-3 h-3 mr-1" />
+            <span className="text-muted-foreground">Move</span>
+          </SelectTrigger>
+          <SelectContent>
+            {otherStates.map((state) => (
+              <SelectItem key={state.state_key} value={state.state_key} className="text-xs">
+                {state.state_title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
       <Button
         variant="ghost"
         size="icon"
@@ -305,6 +330,40 @@ export const AIAnimationBuilder = memo(({ lookId, onComplete }: AIAnimationBuild
   // Delete entire state group
   const deleteStateGroup = useCallback((stateKey: string) => {
     setGroupedStates((prev) => prev.filter((g) => g.state_key !== stateKey));
+  }, []);
+
+  // Move image from one state to another
+  const moveImageToState = useCallback((sourceStateKey: string, filename: string, targetStateKey: string) => {
+    setGroupedStates((prev) => {
+      // Find the image to move
+      const sourceGroup = prev.find((g) => g.state_key === sourceStateKey);
+      const imageToMove = sourceGroup?.images.find((img) => img.filename === filename);
+      
+      if (!imageToMove) return prev;
+
+      return prev
+        .map((group) => {
+          if (group.state_key === sourceStateKey) {
+            // Remove from source, reorder remaining
+            const newImages = group.images
+              .filter((img) => img.filename !== filename)
+              .map((img, idx) => ({ ...img, sequence_order: idx + 1 }));
+            return { ...group, images: newImages };
+          }
+          if (group.state_key === targetStateKey) {
+            // Add to target at end, update its state info
+            const movedImage = { 
+              ...imageToMove, 
+              state_key: targetStateKey,
+              state_title: group.state_title,
+              sequence_order: group.images.length + 1 
+            };
+            return { ...group, images: [...group.images, movedImage] };
+          }
+          return group;
+        })
+        .filter((g) => g.images.length > 0); // Remove empty groups
+    });
   }, []);
 
   // Import all to database
@@ -559,10 +618,13 @@ export const AIAnimationBuilder = memo(({ lookId, onComplete }: AIAnimationBuild
                               <SortableImageItem
                                 key={image.filename}
                                 image={image}
+                                currentStateKey={group.state_key}
+                                availableStates={groupedStates.map(g => ({ state_key: g.state_key, state_title: g.state_title }))}
                                 onRemove={() => removeImage(group.state_key, image.filename)}
                                 onUpdateDescription={(desc) =>
                                   updateImageDescription(image.filename, desc)
                                 }
+                                onMoveToState={(targetKey) => moveImageToState(group.state_key, image.filename, targetKey)}
                               />
                             ))}
                           </div>
