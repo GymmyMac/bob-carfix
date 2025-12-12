@@ -421,6 +421,7 @@ export const useBobAnimationConfig = (lookId?: string | null) => {
     deleteUnassignedImage,
     deleteState,
     updateStateSettings,
+    upsertState,
     refetch: invalidateCache,
     getStateByKey,
     getDefaultState,
