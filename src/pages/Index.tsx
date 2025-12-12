@@ -73,7 +73,8 @@ const Index = () => {
     if (!loading && states.length > 0) {
       stateTransitions.initialize();
     }
-  }, [loading, states.length, stateTransitions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, states.length]); // Intentionally exclude stateTransitions to prevent re-init
 
   // Expose controls to AdminPanel via window object
   useEffect(() => {
