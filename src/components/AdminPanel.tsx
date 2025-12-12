@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { AnimationState } from "@/hooks/useBobAnimation";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -9,7 +10,6 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image, Database, Volume2 } from "lucide-react";
-import { useState, useEffect } from "react";
 import { ImageUploaderWithState } from "@/components/ImageUploaderWithState";
 import { StateAssignmentCard } from "@/components/StateAssignmentCard";
 import { AnimationPreview } from "@/components/AnimationPreview";
@@ -25,7 +25,7 @@ interface AdminPanelProps {
   onClose: () => void;
 }
 
-export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
+export const AdminPanel = memo(({ isOpen, onClose }: AdminPanelProps) => {
   // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   const [talkSpeed, setTalkSpeed] = useState(400);
   const [messageCount, setMessageCount] = useState(0);
@@ -45,6 +45,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     deleteAnimation,
     deleteState,
     updateStateSettings,
+    batchReorder,
     refetch,
   } = useBobAnimationConfig(selectedLookId);
   
@@ -74,6 +75,60 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
       setGlobalTalkSpeed(talkSpeed);
     }
   }, [talkSpeed, animationControls]);
+
+  // Memoized callbacks
+  const handleStateChange = useCallback((state: AnimationState) => {
+    animationControls?.setAnimationState(state);
+  }, [animationControls]);
+
+  const handleClearChat = useCallback(() => {
+    if (chatControls?.clearMessages) {
+      chatControls.clearMessages();
+      setMessageCount(0);
+    }
+  }, [chatControls]);
+
+  const handleResetToAuto = useCallback(() => {
+    if (animationControls) {
+      animationControls.setManualMode(false);
+      animationControls.setAnimationState("idle");
+    }
+  }, [animationControls]);
+
+  // Memoized getAssignmentsByState function
+  const getAssignmentsByState = useCallback((state: AnimationStateType) => {
+    return configs
+      .filter((c) => c.animation_state === state)
+      .sort((a, b) => a.sequence_order - b.sequence_order);
+  }, [configs]);
+
+  // Memoized batch reorder handler
+  const handleBatchReorder = useCallback(async (items: Array<{ id: string; sequence_order: number }>) => {
+    await batchReorder(items);
+  }, [batchReorder]);
+
+  // Memoized state buttons
+  const stateButtons = useMemo(() => {
+    return states
+      .filter((s) => s.is_active)
+      .sort((a, b) => a.display_order - b.display_order)
+      .map((s) => ({
+        state: s.state_key,
+        label: s.title,
+        description: s.description || "No description",
+        speed: s.animation_speed || 400,
+        pauseDuration: s.pause_duration || 0,
+        loopCount: s.loop_count || 0,
+        chatTrigger: s.chat_trigger || null
+      }));
+  }, [states]);
+
+  // Memoized sorted states for gallery
+  const sortedActiveStates = useMemo(() => {
+    return states
+      .filter((s) => s.is_active)
+      .sort((a, b) => a.display_order - b.display_order);
+  }, [states]);
   
   // Early return AFTER all hooks are called
   if (!animationControls) {
@@ -88,69 +143,6 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     getCurrentImage,
     setTalkSpeed: setGlobalTalkSpeed
   } = animationControls;
-
-  const handleStateChange = (state: AnimationState) => {
-    setAnimationState(state);
-  };
-
-  const handleClearChat = () => {
-    if (chatControls?.clearMessages) {
-      chatControls.clearMessages();
-      setMessageCount(0);
-    }
-  };
-
-  const handleResetToAuto = () => {
-    setManualMode(false);
-    setAnimationState("idle");
-  };
-
-  const getAssignmentsByState = (state: AnimationStateType) => {
-    return configs
-      .filter((c) => c.animation_state === state)
-      .sort((a, b) => a.sequence_order - b.sequence_order);
-  };
-
-  const handleReorder = async (id: string, newOrder: number) => {
-    const config = configs.find((c) => c.id === id);
-    if (!config) return;
-
-    const sameStateConfigs = configs.filter(
-      (c) => c.animation_state === config.animation_state
-    );
-
-    const updates = sameStateConfigs.map(async (c) => {
-      if (c.id === id) {
-        return updateAnimation(id, { sequence_order: newOrder });
-      } else if (
-        c.sequence_order === newOrder &&
-        newOrder < config.sequence_order
-      ) {
-        return updateAnimation(c.id, { sequence_order: c.sequence_order + 1 });
-      } else if (
-        c.sequence_order === newOrder &&
-        newOrder > config.sequence_order
-      ) {
-        return updateAnimation(c.id, { sequence_order: c.sequence_order - 1 });
-      }
-    });
-
-    await Promise.all(updates.filter(Boolean));
-  };
-
-  // Dynamic state buttons loaded from database
-  const stateButtons = states
-    .filter((s) => s.is_active)
-    .sort((a, b) => a.display_order - b.display_order)
-    .map((s) => ({
-      state: s.state_key,
-      label: s.title,
-      description: s.description || "No description",
-      speed: s.animation_speed || 400,
-      pauseDuration: s.pause_duration || 0,
-      loopCount: s.loop_count || 0,
-      chatTrigger: s.chat_trigger || null
-    }));
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -551,33 +543,30 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                       No states found for this look. Upload images to create states.
                     </div>
                   ) : (
-                    states
-                      .filter((s) => s.is_active)
-                      .sort((a, b) => a.display_order - b.display_order)
-                      .map((state) => (
-                        <StateAssignmentCard
-                          key={state.id}
-                          stateId={state.id}
-                          state={state.state_key}
-                          title={state.title}
-                          description={state.description || ""}
-                          animationSpeed={state.animation_speed || 400}
-                          pauseDuration={state.pause_duration || 0}
-                          loopCount={state.loop_count || 0}
-                          chatTrigger={state.chat_trigger || null}
-                          assignments={getAssignmentsByState(state.state_key)}
-                          onDelete={deleteAnimation}
-                          onDeleteState={deleteState}
-                          onToggleActive={(id, isActive) =>
-                            updateAnimation(id, { is_active: isActive })
-                          }
-                          onReorder={handleReorder}
-                          onUpdateSettings={updateStateSettings}
-                          onUpdateOffset={(id, offset) =>
-                            updateAnimation(id, { vertical_offset: offset })
-                          }
-                        />
-                      ))
+                    sortedActiveStates.map((state) => (
+                      <StateAssignmentCard
+                        key={state.id}
+                        stateId={state.id}
+                        state={state.state_key}
+                        title={state.title}
+                        description={state.description || ""}
+                        animationSpeed={state.animation_speed || 400}
+                        pauseDuration={state.pause_duration || 0}
+                        loopCount={state.loop_count || 0}
+                        chatTrigger={state.chat_trigger || null}
+                        assignments={getAssignmentsByState(state.state_key)}
+                        onDelete={deleteAnimation}
+                        onDeleteState={deleteState}
+                        onToggleActive={(id, isActive) =>
+                          updateAnimation(id, { is_active: isActive })
+                        }
+                        onBatchReorder={handleBatchReorder}
+                        onUpdateSettings={updateStateSettings}
+                        onUpdateOffset={(id, offset) =>
+                          updateAnimation(id, { vertical_offset: offset })
+                        }
+                      />
+                    ))
                   )}
                 </TabsContent>
 
@@ -601,4 +590,6 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
       </DialogContent>
     </Dialog>
   );
-};
+});
+
+AdminPanel.displayName = "AdminPanel";
