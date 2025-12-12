@@ -59,9 +59,16 @@ export const useBobChat = ({
       }
     },
     onEnd: () => {
-      // Transition to listen state when speech finishes (not idle - idle comes after 60s timeout)
+      // Check if the spoken content had product keywords
+      const hasProductContent = PRODUCT_KEYWORDS.some(keyword => 
+        latestAssistantMessageRef.current.toLowerCase().includes(keyword.toLowerCase())
+      );
+
+      // Transition based on content type
       if (!manualMode) {
-        if (onStreamComplete) {
+        if (hasProductContent && onShowingProduct) {
+          onShowingProduct();
+        } else if (onStreamComplete) {
           onStreamComplete();
         } else {
           safeSetState(completeState);
