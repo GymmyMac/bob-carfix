@@ -38,6 +38,7 @@ interface AnalyzedImage {
   state_title: string;
   sequence_order: number;
   suggested_speed: number;
+  suggested_scale: number;
   description: string;
 }
 
@@ -177,17 +178,33 @@ export const AIAnimationBuilder = memo(({ lookId, onComplete }: AIAnimationBuild
     setPreviews(newPreviews);
   }, []);
 
-  // Analyze files with AI
+  // Convert file to base64
+  const fileToBase64 = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  // Analyze files with AI (vision-enabled)
   const analyzeWithAI = useCallback(async () => {
     if (selectedFiles.length === 0) return;
 
     setPhase("analyzing");
 
     try {
-      const filenames = selectedFiles.map((f) => f.name);
+      // Convert all images to base64 for vision analysis
+      const imageDataPromises = selectedFiles.map(async (file) => ({
+        filename: file.name,
+        base64: await fileToBase64(file),
+      }));
+      
+      const images = await Promise.all(imageDataPromises);
 
       const { data, error } = await supabase.functions.invoke("analyze-animation-batch", {
-        body: { filenames },
+        body: { images },
       });
 
       if (error) {
@@ -204,6 +221,7 @@ export const AIAnimationBuilder = memo(({ lookId, onComplete }: AIAnimationBuild
         state_title: string;
         sequence_order: number;
         suggested_speed: number;
+        suggested_scale: number;
         description: string;
       }>;
 
@@ -245,7 +263,7 @@ export const AIAnimationBuilder = memo(({ lookId, onComplete }: AIAnimationBuild
 
       toast({
         title: "Analysis Complete",
-        description: `Organized ${analyzed.length} images into ${groups.length} states`,
+        description: `Organized ${analyzed.length} images into ${groups.length} states with scale normalization`,
       });
     } catch (error) {
       console.error("AI analysis error:", error);
@@ -256,7 +274,7 @@ export const AIAnimationBuilder = memo(({ lookId, onComplete }: AIAnimationBuild
       });
       setPhase("upload");
     }
-  }, [selectedFiles, previews]);
+  }, [selectedFiles, previews, fileToBase64]);
 
   // Handle drag end for reordering
   const handleDragEnd = useCallback((stateKey: string, event: DragEndEvent) => {
@@ -390,7 +408,7 @@ export const AIAnimationBuilder = memo(({ lookId, onComplete }: AIAnimationBuild
         // Update state animation speed
         // This would require updating the state settings - for now we handle via upsertState
 
-        // Upload and assign each image
+        // Upload and assign each image with scale
         for (const image of group.images) {
           try {
             const imageUrl = await uploadImage(image.file);
@@ -399,7 +417,8 @@ export const AIAnimationBuilder = memo(({ lookId, onComplete }: AIAnimationBuild
               group.state_key,
               image.sequence_order,
               image.description,
-              lookId
+              lookId,
+              image.suggested_scale
             );
             processedCount++;
             setImportProgress(Math.round((processedCount / totalImages) * 100));

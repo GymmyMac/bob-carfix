@@ -82,6 +82,7 @@ export type Database = {
           image_url: string
           is_active: boolean
           look_id: string | null
+          scale: number | null
           sequence_order: number
           updated_at: string
           uploaded_at: string
@@ -95,6 +96,7 @@ export type Database = {
           image_url: string
           is_active?: boolean
           look_id?: string | null
+          scale?: number | null
           sequence_order?: number
           updated_at?: string
           uploaded_at?: string
@@ -108,6 +110,7 @@ export type Database = {
           image_url?: string
           is_active?: boolean
           look_id?: string | null
+          scale?: number | null
           sequence_order?: number
           updated_at?: string
           uploaded_at?: string

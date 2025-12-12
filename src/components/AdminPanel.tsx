@@ -577,6 +577,9 @@ export const AdminPanel = memo(({ isOpen, onClose }: AdminPanelProps) => {
                         onUpdateOffset={(id, offset) =>
                           updateAnimation(id, { vertical_offset: offset })
                         }
+                        onUpdateScale={(id, scale) =>
+                          updateAnimation(id, { scale: scale })
+                        }
                       />
                     ))
                   )}

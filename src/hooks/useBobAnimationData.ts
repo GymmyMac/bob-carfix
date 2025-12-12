@@ -11,6 +11,7 @@ export interface BobAnimationConfig {
   description: string | null;
   vertical_offset: number;
   look_id: string | null;
+  scale: number;
 }
 
 export interface AnimationStateDefinition {

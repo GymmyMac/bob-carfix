@@ -71,7 +71,8 @@ export const useBobAnimationConfig = (lookId?: string | null) => {
     state: AnimationState,
     sequenceOrder: number = 1,
     description?: string,
-    targetLookId?: string | null
+    targetLookId?: string | null,
+    scale?: number
   ) => {
     try {
       const lookToUse = targetLookId || activeLookId;
@@ -82,6 +83,7 @@ export const useBobAnimationConfig = (lookId?: string | null) => {
         description: description || null,
         is_active: true,
         look_id: lookToUse,
+        scale: scale ?? 100,
       });
 
       if (error) throw error;
