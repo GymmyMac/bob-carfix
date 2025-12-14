@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { BobCharacter } from "@/components/BobCharacter";
 import { ChatInterface } from "@/components/ChatInterface";
 import { ProductShelf } from "@/components/ProductShelf";
+import VehicleCard from "@/components/vehicle/VehicleCard";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 import { useBobChat } from "@/hooks/useBobChat";
@@ -9,6 +10,7 @@ import { PLACEHOLDER_PRODUCTS } from "@/types/product";
 import { AdminButton } from "@/components/AdminButton";
 import { useBobStateTransitions } from "@/hooks/useBobStateTransitions";
 import { useBobBackdrop } from "@/hooks/useBobBackdrop";
+import { Vehicle } from "@/types/vehicle";
 import bobBgWall from "@/assets/bob-bg-wall.png";
 import bobCounter from "@/assets/bob-counter.png";
 
@@ -37,6 +39,9 @@ const Index = () => {
     getListenState 
   } = useBobAnimationConfig();
   
+  // State for identified vehicle
+  const [displayedVehicle, setDisplayedVehicle] = useState<Vehicle | null>(null);
+
   // Initialize state transition system
   const stateTransitions = useBobStateTransitions({
     states,
@@ -57,7 +62,9 @@ const Index = () => {
     clearMessages,
     isMuted,
     toggleMute,
-    isSpeaking
+    isSpeaking,
+    identifiedVehicle,
+    clearVehicle
   } = useBobChat({ 
     setAnimationState, 
     manualMode,
@@ -67,7 +74,10 @@ const Index = () => {
     idleState: getIdleState() || "idle",
     listenState: getListenState() || "talk_pause",
     onStreamStart: stateTransitions.onStreamStart,
-    onStreamComplete: stateTransitions.onStreamComplete
+    onStreamComplete: stateTransitions.onStreamComplete,
+    onVehicleIdentified: (vehicle) => {
+      setDisplayedVehicle(vehicle);
+    }
   });
   
   // Initialize page load state transition - wait for states to load
@@ -133,12 +143,24 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Product Shelf Area (Right) */}
-        <div className="bg-background">
-          <ProductShelf 
-            products={PLACEHOLDER_PRODUCTS}
-            onProductClick={(product) => console.log("Product clicked:", product)}
-          />
+        {/* Vehicle/Product Area (Right) */}
+        <div className="bg-background p-6 overflow-y-auto">
+          {displayedVehicle ? (
+            <VehicleCard
+              vehicle={displayedVehicle}
+              onShopParts={(vehicle) => console.log("Shop parts for:", vehicle)}
+              onChangeVehicle={() => {
+                setDisplayedVehicle(null);
+                clearVehicle();
+              }}
+              initialExpanded={true}
+            />
+          ) : (
+            <ProductShelf 
+              products={PLACEHOLDER_PRODUCTS}
+              onProductClick={(product) => console.log("Product clicked:", product)}
+            />
+          )}
         </div>
       </div>
 
@@ -176,11 +198,23 @@ const Index = () => {
           </div>
         </div>
 
-        <div className="py-8">
-          <ProductShelf 
-            products={PLACEHOLDER_PRODUCTS}
-            onProductClick={(product) => console.log("Product clicked:", product)}
-          />
+        <div className="py-8 px-4">
+          {displayedVehicle ? (
+            <VehicleCard
+              vehicle={displayedVehicle}
+              onShopParts={(vehicle) => console.log("Shop parts for:", vehicle)}
+              onChangeVehicle={() => {
+                setDisplayedVehicle(null);
+                clearVehicle();
+              }}
+              initialExpanded={true}
+            />
+          ) : (
+            <ProductShelf 
+              products={PLACEHOLDER_PRODUCTS}
+              onProductClick={(product) => console.log("Product clicked:", product)}
+            />
+          )}
         </div>
       </div>
     </div>
