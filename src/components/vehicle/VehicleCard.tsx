@@ -31,6 +31,24 @@ interface VehicleCardProps {
   viewMode?: "grid" | "row";
 }
 
+// Fuel type code to label mapping
+const getFuelTypeLabel = (code: string | undefined): string => {
+  if (!code) return '';
+  const fuelTypes: Record<string, string> = {
+    '01': 'Petrol',
+    '02': 'Diesel',
+    '03': 'Electric',
+    '04': 'Hybrid',
+    '05': 'LPG',
+    '06': 'CNG',
+    'petrol': 'Petrol',
+    'diesel': 'Diesel',
+    'electric': 'Electric',
+    'hybrid': 'Hybrid',
+  };
+  return fuelTypes[code.toLowerCase()] || fuelTypes[code] || code;
+};
+
 const VehicleCard: React.FC<VehicleCardProps> = ({
   vehicle,
   onEdit,
@@ -46,6 +64,8 @@ const VehicleCard: React.FC<VehicleCardProps> = ({
   const vehicleDisplayName = vehicle.vehicle_name_nz || 
     `${vehicle.make || ""} ${vehicle.model || ""} ${vehicle.year || ""}`.trim() || 
     "Unknown Vehicle";
+  
+  const fuelTypeLabel = getFuelTypeLabel(vehicle.fuel_type);
 
   return (
     <ModernCard 
@@ -139,10 +159,10 @@ const VehicleCard: React.FC<VehicleCardProps> = ({
                           <p className="text-sm font-medium">{vehicle.engine_size}</p>
                         </div>
                       )}
-                      {vehicle.fuel_type && (
+                      {fuelTypeLabel && (
                         <div>
                           <p className="text-xs text-muted-foreground">Fuel Type</p>
-                          <p className="text-sm font-medium capitalize">{vehicle.fuel_type}</p>
+                          <p className="text-sm font-medium">{fuelTypeLabel}</p>
                         </div>
                       )}
                       {vehicle.power && (
