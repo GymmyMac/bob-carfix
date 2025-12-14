@@ -206,9 +206,9 @@ export const useBobChat = ({
         assistantContent.toLowerCase().includes(keyword.toLowerCase())
       );
 
-      // Speak the response if not muted
-      if (!isMuted && assistantContent.trim()) {
-        speak(assistantContent);
+      // Speak the response if not muted (use cleaned content)
+      if (!isMuted && latestAssistantMessageRef.current.trim()) {
+        speak(latestAssistantMessageRef.current);
       } else if (!manualMode) {
         // If muted, trigger appropriate animation based on content
         if (hasProductContent && onShowingProduct) {
