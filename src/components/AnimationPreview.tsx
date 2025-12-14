@@ -3,11 +3,15 @@ import { BobCharacter } from "./BobCharacter";
 import { Button } from "@/components/ui/button";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
+import { useBobBackdrop } from "@/hooks/useBobBackdrop";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import bobBgWall from "@/assets/bob-bg-wall.png";
+import bobCounter from "@/assets/bob-counter.png";
 
 export const AnimationPreview = memo(() => {
-  const { animationState, setAnimationState, getCurrentImage, getCurrentOffset, setTalkSpeed } = useBobAnimation();
+  const { animationState, setAnimationState, getCurrentImage, getCurrentOffset, getCurrentScale, setTalkSpeed } = useBobAnimation();
   const { states, getTalkingState } = useBobAnimationConfig();
+  const { activeBackdrop } = useBobBackdrop();
   
   const talkingStateKey = getTalkingState();
 
@@ -35,11 +39,15 @@ export const AnimationPreview = memo(() => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="bg-muted rounded-lg p-8">
+        <div className="rounded-lg overflow-hidden">
           <BobCharacter
             currentImage={getCurrentImage()}
             animationState={animationState}
+            backdropUrl={bobBgWall}
+            counterOverlayUrl={bobCounter}
+            counterHeightPercent={activeBackdrop?.counter_height_percent ?? 12}
             verticalOffset={getCurrentOffset()}
+            scale={getCurrentScale()}
             className="max-w-md mx-auto"
           />
         </div>
