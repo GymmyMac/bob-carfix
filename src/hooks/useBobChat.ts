@@ -178,14 +178,17 @@ export const useBobChat = ({
             if (content) {
               assistantContent += content;
               
+              // Strip any vehicle marker that slipped through (client-side fallback)
+              const cleanAssistantContent = assistantContent.replace(/\[VEHICLE_CONFIRMED:\{[\s\S]*?\}\]/g, '');
+              
               setMessages(prev => {
                 const last = prev[prev.length - 1];
                 if (last?.role === "assistant") {
                   return prev.map((m, i) => 
-                    i === prev.length - 1 ? { ...m, content: assistantContent } : m
+                    i === prev.length - 1 ? { ...m, content: cleanAssistantContent } : m
                   );
                 }
-                return [...prev, { role: "assistant", content: assistantContent }];
+                return [...prev, { role: "assistant", content: cleanAssistantContent }];
               });
             }
           } catch {
@@ -195,8 +198,8 @@ export const useBobChat = ({
         }
       }
 
-      // Store latest assistant message for speech
-      latestAssistantMessageRef.current = assistantContent;
+      // Store latest assistant message for speech (stripped of markers)
+      latestAssistantMessageRef.current = assistantContent.replace(/\[VEHICLE_CONFIRMED:\{[\s\S]*?\}\]/g, '');
 
       // Check if response contains product recommendations
       const hasProductContent = PRODUCT_KEYWORDS.some(keyword => 

@@ -350,13 +350,30 @@ serve(async (req) => {
       const transformedStream = new ReadableStream({
         async start(controller) {
           let buffer = "";
-          let vehicleMarkerFound = false;
-          let pendingVehicleJson = "";
+          let accumulatedContent = ""; // Accumulate ALL content for marker detection
+          let vehicleEmitted = false;
           
           try {
             while (true) {
               const { done, value } = await reader.read();
               if (done) {
+                // Before closing, check if we have a complete vehicle marker that wasn't detected
+                if (!vehicleEmitted) {
+                  // Use regex that handles nested JSON with any characters
+                  const markerRegex = /\[VEHICLE_CONFIRMED:(\{[\s\S]*?\})\]/;
+                  const markerMatch = accumulatedContent.match(markerRegex);
+                  if (markerMatch) {
+                    try {
+                      const vehicleData = JSON.parse(markerMatch[1]);
+                      const vehicleEvent = `data: ${JSON.stringify({ type: "vehicle_identified", vehicle: vehicleData })}\n\n`;
+                      controller.enqueue(encoder.encode(vehicleEvent));
+                      console.log("Emitted vehicle_identified event (end of stream):", vehicleData);
+                      vehicleEmitted = true;
+                    } catch (e) {
+                      console.error("Failed to parse vehicle marker at stream end:", e);
+                    }
+                  }
+                }
                 // Flush any remaining buffer
                 if (buffer.trim()) {
                   controller.enqueue(encoder.encode(buffer));
@@ -389,18 +406,28 @@ serve(async (req) => {
                   const content = parsed.choices?.[0]?.delta?.content as string | undefined;
                   
                   if (content) {
-                    // Check for vehicle marker at the start
-                    const markerMatch = content.match(/\[VEHICLE_CONFIRMED:(\{[^}]+\})\]/);
-                    if (markerMatch) {
+                    // Accumulate content for cross-chunk marker detection
+                    accumulatedContent += content;
+                    
+                    // Check accumulated content for complete vehicle marker
+                    // Use regex that handles nested JSON - match from [ to ] including any characters
+                    const markerRegex = /\[VEHICLE_CONFIRMED:(\{[\s\S]*?\})\]/;
+                    const markerMatch = accumulatedContent.match(markerRegex);
+                    
+                    if (!vehicleEmitted && markerMatch) {
                       try {
                         const vehicleData = JSON.parse(markerMatch[1]);
                         // Emit vehicle_identified event
                         const vehicleEvent = `data: ${JSON.stringify({ type: "vehicle_identified", vehicle: vehicleData })}\n\n`;
                         controller.enqueue(encoder.encode(vehicleEvent));
                         console.log("Emitted vehicle_identified event:", vehicleData);
+                        vehicleEmitted = true;
                         
-                        // Remove marker from content and continue with rest
-                        const cleanContent = content.replace(/\[VEHICLE_CONFIRMED:\{[^}]+\}\]/, "");
+                        // Remove marker from accumulated content
+                        accumulatedContent = accumulatedContent.replace(markerMatch[0], "");
+                        
+                        // Also remove from current chunk content if present
+                        const cleanContent = content.replace(markerRegex, "");
                         if (cleanContent.trim()) {
                           parsed.choices[0].delta.content = cleanContent;
                           controller.enqueue(encoder.encode(`data: ${JSON.stringify(parsed)}\n`));
