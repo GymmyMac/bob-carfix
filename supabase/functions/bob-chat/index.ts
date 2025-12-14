@@ -40,6 +40,34 @@ const tools = [
         required: ["query"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "retrieve_parts",
+      description: "Look up available parts for a confirmed vehicle. Use AFTER vehicle is identified to find parts that match the customer's needs. Can filter by part type.",
+      parameters: {
+        type: "object",
+        properties: {
+          vehicleid: { type: "number", description: "The vehicle ID from a previous lookup_vehicle result (found in the 'id' field)" },
+          part_type: { type: "string", description: "Optional filter by part type (e.g., 'AIR FILTER', 'BRAKE PADS', 'OIL FILTER', 'CABIN FILTER', 'SPARK PLUGS')" }
+        },
+        required: ["vehicleid"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "retrieve_service_packages",
+      description: "Get pre-constructed service packages for regular maintenance. These are bundled deals covering oil service, brake service, filters etc. Use to recommend maintenance bundles after vehicle is confirmed.",
+      parameters: {
+        type: "object",
+        properties: {
+          vehicleid: { type: "number", description: "The vehicle ID for vehicle-specific packages (optional - can list all packages if not provided)" }
+        }
+      }
+    }
   }
 ];
 
@@ -81,8 +109,20 @@ CONVERSATION FLOW:
 2. Vehicle ID: Ask for REGO first. If they don't have it, get make, model, year, and variant
 3. Small talk: Once vehicle identified, make brief small talk about the car's reputation or motorsport pedigree
 4. Problem: Ask what's wrong - symptoms, dashboard lights, OBD2 fault codes if they have them
-5. Recommend: Suggest parts. Always offer Service Packages (oil+filter, air filter, cabin filter, brake pads+rotors)
+5. Recommend: Use retrieve_parts with vehicleid to find matching parts. Always offer Service Packages too.
 6. Upsell: Suggest add-ons like tyre shine, windscreen wash, etc.
+
+PARTS LOOKUP (after vehicle confirmed):
+- Use retrieve_parts with the vehicle's ID to find parts that fit
+- Filter by part_type when customer mentions specific parts (brake pads, air filter, etc.)
+- Always mention: Brand, Part Number, and whether it's in stock
+- If multiple options, recommend the best value or quality choice
+
+SERVICE PACKAGES:
+- Use retrieve_service_packages to get bundled maintenance deals
+- Proactively suggest service packages for routine maintenance
+- Service packs are better value than buying individual parts
+- Include: oil+filter combos, brake pad+rotor sets, filter bundles
 
 KIWI EXPRESSIONS (use naturally):
 - "mate", "sweet as", "no worries", "choice", "chur"
@@ -173,6 +213,86 @@ async function searchWeb(query: string): Promise<unknown> {
   }
 }
 
+async function retrieveParts(vehicleId: number, partType?: string): Promise<unknown> {
+  console.log('Retrieving parts for vehicle:', vehicleId, 'part_type:', partType);
+  
+  try {
+    const response = await fetch(
+      "https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1/retrieve-parts",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vehicleid: String(vehicleId) })
+      }
+    );
+    
+    if (!response.ok) {
+      console.error('Parts lookup failed:', response.status);
+      return { success: false, error: `Parts lookup failed with status ${response.status}` };
+    }
+    
+    const data = await response.json();
+    console.log('Parts lookup result:', JSON.stringify(data).substring(0, 500));
+    
+    // If part_type filter provided, filter the results
+    if (partType && data.parts && Array.isArray(data.parts)) {
+      const filteredParts = data.parts.filter((p: Record<string, unknown>) => {
+        const productType = String(p["Part Product Type"] || "").toLowerCase();
+        return productType.includes(partType.toLowerCase());
+      });
+      return { 
+        success: true, 
+        parts: filteredParts,
+        total_found: filteredParts.length,
+        filter_applied: partType
+      };
+    }
+    
+    return { 
+      success: true, 
+      parts: data.parts || [],
+      total_found: (data.parts || []).length
+    };
+  } catch (error) {
+    console.error('Parts lookup error:', error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
+async function retrieveServicePackages(vehicleId?: number): Promise<unknown> {
+  console.log('Retrieving service packages for vehicle:', vehicleId);
+  
+  try {
+    const body = vehicleId ? { vehicleid: String(vehicleId) } : {};
+    
+    const response = await fetch(
+      "https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1/retrieve-service-packages",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      }
+    );
+    
+    if (!response.ok) {
+      console.error('Service packages lookup failed:', response.status);
+      return { success: false, error: `Service packages lookup failed with status ${response.status}` };
+    }
+    
+    const data = await response.json();
+    console.log('Service packages result:', JSON.stringify(data).substring(0, 500));
+    
+    return { 
+      success: true, 
+      packages: data.packages || data,
+      total_found: Array.isArray(data.packages) ? data.packages.length : (Array.isArray(data) ? data.length : 1)
+    };
+  } catch (error) {
+    console.error('Service packages error:', error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
 async function executeToolCall(toolCall: { function: { name: string; arguments: string }; id: string }): Promise<unknown> {
   const { name, arguments: argsString } = toolCall.function;
   
@@ -184,6 +304,10 @@ async function executeToolCall(toolCall: { function: { name: string; arguments: 
         return await lookupVehicle(args);
       case "search_web":
         return await searchWeb(args.query);
+      case "retrieve_parts":
+        return await retrieveParts(args.vehicleid, args.part_type);
+      case "retrieve_service_packages":
+        return await retrieveServicePackages(args.vehicleid);
       default:
         return { error: `Unknown tool: ${name}` };
     }
