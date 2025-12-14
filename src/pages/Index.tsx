@@ -6,7 +6,7 @@ import VehicleCard from "@/components/vehicle/VehicleCard";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 import { useBobChat } from "@/hooks/useBobChat";
-import { PLACEHOLDER_PRODUCTS } from "@/types/product";
+import { Product, APIPart, apiPartToProduct } from "@/types/product";
 import { AdminButton } from "@/components/AdminButton";
 import { useBobStateTransitions } from "@/hooks/useBobStateTransitions";
 import { useBobBackdrop } from "@/hooks/useBobBackdrop";
@@ -39,8 +39,9 @@ const Index = () => {
     getListenState 
   } = useBobAnimationConfig();
   
-  // State for identified vehicle
+  // State for identified vehicle and parts
   const [displayedVehicle, setDisplayedVehicle] = useState<Vehicle | null>(null);
+  const [displayedParts, setDisplayedParts] = useState<Product[]>([]);
 
   // Initialize state transition system
   const stateTransitions = useBobStateTransitions({
@@ -77,6 +78,10 @@ const Index = () => {
     onStreamComplete: stateTransitions.onStreamComplete,
     onVehicleIdentified: (vehicle) => {
       setDisplayedVehicle(vehicle);
+    },
+    onPartsFound: (parts: APIPart[]) => {
+      const products = parts.map(apiPartToProduct);
+      setDisplayedParts(products);
     }
   });
   
@@ -144,20 +149,22 @@ const Index = () => {
         </div>
 
         {/* Vehicle/Product Area (Right) */}
-        <div className="bg-background p-6 overflow-y-auto">
-          {displayedVehicle ? (
+        <div className="bg-background p-6 overflow-y-auto flex flex-col gap-6">
+          {displayedVehicle && (
             <VehicleCard
               vehicle={displayedVehicle}
               onShopParts={(vehicle) => console.log("Shop parts for:", vehicle)}
               onChangeVehicle={() => {
                 setDisplayedVehicle(null);
+                setDisplayedParts([]);
                 clearVehicle();
               }}
               initialExpanded={true}
             />
-          ) : (
+          )}
+          {(displayedVehicle || displayedParts.length > 0) && (
             <ProductShelf 
-              products={PLACEHOLDER_PRODUCTS}
+              products={displayedParts}
               onProductClick={(product) => console.log("Product clicked:", product)}
             />
           )}
@@ -198,20 +205,22 @@ const Index = () => {
           </div>
         </div>
 
-        <div className="py-8 px-4">
-          {displayedVehicle ? (
+        <div className="py-8 px-4 flex flex-col gap-6">
+          {displayedVehicle && (
             <VehicleCard
               vehicle={displayedVehicle}
               onShopParts={(vehicle) => console.log("Shop parts for:", vehicle)}
               onChangeVehicle={() => {
                 setDisplayedVehicle(null);
+                setDisplayedParts([]);
                 clearVehicle();
               }}
               initialExpanded={true}
             />
-          ) : (
+          )}
+          {(displayedVehicle || displayedParts.length > 0) && (
             <ProductShelf 
-              products={PLACEHOLDER_PRODUCTS}
+              products={displayedParts}
               onProductClick={(product) => console.log("Product clicked:", product)}
             />
           )}

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useSpeechSynthesis } from "./useSpeechSynthesis";
 import { Vehicle } from "@/types/vehicle";
+import { APIPart } from "@/types/product";
 
 export type AnimationState = string;
 
@@ -22,6 +23,7 @@ interface UseBobChatProps {
   onStreamComplete?: () => void;
   onShowingProduct?: () => void;
   onVehicleIdentified?: (vehicle: Vehicle) => void;
+  onPartsFound?: (parts: APIPart[]) => void;
 }
 
 // Keywords that indicate Bob is recommending products
@@ -43,7 +45,8 @@ export const useBobChat = ({
   onStreamStart,
   onStreamComplete,
   onShowingProduct,
-  onVehicleIdentified
+  onVehicleIdentified,
+  onPartsFound
 }: UseBobChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -171,6 +174,13 @@ export const useBobChat = ({
               console.log("Vehicle identified:", parsed.vehicle);
               setIdentifiedVehicle(parsed.vehicle);
               onVehicleIdentified?.(parsed.vehicle);
+              continue;
+            }
+            
+            // Check for parts_found event
+            if (parsed.type === "parts_found" && parsed.parts) {
+              console.log("Parts found:", parsed.parts.length, "parts");
+              onPartsFound?.(parsed.parts);
               continue;
             }
             
