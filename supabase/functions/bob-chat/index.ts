@@ -64,11 +64,17 @@ HANDLING LOOKUP RESULTS:
 - If NO match or error: Ask for make, model, and year manually
 - Remember the confirmed vehicle for the rest of the conversation
 
+IMPORTANT - VEHICLE CONFIRMATION:
+When you confirm a vehicle match (single match or after disambiguation), you MUST include a special marker at the START of your response in this exact format:
+[VEHICLE_CONFIRMED:{"rego":"ABC123","make":"Toyota","model":"Corolla","year":"2015","variant":"GX","vehicle_name_nz":"Toyota Corolla GX 1.8L","engine_size":"1.8L","fuel_type":"petrol","vin":"JTDBU4EE7E9123456","engine_no":"2ZR-123456","cc_rating":1800}]
+
+Include ALL available fields from the lookup result. Then continue with your natural response after the marker.
+
 EXAMPLE DISAMBIGUATION:
 If you get VIN "WAUZZZ8K3DA119102" and engine_no "CDN-297102" with multiple matches:
 1. Search: "CDN-297102 Audi engine specifications" or "WAUZZZ8K3DA119102 VIN decoder"
 2. Research shows CDN = 155kW 2.0 TFSI Quattro
-3. Respond: "Based on your engine code, looks like the 2.0L TFSI with the 155kW engine and Quattro all-wheel drive - that right, mate?"
+3. Respond: "[VEHICLE_CONFIRMED:{...}]Based on your engine code, looks like the 2.0L TFSI with the 155kW engine and Quattro all-wheel drive - that right, mate?"
 
 CONVERSATION FLOW:
 1. Welcome: "Welcome to CARFIX! I'm Bob. What can I help with today?"
@@ -331,7 +337,98 @@ serve(async (req) => {
       }
 
       console.log('Streaming response from AI gateway');
-      return new Response(streamResponse.body, {
+      
+      // Transform the stream to extract vehicle markers and emit structured events
+      const reader = streamResponse.body?.getReader();
+      if (!reader) {
+        throw new Error("No response body");
+      }
+      
+      const encoder = new TextEncoder();
+      const decoder = new TextDecoder();
+      
+      const transformedStream = new ReadableStream({
+        async start(controller) {
+          let buffer = "";
+          let vehicleMarkerFound = false;
+          let pendingVehicleJson = "";
+          
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) {
+                // Flush any remaining buffer
+                if (buffer.trim()) {
+                  controller.enqueue(encoder.encode(buffer));
+                }
+                break;
+              }
+              
+              buffer += decoder.decode(value, { stream: true });
+              
+              // Process complete lines
+              let newlineIndex;
+              while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+                let line = buffer.slice(0, newlineIndex);
+                buffer = buffer.slice(newlineIndex + 1);
+                
+                if (line.endsWith("\r")) line = line.slice(0, -1);
+                if (!line.startsWith("data: ")) {
+                  controller.enqueue(encoder.encode(line + "\n"));
+                  continue;
+                }
+                
+                const jsonStr = line.slice(6).trim();
+                if (jsonStr === "[DONE]") {
+                  controller.enqueue(encoder.encode(line + "\n"));
+                  continue;
+                }
+                
+                try {
+                  const parsed = JSON.parse(jsonStr);
+                  const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+                  
+                  if (content) {
+                    // Check for vehicle marker at the start
+                    const markerMatch = content.match(/\[VEHICLE_CONFIRMED:(\{[^}]+\})\]/);
+                    if (markerMatch) {
+                      try {
+                        const vehicleData = JSON.parse(markerMatch[1]);
+                        // Emit vehicle_identified event
+                        const vehicleEvent = `data: ${JSON.stringify({ type: "vehicle_identified", vehicle: vehicleData })}\n\n`;
+                        controller.enqueue(encoder.encode(vehicleEvent));
+                        console.log("Emitted vehicle_identified event:", vehicleData);
+                        
+                        // Remove marker from content and continue with rest
+                        const cleanContent = content.replace(/\[VEHICLE_CONFIRMED:\{[^}]+\}\]/, "");
+                        if (cleanContent.trim()) {
+                          parsed.choices[0].delta.content = cleanContent;
+                          controller.enqueue(encoder.encode(`data: ${JSON.stringify(parsed)}\n`));
+                        }
+                        continue;
+                      } catch (e) {
+                        console.error("Failed to parse vehicle marker:", e);
+                      }
+                    }
+                  }
+                  
+                  // Pass through unchanged
+                  controller.enqueue(encoder.encode(line + "\n"));
+                } catch {
+                  controller.enqueue(encoder.encode(line + "\n"));
+                }
+              }
+            }
+          } catch (error) {
+            console.error("Stream transform error:", error);
+            controller.error(error);
+          } finally {
+            controller.close();
+          }
+        }
+      });
+      
+      return new Response(transformedStream, {
         headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
       });
     }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useSpeechSynthesis } from "./useSpeechSynthesis";
+import { Vehicle } from "@/types/vehicle";
 
 export type AnimationState = string;
 
@@ -20,6 +21,7 @@ interface UseBobChatProps {
   onStreamStart?: () => void;
   onStreamComplete?: () => void;
   onShowingProduct?: () => void;
+  onVehicleIdentified?: (vehicle: Vehicle) => void;
 }
 
 // Keywords that indicate Bob is recommending products
@@ -40,12 +42,14 @@ export const useBobChat = ({
   listenState = "talk_pause",
   onStreamStart,
   onStreamComplete,
-  onShowingProduct
+  onShowingProduct,
+  onVehicleIdentified
 }: UseBobChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [identifiedVehicle, setIdentifiedVehicle] = useState<Vehicle | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const lastContentTimeRef = useRef<number>(0);
   const latestAssistantMessageRef = useRef<string>("");
@@ -161,6 +165,15 @@ export const useBobChat = ({
 
           try {
             const parsed = JSON.parse(jsonStr);
+            
+            // Check for vehicle_identified event
+            if (parsed.type === "vehicle_identified" && parsed.vehicle) {
+              console.log("Vehicle identified:", parsed.vehicle);
+              setIdentifiedVehicle(parsed.vehicle);
+              onVehicleIdentified?.(parsed.vehicle);
+              continue;
+            }
+            
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (content) {
               assistantContent += content;
@@ -262,6 +275,10 @@ export const useBobChat = ({
     }]);
   };
 
+  const clearVehicle = () => {
+    setIdentifiedVehicle(null);
+  };
+
   return {
     messages,
     input,
@@ -275,6 +292,8 @@ export const useBobChat = ({
     clearMessages,
     isMuted,
     toggleMute,
-    isSpeaking
+    isSpeaking,
+    identifiedVehicle,
+    clearVehicle
   };
 };
