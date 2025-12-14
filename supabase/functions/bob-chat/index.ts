@@ -213,7 +213,7 @@ async function searchWeb(query: string): Promise<unknown> {
   }
 }
 
-async function retrieveParts(vehicleId: number, partType?: string): Promise<unknown> {
+async function retrieveParts(vehicleId: number, partType?: string): Promise<{ success: boolean; parts?: unknown[]; total_found?: number; filter_applied?: string; error?: string }> {
   console.log('Retrieving parts for vehicle:', vehicleId, 'part_type:', partType);
   
   try {
@@ -419,15 +419,30 @@ serve(async (req) => {
         });
         
         // Execute each tool call and add results
+        let partsFoundResult: unknown[] | null = null;
+        
         for (const toolCall of assistantMessage.tool_calls) {
           console.log(`Executing tool: ${toolCall.function.name}`);
           const result = await executeToolCall(toolCall);
+          
+          // Capture parts results for later emission
+          if (toolCall.function.name === "retrieve_parts") {
+            const partsResult = result as { success?: boolean; parts?: unknown[] };
+            if (partsResult.success && partsResult.parts && partsResult.parts.length > 0) {
+              partsFoundResult = partsResult.parts;
+            }
+          }
           
           conversationMessages.push({
             role: "tool",
             content: JSON.stringify(result),
             tool_call_id: toolCall.id,
           });
+        }
+        
+        // Store parts in context for emission during streaming
+        if (partsFoundResult) {
+          (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit = partsFoundResult;
         }
         
         // Continue loop to get AI's response to tool results
@@ -468,6 +483,9 @@ serve(async (req) => {
         throw new Error("No response body");
       }
       
+      // Check if we have parts to emit from tool calls
+      const partsToEmit = (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit;
+      
       const encoder = new TextEncoder();
       const decoder = new TextDecoder();
       
@@ -476,6 +494,15 @@ serve(async (req) => {
           let buffer = "";
           let accumulatedContent = ""; // Accumulate ALL content for marker detection
           let vehicleEmitted = false;
+          let partsEmitted = false;
+          
+          // Emit parts_found event immediately if we have parts from tool call
+          if (partsToEmit && partsToEmit.length > 0) {
+            const partsEvent = `data: ${JSON.stringify({ type: "parts_found", parts: partsToEmit })}\n\n`;
+            controller.enqueue(encoder.encode(partsEvent));
+            console.log("Emitted parts_found event:", partsToEmit.length, "parts");
+            partsEmitted = true;
+          }
           
           try {
             while (true) {

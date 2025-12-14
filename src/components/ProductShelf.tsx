@@ -9,11 +9,21 @@ interface ProductShelfProps {
 }
 
 export const ProductShelf = ({ products, onProductClick }: ProductShelfProps) => {
+  if (products.length === 0) {
+    return (
+      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+        <p>Ask Bob about parts for your vehicle</p>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-full overflow-y-auto px-4 py-6">
       <div className="mb-4">
         <h2 className="text-2xl font-bold text-foreground">Available Parts</h2>
-        <p className="text-muted-foreground">Browse our selection of quality auto parts</p>
+        <p className="text-muted-foreground">
+          {products.length} part{products.length !== 1 ? 's' : ''} found for your vehicle
+        </p>
       </div>
       
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
@@ -32,6 +42,9 @@ export const ProductShelf = ({ products, onProductClick }: ProductShelfProps) =>
                 />
               </div>
               <CardTitle className="text-base">{product.name}</CardTitle>
+              {product.brand && (
+                <p className="text-sm text-muted-foreground">{product.brand}</p>
+              )}
             </CardHeader>
             <CardContent className="p-4 pt-0">
               <p className="text-xs text-muted-foreground mb-2">
@@ -39,7 +52,7 @@ export const ProductShelf = ({ products, onProductClick }: ProductShelfProps) =>
               </p>
               <div className="flex items-center justify-between">
                 <span className="text-lg font-bold text-primary">
-                  ${product.price.toFixed(2)}
+                  {product.price > 0 ? `$${product.price.toFixed(2)}` : 'Price on request'}
                 </span>
                 {product.inStock ? (
                   <Badge variant="default" className="bg-green-500">In Stock</Badge>
