@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { BobCharacter } from "@/components/BobCharacter";
 import { ChatInterface } from "@/components/ChatInterface";
 import { ProductShelf } from "@/components/ProductShelf";
+import { ProductShelfLoading } from "@/components/ProductShelfLoading";
 import VehicleCard from "@/components/vehicle/VehicleCard";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
@@ -42,6 +43,10 @@ const Index = () => {
   // State for identified vehicle and parts
   const [displayedVehicle, setDisplayedVehicle] = useState<Vehicle | null>(null);
   const [displayedParts, setDisplayedParts] = useState<Product[]>([]);
+  
+  // Synchronized product reveal state
+  const [isResearching, setIsResearching] = useState(false);
+  const pendingPartsRef = useRef<Product[]>([]);
 
   // Initialize state transition system
   const stateTransitions = useBobStateTransitions({
@@ -80,8 +85,21 @@ const Index = () => {
       setDisplayedVehicle(vehicle);
     },
     onPartsFound: (parts: APIPart[]) => {
+      // Store parts but don't display yet - wait for Bob to speak
       const products = parts.map(apiPartToProduct);
-      setDisplayedParts(products);
+      pendingPartsRef.current = products;
+    },
+    onResearchStart: () => {
+      // Show loading state when user sends message
+      setIsResearching(true);
+      pendingPartsRef.current = [];
+    },
+    onReadyToSpeak: () => {
+      // Reveal products when Bob starts speaking
+      if (pendingPartsRef.current.length > 0) {
+        setDisplayedParts(pendingPartsRef.current);
+      }
+      setIsResearching(false);
     }
   });
   
@@ -162,12 +180,14 @@ const Index = () => {
               initialExpanded={true}
             />
           )}
-          {(displayedVehicle || displayedParts.length > 0) && (
+          {isResearching ? (
+            <ProductShelfLoading />
+          ) : (displayedVehicle || displayedParts.length > 0) ? (
             <ProductShelf 
               products={displayedParts}
               onProductClick={(product) => console.log("Product clicked:", product)}
             />
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -218,12 +238,14 @@ const Index = () => {
               initialExpanded={true}
             />
           )}
-          {(displayedVehicle || displayedParts.length > 0) && (
+          {isResearching ? (
+            <ProductShelfLoading />
+          ) : (displayedVehicle || displayedParts.length > 0) ? (
             <ProductShelf 
               products={displayedParts}
               onProductClick={(product) => console.log("Product clicked:", product)}
             />
-          )}
+          ) : null}
         </div>
       </div>
     </div>
