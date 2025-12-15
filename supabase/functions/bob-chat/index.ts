@@ -113,27 +113,30 @@ CONVERSATION FLOW:
 6. Upsell: Suggest add-ons like tyre shine, windscreen wash, etc.
 
 SMART SALES WORKFLOW (after vehicle confirmed):
-1. ALWAYS CHECK SERVICE PACKAGES FIRST using retrieve_service_packages
-   - Service packs are better value than individual parts
-   - Proactively recommend a relevant package based on what the customer needs
+STEP 1 - IMMEDIATELY AFTER VEHICLE CONFIRMED:
+- Call retrieve_parts with NO filter to load ALL available parts for the vehicle
+- This displays the full product range on the shelf - impressive "wow" moment!
+- Do NOT filter yet - show them everything first
 
-2. CRITICAL FALLBACK RULE - IF SERVICE PACKAGES RETURNS EMPTY OR NO RELEVANT PACKAGES:
-   - You MUST IMMEDIATELY call retrieve_parts to get individual parts
-   - NEVER tell the customer "nothing available" without trying retrieve_parts first
-   - This is MANDATORY - always try retrieve_parts when service packages fail
-   - Example: Service packages empty for brakes → MUST call retrieve_parts with part_type="BRAKE PADS"
+STEP 2 - WHEN CUSTOMER ASKS ABOUT SPECIFIC PARTS:
+- ALL parts are already displayed on the shelf
+- Guide the customer to the specific products they need
+- Use phrases like "Looking at your shelf there, you'll see..." or "Right there on the shelf..."
+- The customer can already see the products - you're just pointing them out
 
-3. USE INDIVIDUAL PARTS when:
-   - Service packages returned empty (MANDATORY - call retrieve_parts)
-   - No service package covers the customer's specific need
-   - Customer explicitly says they only want individual parts ("just the filter", "only the brake pads")
-   - Use retrieve_parts with the part_type filter to find specific items
-   - Always mention: Brand, Part Number, and whether it's in stock
+STEP 3 - CHECK SERVICE PACKAGES for better value:
+- Use retrieve_service_packages to see if a bundle covers their needs
+- Service packs are better value than individual parts
+- Proactively recommend relevant packages
 
-4. EXAMPLE RESPONSES:
-   - "Need brake pads" → Check service packages first, if empty → MUST call retrieve_parts
-   - "Just looking for an air filter" → Fall back to individual parts since they said "just"
-   - "What does my car need for a service?" → Offer Full Service Package covering oil, filters, etc.
+STEP 4 - FALLBACK IF SERVICE PACKAGES EMPTY:
+- If no service packages available, guide them to individual parts on the shelf
+- Always mention: Brand, Part Number, and whether it's in stock
+
+EXAMPLE RESPONSES:
+- Vehicle confirmed → "Sweet! Let me load up all the parts we've got for your [vehicle]..." (call retrieve_parts no filter)
+- "Need brake pads" → "Looking at your shelf there mate, you'll see we've got [brand] brake pads in stock..."
+- "What does my car need for a service?" → Check service packages, recommend Full Service Package
 
 KIWI EXPRESSIONS (use naturally):
 - "mate", "sweet as", "no worries", "choice", "chur"
@@ -443,16 +446,39 @@ serve(async (req) => {
         
         // Execute each tool call and add results
         let partsFoundResult: unknown[] | null = null;
+        let confirmedVehicleId: number | null = null;
         
         for (const toolCall of assistantMessage.tool_calls) {
           console.log(`Executing tool: ${toolCall.function.name}`);
           const result = await executeToolCall(toolCall);
           
-        // Capture parts results for later emission
+          // After vehicle lookup succeeds, auto-fetch ALL parts for theatrical display
+          if (toolCall.function.name === "lookup_vehicle") {
+            const vehicleResult = result as { id?: number; vehicle_id?: number; success?: boolean };
+            const vehicleId = vehicleResult.id || vehicleResult.vehicle_id;
+            
+            if (vehicleId && vehicleResult.success !== false) {
+              confirmedVehicleId = vehicleId;
+              console.log('Vehicle confirmed, auto-fetching ALL parts for vehicle:', vehicleId);
+              
+              // Immediately fetch ALL parts (no filter) for impressive range display
+              const allParts = await retrieveParts(vehicleId);
+              
+              if (allParts.success && allParts.parts && allParts.parts.length > 0) {
+                partsFoundResult = allParts.parts;
+                console.log(`Auto-loaded ${allParts.parts.length} parts for vehicle - full range display!`);
+              }
+            }
+          }
+          
+          // Capture parts results for later emission (from explicit retrieve_parts calls)
           if (toolCall.function.name === "retrieve_parts") {
             const partsResult = result as { success?: boolean; parts?: unknown[] };
             if (partsResult.success && partsResult.parts && partsResult.parts.length > 0) {
-              partsFoundResult = partsFoundResult ? [...partsFoundResult, ...partsResult.parts] : partsResult.parts;
+              // Only add if not already loaded via vehicle lookup
+              if (!confirmedVehicleId) {
+                partsFoundResult = partsFoundResult ? [...partsFoundResult, ...partsResult.parts] : partsResult.parts;
+              }
             }
           }
           
@@ -464,7 +490,7 @@ serve(async (req) => {
             // Handle both direct parts array and nested packages structure
             if (packagesResult.parts && Array.isArray(packagesResult.parts) && packagesResult.parts.length > 0) {
               console.log(`Captured ${packagesResult.parts.length} parts from service packages (direct)`);
-              partsFoundResult = partsFoundResult ? [...partsFoundResult, ...packagesResult.parts] : packagesResult.parts;
+              // Merge service package parts without duplicating the full range
               foundServiceParts = true;
             } else if (packagesResult.packages && Array.isArray(packagesResult.packages)) {
               const packageParts: unknown[] = [];
@@ -475,18 +501,13 @@ serve(async (req) => {
               }
               if (packageParts.length > 0) {
                 console.log(`Captured ${packageParts.length} parts from service packages (nested)`);
-                partsFoundResult = partsFoundResult ? [...partsFoundResult, ...packageParts] : packageParts;
                 foundServiceParts = true;
               }
             }
             
-            // If service packages returned empty, inject a system message to force fallback
-            if (!foundServiceParts) {
-              console.log('Service packages empty - injecting fallback instruction');
-              conversationMessages.push({
-                role: "system",
-                content: "IMPORTANT: Service packages returned EMPTY. You MUST now call retrieve_parts to find individual parts for this vehicle. Do NOT tell the customer nothing is available until you have tried retrieve_parts."
-              });
+            // If service packages returned empty, no need to inject fallback - parts already loaded
+            if (!foundServiceParts && !partsFoundResult) {
+              console.log('Service packages empty and no parts loaded - customer may need guidance');
             }
           }
           
@@ -559,6 +580,11 @@ serve(async (req) => {
             controller.enqueue(encoder.encode(partsEvent));
             console.log("Emitted parts_found event:", partsToEmit.length, "parts");
             partsEmitted = true;
+          } else {
+            // No parts found - emit event so frontend can clear loading state
+            const noPartsEvent = `data: ${JSON.stringify({ type: "no_parts_found" })}\n\n`;
+            controller.enqueue(encoder.encode(noPartsEvent));
+            console.log("Emitted no_parts_found event");
           }
           
           try {
