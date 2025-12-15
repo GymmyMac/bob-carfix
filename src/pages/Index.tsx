@@ -155,9 +155,9 @@ const Index = () => {
       </div>
 
       {/* Desktop: Side-by-side layout */}
-      <div className="hidden lg:grid lg:grid-cols-[40%_60%] min-h-screen">
-        {/* Bob + Chat Area (Left) */}
-        <div className="flex flex-col border-r border-border">
+      <div className="hidden lg:flex min-h-screen">
+        {/* Bob + Chat Area (Left) - STICKY */}
+        <div className="w-[40%] h-screen sticky top-0 flex flex-col border-r border-border bg-background">
           <div className="pt-8 flex-shrink-0">
             <BobCharacter 
               currentImage={getCurrentImage()}
@@ -170,7 +170,7 @@ const Index = () => {
             />
           </div>
           
-          <div className="px-6 pb-8 pt-2 flex-1 min-h-0 flex flex-col">
+          <div className="px-6 pb-8 pt-2 flex-1 min-h-0 flex flex-col overflow-hidden">
             <ChatInterface
               messages={messages}
               input={input}
@@ -188,8 +188,8 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Vehicle/Product Area (Right) */}
-        <div className="bg-background p-6 overflow-y-auto flex flex-col gap-6">
+        {/* Vehicle/Product Area (Right) - SCROLLABLE */}
+        <div className="w-[60%] bg-background p-6 overflow-y-auto flex flex-col gap-6">
           {displayedVehicle && (
             <VehicleCard
               vehicle={displayedVehicle}
@@ -215,9 +215,10 @@ const Index = () => {
       </div>
 
       {/* Mobile/Tablet: Stacked layout */}
-      <div className="lg:hidden">
-        <div className="px-4">
-          <div className="pt-12">
+      <div className="lg:hidden flex flex-col min-h-screen">
+        {/* Bob + Chat - Sticky on mobile */}
+        <div className="sticky top-0 z-40 bg-background">
+          <div className="px-4 pt-12">
             <BobCharacter 
               currentImage={getCurrentImage()}
               animationState={animationState}
@@ -230,25 +231,26 @@ const Index = () => {
             />
           </div>
           
-          <div className="pt-2 pb-8 flex-1 min-h-0 flex flex-col">
-          <ChatInterface
-            messages={messages}
-            input={input}
-            setInput={setInput}
-            isLoading={isLoading}
-            onSend={handleSend}
-            onKeyPress={handleKeyPress}
-            onInputFocus={handleInputFocus}
-            onInputBlur={handleInputBlur}
-            chatEndRef={chatEndRef}
-            isMuted={isMuted}
-            onToggleMute={toggleMute}
-            isSpeaking={isSpeaking}
-          />
+          <div className="px-4 pt-2 pb-4 max-h-[35vh] overflow-y-auto">
+            <ChatInterface
+              messages={messages}
+              input={input}
+              setInput={setInput}
+              isLoading={isLoading}
+              onSend={handleSend}
+              onKeyPress={handleKeyPress}
+              onInputFocus={handleInputFocus}
+              onInputBlur={handleInputBlur}
+              chatEndRef={chatEndRef}
+              isMuted={isMuted}
+              onToggleMute={toggleMute}
+              isSpeaking={isSpeaking}
+            />
           </div>
         </div>
 
-        <div className="py-8 px-4 flex flex-col gap-6">
+        {/* Products - Scrolls below Bob */}
+        <div className="flex-1 py-8 px-4 flex flex-col gap-6 overflow-y-auto">
           {displayedVehicle && (
             <VehicleCard
               vehicle={displayedVehicle}
