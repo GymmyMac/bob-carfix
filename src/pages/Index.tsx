@@ -4,9 +4,11 @@ import { ChatInterface } from "@/components/ChatInterface";
 import { ProductShelf } from "@/components/ProductShelf";
 import { ProductShelfLoading } from "@/components/ProductShelfLoading";
 import VehicleCard from "@/components/vehicle/VehicleCard";
+import { ServicePackagesSection } from "@/components/ServicePackagesSection";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 import { useBobChat } from "@/hooks/useBobChat";
+import { useServicePackages } from "@/hooks/useServicePackages";
 import { Product, APIPart, apiPartToProduct } from "@/types/product";
 import { AdminButton } from "@/components/AdminButton";
 import { useBobStateTransitions } from "@/hooks/useBobStateTransitions";
@@ -48,6 +50,11 @@ const Index = () => {
   // Synchronized product reveal state
   const [isResearching, setIsResearching] = useState(false);
   const pendingPartsRef = useRef<Product[]>([]);
+
+  // Fetch service packages when vehicle is identified
+  const { data: servicePackagesData, isLoading: packagesLoading } = useServicePackages(
+    displayedVehicle?.vehicle_id ?? null
+  );
 
   // Initialize state transition system
   const stateTransitions = useBobStateTransitions({
@@ -202,6 +209,14 @@ const Index = () => {
               initialExpanded={true}
             />
           )}
+          {/* Service Packages - Above Product Shelf */}
+          {displayedVehicle && (
+            <ServicePackagesSection
+              packages={servicePackagesData?.data?.servicePackages ?? []}
+              isLoading={packagesLoading}
+              onPackageSelect={(pkg) => console.log("Package selected:", pkg)}
+            />
+          )}
           {isResearching ? (
             <ProductShelfLoading />
           ) : (displayedVehicle || displayedParts.length > 0) ? (
@@ -261,6 +276,14 @@ const Index = () => {
                 clearVehicle();
               }}
               initialExpanded={true}
+            />
+          )}
+          {/* Service Packages - Above Product Shelf */}
+          {displayedVehicle && (
+            <ServicePackagesSection
+              packages={servicePackagesData?.data?.servicePackages ?? []}
+              isLoading={packagesLoading}
+              onPackageSelect={(pkg) => console.log("Package selected:", pkg)}
             />
           )}
           {isResearching ? (
