@@ -244,7 +244,11 @@ async function retrieveParts(vehicleId: number, partType?: string): Promise<{ su
           "Content-Type": "application/json",
           "Authorization": `Bearer ${carfixServiceRoleKey}`,
         },
-        body: JSON.stringify({ vehicleid: String(vehicleId) })
+        body: JSON.stringify({ 
+          vehicleid: String(vehicleId),
+          page_size: 200,  // Request up to 200 parts instead of default 20
+          ...(partType && { part_type: partType })  // Server-side filtering
+        })
       }
     );
     
@@ -256,24 +260,11 @@ async function retrieveParts(vehicleId: number, partType?: string): Promise<{ su
     const data = await response.json();
     console.log('Parts lookup result:', JSON.stringify(data).substring(0, 500));
     
-    // If part_type filter provided, filter the results
-    if (partType && data.parts && Array.isArray(data.parts)) {
-      const filteredParts = data.parts.filter((p: Record<string, unknown>) => {
-        const productType = String(p["Part Product Type"] || "").toLowerCase();
-        return productType.includes(partType.toLowerCase());
-      });
-      return { 
-        success: true, 
-        parts: filteredParts,
-        total_found: filteredParts.length,
-        filter_applied: partType
-      };
-    }
-    
     return { 
       success: true, 
       parts: data.parts || [],
-      total_found: (data.parts || []).length
+      total_found: (data.parts || []).length,
+      ...(partType && { filter_applied: partType })
     };
   } catch (error) {
     console.error('Parts lookup error:', error);
