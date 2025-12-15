@@ -140,13 +140,17 @@ TONE: Relaxed, efficient, knowledgeable. Sense if customer is in a hurry or keen
 
 async function lookupVehicle(args: Record<string, unknown>): Promise<unknown> {
   console.log('Looking up vehicle with args:', JSON.stringify(args));
+  const carfixServiceRoleKey = Deno.env.get("CARFIX_SERVICE_ROLE_KEY");
   
   try {
     const response = await fetch(
       "https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1/retrieve-vehicle-info",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${carfixServiceRoleKey}`,
+        },
         body: JSON.stringify(args)
       }
     );
@@ -221,13 +225,17 @@ async function searchWeb(query: string): Promise<unknown> {
 
 async function retrieveParts(vehicleId: number, partType?: string): Promise<{ success: boolean; parts?: unknown[]; total_found?: number; filter_applied?: string; error?: string }> {
   console.log('Retrieving parts for vehicle:', vehicleId, 'part_type:', partType);
+  const carfixServiceRoleKey = Deno.env.get("CARFIX_SERVICE_ROLE_KEY");
   
   try {
     const response = await fetch(
       "https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1/retrieve-parts",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${carfixServiceRoleKey}`,
+        },
         body: JSON.stringify({ vehicleid: String(vehicleId) })
       }
     );
@@ -267,6 +275,7 @@ async function retrieveParts(vehicleId: number, partType?: string): Promise<{ su
 
 async function retrieveServicePackages(vehicleId?: number): Promise<unknown> {
   console.log('Retrieving service packages for vehicle:', vehicleId);
+  const carfixServiceRoleKey = Deno.env.get("CARFIX_SERVICE_ROLE_KEY");
   
   try {
     const body = vehicleId ? { vehicleid: String(vehicleId) } : {};
@@ -275,7 +284,10 @@ async function retrieveServicePackages(vehicleId?: number): Promise<unknown> {
       "https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1/retrieve-service-packages",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${carfixServiceRoleKey}`,
+        },
         body: JSON.stringify(body)
       }
     );
