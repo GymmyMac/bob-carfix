@@ -593,9 +593,18 @@ serve(async (req) => {
               console.log(`Auto-loaded ${allParts.parts.length} parts for vehicle`);
             }
             
-            // ALSO fetch service packages and extract their parts
-            const servicePackages = await retrieveServicePackages(vehicleId);
-            const serviceParts = extractPartsFromPackages(servicePackages);
+            // ALSO fetch service packages - store FULL packages for frontend display
+            const servicePackagesResult = await retrieveServicePackages(vehicleId);
+            const servicePackagesData = servicePackagesResult as { success?: boolean; packages?: unknown[] };
+            
+            if (servicePackagesData.success && servicePackagesData.packages && servicePackagesData.packages.length > 0) {
+              // Store full service packages for emission to frontend
+              (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = servicePackagesData.packages;
+              console.log(`Auto-loaded ${servicePackagesData.packages.length} service packages for vehicle`);
+            }
+            
+            // Also extract parts from packages for parts display
+            const serviceParts = extractPartsFromPackages(servicePackagesResult);
             if (serviceParts.length > 0) {
               partsFoundResult = partsFoundResult ? [...partsFoundResult, ...serviceParts] : serviceParts;
               console.log(`Auto-loaded ${serviceParts.length} additional parts from service packages`);
@@ -691,6 +700,16 @@ serve(async (req) => {
           let accumulatedContent = ""; // Accumulate ALL content for marker detection
           let vehicleEmitted = false;
           let partsEmitted = false;
+          
+          // Check if we have service packages to emit from tool calls
+          const servicePackagesToEmit = (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit;
+          
+          // Emit service_packages_found event FIRST (before parts) for synchronized display
+          if (servicePackagesToEmit && servicePackagesToEmit.length > 0) {
+            const packagesEvent = `data: ${JSON.stringify({ type: "service_packages_found", packages: servicePackagesToEmit })}\n\n`;
+            controller.enqueue(encoder.encode(packagesEvent));
+            console.log("Emitted service_packages_found event:", servicePackagesToEmit.length, "packages");
+          }
           
           // Emit parts_found event immediately if we have parts from tool call
           if (partsToEmit && partsToEmit.length > 0) {
