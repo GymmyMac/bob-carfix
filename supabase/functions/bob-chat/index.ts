@@ -106,67 +106,64 @@ VEHICLE-SPECIFIC PARTS (need vehicle first):
 - Brakes: brake pads, brake rotors, brake fluid
 - Engine: spark plugs, timing belt, water pump, thermostat
 - Suspension: shocks, struts, control arms, ball joints
-- For these → Ask for REGO FIRST, then lookup_vehicle
+- For these → Get vehicle details first
 
 DECISION LOGIC:
 1. Customer asks for something → Decide: general or vehicle-specific?
 2. If GENERAL → Use search_general_products immediately, no vehicle questions
-3. If VEHICLE-SPECIFIC → Ask for REGO (plate number), then lookup_vehicle with plate
+3. If VEHICLE-SPECIFIC → Get their REGO OR make/model/year/engine details
 
-VEHICLE LOOKUP - CRITICAL:
-- ALWAYS ask for the customer's REGO (license plate) for vehicle-specific parts
-- The REGO is REQUIRED to get accurate parts - make/model/year alone is NOT enough
-- Use lookup_vehicle with the plate parameter ONLY when they give you a REGO
-- If they don't know their REGO, tell them to find it on their windscreen or registration papers
-- Do NOT call lookup_vehicle with just make/model/year - it won't return a vehicle ID needed for parts lookup
+VEHICLE LOOKUP WORKFLOW:
+PRIMARY: Ask for REGO (license plate) - gives exact match
+FALLBACK: If no REGO, collect make + model + year + engine size (cc) and use lookup_vehicle
+
+USING lookup_vehicle:
+- With REGO: Use plate parameter for exact match
+- Without REGO: Use make, model, year, cc_rating parameters - this returns MULTIPLE candidate vehicles
 
 HANDLING LOOKUP RESULTS:
-- The lookup result MUST have an "id" or "vehicle_id" field to fetch parts
-- If the result has a vehicle ID: Confirm the vehicle and proceed
-- If NO vehicle ID or NO match: Ask for their REGO - explain you need it to find exact parts
+1. SINGLE MATCH with vehicle ID: Confirm and proceed with parts lookup
+2. MULTIPLE MATCHES (vehicles array): Present the options to the customer! 
+   - Show them 2-3 of the best matches with key details (variant, engine, fuel type)
+   - Ask them to confirm which one is theirs
+   - Use phrases like "I found a few options - is yours the 1.3L petrol hatch or the 1.5L?"
+3. NO vehicle ID in result: The match was too vague - ask for more details or REGO
 
 IMPORTANT - VEHICLE CONFIRMATION:
-When you confirm a vehicle match that has a valid ID, you MUST include a special marker at the START of your response in this exact format:
+When the customer CONFIRMS a specific vehicle that has a valid id or vehicle_id, you MUST include a special marker at the START of your response:
 [VEHICLE_CONFIRMED:{"vehicle_id":12345,"rego":"ABC123","make":"Toyota","model":"Corolla","year":"2015","variant":"GX","vehicle_name_nz":"Toyota Corolla GX 1.8L","engine_size":"1.8L","fuel_type":"petrol","vin":"JTDBU4EE7E9123456","engine_no":"2ZR-123456","cc_rating":1800}]
 
-Include the vehicle_id field AND all other available fields from the lookup result. Then continue with your natural response after the marker.
-Do NOT emit the VEHICLE_CONFIRMED marker unless the lookup result contains an id or vehicle_id field!
+Include the vehicle_id field AND all other available fields. Then continue with your natural response.
+Do NOT emit VEHICLE_CONFIRMED unless:
+- You have a vehicle with an id or vehicle_id field
+- The CUSTOMER has confirmed it's the right vehicle
 
 EXAMPLE RESPONSES:
-- "Got any tire shine?" → Use search_general_products("tire shine") immediately, NO vehicle needed
-- "Need windscreen wash" → Use search_general_products("windscreen wash") immediately
-- "Need brake pads for my Toyota" → "Sweet as, I'll need your rego to find the right pads. What's your plate number, mate?"
-- "It's PSU690" → Use lookup_vehicle with plate="PSU690", then confirm vehicle and load parts
-- "I have a 2006 Toyota Vitz" → "Chur, sounds like a reliable little runabout! To get you the exact parts, I'll need your rego - should be on your windscreen. What's the plate?"
+- "Got any tire shine?" → Use search_general_products("tire shine") immediately
+- "Need brake pads for my Toyota" → "Sweet, what's your rego? Or if you don't have it handy, the year and model?"
+- "It's a 2006 Toyota Vitz 1.3" → Use lookup_vehicle with make="Toyota", model="Vitz", year=2006, cc_rating=1.3
+- Multiple matches returned → "Found a few Vitz options in our system - is yours the SCP90 1.3L petrol or the NCP91 1.5L? Just want to get the right parts for ya."
+- Customer confirms "the 1.3L" → Emit VEHICLE_CONFIRMED with that vehicle's ID and proceed
 
 SMART SALES WORKFLOW (after vehicle confirmed WITH vehicle_id):
 STEP 1 - IMMEDIATELY AFTER VEHICLE CONFIRMED:
 - Call retrieve_parts with NO filter to load ALL available parts for the vehicle
-- This displays the full product range on the shelf - impressive "wow" moment!
-- Do NOT filter yet - show them everything first
+- This displays the full product range on the shelf
 
 STEP 2 - WHEN CUSTOMER ASKS ABOUT SPECIFIC PARTS:
-- ALL parts are already displayed on the shelf
 - Guide the customer to the specific products they need
 - Use phrases like "Looking at your shelf there, you'll see..." or "Right there on the shelf..."
-- The customer can already see the products - you're just pointing them out
 
 STEP 3 - CHECK SERVICE PACKAGES for better value:
 - Use retrieve_service_packages to see if a bundle covers their needs
-- Service packs are better value than individual parts
 - Proactively recommend relevant packages
-
-STEP 4 - FALLBACK IF SERVICE PACKAGES EMPTY:
-- If no service packages available, guide them to individual parts on the shelf
-- Always mention: Brand, Part Number, and whether it's in stock
 
 KIWI EXPRESSIONS (use naturally):
 - "mate", "sweet as", "no worries", "choice", "chur"
 - "she'll be right", "away laughing", "piece of piss"
 - "yeah nah" (means no), "nah yeah" (means yes)
-- "munted" (broken), "up the booay" (gone wrong)
 
-TONE: Relaxed, efficient, knowledgeable. Sense if customer is in a hurry or keen to chat. Match their energy.`;
+TONE: Relaxed, efficient, knowledgeable. Match their energy.`;
 
 async function lookupVehicle(args: Record<string, unknown>): Promise<unknown> {
   console.log('Looking up vehicle with args:', JSON.stringify(args));
@@ -196,7 +193,32 @@ async function lookupVehicle(args: Record<string, unknown>): Promise<unknown> {
     }
     
     const data = await response.json();
-    console.log('Vehicle lookup result:', JSON.stringify(data).substring(0, 500));
+    console.log('Vehicle lookup result (full):', JSON.stringify(data));
+    
+    // Check if the API returned multiple vehicle candidates (variants)
+    if (data.vehicles && Array.isArray(data.vehicles) && data.vehicles.length > 0) {
+      console.log(`Found ${data.vehicles.length} vehicle candidates`);
+      // Return the full list for AI to present options to customer
+      return { 
+        success: true, 
+        multiple_matches: true,
+        vehicles: data.vehicles,
+        message: `Found ${data.vehicles.length} potential vehicle matches. Present these options to the customer to confirm which one is theirs.`
+      };
+    }
+    
+    // Single match or direct vehicle object
+    if (data.vehicle) {
+      console.log('Single vehicle match:', data.vehicle.id || data.vehicle.vehicle_id || 'NO ID');
+      return data;
+    }
+    
+    // Direct vehicle data (has id field)
+    if (data.id || data.vehicle_id) {
+      console.log('Direct vehicle with ID:', data.id || data.vehicle_id);
+      return { success: true, vehicle: data };
+    }
+    
     return data;
   } catch (error) {
     console.error('Vehicle lookup error:', error);
@@ -525,12 +547,35 @@ serve(async (req) => {
           
         // After vehicle lookup succeeds, auto-fetch ALL parts AND service packages for theatrical display
         if (toolCall.function.name === "lookup_vehicle") {
-          const vehicleResult = result as { id?: number; vehicle_id?: number; success?: boolean };
-          const vehicleId = vehicleResult.id || vehicleResult.vehicle_id;
+          const vehicleResult = result as { 
+            id?: number; 
+            vehicle_id?: number; 
+            success?: boolean;
+            multiple_matches?: boolean;
+            vehicles?: Array<{ id?: number; vehicle_id?: number }>;
+            vehicle?: { id?: number; vehicle_id?: number };
+          };
+          
+          // Extract vehicle ID from various response formats
+          let vehicleId: number | null = null;
+          
+          // Direct ID on result
+          if (vehicleResult.id || vehicleResult.vehicle_id) {
+            vehicleId = vehicleResult.id || vehicleResult.vehicle_id || null;
+          }
+          // ID inside vehicle object
+          else if (vehicleResult.vehicle?.id || vehicleResult.vehicle?.vehicle_id) {
+            vehicleId = vehicleResult.vehicle.id || vehicleResult.vehicle.vehicle_id || null;
+          }
+          // Multiple matches - don't auto-fetch, let AI present options first
+          else if (vehicleResult.multiple_matches && vehicleResult.vehicles?.length) {
+            console.log(`Multiple vehicle matches found (${vehicleResult.vehicles.length}), AI will present options to customer`);
+            // Don't set vehicleId - wait for customer to confirm
+          }
           
           if (vehicleId && vehicleResult.success !== false) {
             confirmedVehicleId = vehicleId;
-            console.log('Vehicle confirmed, auto-fetching ALL parts and service packages for vehicle:', vehicleId);
+            console.log('Single vehicle match with ID, auto-fetching ALL parts and service packages for vehicle:', vehicleId);
             
             // Immediately fetch ALL parts (no filter) for impressive range display
             const allParts = await retrieveParts(vehicleId);
