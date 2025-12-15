@@ -5,6 +5,7 @@ import { ProductShelf } from "@/components/ProductShelf";
 import { ProductShelfLoading } from "@/components/ProductShelfLoading";
 import VehicleCard from "@/components/vehicle/VehicleCard";
 import { ServicePackagesSection } from "@/components/ServicePackagesSection";
+import { ServicePackageDetailDialog } from "@/components/ServicePackageDetailDialog";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 import { useBobChat } from "@/hooks/useBobChat";
@@ -55,6 +56,9 @@ const Index = () => {
   // Synchronized service packages reveal state
   const [displayedPackages, setDisplayedPackages] = useState<ServicePackage[]>([]);
   const pendingPackagesRef = useRef<ServicePackage[]>([]);
+  
+  // Selected service package for detail dialog
+  const [selectedPackage, setSelectedPackage] = useState<ServicePackage | null>(null);
 
   // Fetch service packages when vehicle is identified
   const { data: servicePackagesData, isLoading: packagesLoading } = useServicePackages(
@@ -231,7 +235,7 @@ const Index = () => {
             <ServicePackagesSection
               packages={displayedPackages}
               isLoading={false}
-              onPackageSelect={(pkg) => console.log("Package selected:", pkg)}
+              onPackageSelect={(pkg) => setSelectedPackage(pkg)}
             />
           )}
           {isResearching ? (
@@ -302,7 +306,7 @@ const Index = () => {
             <ServicePackagesSection
               packages={displayedPackages}
               isLoading={false}
-              onPackageSelect={(pkg) => console.log("Package selected:", pkg)}
+              onPackageSelect={(pkg) => setSelectedPackage(pkg)}
             />
           )}
           {isResearching ? (
@@ -316,6 +320,13 @@ const Index = () => {
           ) : null}
         </div>
       </div>
+
+      {/* Service Package Detail Dialog */}
+      <ServicePackageDetailDialog
+        package_={selectedPackage}
+        open={!!selectedPackage}
+        onOpenChange={(open) => !open && setSelectedPackage(null)}
+      />
     </div>
   );
 };
