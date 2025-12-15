@@ -14,6 +14,7 @@ import { AdminButton } from "@/components/AdminButton";
 import { useBobStateTransitions } from "@/hooks/useBobStateTransitions";
 import { useBobBackdrop } from "@/hooks/useBobBackdrop";
 import { Vehicle } from "@/types/vehicle";
+import { ServicePackage } from "@/types/servicePackage";
 import bobBgWall from "@/assets/bob-bg-wall.png";
 import bobCounter from "@/assets/bob-counter.png";
 
@@ -50,11 +51,22 @@ const Index = () => {
   // Synchronized product reveal state
   const [isResearching, setIsResearching] = useState(false);
   const pendingPartsRef = useRef<Product[]>([]);
+  
+  // Synchronized service packages reveal state
+  const [displayedPackages, setDisplayedPackages] = useState<ServicePackage[]>([]);
+  const pendingPackagesRef = useRef<ServicePackage[]>([]);
 
   // Fetch service packages when vehicle is identified
   const { data: servicePackagesData, isLoading: packagesLoading } = useServicePackages(
     displayedVehicle?.vehicle_id ?? null
   );
+  
+  // Store fetched packages in pending ref for synchronized reveal
+  useEffect(() => {
+    if (servicePackagesData?.data?.servicePackages) {
+      pendingPackagesRef.current = servicePackagesData.data.servicePackages;
+    }
+  }, [servicePackagesData]);
 
   // Initialize state transition system
   const stateTransitions = useBobStateTransitions({
@@ -103,9 +115,12 @@ const Index = () => {
       pendingPartsRef.current = [];
     },
     onReadyToSpeak: () => {
-      // Reveal products when Bob starts speaking
+      // Reveal products and service packages when Bob starts speaking
       if (pendingPartsRef.current.length > 0) {
         setDisplayedParts(pendingPartsRef.current);
+      }
+      if (pendingPackagesRef.current.length > 0) {
+        setDisplayedPackages(pendingPackagesRef.current);
       }
       setIsResearching(false);
     },
@@ -204,16 +219,18 @@ const Index = () => {
               onChangeVehicle={() => {
                 setDisplayedVehicle(null);
                 setDisplayedParts([]);
+                setDisplayedPackages([]);
+                pendingPackagesRef.current = [];
                 clearVehicle();
               }}
               initialExpanded={true}
             />
           )}
-          {/* Service Packages - Above Product Shelf */}
-          {displayedVehicle && (
+          {/* Service Packages - Above Product Shelf - Synchronized reveal */}
+          {displayedVehicle && displayedPackages.length > 0 && !isResearching && (
             <ServicePackagesSection
-              packages={servicePackagesData?.data?.servicePackages ?? []}
-              isLoading={packagesLoading}
+              packages={displayedPackages}
+              isLoading={false}
               onPackageSelect={(pkg) => console.log("Package selected:", pkg)}
             />
           )}
@@ -273,16 +290,18 @@ const Index = () => {
               onChangeVehicle={() => {
                 setDisplayedVehicle(null);
                 setDisplayedParts([]);
+                setDisplayedPackages([]);
+                pendingPackagesRef.current = [];
                 clearVehicle();
               }}
               initialExpanded={true}
             />
           )}
-          {/* Service Packages - Above Product Shelf */}
-          {displayedVehicle && (
+          {/* Service Packages - Above Product Shelf - Synchronized reveal */}
+          {displayedVehicle && displayedPackages.length > 0 && !isResearching && (
             <ServicePackagesSection
-              packages={servicePackagesData?.data?.servicePackages ?? []}
-              isLoading={packagesLoading}
+              packages={displayedPackages}
+              isLoading={false}
               onPackageSelect={(pkg) => console.log("Package selected:", pkg)}
             />
           )}
