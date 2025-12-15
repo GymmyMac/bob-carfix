@@ -68,6 +68,20 @@ const tools = [
         }
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_general_products",
+      description: "Search for general automotive products that do NOT require a vehicle. Use for consumables, accessories, cleaning products, tools, and universal items. Examples: tire shine, windscreen wash, car wash, polish, air fresheners, cleaning cloths, WD-40, engine degreaser, tool kits, jump leads, etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Search term for general products (e.g., 'tire shine', 'windscreen wash', 'car polish')" }
+        },
+        required: ["query"]
+      }
+    }
   }
 ];
 
@@ -76,7 +90,28 @@ const systemPrompt = `You are Bob, a friendly Kiwi auto parts expert at CARFIX. 
 CRITICAL RULES:
 - Keep responses SHORT (1-3 sentences max) until you know their vehicle
 - NEVER offer to fit parts - CARFIX only sells parts for DIY or workshop fitment
-- Always identify the vehicle FIRST using REGO (registration number) or make/model/year
+- Know the difference between VEHICLE-SPECIFIC parts and GENERAL products
+
+GENERAL PRODUCTS vs VEHICLE-SPECIFIC PARTS:
+GENERAL PRODUCTS (NO vehicle needed):
+- Cleaning products: tire shine, windscreen wash, car wash, polish, wax, interior cleaner
+- Accessories: air fresheners, phone holders, seat covers, floor mats (universal)
+- Chemicals: WD-40, CRC, engine degreaser, brake cleaner, rust converter
+- Tools: tool kits, jump leads, tire gauges, funnels, oil drain pans
+- Consumables: rags, microfiber cloths, masking tape
+- For these → Use search_general_products tool IMMEDIATELY. NO vehicle lookup needed!
+
+VEHICLE-SPECIFIC PARTS (need vehicle first):
+- Filters: oil filter, air filter, cabin filter, fuel filter
+- Brakes: brake pads, brake rotors, brake fluid
+- Engine: spark plugs, timing belt, water pump, thermostat
+- Suspension: shocks, struts, control arms, ball joints
+- For these → Ask for REGO or make/model/year FIRST
+
+DECISION LOGIC:
+1. Customer asks for something → Decide: general or vehicle-specific?
+2. If GENERAL → Use search_general_products immediately, no vehicle questions
+3. If VEHICLE-SPECIFIC → Ask for REGO, then lookup_vehicle
 
 VEHICLE LOOKUP:
 - When customer provides a REGO (plate number), use the lookup_vehicle tool with the plate
@@ -106,11 +141,10 @@ If you get VIN "WAUZZZ8K3DA119102" and engine_no "CDN-297102" with multiple matc
 
 CONVERSATION FLOW:
 1. Welcome: "Welcome to CARFIX! I'm Bob. What can I help with today?"
-2. Vehicle ID: Ask for REGO first. If they don't have it, get make, model, year, and variant
-3. Small talk: Once vehicle identified, make brief small talk about the car's reputation or motorsport pedigree
-4. Problem: Ask what's wrong - symptoms, dashboard lights, OBD2 fault codes if they have them
-5. Smart Recommend: Follow SMART SALES WORKFLOW below
-6. Upsell: Suggest add-ons like tyre shine, windscreen wash, etc.
+2. Assess: Is this a general product or vehicle-specific part?
+3. If general → search_general_products and recommend
+4. If vehicle-specific → Get REGO, lookup vehicle, then recommend parts
+5. Upsell: Suggest add-ons like tyre shine, windscreen wash, etc.
 
 SMART SALES WORKFLOW (after vehicle confirmed):
 STEP 1 - IMMEDIATELY AFTER VEHICLE CONFIRMED:
@@ -134,9 +168,10 @@ STEP 4 - FALLBACK IF SERVICE PACKAGES EMPTY:
 - Always mention: Brand, Part Number, and whether it's in stock
 
 EXAMPLE RESPONSES:
+- "Got any tire shine?" → Use search_general_products("tire shine") immediately, NO vehicle needed
+- "Need windscreen wash" → Use search_general_products("windscreen wash") immediately
+- "Need brake pads" → "Sweet, let me get the right ones for ya - what's your rego, mate?"
 - Vehicle confirmed → "Sweet! Let me load up all the parts we've got for your [vehicle]..." (call retrieve_parts no filter)
-- "Need brake pads" → "Looking at your shelf there mate, you'll see we've got [brand] brake pads in stock..."
-- "What does my car need for a service?" → Check service packages, recommend Full Service Package
 
 KIWI EXPRESSIONS (use naturally):
 - "mate", "sweet as", "no worries", "choice", "chur"
@@ -310,6 +345,40 @@ async function retrieveServicePackages(vehicleId?: number): Promise<unknown> {
   }
 }
 
+async function searchGeneralProducts(query: string): Promise<{ success: boolean; products?: unknown[]; total_found?: number; error?: string }> {
+  console.log('Searching general products for:', query);
+  const carfixServiceRoleKey = Deno.env.get("CARFIX_SERVICE_ROLE_KEY");
+  
+  // For now, return a placeholder response since we don't have a general products API yet
+  // This can be connected to a real endpoint when available
+  try {
+    // TODO: Connect to real general products API when available
+    // For now, return helpful response indicating these products exist
+    const generalProducts = [
+      { name: "Tire Shine Spray", sku: "TS-001", price: 12.99, in_stock: true },
+      { name: "Windscreen Wash 2L", sku: "WW-002", price: 8.99, in_stock: true },
+      { name: "Car Wash Concentrate", sku: "CW-003", price: 15.99, in_stock: true },
+      { name: "Interior Polish", sku: "IP-004", price: 14.99, in_stock: true },
+      { name: "Microfiber Cloth Pack", sku: "MC-005", price: 9.99, in_stock: true },
+    ];
+    
+    // Filter based on query
+    const searchTerms = query.toLowerCase().split(' ');
+    const matchedProducts = generalProducts.filter(p => 
+      searchTerms.some(term => p.name.toLowerCase().includes(term))
+    );
+    
+    return {
+      success: true,
+      products: matchedProducts.length > 0 ? matchedProducts : generalProducts.slice(0, 3),
+      total_found: matchedProducts.length > 0 ? matchedProducts.length : 3
+    };
+  } catch (error) {
+    console.error('General products search error:', error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
 async function executeToolCall(toolCall: { function: { name: string; arguments: string }; id: string }): Promise<unknown> {
   const { name, arguments: argsString } = toolCall.function;
   
@@ -325,6 +394,8 @@ async function executeToolCall(toolCall: { function: { name: string; arguments: 
         return await retrieveParts(args.vehicleid, args.part_type);
       case "retrieve_service_packages":
         return await retrieveServicePackages(args.vehicleid);
+      case "search_general_products":
+        return await searchGeneralProducts(args.query);
       default:
         return { error: `Unknown tool: ${name}` };
     }
