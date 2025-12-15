@@ -25,6 +25,7 @@ interface UseBobChatProps {
   onStreamComplete?: () => void;
   onShowingProduct?: () => void;
   onVehicleIdentified?: (vehicle: Vehicle) => void;
+  onMultipleVehiclesFound?: () => void;
   onPartsFound?: (parts: APIPart[]) => void;
   onServicePackagesFound?: (packages: ServicePackage[]) => void;
   onResearchStart?: () => void;
@@ -41,11 +42,27 @@ const PRODUCT_KEYWORDS = [
   'service pack', 'add-on', 'tyre shine', 'windscreen wash'
 ];
 
-// Part type keywords for highlight detection
+// Part type keywords for highlight detection - includes exact partslot category names
 const PART_TYPE_KEYWORDS = [
+  // Exact partslot category names (uppercase matches from CARFIX database)
+  'WIPER BLADE FRONT', 'WIPER BLADE REAR', 'WIPER BLADE SET',
+  'BRAKE PAD KIT', 'BRAKE PAD KIT FRONT', 'BRAKE PAD KIT REAR',
+  'BRAKE ROTOR', 'BRAKE ROTOR FRONT', 'BRAKE ROTOR REAR', 'BRAKE DISC',
+  'AIR FILTER', 'OIL FILTER', 'CABIN FILTER', 'FUEL FILTER',
+  'SPARK PLUG SET', 'SPARK PLUG',
+  'BALL JOINT', 'TIE ROD END', 'CONTROL ARM',
+  'WHEEL BEARING', 'CV JOINT', 'DRIVE SHAFT',
+  'TIMING BELT KIT', 'SERPENTINE BELT', 'DRIVE BELT',
+  'SHOCK ABSORBER', 'STRUT', 'COIL SPRING',
+  'CLUTCH KIT', 'CLUTCH PLATE',
+  'ALTERNATOR', 'STARTER MOTOR',
+  'WATER PUMP', 'THERMOSTAT',
+  'RADIATOR', 'RADIATOR HOSE',
+  'EXHAUST', 'MUFFLER', 'CATALYTIC CONVERTER',
+  // Lowercase variations for flexible matching
   'brake pads', 'brake rotors', 'brake discs', 'brakes',
   'air filter', 'oil filter', 'cabin filter', 'fuel filter',
-  'spark plugs', 'spark plug',
+  'spark plugs', 'spark plug', 'wiper', 'wipers',
   'battery', 'batteries',
   'clutch', 'clutch kit',
   'alternator', 'starter motor',
@@ -67,6 +84,7 @@ export const useBobChat = ({
   onStreamComplete,
   onShowingProduct,
   onVehicleIdentified,
+  onMultipleVehiclesFound,
   onPartsFound,
   onServicePackagesFound,
   onResearchStart,
@@ -223,6 +241,13 @@ export const useBobChat = ({
             if (parsed.type === "no_parts_found") {
               console.log("No parts found for this request");
               onNoPartsFound?.();
+              continue;
+            }
+            
+            // Check for multiple_vehicles_found event (show placeholders)
+            if (parsed.type === "multiple_vehicles_found") {
+              console.log("Multiple vehicles found - showing placeholders");
+              onMultipleVehiclesFound?.();
               continue;
             }
             

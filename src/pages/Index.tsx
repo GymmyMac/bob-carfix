@@ -56,6 +56,9 @@ const Index = () => {
   const [displayedPackages, setDisplayedPackages] = useState<ServicePackage[]>([]);
   const pendingPackagesRef = useRef<ServicePackage[]>([]);
   
+  // Track if we have multiple vehicle matches but no confirmed vehicle yet
+  const [hasMultipleMatches, setHasMultipleMatches] = useState(false);
+  
   // Selected service package for detail dialog
   const [selectedPackage, setSelectedPackage] = useState<ServicePackage | null>(null);
 
@@ -94,6 +97,15 @@ const Index = () => {
     onStreamComplete: stateTransitions.onStreamComplete,
     onVehicleIdentified: (vehicle) => {
       setDisplayedVehicle(vehicle);
+      // Vehicle is now confirmed - clear placeholder state
+      setHasMultipleMatches(false);
+      // Clear placeholder packages - real ones will come via onServicePackagesFound
+      setDisplayedPackages([]);
+      pendingPackagesRef.current = [];
+    },
+    onMultipleVehiclesFound: () => {
+      // Multiple matches found but not yet confirmed - show placeholders
+      setHasMultipleMatches(true);
     },
     onPartsFound: (parts: APIPart[]) => {
       // Store parts but don't display yet - wait for Bob to speak
@@ -223,6 +235,16 @@ const Index = () => {
             />
           )}
           {/* Service Packages - Above Product Shelf - Synchronized reveal */}
+          {/* Show placeholders when multiple matches but no confirmed vehicle */}
+          {hasMultipleMatches && !displayedVehicle && (
+            <ServicePackagesSection
+              packages={[]}
+              isLoading={false}
+              showPlaceholders={true}
+              vehicleUnconfirmed={true}
+            />
+          )}
+          {/* Show real packages when vehicle confirmed and packages available */}
           {displayedVehicle && displayedPackages.length > 0 && !isResearching && (
             <ServicePackagesSection
               packages={displayedPackages}
@@ -294,6 +316,16 @@ const Index = () => {
             />
           )}
           {/* Service Packages - Above Product Shelf - Synchronized reveal */}
+          {/* Show placeholders when multiple matches but no confirmed vehicle */}
+          {hasMultipleMatches && !displayedVehicle && (
+            <ServicePackagesSection
+              packages={[]}
+              isLoading={false}
+              showPlaceholders={true}
+              vehicleUnconfirmed={true}
+            />
+          )}
+          {/* Show real packages when vehicle confirmed and packages available */}
           {displayedVehicle && displayedPackages.length > 0 && !isResearching && (
             <ServicePackagesSection
               packages={displayedPackages}

@@ -147,6 +147,14 @@ CRITICAL (different per variant - must confirm):
 - Suspension parts, engine parts, clutch kits
 - If customer asks for these with multiple matches → Ask customer to confirm variant
 
+CRITICAL VEHICLE DATA ACCURACY:
+When emitting VEHICLE_CONFIRMED, you MUST copy the EXACT vehicle data from the lookup_vehicle result.
+- NEVER invent or hallucinate vehicle details (make, model, year, variant, engine)
+- NEVER confuse one vehicle lookup result with another
+- If lookup returned "BMW 335i", you MUST say "BMW 335i" - NEVER say "BMW X5" or any other model
+- The vehicle_id, rego, make, model, year, vin, engine_no MUST all come DIRECTLY from the API response fields
+- Before emitting VEHICLE_CONFIRMED, double-check the make and model match what the API returned
+
 IMPORTANT - VEHICLE CONFIRMATION:
 When the customer CONFIRMS a specific vehicle that has a valid id or vehicle_id, you MUST include a special marker at the START of your response:
 [VEHICLE_CONFIRMED:{"vehicle_id":12345,"rego":"ABC123","make":"Toyota","model":"Corolla","year":"2015","variant":"GX","vehicle_name_nz":"Toyota Corolla GX 1.8L","engine_size":"1.8L","fuel_type":"petrol","vin":"JTDBU4EE7E9123456","engine_no":"2ZR-123456","cc_rating":1800}]
@@ -164,14 +172,42 @@ EXAMPLE RESPONSES:
 - Multiple matches, customer asks for BRAKE PADS → "Found a few Vitz options - is yours the SCP90 1.3L petrol or the NCP91 1.5L?"
 - Customer confirms "the 1.3L" → Emit VEHICLE_CONFIRMED with that vehicle's ID and proceed
 
+SMART SALES SPEECH - PRODUCT RECOMMENDATIONS:
+When presenting products, follow these rules:
+
+PRICING STRATEGY:
+- NEVER recommend the CHEAPEST option first - it has lowest margin and lowest quality
+- ALWAYS recommend a MID-PRICED product as "best value" or "good quality"
+- Structure: "Prices start from $X, go up to $Y. I'd go with the [MidBrand] at $[MidPrice] - solid quality."
+
+VERBOSITY RULES:
+- NEVER list more than 2-3 products by name in speech
+- Let the visual shelf do the work: "Check out the options on your right there"
+- If many options exist, summarize: "Got a few brands - BOSCH, TRICO, NAPA - prices from $20 to $78"
+
+PARTSLOT NAMING - USE EXACT CATEGORY NAMES:
+When mentioning products, use the exact partslot category name to help customers find them:
+- "Looking at WIPER BLADE FRONT options..."
+- "For your BRAKE PAD KIT, I'd suggest..."
+- "Under OIL FILTER, you've got..."
+- "Check out AIR FILTER on the shelf..."
+This triggers auto-scroll to that section on the shelf.
+
+EXAMPLE GOOD RESPONSE:
+"Sweet as, got your wipers sorted. Prices run $20 to $78 on WIPER BLADE FRONT - I'd go with the TRICO at $69, solid brand. Have a look on the shelf there."
+
+EXAMPLE BAD RESPONSE (TOO VERBOSE - NEVER DO THIS):
+"Here's all your options: BOSCH AP600U $20, NAPA NFB24 $39, REPCO RFB24-S $50, TRICO TEC610 $78, TRICO TF610 $69..."
+
 SMART SALES WORKFLOW (after vehicle confirmed WITH vehicle_id):
 STEP 1 - IMMEDIATELY AFTER VEHICLE CONFIRMED:
 - Call retrieve_parts with NO filter to load ALL available parts for the vehicle
 - This displays the full product range on the shelf
 
 STEP 2 - WHEN CUSTOMER ASKS ABOUT SPECIFIC PARTS:
-- Guide the customer to the specific products they need
+- Guide the customer to the specific products they need using partslot names
 - Use phrases like "Looking at your shelf there, you'll see..." or "Right there on the shelf..."
+- Recommend a MID-PRICED option, never the cheapest
 
 STEP 3 - CHECK SERVICE PACKAGES for better value:
 - Use retrieve_service_packages to see if a bundle covers their needs
@@ -594,9 +630,11 @@ serve(async (req) => {
             vehicleId = vehicleResult.vehicles[0].id || vehicleResult.vehicles[0].vehicle_id || null;
             console.log('Single vehicle match in array with ID:', vehicleId);
           }
-          // Multiple matches without a confirmed vehicle - let AI present options
-          else if (vehicleResult.vehicles?.length) {
+          // Multiple matches without a confirmed vehicle - flag for frontend to show placeholders
+          else if (vehicleResult.vehicles?.length && vehicleResult.vehicles.length > 1) {
             console.log(`Multiple vehicle candidates found (${vehicleResult.vehicles.length}), AI will present options to customer`);
+            // Flag that we have multiple matches - frontend will show placeholder service packages
+            (conversationMessages as unknown as { _multipleVehiclesFound?: boolean })._multipleVehiclesFound = true;
             // Don't set vehicleId - wait for customer to confirm
           }
           
@@ -757,6 +795,16 @@ serve(async (req) => {
           
           // Check if we have service packages to emit from tool calls
           const servicePackagesToEmit = (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit;
+          
+          // Check if multiple vehicles found (to show placeholder packages)
+          const multipleVehiclesFound = (conversationMessages as unknown as { _multipleVehiclesFound?: boolean })._multipleVehiclesFound;
+          
+          // Emit multiple_vehicles_found event so frontend shows placeholder packages
+          if (multipleVehiclesFound) {
+            const multipleEvent = `data: ${JSON.stringify({ type: "multiple_vehicles_found" })}\n\n`;
+            controller.enqueue(encoder.encode(multipleEvent));
+            console.log("Emitted multiple_vehicles_found event");
+          }
           
           // Emit service_packages_found event FIRST (before parts) for synchronized display
           if (servicePackagesToEmit && servicePackagesToEmit.length > 0) {
