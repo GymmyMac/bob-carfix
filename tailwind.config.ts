@@ -47,6 +47,21 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // CARFIX Custom Colors
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        sale: {
+          DEFAULT: "hsl(var(--sale))",
+          foreground: "hsl(var(--sale-foreground))",
+          badge: "hsl(var(--sale-badge))",
+        },
+        navy: {
+          DEFAULT: "hsl(var(--navy))",
+          foreground: "hsl(var(--navy-foreground))",
+        },
+        "was-price": "hsl(var(--was-price))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
