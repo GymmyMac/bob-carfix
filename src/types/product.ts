@@ -6,6 +6,7 @@ export interface Product {
   price: number;
   inStock: boolean;
   brand?: string;
+  partslotDescription?: string;
 }
 
 // API response format from retrieve-parts
@@ -19,6 +20,7 @@ export interface APIPart {
   Price?: number;
   "Metro Retail Price"?: number;
   Image?: string;
+  partslot_description?: string;
 }
 
 // CARFIX storage base URL for product images
@@ -38,7 +40,8 @@ export function apiPartToProduct(part: APIPart): Product {
     partNumber: part["Part Number"] || part["Part No"] || part.SKU || "N/A",
     price: part["Metro Retail Price"] || part.Price || 0,
     inStock: true,
-    brand: part.Brand
+    brand: part.Brand,
+    partslotDescription: part.partslot_description
   };
 }
 
