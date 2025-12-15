@@ -21,11 +21,19 @@ export interface APIPart {
   Image?: string;
 }
 
+// CARFIX storage base URL for product images
+const CARFIX_IMAGE_BASE_URL = "https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/product-images";
+
 // Convert API part to display format
 export function apiPartToProduct(part: APIPart): Product {
+  // Construct image URL from SKU
+  const imageUrl = part.SKU 
+    ? `${CARFIX_IMAGE_BASE_URL}/${part.SKU}.jpg`
+    : "/placeholder.svg";
+
   return {
     id: part.SKU || part["Part Number"] || part["Part No"] || Math.random().toString(36),
-    image: part.Image || "/placeholder.svg",
+    image: imageUrl,
     name: part["Part Product Type"] || "Auto Part",
     partNumber: part["Part Number"] || part["Part No"] || part.SKU || "N/A",
     price: part["Metro Retail Price"] || part.Price || 0,
