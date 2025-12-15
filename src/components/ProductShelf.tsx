@@ -115,24 +115,16 @@ export const ProductShelf = ({ products, highlightedPartType, onProductClick }: 
                 <p className="text-xs text-muted-foreground mb-2">
                   Part #: {product.partNumber}
                 </p>
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-bold text-primary">
-                    {product.price > 0 ? `$${product.price.toFixed(2)}` : 'Price on request'}
-                  </span>
-                  {product.inStock ? (
-                    <Badge variant="default" className="bg-green-500">In Stock</Badge>
-                  ) : (
-                    <Badge variant="secondary">Out of Stock</Badge>
-                  )}
-                </div>
+                <span className="text-lg font-bold text-primary">
+                  {product.price > 0 ? `$${product.price.toFixed(2)}` : 'Price on request'}
+                </span>
               </CardContent>
               <CardFooter className="p-4 pt-0">
                 <Button 
                   className="w-full" 
                   size="sm"
-                  disabled={!product.inStock}
                 >
-                  View Details
+                  Buy Now
                 </Button>
               </CardFooter>
             </Card>
