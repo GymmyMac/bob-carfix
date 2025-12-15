@@ -453,8 +453,12 @@ serve(async (req) => {
           
           // Also capture parts from service packages
           if (toolCall.function.name === "retrieve_service_packages") {
-            const packagesResult = result as { success?: boolean; packages?: Array<{ parts?: unknown[] }> };
-            if (packagesResult.success && packagesResult.packages) {
+            const packagesResult = result as { success?: boolean; parts?: unknown[]; packages?: Array<{ parts?: unknown[] }> };
+            // Handle both direct parts array and nested packages structure
+            if (packagesResult.parts && Array.isArray(packagesResult.parts) && packagesResult.parts.length > 0) {
+              console.log(`Captured ${packagesResult.parts.length} parts from service packages (direct)`);
+              partsFoundResult = partsFoundResult ? [...partsFoundResult, ...packagesResult.parts] : packagesResult.parts;
+            } else if (packagesResult.packages && Array.isArray(packagesResult.packages)) {
               const packageParts: unknown[] = [];
               for (const pkg of packagesResult.packages) {
                 if (pkg && pkg.parts && Array.isArray(pkg.parts)) {
@@ -462,7 +466,7 @@ serve(async (req) => {
                 }
               }
               if (packageParts.length > 0) {
-                console.log(`Captured ${packageParts.length} parts from service packages`);
+                console.log(`Captured ${packageParts.length} parts from service packages (nested)`);
                 partsFoundResult = partsFoundResult ? [...partsFoundResult, ...packageParts] : packageParts;
               }
             }
