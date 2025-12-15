@@ -1,6 +1,8 @@
 export interface Product {
   id: string;
+  sku: string;
   image: string;
+  brandImage?: string;
   name: string;
   partNumber: string;
   price: number;
@@ -23,24 +25,35 @@ export interface APIPart {
   partslot_description?: string;
 }
 
-// CARFIX storage base URL for product images
-const CARFIX_IMAGE_BASE_URL = "https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/product-images";
+// CARFIX storage base URLs (note: underscores in bucket names)
+const CARFIX_IMAGE_BASE_URL = "https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/product_images";
+const CARFIX_BRAND_IMAGE_BASE_URL = "https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/brand_images";
 
 // Convert API part to display format
 export function apiPartToProduct(part: APIPart): Product {
-  // Construct image URL from SKU
-  const imageUrl = part.SKU 
-    ? `${CARFIX_IMAGE_BASE_URL}/${part.SKU}.jpg`
+  const sku = part.SKU || '';
+  const brand = part.Brand || '';
+  
+  // Primary image: product image by SKU
+  const imageUrl = sku 
+    ? `${CARFIX_IMAGE_BASE_URL}/${sku}.jpg`
     : "/placeholder.svg";
+  
+  // Fallback: brand image (remove spaces from brand name)
+  const brandImageUrl = brand
+    ? `${CARFIX_BRAND_IMAGE_BASE_URL}/${brand.replace(/\s+/g, '')}.jpg`
+    : undefined;
 
   return {
-    id: part.SKU || part["Part Number"] || part["Part No"] || Math.random().toString(36),
+    id: sku || part["Part Number"] || part["Part No"] || Math.random().toString(36),
+    sku,
     image: imageUrl,
+    brandImage: brandImageUrl,
     name: part["Part Product Type"] || "Auto Part",
-    partNumber: part["Part Number"] || part["Part No"] || part.SKU || "N/A",
+    partNumber: part["Part Number"] || part["Part No"] || sku || "N/A",
     price: part["Metro Retail Price"] || part.Price || 0,
     inStock: true,
-    brand: part.Brand,
+    brand,
     partslotDescription: part.partslot_description
   };
 }
@@ -48,6 +61,7 @@ export function apiPartToProduct(part: APIPart): Product {
 export const PLACEHOLDER_PRODUCTS: Product[] = [
   {
     id: "1",
+    sku: "OF-12345",
     image: "/placeholder.svg",
     name: "Oil Filter",
     partNumber: "OF-12345",
@@ -56,6 +70,7 @@ export const PLACEHOLDER_PRODUCTS: Product[] = [
   },
   {
     id: "2",
+    sku: "AF-67890",
     image: "/placeholder.svg",
     name: "Air Filter",
     partNumber: "AF-67890",
@@ -64,6 +79,7 @@ export const PLACEHOLDER_PRODUCTS: Product[] = [
   },
   {
     id: "3",
+    sku: "BP-11223",
     image: "/placeholder.svg",
     name: "Brake Pads",
     partNumber: "BP-11223",
@@ -72,6 +88,7 @@ export const PLACEHOLDER_PRODUCTS: Product[] = [
   },
   {
     id: "4",
+    sku: "SP-44556",
     image: "/placeholder.svg",
     name: "Spark Plugs",
     partNumber: "SP-44556",
@@ -80,6 +97,7 @@ export const PLACEHOLDER_PRODUCTS: Product[] = [
   },
   {
     id: "5",
+    sku: "WB-77889",
     image: "/placeholder.svg",
     name: "Wiper Blades",
     partNumber: "WB-77889",
@@ -88,6 +106,7 @@ export const PLACEHOLDER_PRODUCTS: Product[] = [
   },
   {
     id: "6",
+    sku: "BT-99001",
     image: "/placeholder.svg",
     name: "Battery",
     partNumber: "BT-99001",
@@ -96,6 +115,7 @@ export const PLACEHOLDER_PRODUCTS: Product[] = [
   },
   {
     id: "7",
+    sku: "CL-22334",
     image: "/placeholder.svg",
     name: "Coolant",
     partNumber: "CL-22334",
@@ -104,6 +124,7 @@ export const PLACEHOLDER_PRODUCTS: Product[] = [
   },
   {
     id: "8",
+    sku: "TF-55667",
     image: "/placeholder.svg",
     name: "Transmission Fluid",
     partNumber: "TF-55667",
@@ -112,6 +133,7 @@ export const PLACEHOLDER_PRODUCTS: Product[] = [
   },
   {
     id: "9",
+    sku: "HB-88990",
     image: "/placeholder.svg",
     name: "Headlight Bulbs",
     partNumber: "HB-88990",
