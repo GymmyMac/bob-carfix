@@ -9,7 +9,6 @@ import { ServicePackageDetailDialog } from "@/components/ServicePackageDetailDia
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 import { useBobChat } from "@/hooks/useBobChat";
-import { useServicePackages } from "@/hooks/useServicePackages";
 import { Product, APIPart, apiPartToProduct } from "@/types/product";
 import { AdminButton } from "@/components/AdminButton";
 import { useBobStateTransitions } from "@/hooks/useBobStateTransitions";
@@ -60,18 +59,6 @@ const Index = () => {
   // Selected service package for detail dialog
   const [selectedPackage, setSelectedPackage] = useState<ServicePackage | null>(null);
 
-  // Fetch service packages when vehicle is identified
-  const { data: servicePackagesData, isLoading: packagesLoading } = useServicePackages(
-    displayedVehicle?.vehicle_id ?? null
-  );
-  
-  // Store fetched packages in pending ref for synchronized reveal
-  useEffect(() => {
-    if (servicePackagesData?.data?.servicePackages) {
-      pendingPackagesRef.current = servicePackagesData.data.servicePackages;
-    }
-  }, [servicePackagesData]);
-
   // Initialize state transition system
   const stateTransitions = useBobStateTransitions({
     states,
@@ -112,6 +99,11 @@ const Index = () => {
       // Store parts but don't display yet - wait for Bob to speak
       const products = parts.map(apiPartToProduct);
       pendingPartsRef.current = products;
+    },
+    onServicePackagesFound: (packages: ServicePackage[]) => {
+      // Store service packages but don't display yet - wait for Bob to speak
+      console.log("Service packages received from bob-chat:", packages.length);
+      pendingPackagesRef.current = packages;
     },
     onResearchStart: () => {
       // Show loading state when user sends message

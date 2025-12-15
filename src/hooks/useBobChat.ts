@@ -11,6 +11,8 @@ export interface Message {
   content: string;
 }
 
+import { ServicePackage } from "@/types/servicePackage";
+
 interface UseBobChatProps {
   setAnimationState: (state: AnimationState) => void;
   manualMode?: boolean;
@@ -24,6 +26,7 @@ interface UseBobChatProps {
   onShowingProduct?: () => void;
   onVehicleIdentified?: (vehicle: Vehicle) => void;
   onPartsFound?: (parts: APIPart[]) => void;
+  onServicePackagesFound?: (packages: ServicePackage[]) => void;
   onResearchStart?: () => void;
   onReadyToSpeak?: () => void;
   onHighlightPart?: (partType: string) => void;
@@ -65,6 +68,7 @@ export const useBobChat = ({
   onShowingProduct,
   onVehicleIdentified,
   onPartsFound,
+  onServicePackagesFound,
   onResearchStart,
   onReadyToSpeak,
   onHighlightPart,
@@ -198,6 +202,13 @@ export const useBobChat = ({
               console.log("Vehicle identified:", parsed.vehicle);
               setIdentifiedVehicle(parsed.vehicle);
               onVehicleIdentified?.(parsed.vehicle);
+              continue;
+            }
+            
+            // Check for service_packages_found event
+            if (parsed.type === "service_packages_found" && parsed.packages) {
+              console.log("Service packages found:", parsed.packages.length, "packages");
+              onServicePackagesFound?.(parsed.packages);
               continue;
             }
             
