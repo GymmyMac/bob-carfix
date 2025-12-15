@@ -116,17 +116,22 @@ SMART SALES WORKFLOW (after vehicle confirmed):
 1. ALWAYS CHECK SERVICE PACKAGES FIRST using retrieve_service_packages
    - Service packs are better value than individual parts
    - Proactively recommend a relevant package based on what the customer needs
-   - Example: Customer asks about oil change → Offer "Oil Service Package" with oil + filter
-   - Example: Customer needs brakes → Offer "Brake Service Package" with pads AND rotors
 
-2. FALL BACK TO INDIVIDUAL PARTS only when:
+2. CRITICAL FALLBACK RULE - IF SERVICE PACKAGES RETURNS EMPTY OR NO RELEVANT PACKAGES:
+   - You MUST IMMEDIATELY call retrieve_parts to get individual parts
+   - NEVER tell the customer "nothing available" without trying retrieve_parts first
+   - This is MANDATORY - always try retrieve_parts when service packages fail
+   - Example: Service packages empty for brakes → MUST call retrieve_parts with part_type="BRAKE PADS"
+
+3. USE INDIVIDUAL PARTS when:
+   - Service packages returned empty (MANDATORY - call retrieve_parts)
    - No service package covers the customer's specific need
    - Customer explicitly says they only want individual parts ("just the filter", "only the brake pads")
    - Use retrieve_parts with the part_type filter to find specific items
    - Always mention: Brand, Part Number, and whether it's in stock
 
-3. EXAMPLE RESPONSES:
-   - "Need brake pads" → Check service packages first, offer Brake Service Package with pads + rotors
+4. EXAMPLE RESPONSES:
+   - "Need brake pads" → Check service packages first, if empty → MUST call retrieve_parts
    - "Just looking for an air filter" → Fall back to individual parts since they said "just"
    - "What does my car need for a service?" → Offer Full Service Package covering oil, filters, etc.
 
@@ -454,10 +459,13 @@ serve(async (req) => {
           // Also capture parts from service packages
           if (toolCall.function.name === "retrieve_service_packages") {
             const packagesResult = result as { success?: boolean; parts?: unknown[]; packages?: Array<{ parts?: unknown[] }> };
+            let foundServiceParts = false;
+            
             // Handle both direct parts array and nested packages structure
             if (packagesResult.parts && Array.isArray(packagesResult.parts) && packagesResult.parts.length > 0) {
               console.log(`Captured ${packagesResult.parts.length} parts from service packages (direct)`);
               partsFoundResult = partsFoundResult ? [...partsFoundResult, ...packagesResult.parts] : packagesResult.parts;
+              foundServiceParts = true;
             } else if (packagesResult.packages && Array.isArray(packagesResult.packages)) {
               const packageParts: unknown[] = [];
               for (const pkg of packagesResult.packages) {
@@ -468,7 +476,17 @@ serve(async (req) => {
               if (packageParts.length > 0) {
                 console.log(`Captured ${packageParts.length} parts from service packages (nested)`);
                 partsFoundResult = partsFoundResult ? [...partsFoundResult, ...packageParts] : packageParts;
+                foundServiceParts = true;
               }
+            }
+            
+            // If service packages returned empty, inject a system message to force fallback
+            if (!foundServiceParts) {
+              console.log('Service packages empty - injecting fallback instruction');
+              conversationMessages.push({
+                role: "system",
+                content: "IMPORTANT: Service packages returned EMPTY. You MUST now call retrieve_parts to find individual parts for this vehicle. Do NOT tell the customer nothing is available until you have tried retrieve_parts."
+              });
             }
           }
           
