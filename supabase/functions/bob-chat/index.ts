@@ -372,31 +372,31 @@ async function retrieveParts(vehicleId: number, partType?: string): Promise<{ su
 }
 
 async function retrieveServicePackages(vehicleId?: number): Promise<unknown> {
-  console.log('Retrieving service packages for vehicle:', vehicleId);
-  const carfixServiceRoleKey = Deno.env.get("CARFIX_SERVICE_ROLE_KEY");
+  console.log('Calling calculate-service-bundles for vehicle:', vehicleId);
   
   try {
-    const body = vehicleId ? { vehicleid: String(vehicleId) } : {};
+    const body = vehicleId ? { vehicleId: vehicleId } : {};
     
     const response = await fetch(
-      "https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1/retrieve-service-packages",
+      "https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1/calculate-service-bundles",
       {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${carfixServiceRoleKey}`,
+          "apikey": Deno.env.get("CARFIX_SERVICE_ROLE_KEY") || "",
         },
         body: JSON.stringify(body)
       }
     );
     
     if (!response.ok) {
-      console.error('Service packages lookup failed:', response.status);
-      return { success: false, error: `Service packages lookup failed with status ${response.status}` };
+      const errorBody = await response.text();
+      console.error('Service bundles lookup failed:', response.status, errorBody);
+      return { success: false, error: `Service bundles lookup failed with status ${response.status}` };
     }
     
     const data = await response.json();
-    console.log('Service packages result:', JSON.stringify(data).substring(0, 500));
+    console.log('Service bundles result:', JSON.stringify(data).substring(0, 500));
     
     return { 
       success: true, 
@@ -404,7 +404,7 @@ async function retrieveServicePackages(vehicleId?: number): Promise<unknown> {
       total_found: Array.isArray(data.packages) ? data.packages.length : (Array.isArray(data) ? data.length : 1)
     };
   } catch (error) {
-    console.error('Service packages error:', error);
+    console.error('Service bundles error:', error);
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
 }

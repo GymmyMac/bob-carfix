@@ -38,19 +38,11 @@ export const ProductShelf = ({ products, highlightedPartType, onProductClick }: 
       groups[key].push(product);
     });
     
-    // Sort group names alphabetically, but highlighted first
-    const sortedGroupNames = Object.keys(groups).sort((a, b) => {
-      if (highlightedPartType) {
-        const aMatches = groupMatchesHighlight(a, highlightedPartType);
-        const bMatches = groupMatchesHighlight(b, highlightedPartType);
-        if (aMatches && !bMatches) return -1;
-        if (!aMatches && bMatches) return 1;
-      }
-      return a.localeCompare(b);
-    });
+    // Sort group names alphabetically - stable order prevents scroll jump when highlight clears
+    const sortedGroupNames = Object.keys(groups).sort((a, b) => a.localeCompare(b));
     
     return sortedGroupNames.map(name => ({ name, products: groups[name] }));
-  }, [products, highlightedPartType]);
+  }, [products]);
   
   // Auto-scroll to highlighted section
   useEffect(() => {
