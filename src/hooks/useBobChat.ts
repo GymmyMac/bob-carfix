@@ -26,6 +26,8 @@ interface UseBobChatProps {
   onPartsFound?: (parts: APIPart[]) => void;
   onResearchStart?: () => void;
   onReadyToSpeak?: () => void;
+  onHighlightPart?: (partType: string) => void;
+  onNoPartsFound?: () => void;
 }
 
 // Keywords that indicate Bob is recommending products
@@ -34,6 +36,20 @@ const PRODUCT_KEYWORDS = [
   'oil', 'price', '$', 'stock', 'available', 'pads', 'disc', 'spark plug',
   'battery', 'clutch', 'alternator', 'starter', 'muffler', 'exhaust',
   'service pack', 'add-on', 'tyre shine', 'windscreen wash'
+];
+
+// Part type keywords for highlight detection
+const PART_TYPE_KEYWORDS = [
+  'brake pads', 'brake rotors', 'brake discs', 'brakes',
+  'air filter', 'oil filter', 'cabin filter', 'fuel filter',
+  'spark plugs', 'spark plug',
+  'battery', 'batteries',
+  'clutch', 'clutch kit',
+  'alternator', 'starter motor',
+  'muffler', 'exhaust',
+  'cv joint', 'axle',
+  'timing belt', 'serpentine belt',
+  'shock absorber', 'struts', 'suspension'
 ];
 
 export const useBobChat = ({ 
@@ -50,7 +66,9 @@ export const useBobChat = ({
   onVehicleIdentified,
   onPartsFound,
   onResearchStart,
-  onReadyToSpeak
+  onReadyToSpeak,
+  onHighlightPart,
+  onNoPartsFound
 }: UseBobChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -190,6 +208,13 @@ export const useBobChat = ({
               continue;
             }
             
+            // Check for no_parts_found event
+            if (parsed.type === "no_parts_found") {
+              console.log("No parts found for this request");
+              onNoPartsFound?.();
+              continue;
+            }
+            
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (content) {
               assistantContent += content;
@@ -221,6 +246,15 @@ export const useBobChat = ({
       const hasProductContent = PRODUCT_KEYWORDS.some(keyword => 
         assistantContent.toLowerCase().includes(keyword.toLowerCase())
       );
+      
+      // Detect and emit highlighted part type for shelf navigation
+      const lowerContent = assistantContent.toLowerCase();
+      for (const partType of PART_TYPE_KEYWORDS) {
+        if (lowerContent.includes(partType)) {
+          onHighlightPart?.(partType);
+          break; // Only highlight one part type at a time
+        }
+      }
 
       // Speak the response if not muted (use cleaned content)
       if (!isMuted && latestAssistantMessageRef.current.trim()) {

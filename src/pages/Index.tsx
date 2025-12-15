@@ -43,6 +43,7 @@ const Index = () => {
   // State for identified vehicle and parts
   const [displayedVehicle, setDisplayedVehicle] = useState<Vehicle | null>(null);
   const [displayedParts, setDisplayedParts] = useState<Product[]>([]);
+  const [highlightedPartType, setHighlightedPartType] = useState<string | null>(null);
   
   // Synchronized product reveal state
   const [isResearching, setIsResearching] = useState(false);
@@ -99,6 +100,16 @@ const Index = () => {
       if (pendingPartsRef.current.length > 0) {
         setDisplayedParts(pendingPartsRef.current);
       }
+      setIsResearching(false);
+    },
+    onHighlightPart: (partType: string) => {
+      console.log('Highlighting part type:', partType);
+      setHighlightedPartType(partType);
+      // Clear highlight after 8 seconds
+      setTimeout(() => setHighlightedPartType(null), 8000);
+    },
+    onNoPartsFound: () => {
+      console.log('No parts found - clearing research state');
       setIsResearching(false);
     }
   });
@@ -196,6 +207,7 @@ const Index = () => {
           ) : (displayedVehicle || displayedParts.length > 0) ? (
             <ProductShelf 
               products={displayedParts}
+              highlightedPartType={highlightedPartType}
               onProductClick={(product) => console.log("Product clicked:", product)}
             />
           ) : null}
@@ -254,6 +266,7 @@ const Index = () => {
           ) : (displayedVehicle || displayedParts.length > 0) ? (
             <ProductShelf 
               products={displayedParts}
+              highlightedPartType={highlightedPartType}
               onProductClick={(product) => console.log("Product clicked:", product)}
             />
           ) : null}
