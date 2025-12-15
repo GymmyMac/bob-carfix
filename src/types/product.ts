@@ -13,21 +13,23 @@ export interface APIPart {
   SKU: string;
   "Part Product Type": string;
   Brand: string;
-  "Part No": string;
-  "In Stock": string;
+  "Part No"?: string;
+  "Part Number"?: string;
+  "In Stock"?: string;
   Price?: number;
+  "Metro Retail Price"?: number;
   Image?: string;
 }
 
 // Convert API part to display format
 export function apiPartToProduct(part: APIPart): Product {
   return {
-    id: part.SKU || part["Part No"] || Math.random().toString(36),
+    id: part.SKU || part["Part Number"] || part["Part No"] || Math.random().toString(36),
     image: part.Image || "/placeholder.svg",
     name: part["Part Product Type"] || "Auto Part",
-    partNumber: part["Part No"] || part.SKU || "N/A",
-    price: part.Price || 0,
-    inStock: part["In Stock"]?.toLowerCase() === "yes" || part["In Stock"]?.toLowerCase() === "true",
+    partNumber: part["Part Number"] || part["Part No"] || part.SKU || "N/A",
+    price: part["Metro Retail Price"] || part.Price || 0,
+    inStock: true,
     brand: part.Brand
   };
 }
