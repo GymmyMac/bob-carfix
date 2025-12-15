@@ -343,6 +343,28 @@ async function executeToolCall(toolCall: { function: { name: string; arguments: 
   }
 }
 
+// Helper function to extract parts from service packages response
+function extractPartsFromPackages(packagesResult: unknown): unknown[] {
+  const extractedParts: unknown[] = [];
+  const result = packagesResult as { success?: boolean; parts?: unknown[]; packages?: Array<{ parts?: unknown[] }> };
+  
+  // Handle direct parts array
+  if (result.parts && Array.isArray(result.parts)) {
+    extractedParts.push(...result.parts);
+  }
+  
+  // Handle nested packages structure  
+  if (result.packages && Array.isArray(result.packages)) {
+    for (const pkg of result.packages) {
+      if (pkg && pkg.parts && Array.isArray(pkg.parts)) {
+        extractedParts.push(...pkg.parts);
+      }
+    }
+  }
+  
+  return extractedParts;
+}
+
 interface Message {
   role: string;
   content: string | null;
@@ -452,76 +474,70 @@ serve(async (req) => {
           console.log(`Executing tool: ${toolCall.function.name}`);
           const result = await executeToolCall(toolCall);
           
-          // After vehicle lookup succeeds, auto-fetch ALL parts for theatrical display
-          if (toolCall.function.name === "lookup_vehicle") {
-            const vehicleResult = result as { id?: number; vehicle_id?: number; success?: boolean };
-            const vehicleId = vehicleResult.id || vehicleResult.vehicle_id;
-            
-            if (vehicleId && vehicleResult.success !== false) {
-              confirmedVehicleId = vehicleId;
-              console.log('Vehicle confirmed, auto-fetching ALL parts for vehicle:', vehicleId);
-              
-              // Immediately fetch ALL parts (no filter) for impressive range display
-              const allParts = await retrieveParts(vehicleId);
-              
-              if (allParts.success && allParts.parts && allParts.parts.length > 0) {
-                partsFoundResult = allParts.parts;
-                console.log(`Auto-loaded ${allParts.parts.length} parts for vehicle - full range display!`);
-              }
-            }
-          }
+        // After vehicle lookup succeeds, auto-fetch ALL parts AND service packages for theatrical display
+        if (toolCall.function.name === "lookup_vehicle") {
+          const vehicleResult = result as { id?: number; vehicle_id?: number; success?: boolean };
+          const vehicleId = vehicleResult.id || vehicleResult.vehicle_id;
           
-          // Capture parts results for later emission (from explicit retrieve_parts calls)
-          if (toolCall.function.name === "retrieve_parts") {
-            const partsResult = result as { success?: boolean; parts?: unknown[] };
-            if (partsResult.success && partsResult.parts && partsResult.parts.length > 0) {
-              // Only add if not already loaded via vehicle lookup
-              if (!confirmedVehicleId) {
-                partsFoundResult = partsFoundResult ? [...partsFoundResult, ...partsResult.parts] : partsResult.parts;
-              }
-            }
-          }
-          
-          // Also capture parts from service packages
-          if (toolCall.function.name === "retrieve_service_packages") {
-            const packagesResult = result as { success?: boolean; parts?: unknown[]; packages?: Array<{ parts?: unknown[] }> };
-            let foundServiceParts = false;
+          if (vehicleId && vehicleResult.success !== false) {
+            confirmedVehicleId = vehicleId;
+            console.log('Vehicle confirmed, auto-fetching ALL parts and service packages for vehicle:', vehicleId);
             
-            // Handle both direct parts array and nested packages structure
-            if (packagesResult.parts && Array.isArray(packagesResult.parts) && packagesResult.parts.length > 0) {
-              console.log(`Captured ${packagesResult.parts.length} parts from service packages (direct)`);
-              // Merge service package parts without duplicating the full range
-              foundServiceParts = true;
-            } else if (packagesResult.packages && Array.isArray(packagesResult.packages)) {
-              const packageParts: unknown[] = [];
-              for (const pkg of packagesResult.packages) {
-                if (pkg && pkg.parts && Array.isArray(pkg.parts)) {
-                  packageParts.push(...pkg.parts);
-                }
-              }
-              if (packageParts.length > 0) {
-                console.log(`Captured ${packageParts.length} parts from service packages (nested)`);
-                foundServiceParts = true;
-              }
+            // Immediately fetch ALL parts (no filter) for impressive range display
+            const allParts = await retrieveParts(vehicleId);
+            
+            if (allParts.success && allParts.parts && allParts.parts.length > 0) {
+              partsFoundResult = allParts.parts;
+              console.log(`Auto-loaded ${allParts.parts.length} parts for vehicle`);
             }
             
-            // If service packages returned empty, no need to inject fallback - parts already loaded
-            if (!foundServiceParts && !partsFoundResult) {
-              console.log('Service packages empty and no parts loaded - customer may need guidance');
+            // ALSO fetch service packages and extract their parts
+            const servicePackages = await retrieveServicePackages(vehicleId);
+            const serviceParts = extractPartsFromPackages(servicePackages);
+            if (serviceParts.length > 0) {
+              partsFoundResult = partsFoundResult ? [...partsFoundResult, ...serviceParts] : serviceParts;
+              console.log(`Auto-loaded ${serviceParts.length} additional parts from service packages`);
             }
           }
-          
-          conversationMessages.push({
-            role: "tool",
-            content: JSON.stringify(result),
-            tool_call_id: toolCall.id,
-          });
         }
         
-        // Store parts in context for emission during streaming
-        if (partsFoundResult) {
-          (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit = partsFoundResult;
+        // Capture parts results for later emission (from explicit retrieve_parts calls)
+        if (toolCall.function.name === "retrieve_parts") {
+          const partsResult = result as { success?: boolean; parts?: unknown[] };
+          if (partsResult.success && partsResult.parts && partsResult.parts.length > 0) {
+            // Merge parts (don't replace - might have service package parts already)
+            partsFoundResult = partsFoundResult ? [...partsFoundResult, ...partsResult.parts] : partsResult.parts;
+            console.log(`Added ${partsResult.parts.length} parts from retrieve_parts call`);
+          }
         }
+        
+        // Also capture parts from service packages
+        if (toolCall.function.name === "retrieve_service_packages") {
+          const extractedParts = extractPartsFromPackages(result);
+          
+          if (extractedParts.length > 0) {
+            console.log(`Adding ${extractedParts.length} parts from service packages to results`);
+            partsFoundResult = partsFoundResult ? [...partsFoundResult, ...extractedParts] : extractedParts;
+          } else if (!partsFoundResult || partsFoundResult.length === 0) {
+            console.log('Service packages empty and no parts loaded - customer may need guidance');
+          }
+        }
+        
+        conversationMessages.push({
+          role: "tool",
+          content: JSON.stringify(result),
+          tool_call_id: toolCall.id,
+        });
+      }
+      
+      // Deduplicate parts by SKU before storing for emission
+      if (partsFoundResult && partsFoundResult.length > 0) {
+        const uniqueParts = Array.from(
+          new Map(partsFoundResult.map((p: unknown) => [(p as Record<string, unknown>).SKU, p])).values()
+        );
+        console.log(`Deduplicated parts: ${partsFoundResult.length} -> ${uniqueParts.length} unique`);
+        (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit = uniqueParts;
+      }
         
         // Continue loop to get AI's response to tool results
         continue;
