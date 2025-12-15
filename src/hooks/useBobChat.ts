@@ -225,15 +225,20 @@ export const useBobChat = ({
       // Speak the response if not muted (use cleaned content)
       if (!isMuted && latestAssistantMessageRef.current.trim()) {
         speak(latestAssistantMessageRef.current);
-      } else if (!manualMode) {
-        // If muted, trigger appropriate animation based on content
-        if (hasProductContent && onShowingProduct) {
-          onShowingProduct();
-        } else if (onStreamComplete) {
-          onStreamComplete();
-        } else {
-          safeSetState(completeState);
-          setTimeout(() => safeSetState(listenState), 3000);
+      } else {
+        // If muted or empty message, still trigger ready to speak to reveal products
+        onReadyToSpeak?.();
+        
+        if (!manualMode) {
+          // Trigger appropriate animation based on content
+          if (hasProductContent && onShowingProduct) {
+            onShowingProduct();
+          } else if (onStreamComplete) {
+            onStreamComplete();
+          } else {
+            safeSetState(completeState);
+            setTimeout(() => safeSetState(listenState), 3000);
+          }
         }
       }
     } catch (error) {
