@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Product } from "@/types/product";
 import { cn } from "@/lib/utils";
 import { Package } from "lucide-react";
+import { ProductImage } from "@/components/ProductImage";
 
 interface ProductShelfProps {
   products: Product[];
@@ -124,13 +125,11 @@ export const ProductShelf = ({ products, highlightedPartType, onProductClick }: 
                   >
                     <CardHeader className="p-4">
                       <div className="aspect-square bg-muted rounded-md mb-2 flex items-center justify-center overflow-hidden">
-                        <img 
-                          src={product.image} 
+                        <ProductImage 
+                          sku={product.sku || product.id}
+                          brand={product.brand}
                           alt={product.name}
                           className="w-full h-full object-contain"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = '/placeholder.svg';
-                          }}
                         />
                       </div>
                       <CardTitle className="text-base">{product.name}</CardTitle>
