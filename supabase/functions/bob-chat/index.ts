@@ -443,11 +443,28 @@ serve(async (req) => {
           console.log(`Executing tool: ${toolCall.function.name}`);
           const result = await executeToolCall(toolCall);
           
-          // Capture parts results for later emission
+        // Capture parts results for later emission
           if (toolCall.function.name === "retrieve_parts") {
             const partsResult = result as { success?: boolean; parts?: unknown[] };
             if (partsResult.success && partsResult.parts && partsResult.parts.length > 0) {
-              partsFoundResult = partsResult.parts;
+              partsFoundResult = partsFoundResult ? [...partsFoundResult, ...partsResult.parts] : partsResult.parts;
+            }
+          }
+          
+          // Also capture parts from service packages
+          if (toolCall.function.name === "retrieve_service_packages") {
+            const packagesResult = result as { success?: boolean; packages?: Array<{ parts?: unknown[] }> };
+            if (packagesResult.success && packagesResult.packages) {
+              const packageParts: unknown[] = [];
+              for (const pkg of packagesResult.packages) {
+                if (pkg && pkg.parts && Array.isArray(pkg.parts)) {
+                  packageParts.push(...pkg.parts);
+                }
+              }
+              if (packageParts.length > 0) {
+                console.log(`Captured ${packageParts.length} parts from service packages`);
+                partsFoundResult = partsFoundResult ? [...partsFoundResult, ...packageParts] : packageParts;
+              }
             }
           }
           

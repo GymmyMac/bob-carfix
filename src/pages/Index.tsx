@@ -103,6 +103,17 @@ const Index = () => {
     }
   });
   
+  // Safety timeout - if researching for more than 30 seconds, clear it
+  useEffect(() => {
+    if (isResearching) {
+      const timeout = setTimeout(() => {
+        console.warn('Research timeout - clearing stuck state');
+        setIsResearching(false);
+      }, 30000);
+      return () => clearTimeout(timeout);
+    }
+  }, [isResearching]);
+  
   // Initialize page load state transition - wait for states to load
   useEffect(() => {
     if (!loading && states.length > 0) {
