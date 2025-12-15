@@ -557,19 +557,27 @@ serve(async (req) => {
           };
           
           // Extract vehicle ID from various response formats
+          // Priority: vehicle.id > vehicles array (if single match with ID) > multiple matches
           let vehicleId: number | null = null;
           
-          // Direct ID on result
-          if (vehicleResult.id || vehicleResult.vehicle_id) {
-            vehicleId = vehicleResult.id || vehicleResult.vehicle_id || null;
-          }
-          // ID inside vehicle object
-          else if (vehicleResult.vehicle?.id || vehicleResult.vehicle?.vehicle_id) {
+          // First check: ID inside confirmed vehicle object (highest priority - REGO lookup)
+          if (vehicleResult.vehicle?.id || vehicleResult.vehicle?.vehicle_id) {
             vehicleId = vehicleResult.vehicle.id || vehicleResult.vehicle.vehicle_id || null;
+            console.log('Found confirmed vehicle with ID:', vehicleId);
           }
-          // Multiple matches - don't auto-fetch, let AI present options first
-          else if (vehicleResult.multiple_matches && vehicleResult.vehicles?.length) {
-            console.log(`Multiple vehicle matches found (${vehicleResult.vehicles.length}), AI will present options to customer`);
+          // Second check: Direct ID on result
+          else if (vehicleResult.id || vehicleResult.vehicle_id) {
+            vehicleId = vehicleResult.id || vehicleResult.vehicle_id || null;
+            console.log('Found direct vehicle ID:', vehicleId);
+          }
+          // Third check: Single match in vehicles array that has an ID
+          else if (vehicleResult.vehicles?.length === 1 && (vehicleResult.vehicles[0].id || vehicleResult.vehicles[0].vehicle_id)) {
+            vehicleId = vehicleResult.vehicles[0].id || vehicleResult.vehicles[0].vehicle_id || null;
+            console.log('Single vehicle match in array with ID:', vehicleId);
+          }
+          // Multiple matches without a confirmed vehicle - let AI present options
+          else if (vehicleResult.vehicles?.length) {
+            console.log(`Multiple vehicle candidates found (${vehicleResult.vehicles.length}), AI will present options to customer`);
             // Don't set vehicleId - wait for customer to confirm
           }
           
