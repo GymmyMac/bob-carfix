@@ -85,6 +85,15 @@ const tools = [
   }
 ];
 
+// Parts that don't require exact vehicle variant disambiguation - same across most variants
+const UNIVERSAL_PART_TYPES = [
+  'WIPER BLADE', 'WIPER', 'WINDSCREEN WIPER',
+  'CABIN FILTER', 'CABIN AIR FILTER', 'POLLEN FILTER',
+  'INTERIOR LIGHT', 'GLOBE', 'BULB',
+  'WASHER FLUID', 'WINDSCREEN WASH',
+  'NUMBER PLATE', 'LICENSE PLATE',
+];
+
 const systemPrompt = `You are Bob, a friendly Kiwi auto parts expert at CARFIX. You're busy but helpful - like a mate at the shop.
 
 CRITICAL RULES:
@@ -123,11 +132,20 @@ USING lookup_vehicle:
 
 HANDLING LOOKUP RESULTS:
 1. SINGLE MATCH with vehicle ID: Confirm and proceed with parts lookup
-2. MULTIPLE MATCHES (vehicles array): Present the options to the customer! 
-   - Show them 2-3 of the best matches with key details (variant, engine, fuel type)
-   - Ask them to confirm which one is theirs
-   - Use phrases like "I found a few options - is yours the 1.3L petrol hatch or the 1.5L?"
+2. MULTIPLE MATCHES (vehicles array): 
+   - For UNIVERSAL parts (wipers, cabin filters, bulbs): Pick ANY vehicle from the matches and proceed - these parts are the same across variants
+   - For CRITICAL parts (brakes, engine, suspension): Present options and ask customer to confirm which variant
 3. NO vehicle ID in result: The match was too vague - ask for more details or REGO
+
+UNIVERSAL vs CRITICAL PARTS:
+UNIVERSAL (same across variants - no disambiguation needed):
+- Wiper blades, cabin/pollen filters, interior bulbs, number plate lights
+- If customer asks for these with multiple matches → Pick the first match and proceed
+
+CRITICAL (different per variant - must confirm):
+- Brake pads, brake rotors, oil filters, air filters, spark plugs, timing belts
+- Suspension parts, engine parts, clutch kits
+- If customer asks for these with multiple matches → Ask customer to confirm variant
 
 IMPORTANT - VEHICLE CONFIRMATION:
 When the customer CONFIRMS a specific vehicle that has a valid id or vehicle_id, you MUST include a special marker at the START of your response:
@@ -136,13 +154,14 @@ When the customer CONFIRMS a specific vehicle that has a valid id or vehicle_id,
 Include the vehicle_id field AND all other available fields. Then continue with your natural response.
 Do NOT emit VEHICLE_CONFIRMED unless:
 - You have a vehicle with an id or vehicle_id field
-- The CUSTOMER has confirmed it's the right vehicle
+- The CUSTOMER has confirmed it's the right vehicle, OR you're proceeding with a universal part
 
 EXAMPLE RESPONSES:
 - "Got any tire shine?" → Use search_general_products("tire shine") immediately
 - "Need brake pads for my Toyota" → "Sweet, what's your rego? Or if you don't have it handy, the year and model?"
 - "It's a 2006 Toyota Vitz 1.3" → Use lookup_vehicle with make="Toyota", model="Vitz", year=2006, cc_rating=1.3
-- Multiple matches returned → "Found a few Vitz options in our system - is yours the SCP90 1.3L petrol or the NCP91 1.5L? Just want to get the right parts for ya."
+- Multiple matches, customer asks for WIPERS → Pick first match, emit VEHICLE_CONFIRMED, proceed
+- Multiple matches, customer asks for BRAKE PADS → "Found a few Vitz options - is yours the SCP90 1.3L petrol or the NCP91 1.5L?"
 - Customer confirms "the 1.3L" → Emit VEHICLE_CONFIRMED with that vehicle's ID and proceed
 
 SMART SALES WORKFLOW (after vehicle confirmed WITH vehicle_id):
@@ -654,8 +673,43 @@ serve(async (req) => {
         continue;
       }
       
-      // No tool calls - AI has final response, stream it
-      console.log('No tool calls, streaming final response');
+      // No tool calls - AI has final response
+      // BUT FIRST: Check if the AI's response contains VEHICLE_CONFIRMED marker
+      // This happens when customer confirms a vehicle from multiple matches
+      const aiContent = assistantMessage?.content || "";
+      const vehicleConfirmedMatch = aiContent.match(/\[VEHICLE_CONFIRMED:(\{[\s\S]*?\})\]/);
+      
+      if (vehicleConfirmedMatch) {
+        try {
+          const confirmedVehicle = JSON.parse(vehicleConfirmedMatch[1]);
+          const vehicleId = confirmedVehicle.vehicle_id || confirmedVehicle.id;
+          
+          if (vehicleId) {
+            console.log(`Detected VEHICLE_CONFIRMED in AI response, vehicle_id: ${vehicleId}`);
+            console.log('Auto-fetching parts and service packages for confirmed vehicle...');
+            
+            // Fetch ALL parts for this vehicle
+            const allParts = await retrieveParts(vehicleId);
+            if (allParts.success && allParts.parts && allParts.parts.length > 0) {
+              console.log(`Fetched ${allParts.parts.length} parts for confirmed vehicle`);
+              (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit = allParts.parts;
+            }
+            
+            // Fetch service packages for this vehicle
+            const servicePackagesResult = await retrieveServicePackages(vehicleId);
+            const servicePackagesData = servicePackagesResult as { success?: boolean; packages?: unknown[] };
+            
+            if (servicePackagesData.success && servicePackagesData.packages && servicePackagesData.packages.length > 0) {
+              console.log(`Fetched ${servicePackagesData.packages.length} service packages for confirmed vehicle`);
+              (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = servicePackagesData.packages;
+            }
+          }
+        } catch (e) {
+          console.error('Failed to parse VEHICLE_CONFIRMED marker in AI response:', e);
+        }
+      }
+      
+      console.log('Streaming final response');
       
       // Make streaming request for final response
       const streamResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
