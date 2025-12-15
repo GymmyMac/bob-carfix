@@ -24,6 +24,8 @@ interface UseBobChatProps {
   onShowingProduct?: () => void;
   onVehicleIdentified?: (vehicle: Vehicle) => void;
   onPartsFound?: (parts: APIPart[]) => void;
+  onResearchStart?: () => void;
+  onReadyToSpeak?: () => void;
 }
 
 // Keywords that indicate Bob is recommending products
@@ -46,7 +48,9 @@ export const useBobChat = ({
   onStreamComplete,
   onShowingProduct,
   onVehicleIdentified,
-  onPartsFound
+  onPartsFound,
+  onResearchStart,
+  onReadyToSpeak
 }: UseBobChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -60,6 +64,8 @@ export const useBobChat = ({
   // Speech synthesis for Bob's voice
   const { speak, stop: stopSpeech, isSpeaking } = useSpeechSynthesis({
     onStart: () => {
+      // Trigger ready to speak - reveals products synchronized with speech
+      onReadyToSpeak?.();
       // Keep Bob in talking state while speaking
       if (!manualMode) {
         safeSetState(talkingState);
@@ -249,6 +255,9 @@ export const useBobChat = ({
     setMessages(prev => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
+    
+    // Notify that research is starting (shows loading in product shelf)
+    onResearchStart?.();
     
     if (!manualMode) {
       safeSetState(thinkingState);

@@ -27,10 +27,11 @@ export const ProductShelf = ({ products, onProductClick }: ProductShelfProps) =>
       </div>
       
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        {products.map((product) => (
+        {products.map((product, index) => (
           <Card 
             key={product.id} 
-            className="hover:shadow-lg transition-shadow cursor-pointer"
+            className="hover:shadow-lg transition-all cursor-pointer animate-fade-in"
+            style={{ animationDelay: `${index * 75}ms` }}
             onClick={() => onProductClick?.(product)}
           >
             <CardHeader className="p-4">
