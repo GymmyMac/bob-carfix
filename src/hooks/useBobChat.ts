@@ -286,7 +286,7 @@ export const useBobChat = ({
       // Detect and emit highlighted part type for shelf navigation
       const lowerContent = assistantContent.toLowerCase();
       for (const partType of PART_TYPE_KEYWORDS) {
-        if (lowerContent.includes(partType)) {
+        if (lowerContent.includes(partType.toLowerCase())) {
           onHighlightPart?.(partType);
           break; // Only highlight one part type at a time
         }

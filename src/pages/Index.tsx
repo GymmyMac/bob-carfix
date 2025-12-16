@@ -99,9 +99,9 @@ const Index = () => {
       setDisplayedVehicle(vehicle);
       // Vehicle is now confirmed - clear placeholder state
       setHasMultipleMatches(false);
-      // Clear placeholder packages - real ones will come via onServicePackagesFound
+      // Clear displayed placeholder packages - but DON'T clear pendingPackagesRef
+      // Real packages arrive via SSE BEFORE vehicle_identified event
       setDisplayedPackages([]);
-      pendingPackagesRef.current = [];
     },
     onMultipleVehiclesFound: () => {
       // Multiple matches found but not yet confirmed - show placeholders
