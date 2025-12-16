@@ -82,7 +82,11 @@ export const ProductShelf = ({ products, highlightedPartType, onProductClick }: 
       <div className="space-y-8">
         {groupedProducts.map(({ name, products: groupProducts }, groupIndex) => {
           const isHighlighted = highlightedPartType && groupMatchesHighlight(name, highlightedPartType);
-          const isFirstHighlighted = isHighlighted && groupIndex === 0;
+          // Find the actual first highlighted group index (not just groupIndex === 0)
+          const firstHighlightedIndex = highlightedPartType 
+            ? groupedProducts.findIndex(g => groupMatchesHighlight(g.name, highlightedPartType))
+            : -1;
+          const isFirstHighlighted = isHighlighted && groupIndex === firstHighlightedIndex;
           
           return (
             <section 

@@ -398,10 +398,14 @@ async function retrieveServicePackages(vehicleId?: number): Promise<unknown> {
     const data = await response.json();
     console.log('Service bundles result:', JSON.stringify(data).substring(0, 500));
     
+    // Handle both old format (data.packages) and new calculate-service-bundles format (data.servicePackages or data.data.servicePackages)
+    const packages = data.servicePackages || data.data?.servicePackages || data.packages || data;
+    console.log('Extracted packages:', Array.isArray(packages) ? packages.length : 'not array');
+    
     return { 
       success: true, 
-      packages: data.packages || data,
-      total_found: Array.isArray(data.packages) ? data.packages.length : (Array.isArray(data) ? data.length : 1)
+      packages: packages,
+      total_found: Array.isArray(packages) ? packages.length : 1
     };
   } catch (error) {
     console.error('Service bundles error:', error);
