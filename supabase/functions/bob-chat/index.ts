@@ -654,6 +654,12 @@ serve(async (req) => {
             confirmedVehicleId = vehicleId;
             console.log('Single vehicle match with ID, auto-fetching ALL parts and service packages for vehicle:', vehicleId);
             
+            // CRITICAL: Store the ACTUAL vehicle ID and data from API lookup
+            // This prevents AI hallucination of vehicle_ids in VEHICLE_CONFIRMED markers
+            (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId = vehicleId;
+            (conversationMessages as unknown as { _lookupVehicleData?: unknown })._lookupVehicleData = vehicleResult.vehicle || vehicleResult;
+            console.log(`Stored lookup vehicle ID for later verification: ${vehicleId}`);
+            
             // Immediately fetch ALL parts (no filter) for impressive range display
             const allParts = await retrieveParts(vehicleId);
             
@@ -732,10 +738,24 @@ serve(async (req) => {
       if (vehicleConfirmedMatch) {
         try {
           const confirmedVehicle = JSON.parse(vehicleConfirmedMatch[1]);
-          const vehicleId = confirmedVehicle.vehicle_id || confirmedVehicle.id;
+          let vehicleId = confirmedVehicle.vehicle_id || confirmedVehicle.id;
+          
+          // CRITICAL: Override AI's potentially hallucinated vehicle_id with ACTUAL lookup result
+          const storedVehicleId = (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId;
+          const storedVehicleData = (conversationMessages as unknown as { _lookupVehicleData?: unknown })._lookupVehicleData;
+          
+          if (storedVehicleId && storedVehicleId !== vehicleId) {
+            console.warn(`AI HALLUCINATED vehicle_id: ${vehicleId} - OVERRIDING with actual lookup ID: ${storedVehicleId}`);
+            vehicleId = storedVehicleId;
+            confirmedVehicle.vehicle_id = storedVehicleId;
+            // Merge in correct vehicle data from actual lookup
+            if (storedVehicleData) {
+              Object.assign(confirmedVehicle, storedVehicleData);
+            }
+          }
           
           if (vehicleId) {
-            console.log(`Detected VEHICLE_CONFIRMED in AI response, vehicle_id: ${vehicleId}`);
+            console.log(`Detected VEHICLE_CONFIRMED in AI response, using vehicle_id: ${vehicleId}`);
             
             // STORE the confirmed vehicle for emission in streaming handler
             // This ensures the same vehicle ID used for parts/packages is sent to frontend
