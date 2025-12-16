@@ -8,7 +8,7 @@ import { ServicePackagesSection } from "@/components/ServicePackagesSection";
 import { ServicePackageDetailDialog } from "@/components/ServicePackageDetailDialog";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
-import { useBobChat } from "@/hooks/useBobChat";
+import { useBobChat, HighlightedProduct } from "@/hooks/useBobChat";
 import { Product, APIPart, apiPartToProduct } from "@/types/product";
 import { AdminButton } from "@/components/AdminButton";
 import { useBobStateTransitions } from "@/hooks/useBobStateTransitions";
@@ -47,6 +47,7 @@ const Index = () => {
   const [displayedVehicle, setDisplayedVehicle] = useState<Vehicle | null>(null);
   const [displayedParts, setDisplayedParts] = useState<Product[]>([]);
   const [highlightedPartType, setHighlightedPartType] = useState<string | null>(null);
+  const [highlightedProduct, setHighlightedProduct] = useState<HighlightedProduct | null>(null);
   
   // Synchronized product reveal state
   const [isResearching, setIsResearching] = useState(false);
@@ -137,6 +138,12 @@ const Index = () => {
       setHighlightedPartType(partType);
       // Clear highlight after 8 seconds
       setTimeout(() => setHighlightedPartType(null), 8000);
+    },
+    onHighlightProduct: (product: HighlightedProduct) => {
+      console.log('Spotlighting product:', product);
+      setHighlightedProduct(product);
+      // Clear spotlight after 10 seconds
+      setTimeout(() => setHighlightedProduct(null), 10000);
     },
     onNoPartsFound: () => {
       console.log('No parts found - clearing research state');
@@ -258,6 +265,7 @@ const Index = () => {
             <ProductShelf 
               products={displayedParts}
               highlightedPartType={highlightedPartType}
+              highlightedProduct={highlightedProduct}
               onProductClick={(product) => console.log("Product clicked:", product)}
             />
           ) : null}
@@ -339,6 +347,7 @@ const Index = () => {
             <ProductShelf 
               products={displayedParts}
               highlightedPartType={highlightedPartType}
+              highlightedProduct={highlightedProduct}
               onProductClick={(product) => console.log("Product clicked:", product)}
             />
           ) : null}

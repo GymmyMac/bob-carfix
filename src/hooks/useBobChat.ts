@@ -13,6 +13,11 @@ export interface Message {
 
 import { ServicePackage } from "@/types/servicePackage";
 
+export interface HighlightedProduct {
+  brand: string;
+  price: number;
+}
+
 interface UseBobChatProps {
   setAnimationState: (state: AnimationState) => void;
   manualMode?: boolean;
@@ -31,6 +36,7 @@ interface UseBobChatProps {
   onResearchStart?: () => void;
   onReadyToSpeak?: () => void;
   onHighlightPart?: (partType: string) => void;
+  onHighlightProduct?: (product: HighlightedProduct) => void;
   onNoPartsFound?: () => void;
 }
 
@@ -90,6 +96,7 @@ export const useBobChat = ({
   onResearchStart,
   onReadyToSpeak,
   onHighlightPart,
+  onHighlightProduct,
   onNoPartsFound
 }: UseBobChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -290,6 +297,14 @@ export const useBobChat = ({
           onHighlightPart?.(partType);
           break; // Only highlight one part type at a time
         }
+      }
+      
+      // Detect specific product recommendation (brand + price pattern)
+      // Matches: "go with the TRICO at $69", "recommend the BOSCH at $45.99"
+      const priceMatch = assistantContent.match(/(?:go with|recommend|suggest|grab|try)\s+(?:the\s+)?(\w+)\s+(?:at|for)\s+\$(\d+(?:\.\d{2})?)/i);
+      if (priceMatch) {
+        const [, brand, price] = priceMatch;
+        onHighlightProduct?.({ brand, price: parseFloat(price) });
       }
 
       // Speak the response if not muted (use cleaned content)
