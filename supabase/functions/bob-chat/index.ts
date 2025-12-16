@@ -736,6 +736,11 @@ serve(async (req) => {
           
           if (vehicleId) {
             console.log(`Detected VEHICLE_CONFIRMED in AI response, vehicle_id: ${vehicleId}`);
+            
+            // STORE the confirmed vehicle for emission in streaming handler
+            // This ensures the same vehicle ID used for parts/packages is sent to frontend
+            (conversationMessages as unknown as { _confirmedVehicle?: unknown })._confirmedVehicle = confirmedVehicle;
+            
             console.log('Auto-fetching parts and service packages for confirmed vehicle...');
             
             // Fetch ALL parts for this vehicle
@@ -804,6 +809,18 @@ serve(async (req) => {
           let accumulatedContent = ""; // Accumulate ALL content for marker detection
           let vehicleEmitted = false;
           let partsEmitted = false;
+          
+          // Check if we have a confirmed vehicle stored from the first AI response
+          // This ensures the vehicle ID matches what was used for parts/packages fetch
+          const confirmedVehicleStored = (conversationMessages as unknown as { _confirmedVehicle?: unknown })._confirmedVehicle;
+          
+          // Emit stored confirmed vehicle FIRST (before parts/packages)
+          if (confirmedVehicleStored) {
+            const vehicleEvent = `data: ${JSON.stringify({ type: "vehicle_identified", vehicle: confirmedVehicleStored })}\n\n`;
+            controller.enqueue(encoder.encode(vehicleEvent));
+            console.log("Emitted vehicle_identified event from stored data:", confirmedVehicleStored);
+            vehicleEmitted = true; // Skip re-detecting from stream content
+          }
           
           // Check if we have service packages to emit from tool calls
           const servicePackagesToEmit = (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit;
