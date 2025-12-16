@@ -6,7 +6,6 @@ export interface Product {
   name: string;
   partNumber: string;
   price: number;
-  inStock: boolean;
   brand?: string;
   partslotDescription?: string;
 }
@@ -52,7 +51,6 @@ export function apiPartToProduct(part: APIPart): Product {
     name: part["Part Product Type"] || "Auto Part",
     partNumber: part["Part Number"] || part["Part No"] || sku || "N/A",
     price: part["Metro Retail Price"] || part.Price || 0,
-    inStock: true,
     brand,
     partslotDescription: part.partslot_description
   };
@@ -65,8 +63,7 @@ export const PLACEHOLDER_PRODUCTS: Product[] = [
     image: "/placeholder.svg",
     name: "Oil Filter",
     partNumber: "OF-12345",
-    price: 12.99,
-    inStock: true
+    price: 12.99
   },
   {
     id: "2",
@@ -74,8 +71,7 @@ export const PLACEHOLDER_PRODUCTS: Product[] = [
     image: "/placeholder.svg",
     name: "Air Filter",
     partNumber: "AF-67890",
-    price: 15.99,
-    inStock: true
+    price: 15.99
   },
   {
     id: "3",
@@ -83,8 +79,7 @@ export const PLACEHOLDER_PRODUCTS: Product[] = [
     image: "/placeholder.svg",
     name: "Brake Pads",
     partNumber: "BP-11223",
-    price: 45.99,
-    inStock: true
+    price: 45.99
   },
   {
     id: "4",
@@ -92,8 +87,7 @@ export const PLACEHOLDER_PRODUCTS: Product[] = [
     image: "/placeholder.svg",
     name: "Spark Plugs",
     partNumber: "SP-44556",
-    price: 8.99,
-    inStock: false
+    price: 8.99
   },
   {
     id: "5",
@@ -101,8 +95,7 @@ export const PLACEHOLDER_PRODUCTS: Product[] = [
     image: "/placeholder.svg",
     name: "Wiper Blades",
     partNumber: "WB-77889",
-    price: 19.99,
-    inStock: true
+    price: 19.99
   },
   {
     id: "6",
@@ -110,8 +103,7 @@ export const PLACEHOLDER_PRODUCTS: Product[] = [
     image: "/placeholder.svg",
     name: "Battery",
     partNumber: "BT-99001",
-    price: 89.99,
-    inStock: true
+    price: 89.99
   },
   {
     id: "7",
@@ -119,8 +111,7 @@ export const PLACEHOLDER_PRODUCTS: Product[] = [
     image: "/placeholder.svg",
     name: "Coolant",
     partNumber: "CL-22334",
-    price: 14.99,
-    inStock: true
+    price: 14.99
   },
   {
     id: "8",
@@ -128,8 +119,7 @@ export const PLACEHOLDER_PRODUCTS: Product[] = [
     image: "/placeholder.svg",
     name: "Transmission Fluid",
     partNumber: "TF-55667",
-    price: 22.99,
-    inStock: true
+    price: 22.99
   },
   {
     id: "9",
@@ -137,7 +127,6 @@ export const PLACEHOLDER_PRODUCTS: Product[] = [
     image: "/placeholder.svg",
     name: "Headlight Bulbs",
     partNumber: "HB-88990",
-    price: 24.99,
-    inStock: true
+    price: 24.99
   }
 ];
