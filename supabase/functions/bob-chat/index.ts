@@ -82,6 +82,76 @@ const tools = [
         required: ["query"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_to_cart",
+      description: "Add products to the customer's cart. Use when customer confirms they want to purchase a product (says 'add to cart', 'I'll take it', 'buy it', etc). Requires customer email.",
+      parameters: {
+        type: "object",
+        properties: {
+          user_email: { type: "string", description: "Customer's email address" },
+          items: { 
+            type: "array",
+            description: "Products to add to cart",
+            items: {
+              type: "object",
+              properties: {
+                product_id: { type: "string", description: "Product SKU" },
+                product_name: { type: "string", description: "Product name" },
+                quantity: { type: "number", description: "Quantity to add" },
+                unit_price: { type: "number", description: "Price per unit" },
+                vehicle_id: { type: "string", description: "Vehicle ID if vehicle-specific" }
+              }
+            }
+          }
+        },
+        required: ["user_email", "items"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_cart",
+      description: "Get the customer's current cart contents. Use to show what they've added before checkout.",
+      parameters: {
+        type: "object",
+        properties: {
+          user_email: { type: "string", description: "Customer's email address" }
+        },
+        required: ["user_email"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_checkout",
+      description: "Create a Stripe checkout URL for the customer to complete their purchase. Use when customer is ready to pay.",
+      parameters: {
+        type: "object",
+        properties: {
+          user_email: { type: "string", description: "Customer's email address" }
+        },
+        required: ["user_email"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_customer_context",
+      description: "Get customer profile, saved vehicles, recent orders. Use at start of conversation to personalize (e.g., 'Welcome back! Still driving the Corolla?') or when customer asks about their orders.",
+      parameters: {
+        type: "object",
+        properties: {
+          user_email: { type: "string", description: "Customer's email address" }
+        },
+        required: ["user_email"]
+      }
+    }
   }
 ];
 
@@ -225,6 +295,15 @@ KIWI EXPRESSIONS (use naturally):
 - "mate", "sweet as", "no worries", "choice", "chur"
 - "she'll be right", "away laughing", "piece of piss"
 - "yeah nah" (means no), "nah yeah" (means yes)
+
+SHOPPING CART & CHECKOUT:
+- When customer says "add to cart", "I'll take it", "buy it", "purchase" → Use add_to_cart with their email
+- If you don't have their email yet, ask: "Sweet, just need your email to add that to your cart"
+- When customer is ready to pay or says "checkout", "pay now" → Use create_checkout to generate payment link
+- To check what's in their cart → Use get_cart
+- At conversation start, if you have their email → Consider using get_customer_context to personalize
+- When checkout URL is returned, present it naturally: "Choice! Here's your checkout link: [URL]. Click through to complete payment."
+- ALWAYS confirm what was added: "Added [product] to your cart. Anything else, or ready to checkout?"
 
 TONE: Relaxed, efficient, knowledgeable. Match their energy.`;
 
@@ -455,6 +534,72 @@ async function searchGeneralProducts(query: string): Promise<{ success: boolean;
   }
 }
 
+// CARFIX Partner API integration for cart, checkout, and customer context
+const PARTNER_API_URL = "https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1/partner-api";
+
+async function callPartnerAPI(action: string, payload: Record<string, unknown>): Promise<unknown> {
+  const partnerApiKey = Deno.env.get("CARFIX_PARTNER_API_KEY");
+  
+  if (!partnerApiKey) {
+    console.error('CARFIX_PARTNER_API_KEY not configured');
+    return { success: false, error: "Partner API key not configured" };
+  }
+  
+  try {
+    console.log(`Calling Partner API: ${action}`, JSON.stringify(payload));
+    
+    const response = await fetch(PARTNER_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Partner-Key": partnerApiKey
+      },
+      body: JSON.stringify({ action, ...payload })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Partner API error (${response.status}):`, errorText);
+      return { success: false, error: `API error: ${response.status}`, details: errorText };
+    }
+    
+    const data = await response.json();
+    console.log(`Partner API ${action} result:`, JSON.stringify(data).substring(0, 500));
+    return { success: true, ...data };
+  } catch (error) {
+    console.error(`Partner API ${action} error:`, error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
+interface CartItem {
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  vehicle_id?: string;
+}
+
+async function addToCart(userEmail: string, items: CartItem[]): Promise<unknown> {
+  console.log(`Adding ${items.length} items to cart for:`, userEmail);
+  return callPartnerAPI("add_to_cart", { user_email: userEmail, items });
+}
+
+async function getCart(userEmail: string): Promise<unknown> {
+  console.log('Getting cart for:', userEmail);
+  return callPartnerAPI("get_cart", { user_email: userEmail });
+}
+
+async function createCheckout(userEmail: string): Promise<unknown> {
+  console.log('Creating checkout for:', userEmail);
+  return callPartnerAPI("create_checkout", { user_email: userEmail });
+}
+
+async function getCustomerContext(userEmail: string): Promise<unknown> {
+  console.log('Getting customer context for:', userEmail);
+  return callPartnerAPI("get_user_context", { user_email: userEmail });
+}
+
 async function executeToolCall(toolCall: { function: { name: string; arguments: string }; id: string }): Promise<unknown> {
   const { name, arguments: argsString } = toolCall.function;
   
@@ -472,6 +617,14 @@ async function executeToolCall(toolCall: { function: { name: string; arguments: 
         return await retrieveServicePackages(args.vehicleid);
       case "search_general_products":
         return await searchGeneralProducts(args.query);
+      case "add_to_cart":
+        return await addToCart(args.user_email, args.items);
+      case "get_cart":
+        return await getCart(args.user_email);
+      case "create_checkout":
+        return await createCheckout(args.user_email);
+      case "get_customer_context":
+        return await getCustomerContext(args.user_email);
       default:
         return { error: `Unknown tool: ${name}` };
     }
