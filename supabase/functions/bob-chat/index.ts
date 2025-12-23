@@ -152,6 +152,50 @@ const tools = [
         required: ["user_email"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_product_details",
+      description: "Get full product information by SKU including description, pricing, features, installation tips, and images. Use when customer asks for more details about a specific product.",
+      parameters: {
+        type: "object",
+        properties: {
+          sku: { type: "string", description: "Product SKU code" }
+        },
+        required: ["sku"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_products",
+      description: "Search for products by keyword, SKU, or part number. Can optionally filter by vehicle fitment. Use for finding products when customer describes what they need.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Search term (keyword, SKU, or part number)" },
+          vehicle_id: { type: "string", description: "Optional vehicle ID to filter by fitment" }
+        },
+        required: ["query"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "check_vehicle_fitment",
+      description: "Verify if a specific product (by SKU) fits a particular vehicle. Use when customer asks 'will this fit my car?' or before adding vehicle-specific parts to cart.",
+      parameters: {
+        type: "object",
+        properties: {
+          sku: { type: "string", description: "Product SKU to check" },
+          vehicle_id: { type: "string", description: "Vehicle ID to check fitment against" }
+        },
+        required: ["sku", "vehicle_id"]
+      }
+    }
   }
 ];
 
@@ -600,6 +644,23 @@ async function getCustomerContext(userEmail: string): Promise<unknown> {
   return callPartnerAPI("get_user_context", { user_email: userEmail });
 }
 
+async function getProductDetails(sku: string): Promise<unknown> {
+  console.log('Getting product details for SKU:', sku);
+  return callPartnerAPI("get_product_details", { sku });
+}
+
+async function searchProducts(query: string, vehicleId?: string): Promise<unknown> {
+  console.log('Searching products:', query, 'vehicle_id:', vehicleId);
+  const payload: Record<string, unknown> = { query };
+  if (vehicleId) payload.vehicle_id = vehicleId;
+  return callPartnerAPI("search_products", payload);
+}
+
+async function checkVehicleFitment(sku: string, vehicleId: string): Promise<unknown> {
+  console.log('Checking fitment for SKU:', sku, 'vehicle:', vehicleId);
+  return callPartnerAPI("check_vehicle_fitment", { sku, vehicle_id: vehicleId });
+}
+
 async function executeToolCall(toolCall: { function: { name: string; arguments: string }; id: string }): Promise<unknown> {
   const { name, arguments: argsString } = toolCall.function;
   
@@ -625,6 +686,12 @@ async function executeToolCall(toolCall: { function: { name: string; arguments: 
         return await createCheckout(args.user_email);
       case "get_customer_context":
         return await getCustomerContext(args.user_email);
+      case "get_product_details":
+        return await getProductDetails(args.sku);
+      case "search_products":
+        return await searchProducts(args.query, args.vehicle_id);
+      case "check_vehicle_fitment":
+        return await checkVehicleFitment(args.sku, args.vehicle_id);
       default:
         return { error: `Unknown tool: ${name}` };
     }
