@@ -111,9 +111,10 @@ export const useBobChat = ({
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [identifiedVehicle, setIdentifiedVehicle] = useState<Vehicle | null>(initialVehicle || null);
+  const [identifiedVehicle, setIdentifiedVehicle] = useState<Vehicle | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const autoFetchTriggeredRef = useRef(false);
+  const initialGreetingSentRef = useRef(false);
   const lastContentTimeRef = useRef<number>(0);
   const latestAssistantMessageRef = useRef<string>("");
 
@@ -153,36 +154,54 @@ export const useBobChat = ({
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Send initial greeting - customized based on session vehicle
+  // Sync identifiedVehicle when initialVehicle arrives from session
   useEffect(() => {
-    if (messages.length === 0) {
-      if (initialVehicle) {
-        // Vehicle from session - personalized greeting
-        const vehicleName = `${initialVehicle.year} ${initialVehicle.make} ${initialVehicle.model}`;
-        setMessages([{
-          role: "assistant",
-          content: `G'day! Saw you've got the ${vehicleName} - choice wagon! What can I help you find for it today?`
-        }]);
-        // Notify parent that vehicle is already identified from session
-        onVehicleIdentified?.(initialVehicle);
-      } else {
-        setMessages([{
-          role: "assistant",
-          content: "G'day! Bob from CARFIX here. How can I help ya today?"
-        }]);
-      }
+    if (initialVehicle && !identifiedVehicle) {
+      console.log('Setting identified vehicle from session:', initialVehicle);
+      setIdentifiedVehicle(initialVehicle);
+      onVehicleIdentified?.(initialVehicle);
     }
   }, [initialVehicle]);
+
+  // Send initial greeting - update when session vehicle arrives
+  useEffect(() => {
+    // Default greeting if no vehicle
+    if (messages.length === 0 && !initialGreetingSentRef.current) {
+      setMessages([{
+        role: "assistant",
+        content: "G'day! Bob from CARFIX here. How can I help ya today?"
+      }]);
+    }
+    
+    // Update greeting when vehicle arrives from session (replaces default)
+    if (initialVehicle && !initialGreetingSentRef.current) {
+      initialGreetingSentRef.current = true;
+      const vehicleName = `${initialVehicle.year} ${initialVehicle.make} ${initialVehicle.model}`;
+      console.log('Updating greeting for session vehicle:', vehicleName);
+      setMessages([{
+        role: "assistant",
+        content: `G'day! Saw you've got the ${vehicleName} - choice wagon! What can I help you find for it today?`
+      }]);
+    }
+  }, [initialVehicle, messages.length]);
 
   // Auto-fetch parts and service packages when session vehicle is provided
   useEffect(() => {
     if (initialVehicle && !autoFetchTriggeredRef.current) {
+      // Check for valid vehicle ID
+      const vehicleId = initialVehicle.id || initialVehicle.vehicle_id;
+      if (!vehicleId) {
+        console.warn('Session vehicle missing ID, cannot auto-fetch parts:', initialVehicle);
+        return;
+      }
+      
       autoFetchTriggeredRef.current = true;
-      console.log('Auto-fetching parts for session vehicle:', initialVehicle);
+      console.log('Auto-fetching parts for session vehicle ID:', vehicleId, initialVehicle);
       
       // Trigger auto-fetch from bob-chat
       const fetchPartsForVehicle = async () => {
         const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bob-chat`;
+        console.log('Auto-fetch calling:', CHAT_URL);
         
         try {
           const response = await fetch(CHAT_URL, {
@@ -199,8 +218,10 @@ export const useBobChat = ({
             }),
           });
 
+          console.log('Auto-fetch response status:', response.status);
+
           if (!response.ok || !response.body) {
-            console.error('Auto-fetch failed:', response.status);
+            console.error('Auto-fetch failed:', response.status, await response.text());
             return;
           }
 
@@ -223,10 +244,14 @@ export const useBobChat = ({
               if (!line.startsWith("data: ")) continue;
 
               const jsonStr = line.slice(6).trim();
-              if (jsonStr === "[DONE]") break;
+              if (jsonStr === "[DONE]") {
+                console.log('Auto-fetch stream complete');
+                break;
+              }
 
               try {
                 const parsed = JSON.parse(jsonStr);
+                console.log('Auto-fetch received event:', parsed.type);
                 
                 if (parsed.type === "service_packages_found" && parsed.packages) {
                   console.log("Auto-fetch: Service packages found:", parsed.packages.length);
@@ -236,6 +261,10 @@ export const useBobChat = ({
                 if (parsed.type === "parts_found" && parsed.parts) {
                   console.log("Auto-fetch: Parts found:", parsed.parts.length);
                   onPartsFound?.(parsed.parts);
+                }
+                
+                if (parsed.type === "error") {
+                  console.error('Auto-fetch error from server:', parsed.message);
                 }
               } catch {
                 // Ignore parse errors
