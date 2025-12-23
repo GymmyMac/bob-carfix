@@ -41,6 +41,8 @@ interface UseBobChatProps {
   // Session handoff props
   initialVehicle?: Vehicle;
   customerEmail?: string;
+  // Callback for when auto-fetch completes
+  onAutoFetchComplete?: () => void;
 }
 
 // Keywords that indicate Bob is recommending products
@@ -102,7 +104,8 @@ export const useBobChat = ({
   onHighlightProduct,
   onNoPartsFound,
   initialVehicle,
-  customerEmail
+  customerEmail,
+  onAutoFetchComplete
 }: UseBobChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -110,6 +113,7 @@ export const useBobChat = ({
   const [isMuted, setIsMuted] = useState(false);
   const [identifiedVehicle, setIdentifiedVehicle] = useState<Vehicle | null>(initialVehicle || null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const autoFetchTriggeredRef = useRef(false);
   const lastContentTimeRef = useRef<number>(0);
   const latestAssistantMessageRef = useRef<string>("");
 
@@ -169,6 +173,85 @@ export const useBobChat = ({
       }
     }
   }, [initialVehicle]);
+
+  // Auto-fetch parts and service packages when session vehicle is provided
+  useEffect(() => {
+    if (initialVehicle && !autoFetchTriggeredRef.current) {
+      autoFetchTriggeredRef.current = true;
+      console.log('Auto-fetching parts for session vehicle:', initialVehicle);
+      
+      // Trigger auto-fetch from bob-chat
+      const fetchPartsForVehicle = async () => {
+        const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bob-chat`;
+        
+        try {
+          const response = await fetch(CHAT_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({
+              messages: [], // No messages - just fetch parts
+              vehicleContext: initialVehicle,
+              customerEmail: customerEmail,
+              autoFetchParts: true // Signal to just fetch parts, no AI response
+            }),
+          });
+
+          if (!response.ok || !response.body) {
+            console.error('Auto-fetch failed:', response.status);
+            return;
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let textBuffer = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            textBuffer += decoder.decode(value, { stream: true });
+
+            let newlineIndex: number;
+            while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+              let line = textBuffer.slice(0, newlineIndex);
+              textBuffer = textBuffer.slice(newlineIndex + 1);
+
+              if (line.endsWith("\r")) line = line.slice(0, -1);
+              if (line.startsWith(":") || line.trim() === "") continue;
+              if (!line.startsWith("data: ")) continue;
+
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr === "[DONE]") break;
+
+              try {
+                const parsed = JSON.parse(jsonStr);
+                
+                if (parsed.type === "service_packages_found" && parsed.packages) {
+                  console.log("Auto-fetch: Service packages found:", parsed.packages.length);
+                  onServicePackagesFound?.(parsed.packages);
+                }
+                
+                if (parsed.type === "parts_found" && parsed.parts) {
+                  console.log("Auto-fetch: Parts found:", parsed.parts.length);
+                  onPartsFound?.(parsed.parts);
+                }
+              } catch {
+                // Ignore parse errors
+              }
+            }
+          }
+          
+          onAutoFetchComplete?.();
+        } catch (error) {
+          console.error('Auto-fetch error:', error);
+        }
+      };
+
+      fetchPartsForVehicle();
+    }
+  }, [initialVehicle, customerEmail]);
 
   const safeSetState = (state: AnimationState) => {
     try {

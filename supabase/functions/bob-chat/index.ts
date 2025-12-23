@@ -746,7 +746,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, vehicleContext, customerEmail } = await req.json();
+    const { messages, vehicleContext, customerEmail, autoFetchParts } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
@@ -759,6 +759,57 @@ serve(async (req) => {
     }
     if (customerEmail) {
       console.log('Customer email from session:', customerEmail);
+    }
+    if (autoFetchParts) {
+      console.log('Auto-fetch parts mode enabled');
+    }
+
+    // Handle auto-fetch parts mode - just fetch parts and packages, no AI response
+    if (autoFetchParts && vehicleContext) {
+      const vehicleId = vehicleContext.id || vehicleContext.vehicle_id;
+      console.log('Auto-fetching parts for vehicle ID:', vehicleId);
+      
+      // Create SSE stream for auto-fetch
+      const stream = new TransformStream();
+      const writer = stream.writable.getWriter();
+      const encoder = new TextEncoder();
+
+      // Fetch parts and packages in parallel
+      (async () => {
+        try {
+          const [partsResult, packagesResult] = await Promise.all([
+            retrieveParts(vehicleId),
+            retrieveServicePackages(vehicleId)
+          ]);
+
+          // Emit parts found event
+          const partsData = partsResult as { success?: boolean; parts?: unknown[] };
+          if (partsData.success && partsData.parts && partsData.parts.length > 0) {
+            console.log('Auto-fetch: Emitting', partsData.parts.length, 'parts');
+            await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "parts_found", parts: partsData.parts })}\n\n`));
+          }
+
+          // Emit service packages found event
+          const packagesData = packagesResult as { success?: boolean; packages?: unknown[] };
+          if (packagesData.success && packagesData.packages && packagesData.packages.length > 0) {
+            console.log('Auto-fetch: Emitting', packagesData.packages.length, 'service packages');
+            await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "service_packages_found", packages: packagesData.packages })}\n\n`));
+          }
+
+          // Send done
+          await writer.write(encoder.encode("data: [DONE]\n\n"));
+          await writer.close();
+        } catch (error) {
+          console.error('Auto-fetch error:', error);
+          await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "error", message: error instanceof Error ? error.message : "Unknown error" })}\n\n`));
+          await writer.write(encoder.encode("data: [DONE]\n\n"));
+          await writer.close();
+        }
+      })();
+
+      return new Response(stream.readable, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      });
     }
 
     // Build enhanced system prompt if vehicle context is provided from session
