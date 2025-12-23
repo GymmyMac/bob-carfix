@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Vehicle } from '@/types/vehicle';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SessionData {
   vehicle?: Vehicle;
@@ -14,8 +15,8 @@ interface UseSessionHandoffResult {
   sessionToken: string | null;
 }
 
-const PARTNER_API_URL = 'https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1/partner-api';
-const PARTNER_KEY = 'bob_carfix_p4rtner_2024_x7kL9mNqR3wY5vBc';
+const STORAGE_TOKEN_KEY = 'carfix_session_token';
+const STORAGE_DATA_KEY = 'carfix_session_data';
 
 export function useSessionHandoff(): UseSessionHandoffResult {
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
@@ -25,68 +26,68 @@ export function useSessionHandoff(): UseSessionHandoffResult {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const token = params.get('session');
-    
+    const tokenFromUrl = params.get('session');
+    const tokenFromStorage = sessionStorage.getItem(STORAGE_TOKEN_KEY);
+    const token = tokenFromUrl || tokenFromStorage;
+
     if (!token) {
-      console.log('No session token in URL');
       return;
     }
 
     setSessionToken(token);
-    console.log('Session token found:', token);
 
     const fetchSession = async () => {
       setIsLoading(true);
       setError(null);
-      
+
       try {
-        const response = await fetch(PARTNER_API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Partner-Key': PARTNER_KEY
-          },
-          body: JSON.stringify({
-            action: 'get_session',
-            session_token: token
-          })
+        const { data, error: fnError } = await supabase.functions.invoke('session-handoff', {
+          body: { session_token: token },
         });
-        
-        if (!response.ok) {
-          throw new Error(`Session fetch failed: ${response.status}`);
+
+        if (fnError) {
+          throw fnError;
         }
-        
-        const data = await response.json();
-        
-        if (data.error) {
-          console.error('Session error:', data.error);
+
+        if (data?.error) {
           setError(data.error);
           return;
         }
-        
-        console.log('Session data received:', data);
-        console.log('Session vehicle:', data.vehicle);
-        console.log('Session vehicle ID:', data.vehicle?.id || data.vehicle?.vehicle_id);
-        
-        // Map the response to our SessionData structure
+
         const mappedData: SessionData = {
-          vehicle: data.vehicle,
-          user_email: data.user_email || data.email,
-          expires_at: data.expires_at
+          vehicle: data?.vehicle ?? undefined,
+          user_email: data?.user_email ?? undefined,
+          expires_at: data?.expires_at ?? undefined,
         };
-        
-        console.log('Mapped session data:', mappedData);
-        
+
         setSessionData(mappedData);
-        
-        // Clean up URL by removing the session param (optional UX improvement)
-        const newUrl = new URL(window.location.href);
-        newUrl.searchParams.delete('session');
-        window.history.replaceState({}, '', newUrl.pathname + newUrl.search);
-        
+
+        // Persist for refreshes/navigation
+        sessionStorage.setItem(STORAGE_TOKEN_KEY, token);
+        sessionStorage.setItem(STORAGE_DATA_KEY, JSON.stringify(mappedData));
+
+        // Clean up URL by removing the session param (only if it came from URL)
+        if (tokenFromUrl) {
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.delete('session');
+          window.history.replaceState({}, '', newUrl.pathname + newUrl.search);
+        }
       } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to fetch session';
         console.error('Failed to fetch session:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch session');
+
+        // Fallback to cached session data if available
+        const cached = sessionStorage.getItem(STORAGE_DATA_KEY);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached) as SessionData;
+            setSessionData(parsed);
+          } catch {
+            // ignore
+          }
+        }
+
+        setError(msg);
       } finally {
         setIsLoading(false);
       }
@@ -97,3 +98,4 @@ export function useSessionHandoff(): UseSessionHandoffResult {
 
   return { sessionData, isLoading, error, sessionToken };
 }
+

@@ -766,7 +766,13 @@ serve(async (req) => {
 
     // Handle auto-fetch parts mode - just fetch parts and packages, no AI response
     if (autoFetchParts && vehicleContext) {
-      const vehicleId = vehicleContext.id || vehicleContext.vehicle_id;
+      const vehicleIdRaw = vehicleContext.vehicle_id ?? vehicleContext.id;
+      const vehicleId = Number.parseInt(String(vehicleIdRaw), 10);
+
+      if (!Number.isFinite(vehicleId)) {
+        throw new Error(`Invalid vehicle_id for auto-fetch: ${vehicleIdRaw}`);
+      }
+
       console.log('Auto-fetching parts for vehicle ID:', vehicleId);
       
       // Create SSE stream for auto-fetch

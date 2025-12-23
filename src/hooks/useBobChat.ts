@@ -187,100 +187,96 @@ export const useBobChat = ({
 
   // Auto-fetch parts and service packages when session vehicle is provided
   useEffect(() => {
-    if (initialVehicle && !autoFetchTriggeredRef.current) {
-      // Check for valid vehicle ID
-      const vehicleId = initialVehicle.id || initialVehicle.vehicle_id;
-      if (!vehicleId) {
-        console.warn('Session vehicle missing ID, cannot auto-fetch parts:', initialVehicle);
-        return;
-      }
-      
-      autoFetchTriggeredRef.current = true;
-      console.log('Auto-fetching parts for session vehicle ID:', vehicleId, initialVehicle);
-      
-      // Trigger auto-fetch from bob-chat
-      const fetchPartsForVehicle = async () => {
-        const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bob-chat`;
-        console.log('Auto-fetch calling:', CHAT_URL);
-        
-        try {
-          const response = await fetch(CHAT_URL, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({
-              messages: [], // No messages - just fetch parts
-              vehicleContext: initialVehicle,
-              customerEmail: customerEmail,
-              autoFetchParts: true // Signal to just fetch parts, no AI response
-            }),
-          });
+    if (!initialVehicle || autoFetchTriggeredRef.current) return;
 
-          console.log('Auto-fetch response status:', response.status);
+    const rawVehicleId = initialVehicle.vehicle_id ?? initialVehicle.id;
+    const vehicleIdNum = Number.parseInt(String(rawVehicleId), 10);
 
-          if (!response.ok || !response.body) {
-            console.error('Auto-fetch failed:', response.status, await response.text());
-            return;
-          }
+    if (!Number.isFinite(vehicleIdNum)) {
+      console.warn('Session vehicle has invalid vehicle_id, cannot auto-fetch parts:', initialVehicle);
+      return;
+    }
 
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          let textBuffer = "";
+    autoFetchTriggeredRef.current = true;
 
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            textBuffer += decoder.decode(value, { stream: true });
+    // Normalize vehicleContext so backend always sees a usable vehicle_id
+    const vehicleContext = { ...initialVehicle, vehicle_id: String(vehicleIdNum) };
 
-            let newlineIndex: number;
-            while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-              let line = textBuffer.slice(0, newlineIndex);
-              textBuffer = textBuffer.slice(newlineIndex + 1);
+    const fetchPartsForVehicle = async () => {
+      const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bob-chat`;
 
-              if (line.endsWith("\r")) line = line.slice(0, -1);
-              if (line.startsWith(":") || line.trim() === "") continue;
-              if (!line.startsWith("data: ")) continue;
+      try {
+        const response = await fetch(CHAT_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            messages: [],
+            vehicleContext,
+            customerEmail,
+            autoFetchParts: true,
+          }),
+        });
 
-              const jsonStr = line.slice(6).trim();
-              if (jsonStr === "[DONE]") {
-                console.log('Auto-fetch stream complete');
-                break;
+        if (!response.ok || !response.body) {
+          console.error('Auto-fetch failed:', response.status, await response.text());
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let textBuffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          textBuffer += decoder.decode(value, { stream: true });
+
+          let newlineIndex: number;
+          while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+            let line = textBuffer.slice(0, newlineIndex);
+            textBuffer = textBuffer.slice(newlineIndex + 1);
+
+            if (line.endsWith("\r")) line = line.slice(0, -1);
+            if (line.startsWith(":") || line.trim() === "") continue;
+            if (!line.startsWith("data: ")) continue;
+
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr === "[DONE]") {
+              break;
+            }
+
+            try {
+              const parsed = JSON.parse(jsonStr);
+
+              if (parsed.type === "service_packages_found" && parsed.packages) {
+                onServicePackagesFound?.(parsed.packages);
               }
 
-              try {
-                const parsed = JSON.parse(jsonStr);
-                console.log('Auto-fetch received event:', parsed.type);
-                
-                if (parsed.type === "service_packages_found" && parsed.packages) {
-                  console.log("Auto-fetch: Service packages found:", parsed.packages.length);
-                  onServicePackagesFound?.(parsed.packages);
-                }
-                
-                if (parsed.type === "parts_found" && parsed.parts) {
-                  console.log("Auto-fetch: Parts found:", parsed.parts.length);
-                  onPartsFound?.(parsed.parts);
-                }
-                
-                if (parsed.type === "error") {
-                  console.error('Auto-fetch error from server:', parsed.message);
-                }
-              } catch {
-                // Ignore parse errors
+              if (parsed.type === "parts_found" && parsed.parts) {
+                onPartsFound?.(parsed.parts);
               }
+
+              if (parsed.type === "error") {
+                console.error('Auto-fetch error from server:', parsed.message);
+              }
+            } catch {
+              // Ignore parse errors
             }
           }
-          
-          onAutoFetchComplete?.();
-        } catch (error) {
-          console.error('Auto-fetch error:', error);
         }
-      };
 
-      fetchPartsForVehicle();
-    }
+        onAutoFetchComplete?.();
+      } catch (error) {
+        console.error('Auto-fetch error:', error);
+      }
+    };
+
+    fetchPartsForVehicle();
   }, [initialVehicle, customerEmail]);
+
 
   const safeSetState = (state: AnimationState) => {
     try {
