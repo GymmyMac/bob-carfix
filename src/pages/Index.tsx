@@ -116,14 +116,22 @@ const Index = () => {
       setHasMultipleMatches(true);
     },
     onPartsFound: (parts: APIPart[]) => {
-      // Store parts but don't display yet - wait for Bob to speak
+      // Store parts but don't display yet - wait for Bob to speak (unless auto-fetch)
       const products = parts.map(apiPartToProduct);
       pendingPartsRef.current = products;
+      // If this is from auto-fetch (no user message), display immediately
+      if (sessionData?.vehicle) {
+        setDisplayedParts(products);
+      }
     },
     onServicePackagesFound: (packages: ServicePackage[]) => {
-      // Store service packages but don't display yet - wait for Bob to speak
+      // Store service packages but don't display yet - wait for Bob to speak (unless auto-fetch)
       console.log("Service packages received from bob-chat:", packages.length);
       pendingPackagesRef.current = packages;
+      // If this is from auto-fetch (no user message), display immediately
+      if (sessionData?.vehicle) {
+        setDisplayedPackages(packages);
+      }
     },
     onResearchStart: () => {
       // Show loading state when user sends message
@@ -155,6 +163,9 @@ const Index = () => {
     onNoPartsFound: () => {
       console.log('No parts found - clearing research state');
       setIsResearching(false);
+    },
+    onAutoFetchComplete: () => {
+      console.log('Auto-fetch complete - products should be displayed');
     }
   });
   
