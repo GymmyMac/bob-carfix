@@ -65,6 +65,8 @@ export function useSessionHandoff(): UseSessionHandoffResult {
         }
         
         console.log('Session data received:', data);
+        console.log('Session vehicle:', data.vehicle);
+        console.log('Session vehicle ID:', data.vehicle?.id || data.vehicle?.vehicle_id);
         
         // Map the response to our SessionData structure
         const mappedData: SessionData = {
@@ -72,6 +74,8 @@ export function useSessionHandoff(): UseSessionHandoffResult {
           user_email: data.user_email || data.email,
           expires_at: data.expires_at
         };
+        
+        console.log('Mapped session data:', mappedData);
         
         setSessionData(mappedData);
         
