@@ -9,6 +9,7 @@ import { ServicePackageDetailDialog } from "@/components/ServicePackageDetailDia
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 import { useBobChat, HighlightedProduct } from "@/hooks/useBobChat";
+import { useSessionHandoff } from "@/hooks/useSessionHandoff";
 import { Product, APIPart, apiPartToProduct } from "@/types/product";
 import { AdminButton } from "@/components/AdminButton";
 import { useBobStateTransitions } from "@/hooks/useBobStateTransitions";
@@ -31,6 +32,9 @@ const Index = () => {
   
   // Get backdrop data
   const { activeBackdrop } = useBobBackdrop();
+  
+  // Session handoff - check for ?session=TOKEN in URL
+  const { sessionData, isLoading: sessionLoading, error: sessionError } = useSessionHandoff();
   
   // Get dynamic state keys and state data from database configuration
   const { 
@@ -94,6 +98,9 @@ const Index = () => {
     completeState: getCompleteState() || "complete",
     idleState: getIdleState() || "idle",
     listenState: getListenState() || "talk_pause",
+    // Session handoff - pass initial vehicle and customer email
+    initialVehicle: sessionData?.vehicle,
+    customerEmail: sessionData?.user_email,
     onStreamStart: stateTransitions.onStreamStart,
     onStreamComplete: stateTransitions.onStreamComplete,
     onVehicleIdentified: (vehicle) => {
@@ -169,6 +176,14 @@ const Index = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, states.length]); // Intentionally exclude stateTransitions to prevent re-init
+
+  // Pre-populate vehicle display from session data
+  useEffect(() => {
+    if (sessionData?.vehicle && !displayedVehicle) {
+      console.log('Pre-populating vehicle from session:', sessionData.vehicle);
+      setDisplayedVehicle(sessionData.vehicle);
+    }
+  }, [sessionData]);
 
   // Expose controls to AdminPanel via window object
   useEffect(() => {

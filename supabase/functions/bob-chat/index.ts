@@ -746,7 +746,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, vehicleContext, customerEmail } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
@@ -754,10 +754,50 @@ serve(async (req) => {
     }
 
     console.log('Bob chat request received with', messages.length, 'messages');
+    if (vehicleContext) {
+      console.log('Session vehicle context provided:', JSON.stringify(vehicleContext));
+    }
+    if (customerEmail) {
+      console.log('Customer email from session:', customerEmail);
+    }
+
+    // Build enhanced system prompt if vehicle context is provided from session
+    let enhancedSystemPrompt = systemPrompt;
+    
+    if (vehicleContext) {
+      const vehicleId = vehicleContext.id || vehicleContext.vehicle_id;
+      enhancedSystemPrompt += `\n\n## PRE-CONFIRMED VEHICLE SESSION
+The customer has already confirmed their vehicle on CARFIX before arriving here:
+- Vehicle ID: ${vehicleId}
+- REGO: ${vehicleContext.rego || 'Not provided'}
+- Year: ${vehicleContext.year}
+- Make: ${vehicleContext.make}
+- Model: ${vehicleContext.model}
+- Variant: ${vehicleContext.variant || 'Standard'}
+- Engine Size: ${vehicleContext.engine_size || 'Unknown'}
+- Fuel Type: ${vehicleContext.fuel_type || 'Unknown'}
+- CC Rating: ${vehicleContext.cc_rating || 'Unknown'}
+- VIN: ${vehicleContext.vin || 'Not provided'}
+- Engine Number: ${vehicleContext.engine_no || 'Not provided'}
+
+IMPORTANT RULES FOR THIS SESSION:
+1. Do NOT ask for vehicle details, REGO, or make/model - you already have them
+2. Skip straight to helping them find parts
+3. Use vehicle_id ${vehicleId} for retrieve_parts and retrieve_service_packages calls
+4. When mentioning their vehicle, use: "${vehicleContext.year} ${vehicleContext.make} ${vehicleContext.model}"
+5. On first parts request, use retrieve_parts with vehicleid=${vehicleId}`;
+    }
+    
+    if (customerEmail) {
+      enhancedSystemPrompt += `\n\n## CUSTOMER EMAIL FOR CART/CHECKOUT
+Customer email is: ${customerEmail}
+Use this email for add_to_cart, get_cart, and create_checkout calls.
+Do NOT ask for their email - you already have it.`;
+    }
 
     // Build conversation with system prompt
     const conversationMessages: Message[] = [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: enhancedSystemPrompt },
       ...messages,
     ];
 

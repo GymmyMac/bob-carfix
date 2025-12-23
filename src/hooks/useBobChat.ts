@@ -38,6 +38,9 @@ interface UseBobChatProps {
   onHighlightPart?: (partType: string) => void;
   onHighlightProduct?: (product: HighlightedProduct) => void;
   onNoPartsFound?: () => void;
+  // Session handoff props
+  initialVehicle?: Vehicle;
+  customerEmail?: string;
 }
 
 // Keywords that indicate Bob is recommending products
@@ -97,13 +100,15 @@ export const useBobChat = ({
   onReadyToSpeak,
   onHighlightPart,
   onHighlightProduct,
-  onNoPartsFound
+  onNoPartsFound,
+  initialVehicle,
+  customerEmail
 }: UseBobChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [identifiedVehicle, setIdentifiedVehicle] = useState<Vehicle | null>(null);
+  const [identifiedVehicle, setIdentifiedVehicle] = useState<Vehicle | null>(initialVehicle || null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const lastContentTimeRef = useRef<number>(0);
   const latestAssistantMessageRef = useRef<string>("");
@@ -144,15 +149,26 @@ export const useBobChat = ({
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Send initial greeting
+  // Send initial greeting - customized based on session vehicle
   useEffect(() => {
     if (messages.length === 0) {
-      setMessages([{
-        role: "assistant",
-        content: "G'day! Bob from CARFIX here. How can I help ya today?"
-      }]);
+      if (initialVehicle) {
+        // Vehicle from session - personalized greeting
+        const vehicleName = `${initialVehicle.year} ${initialVehicle.make} ${initialVehicle.model}`;
+        setMessages([{
+          role: "assistant",
+          content: `G'day! Saw you've got the ${vehicleName} - choice wagon! What can I help you find for it today?`
+        }]);
+        // Notify parent that vehicle is already identified from session
+        onVehicleIdentified?.(initialVehicle);
+      } else {
+        setMessages([{
+          role: "assistant",
+          content: "G'day! Bob from CARFIX here. How can I help ya today?"
+        }]);
+      }
     }
-  }, []);
+  }, [initialVehicle]);
 
   const safeSetState = (state: AnimationState) => {
     try {
@@ -166,13 +182,28 @@ export const useBobChat = ({
     const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bob-chat`;
     
     try {
+      // Build request body with optional vehicle context from session
+      const requestBody: Record<string, unknown> = { 
+        messages: [...messages, userMessage] 
+      };
+      
+      // Include vehicle context if we have one (from session or identified during chat)
+      if (identifiedVehicle) {
+        requestBody.vehicleContext = identifiedVehicle;
+      }
+      
+      // Include customer email if available from session
+      if (customerEmail) {
+        requestBody.customerEmail = customerEmail;
+      }
+      
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: [...messages, userMessage] }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!resp.ok) {
