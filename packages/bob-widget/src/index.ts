@@ -40,6 +40,16 @@ export {
   useBobCallbacks,
 } from './BobProvider';
 
+// Components
+export { Bob } from './components/Bob';
+export type { BobVariant } from './components/Bob';
+export { BobCharacter } from './components/BobCharacter';
+export { ChatInterface } from './components/ChatInterface';
+
+// Hooks
+export { useBobChat } from './hooks/useBobChat';
+export { useSpeechSynthesis } from './hooks/useSpeechSynthesis';
+
 // Types
 export type {
   // Host context types
@@ -49,15 +59,24 @@ export type {
   HostCartContext,
   HostHistoryContext,
   
-  // Data types
-  Vehicle,
-  CartItem,
-  SavedItem,
-  PurchaseRecord,
-  
   // Configuration types
   BobConfig,
   HostApiConfig,
   BobCallbacks,
   BobProviderConfig,
-} from './types';
+} from './types/context';
+
+export type {
+  Vehicle,
+} from './types/vehicle';
+
+export type {
+  APIPart,
+  CartItem,
+  ServicePackage,
+} from './types/product';
+
+export type {
+  Message,
+  HighlightedProduct,
+} from './types/message';
