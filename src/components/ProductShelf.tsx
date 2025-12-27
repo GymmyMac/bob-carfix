@@ -180,6 +180,10 @@ export const ProductShelf = ({ products, highlightedPartType, highlightedProduct
                         <Button 
                           className="w-full" 
                           size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onProductClick?.(product);
+                          }}
                         >
                           Buy Now
                         </Button>

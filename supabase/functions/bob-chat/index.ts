@@ -340,9 +340,29 @@ KIWI EXPRESSIONS (use naturally):
 - "she'll be right", "away laughing", "piece of piss"
 - "yeah nah" (means no), "nah yeah" (means yes)
 
+// SALES_SKILL: SEAMLESS CART (for session users with email)
+When customer wants to add to cart and you have their email:
+1. Confirm choice: "Sweet, the [Brand] [Product] at $X - adding that now!"
+2. Use add_to_cart tool immediately with their email
+3. Confirm success: "Done! It's in your cart. Need anything else, or ready to checkout?"
+
+// SALES_SKILL: EMAIL COLLECTION (for direct visitors without session email)
+If customer wants to add to cart but you DON'T have their email:
+1. Keep it casual: "Just need your email to save that to your cart, mate"
+2. After email provided → Proceed with cart add
+3. Never ask for email if customerEmail was provided in session context
+
+// SALES_SKILL: UPSELLING (after cart add - ONE suggestion only)
+After adding to cart, suggest ONE related item only:
+- Brake pads → "Need rotors too? They often get changed together"
+- Oil filter → "Grab the oil while you're at it?"
+- Air filter → "How about the cabin filter for inside the car?"
+- Wipers → "Windscreen wash to keep 'em working smooth?"
+Be natural, not pushy - if they decline, move on immediately.
+
 SHOPPING CART & CHECKOUT:
 - When customer says "add to cart", "I'll take it", "buy it", "purchase" → Use add_to_cart with their email
-- If you don't have their email yet, ask: "Sweet, just need your email to add that to your cart"
+- If customerEmail is provided in the session context, use it directly - don't ask again
 - When customer is ready to pay or says "checkout", "pay now" → Use create_checkout to generate payment link
 - To check what's in their cart → Use get_cart
 - At conversation start, if you have their email → Consider using get_customer_context to personalize
@@ -1026,6 +1046,27 @@ Do NOT ask for their email - you already have it.`;
           }
         }
         
+        // Capture cart updates for emission to frontend
+        if (toolCall.function.name === "add_to_cart") {
+          const cartResult = result as { success?: boolean; items_added?: number; error?: string };
+          if (cartResult.success) {
+            // Parse the items that were added from the original args
+            try {
+              const cartArgs = JSON.parse(toolCall.function.arguments) as { items?: CartItem[] };
+              if (cartArgs.items && cartArgs.items.length > 0) {
+                const cartItems = cartArgs.items.map(item => ({
+                  productName: item.product_name,
+                  quantity: item.quantity
+                }));
+                (conversationMessages as unknown as { _cartItemsToEmit?: typeof cartItems })._cartItemsToEmit = cartItems;
+                console.log(`Cart updated: ${cartItems.length} items to emit`);
+              }
+            } catch (e) {
+              console.error('Failed to parse cart args for emission:', e);
+            }
+          }
+        }
+        
         conversationMessages.push({
           role: "tool",
           content: JSON.stringify(result),
@@ -1177,6 +1218,16 @@ Do NOT ask for their email - you already have it.`;
             const packagesEvent = `data: ${JSON.stringify({ type: "service_packages_found", packages: servicePackagesToEmit })}\n\n`;
             controller.enqueue(encoder.encode(packagesEvent));
             console.log("Emitted service_packages_found event:", servicePackagesToEmit.length, "packages");
+          }
+          
+          // Check if we have cart items to emit from add_to_cart tool call
+          const cartItemsToEmit = (conversationMessages as unknown as { _cartItemsToEmit?: Array<{ productName: string; quantity: number }> })._cartItemsToEmit;
+          
+          // Emit cart_updated event if items were added
+          if (cartItemsToEmit && cartItemsToEmit.length > 0) {
+            const cartEvent = `data: ${JSON.stringify({ type: "cart_updated", items: cartItemsToEmit })}\n\n`;
+            controller.enqueue(encoder.encode(cartEvent));
+            console.log("Emitted cart_updated event:", cartItemsToEmit.length, "items");
           }
           
           // Emit parts_found event immediately if we have parts from tool call

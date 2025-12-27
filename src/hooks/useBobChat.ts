@@ -38,6 +38,8 @@ interface UseBobChatProps {
   onHighlightPart?: (partType: string) => void;
   onHighlightProduct?: (product: HighlightedProduct) => void;
   onNoPartsFound?: () => void;
+  // Cart callback - triggered when Bob successfully adds to cart
+  onCartUpdated?: (items: { productName: string; quantity: number }[]) => void;
   // Session handoff props
   initialVehicle?: Vehicle;
   customerEmail?: string;
@@ -103,6 +105,7 @@ export const useBobChat = ({
   onHighlightPart,
   onHighlightProduct,
   onNoPartsFound,
+  onCartUpdated,
   initialVehicle,
   customerEmail,
   onAutoFetchComplete
@@ -413,6 +416,13 @@ export const useBobChat = ({
             if (parsed.type === "multiple_vehicles_found") {
               console.log("Multiple vehicles found - showing placeholders");
               onMultipleVehiclesFound?.();
+              continue;
+            }
+            
+            // Check for cart_updated event (item added to cart)
+            if (parsed.type === "cart_updated" && parsed.items) {
+              console.log("Cart updated:", parsed.items);
+              onCartUpdated?.(parsed.items);
               continue;
             }
             

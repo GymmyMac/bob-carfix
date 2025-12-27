@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { toast } from "sonner";
 import { BobCharacter } from "@/components/BobCharacter";
 import { ChatInterface } from "@/components/ChatInterface";
 import { ProductShelf } from "@/components/ProductShelf";
@@ -6,6 +7,7 @@ import { ProductShelfLoading } from "@/components/ProductShelfLoading";
 import VehicleCard from "@/components/vehicle/VehicleCard";
 import { ServicePackagesSection } from "@/components/ServicePackagesSection";
 import { ServicePackageDetailDialog } from "@/components/ServicePackageDetailDialog";
+import { ProductConfirmDialog } from "@/components/ProductConfirmDialog";
 import { MobileBobLayout } from "@/components/mobile/MobileBobLayout";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
@@ -71,6 +73,9 @@ const Index = () => {
   
   // Selected service package for detail dialog
   const [selectedPackage, setSelectedPackage] = useState<ServicePackage | null>(null);
+  
+  // Product confirmation dialog state
+  const [confirmProduct, setConfirmProduct] = useState<Product | null>(null);
 
   // Initialize state transition system
   const stateTransitions = useBobStateTransitions({
@@ -180,6 +185,10 @@ const Index = () => {
     onNoPartsFound: () => {
       console.log('No parts found - clearing research state');
       setIsResearching(false);
+    },
+    onCartUpdated: (items) => {
+      const itemNames = items.map(i => i.productName).join(', ');
+      toast.success(`Added to cart: ${itemNames}`);
     },
     onAutoFetchComplete: () => {
       console.log('Auto-fetch complete - products should be displayed');
@@ -309,7 +318,7 @@ const Index = () => {
               products={displayedParts}
               highlightedPartType={highlightedPartType}
               highlightedProduct={highlightedProduct}
-              onProductClick={(product) => console.log("Product clicked:", product)}
+              onProductClick={(product) => setConfirmProduct(product)}
             />
           ) : null}
         </div>
@@ -336,7 +345,7 @@ const Index = () => {
           servicePackages={displayedPackages}
           highlightedPartType={highlightedPartType}
           highlightedProduct={highlightedProduct}
-          onProductClick={(product) => console.log("Product clicked:", product)}
+          onProductClick={(product) => setConfirmProduct(product)}
           onPackageSelect={(pkg) => setSelectedPackage(pkg)}
           isResearching={isResearching}
           vehicle={displayedVehicle}
@@ -355,6 +364,25 @@ const Index = () => {
         package_={selectedPackage}
         open={!!selectedPackage}
         onOpenChange={(open) => !open && setSelectedPackage(null)}
+      />
+
+      {/* Product Confirmation Dialog */}
+      <ProductConfirmDialog
+        product={confirmProduct}
+        open={!!confirmProduct}
+        onOpenChange={(open) => !open && setConfirmProduct(null)}
+        onConfirm={(product, quantity) => {
+          // Build message to send to Bob
+          const qtyText = quantity > 1 ? `${quantity} of the` : 'the';
+          const productDesc = product.brand 
+            ? `${product.brand} ${product.name}` 
+            : product.name;
+          setInput(`Add ${qtyText} ${productDesc} to my cart`);
+          // Trigger send after a brief delay to allow state update
+          setTimeout(() => {
+            handleSend();
+          }, 100);
+        }}
       />
     </div>
   );
