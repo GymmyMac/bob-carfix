@@ -211,6 +211,7 @@ export const MobileBobLayout = ({
         isResearching={isResearching}
         visible={showProductColumn}
         counterHeightPercent={22}
+        hasVehicle={!!vehicle}
       />
 
       {/* Layer 4: Collapsible Chat Drawer - Bottom */}

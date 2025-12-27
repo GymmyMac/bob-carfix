@@ -58,6 +58,10 @@ const Index = () => {
   const [isResearching, setIsResearching] = useState(false);
   const pendingPartsRef = useRef<Product[]>([]);
   
+  // Track request source to prevent auto-fetch from overwriting user requests
+  const requestIdRef = useRef(0);
+  const productSourceRef = useRef<'auto' | 'user' | null>(null);
+  
   // Synchronized service packages reveal state
   const [displayedPackages, setDisplayedPackages] = useState<ServicePackage[]>([]);
   const pendingPackagesRef = useRef<ServicePackage[]>([]);
@@ -116,13 +120,23 @@ const Index = () => {
       // Multiple matches found but not yet confirmed - show placeholders
       setHasMultipleMatches(true);
     },
-    onPartsFound: (parts: APIPart[]) => {
-      // Store parts but don't display yet - wait for Bob to speak (unless auto-fetch)
+    onPartsFound: (parts: APIPart[], isAutoFetch?: boolean) => {
+      // Prevent auto-fetch from overwriting user request parts
+      if (isAutoFetch && productSourceRef.current === 'user') {
+        console.log('Ignoring auto-fetch parts - user request in progress');
+        return;
+      }
+      
       const products = parts.map(apiPartToProduct);
       pendingPartsRef.current = products;
-      // If this is from auto-fetch (no user message), display immediately
-      if (sessionData?.vehicle) {
-        setDisplayedParts(products);
+      
+      // Mark source and display
+      if (isAutoFetch) {
+        productSourceRef.current = 'auto';
+        // Display immediately for auto-fetch
+        if (sessionData?.vehicle) {
+          setDisplayedParts(products);
+        }
       }
     },
     onServicePackagesFound: (packages: ServicePackage[]) => {
@@ -135,7 +149,9 @@ const Index = () => {
       }
     },
     onResearchStart: () => {
-      // Show loading state when user sends message
+      // User is sending a message - mark as user source and increment request ID
+      requestIdRef.current += 1;
+      productSourceRef.current = 'user';
       setIsResearching(true);
       pendingPartsRef.current = [];
     },
