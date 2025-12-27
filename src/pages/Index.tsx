@@ -6,6 +6,7 @@ import { ProductShelfLoading } from "@/components/ProductShelfLoading";
 import VehicleCard from "@/components/vehicle/VehicleCard";
 import { ServicePackagesSection } from "@/components/ServicePackagesSection";
 import { ServicePackageDetailDialog } from "@/components/ServicePackageDetailDialog";
+import { MobileBobLayout } from "@/components/mobile/MobileBobLayout";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 import { useBobChat, HighlightedProduct } from "@/hooks/useBobChat";
@@ -298,86 +299,39 @@ const Index = () => {
         </div>
       </div>
 
-      {/* Mobile/Tablet: Stacked layout */}
-      <div className="lg:hidden flex flex-col min-h-screen">
-        {/* Bob + Chat - Sticky on mobile */}
-        <div className="sticky top-0 z-40 bg-background">
-          <div className="px-4 pt-12">
-            <BobCharacter 
-              currentImage={getCurrentImage()}
-              animationState={animationState}
-              backdropUrl={bobBgWall}
-              counterOverlayUrl={bobCounter}
-              counterHeightPercent={activeBackdrop?.counter_height_percent ?? 12}
-              className="max-w-sm mx-auto"
-              verticalOffset={getCurrentOffset()}
-              scale={getCurrentScale()}
-            />
-          </div>
-          
-          <div className="px-4 pt-2 pb-4 max-h-[35vh] overflow-y-auto">
-            <ChatInterface
-              messages={messages}
-              input={input}
-              setInput={setInput}
-              isLoading={isLoading}
-              onSend={handleSend}
-              onKeyPress={handleKeyPress}
-              onInputFocus={handleInputFocus}
-              onInputBlur={handleInputBlur}
-              chatEndRef={chatEndRef}
-              isMuted={isMuted}
-              onToggleMute={toggleMute}
-              isSpeaking={isSpeaking}
-            />
-          </div>
-        </div>
-
-        {/* Products - Scrolls below Bob */}
-        <div className="flex-1 py-8 px-4 flex flex-col gap-6 overflow-y-auto">
-          {displayedVehicle && (
-            <VehicleCard
-              vehicle={displayedVehicle}
-              onShopParts={(vehicle) => console.log("Shop parts for:", vehicle)}
-              onChangeVehicle={() => {
-                setDisplayedVehicle(null);
-                setDisplayedParts([]);
-                setDisplayedPackages([]);
-                pendingPackagesRef.current = [];
-                clearVehicle();
-              }}
-              initialExpanded={true}
-            />
-          )}
-          {/* Service Packages - Above Product Shelf - Synchronized reveal */}
-          {/* Show placeholders when multiple matches but no confirmed vehicle */}
-          {hasMultipleMatches && !displayedVehicle && (
-            <ServicePackagesSection
-              packages={[]}
-              isLoading={false}
-              showPlaceholders={true}
-              vehicleUnconfirmed={true}
-            />
-          )}
-          {/* Show real packages when vehicle confirmed and packages available */}
-          {displayedVehicle && displayedPackages.length > 0 && !isResearching && (
-            <ServicePackagesSection
-              packages={displayedPackages}
-              isLoading={false}
-              onPackageSelect={(pkg) => setSelectedPackage(pkg)}
-            />
-          )}
-          {isResearching ? (
-            <ProductShelfLoading />
-          ) : (displayedVehicle || displayedParts.length > 0) ? (
-            <ProductShelf 
-              products={displayedParts}
-              highlightedPartType={highlightedPartType}
-              highlightedProduct={highlightedProduct}
-              onProductClick={(product) => console.log("Product clicked:", product)}
-            />
-          ) : null}
-        </div>
+      {/* Mobile/Tablet: Immersive full-screen layout */}
+      <div className="lg:hidden">
+        <MobileBobLayout
+          currentImage={getCurrentImage()}
+          animationState={animationState}
+          messages={messages}
+          input={input}
+          setInput={setInput}
+          isLoading={isLoading}
+          onSend={handleSend}
+          onKeyPress={handleKeyPress}
+          onInputFocus={handleInputFocus}
+          onInputBlur={handleInputBlur}
+          chatEndRef={chatEndRef}
+          isMuted={isMuted}
+          onToggleMute={toggleMute}
+          isSpeaking={isSpeaking}
+          products={displayedParts}
+          servicePackages={displayedPackages}
+          highlightedPartType={highlightedPartType}
+          highlightedProduct={highlightedProduct}
+          onProductClick={(product) => console.log("Product clicked:", product)}
+          onPackageSelect={(pkg) => setSelectedPackage(pkg)}
+          isResearching={isResearching}
+          vehicle={displayedVehicle}
+          onChangeVehicle={() => {
+            setDisplayedVehicle(null);
+            setDisplayedParts([]);
+            setDisplayedPackages([]);
+            pendingPackagesRef.current = [];
+            clearVehicle();
+          }}
+        />
       </div>
 
       {/* Service Package Detail Dialog */}
