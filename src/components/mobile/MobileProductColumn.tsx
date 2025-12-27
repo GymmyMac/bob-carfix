@@ -2,7 +2,8 @@ import { Product } from "@/types/product";
 import { ServicePackage } from "@/types/servicePackage";
 import { ProductImage } from "@/components/ProductImage";
 import { Badge } from "@/components/ui/badge";
-import { Package, ChevronDown, ChevronUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Package, ChevronDown, ChevronUp, ShoppingCart } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { HighlightedProduct } from "@/hooks/useBobChat";
@@ -211,6 +212,19 @@ export const MobileProductColumn = ({
             <p className="text-sm font-bold text-primary mt-1">
               ${product.price.toFixed(0)}
             </p>
+            
+            {/* Add to Cart Button */}
+            <Button
+              size="sm"
+              className="w-full mt-2 h-7 text-xs gap-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                onProductClick?.(product);
+              }}
+            >
+              <ShoppingCart className="h-3 w-3" />
+              Add
+            </Button>
           </div>
         );
       })}
