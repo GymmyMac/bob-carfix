@@ -44,12 +44,33 @@ export const MobileProductColumn = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const spotlightedRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to spotlighted product
+  // Sort products: highlighted part type first, then spotlighted product at very top
+  const sortedProducts = [...products].sort((a, b) => {
+    const aIsSpotlighted = highlightedProduct && productMatchesSpotlight(a, highlightedProduct);
+    const bIsSpotlighted = highlightedProduct && productMatchesSpotlight(b, highlightedProduct);
+    
+    // Spotlighted products come first
+    if (aIsSpotlighted && !bIsSpotlighted) return -1;
+    if (bIsSpotlighted && !aIsSpotlighted) return 1;
+    
+    // Then highlighted part type products
+    const aIsHighlighted = highlightedPartType && 
+      a.partslotDescription?.toLowerCase().includes(highlightedPartType.toLowerCase());
+    const bIsHighlighted = highlightedPartType && 
+      b.partslotDescription?.toLowerCase().includes(highlightedPartType.toLowerCase());
+    
+    if (aIsHighlighted && !bIsHighlighted) return -1;
+    if (bIsHighlighted && !aIsHighlighted) return 1;
+    
+    return 0;
+  });
+
+  // Auto-scroll to top when highlighted product changes (since it's now sorted to top)
   useEffect(() => {
-    if (highlightedProduct && spotlightedRef.current && scrollRef.current) {
-      spotlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if ((highlightedProduct || highlightedPartType) && scrollRef.current) {
+      scrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [highlightedProduct]);
+  }, [highlightedProduct, highlightedPartType]);
 
   const hasContent = products.length > 0 || servicePackages.length > 0;
   const showLoading = isResearching;
@@ -130,8 +151,8 @@ export const MobileProductColumn = ({
         </div>
       )}
 
-      {/* Products */}
-      {showContent && products.slice(0, 8).map((product, index) => {
+      {/* Products - sorted with highlighted first */}
+      {showContent && sortedProducts.slice(0, 8).map((product, index) => {
         const isSpotlighted = highlightedProduct && productMatchesSpotlight(product, highlightedProduct);
         const isHighlighted = highlightedPartType && 
           product.partslotDescription?.toLowerCase().includes(highlightedPartType.toLowerCase());
@@ -139,7 +160,7 @@ export const MobileProductColumn = ({
         return (
           <div
             key={product.id}
-            ref={isSpotlighted ? spotlightedRef : undefined}
+            ref={index === 0 ? spotlightedRef : undefined}
             onClick={() => onProductClick?.(product)}
             className={cn(
               "bg-background/95 backdrop-blur-sm rounded-lg border shadow-lg",
@@ -188,10 +209,10 @@ export const MobileProductColumn = ({
       })}
       
       {/* More products indicator */}
-      {showContent && products.length > 8 && (
+      {showContent && sortedProducts.length > 8 && (
         <div className="bg-muted/50 rounded-lg p-2 text-center">
           <p className="text-xs text-muted-foreground">
-            +{products.length - 8} more parts
+            +{sortedProducts.length - 8} more parts
           </p>
         </div>
       )}
