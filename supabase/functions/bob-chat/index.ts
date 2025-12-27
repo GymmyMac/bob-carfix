@@ -380,19 +380,90 @@ SHOPPING CART & CHECKOUT:
 
 TONE: Relaxed, efficient, knowledgeable. Match their energy.`;
 
-async function lookupVehicle(args: Record<string, unknown>): Promise<unknown> {
+// ============= MULTI-TENANT API CONFIGURATION =============
+// Default API config for CARFIX (fallback when no hostConfig provided)
+const DEFAULT_API_CONFIG = {
+  baseUrl: "https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1",
+  getApiKey: () => Deno.env.get("CARFIX_SERVICE_ROLE_KEY") || "",
+  partnerCode: "CARFIX",
+};
+
+interface ApiConfig {
+  baseUrl: string;
+  apiKey: string;
+  partnerCode?: string;
+  customHeaders?: Record<string, string>;
+}
+
+interface HostConfig {
+  baseUrl: string;
+  apiKey: string;
+  partnerCode?: string;
+  customHeaders?: Record<string, string>;
+}
+
+interface HostContext {
+  user?: {
+    id?: string;
+    email?: string;
+    name?: string;
+    phone?: string;
+    isAuthenticated?: boolean;
+  };
+  vehicle?: {
+    selectedVehicle?: Record<string, unknown>;
+    garageVehicles?: Array<Record<string, unknown>>;
+    recentSearches?: Array<Record<string, unknown>>;
+  };
+  cart?: {
+    items?: Array<Record<string, unknown>>;
+    savedItems?: Array<Record<string, unknown>>;
+    totalValue?: number;
+    itemCount?: number;
+  };
+  history?: {
+    purchases?: Array<Record<string, unknown>>;
+    lastOrderDate?: string;
+    lifetimeSpend?: number;
+  };
+  currentPage?: string;
+  metadata?: Record<string, unknown>;
+}
+
+// Build API config from hostConfig or use defaults
+function buildApiConfig(hostConfig?: HostConfig): ApiConfig {
+  if (hostConfig?.baseUrl && hostConfig?.apiKey) {
+    console.log('Using host-provided API config:', hostConfig.baseUrl, 'partner:', hostConfig.partnerCode);
+    return {
+      baseUrl: hostConfig.baseUrl,
+      apiKey: hostConfig.apiKey,
+      partnerCode: hostConfig.partnerCode,
+      customHeaders: hostConfig.customHeaders,
+    };
+  }
+  console.log('Using default CARFIX API config');
+  return {
+    baseUrl: DEFAULT_API_CONFIG.baseUrl,
+    apiKey: DEFAULT_API_CONFIG.getApiKey(),
+    partnerCode: DEFAULT_API_CONFIG.partnerCode,
+  };
+}
+
+async function lookupVehicle(args: Record<string, unknown>, apiConfig: ApiConfig): Promise<unknown> {
   console.log('Looking up vehicle with args:', JSON.stringify(args));
-  const carfixServiceRoleKey = Deno.env.get("CARFIX_SERVICE_ROLE_KEY");
   
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiConfig.apiKey}`,
+      ...apiConfig.customHeaders,
+    };
+    
     const response = await fetch(
-      "https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1/retrieve-vehicle-info",
+      `${apiConfig.baseUrl}/retrieve-vehicle-info`,
       {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${carfixServiceRoleKey}`,
-        },
+        headers,
         body: JSON.stringify(args)
       }
     );
@@ -490,23 +561,25 @@ async function searchWeb(query: string): Promise<unknown> {
   }
 }
 
-async function retrieveParts(vehicleId: number, partType?: string): Promise<{ success: boolean; parts?: unknown[]; total_found?: number; filter_applied?: string; error?: string }> {
+async function retrieveParts(vehicleId: number, apiConfig: ApiConfig, partType?: string): Promise<{ success: boolean; parts?: unknown[]; total_found?: number; filter_applied?: string; error?: string }> {
   console.log('Retrieving parts for vehicle:', vehicleId, 'part_type:', partType);
-  const carfixServiceRoleKey = Deno.env.get("CARFIX_SERVICE_ROLE_KEY");
   
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiConfig.apiKey}`,
+      ...apiConfig.customHeaders,
+    };
+    
     const response = await fetch(
-      "https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1/retrieve-parts",
+      `${apiConfig.baseUrl}/retrieve-parts`,
       {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${carfixServiceRoleKey}`,
-        },
+        headers,
         body: JSON.stringify({ 
           vehicleid: String(vehicleId),
-          page_size: 200,  // Request up to 200 parts instead of default 20
-          ...(partType && { part_type: partType })  // Server-side filtering
+          page_size: 200,
+          ...(partType && { part_type: partType })
         })
       }
     );
@@ -531,20 +604,23 @@ async function retrieveParts(vehicleId: number, partType?: string): Promise<{ su
   }
 }
 
-async function retrieveServicePackages(vehicleId?: number): Promise<unknown> {
+async function retrieveServicePackages(vehicleId: number | undefined, apiConfig: ApiConfig): Promise<unknown> {
   console.log('Calling calculate-service-bundles for vehicle:', vehicleId);
   
   try {
     const body = vehicleId ? { vehicleId: vehicleId } : {};
     
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "apikey": apiConfig.apiKey,
+      ...apiConfig.customHeaders,
+    };
+    
     const response = await fetch(
-      "https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1/calculate-service-bundles",
+      `${apiConfig.baseUrl}/calculate-service-bundles`,
       {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "apikey": Deno.env.get("CARFIX_SERVICE_ROLE_KEY") || "",
-        },
+        headers,
         body: JSON.stringify(body)
       }
     );
@@ -690,7 +766,7 @@ async function checkVehicleFitment(sku: string, vehicleId: string): Promise<unkn
   return callPartnerAPI("check_vehicle_fitment", { sku, vehicle_id: vehicleId });
 }
 
-async function executeToolCall(toolCall: { function: { name: string; arguments: string }; id: string }): Promise<unknown> {
+async function executeToolCall(toolCall: { function: { name: string; arguments: string }; id: string }, apiConfig: ApiConfig): Promise<unknown> {
   const { name, arguments: argsString } = toolCall.function;
   
   try {
@@ -698,13 +774,13 @@ async function executeToolCall(toolCall: { function: { name: string; arguments: 
     
     switch (name) {
       case "lookup_vehicle":
-        return await lookupVehicle(args);
+        return await lookupVehicle(args, apiConfig);
       case "search_web":
         return await searchWeb(args.query);
       case "retrieve_parts":
-        return await retrieveParts(args.vehicleid, args.part_type);
+        return await retrieveParts(args.vehicleid, apiConfig, args.part_type);
       case "retrieve_service_packages":
-        return await retrieveServicePackages(args.vehicleid);
+        return await retrieveServicePackages(args.vehicleid, apiConfig);
       case "search_general_products":
         return await searchGeneralProducts(args.query);
       case "add_to_cart":
@@ -775,13 +851,25 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, vehicleContext, customerEmail, autoFetchParts } = await req.json();
+    const { 
+      messages, 
+      vehicleContext, 
+      customerEmail, 
+      autoFetchParts,
+      // NEW: Multi-tenant support
+      hostConfig,   // { baseUrl, apiKey, partnerCode, customHeaders }
+      hostContext   // { user, vehicle, cart, history, currentPage, metadata }
+    } = await req.json();
+    
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    // Build API config from hostConfig or use defaults
+    const apiConfig = buildApiConfig(hostConfig as HostConfig | undefined);
+    
     console.log('Bob chat request received with', messages.length, 'messages');
     if (vehicleContext) {
       console.log('Session vehicle context provided:', JSON.stringify(vehicleContext));
@@ -791,6 +879,12 @@ serve(async (req) => {
     }
     if (autoFetchParts) {
       console.log('Auto-fetch parts mode enabled');
+    }
+    if (hostConfig) {
+      console.log('Host config provided:', JSON.stringify({ baseUrl: hostConfig.baseUrl, partnerCode: hostConfig.partnerCode }));
+    }
+    if (hostContext) {
+      console.log('Host context provided:', JSON.stringify(hostContext));
     }
 
     // Handle auto-fetch parts mode - just fetch parts and packages, no AI response
@@ -813,8 +907,8 @@ serve(async (req) => {
       (async () => {
         try {
           const [partsResult, packagesResult] = await Promise.all([
-            retrieveParts(vehicleId),
-            retrieveServicePackages(vehicleId)
+            retrieveParts(vehicleId, apiConfig),
+            retrieveServicePackages(vehicleId, apiConfig)
           ]);
 
           // Emit parts found event
@@ -879,6 +973,32 @@ IMPORTANT RULES FOR THIS SESSION:
 Customer email is: ${customerEmail}
 Use this email for add_to_cart, get_cart, and create_checkout calls.
 Do NOT ask for their email - you already have it.`;
+    }
+
+    // Add host context if provided (multi-tenant support)
+    const typedHostContext = hostContext as HostContext | undefined;
+    if (typedHostContext) {
+      enhancedSystemPrompt += `\n\n## HOST CONTEXT (Multi-tenant session)`;
+      
+      if (typedHostContext.user?.email && !customerEmail) {
+        enhancedSystemPrompt += `\nCustomer email: ${typedHostContext.user.email}`;
+      }
+      if (typedHostContext.user?.name) {
+        enhancedSystemPrompt += `\nCustomer name: ${typedHostContext.user.name}`;
+      }
+      if (typedHostContext.vehicle?.selectedVehicle) {
+        const v = typedHostContext.vehicle.selectedVehicle;
+        enhancedSystemPrompt += `\nSelected vehicle: ${v.year} ${v.make} ${v.model} (ID: ${v.id || v.vehicle_id})`;
+      }
+      if (typedHostContext.cart?.itemCount && typedHostContext.cart.itemCount > 0) {
+        enhancedSystemPrompt += `\nCart has ${typedHostContext.cart.itemCount} items ($${typedHostContext.cart.totalValue})`;
+      }
+      if (typedHostContext.history?.lastOrderDate) {
+        enhancedSystemPrompt += `\nLast order: ${typedHostContext.history.lastOrderDate}`;
+      }
+      if (typedHostContext.currentPage) {
+        enhancedSystemPrompt += `\nCurrently on page: ${typedHostContext.currentPage}`;
+      }
     }
 
     // Build conversation with system prompt
@@ -956,7 +1076,7 @@ Do NOT ask for their email - you already have it.`;
         
         for (const toolCall of assistantMessage.tool_calls) {
           console.log(`Executing tool: ${toolCall.function.name}`);
-          const result = await executeToolCall(toolCall);
+          const result = await executeToolCall(toolCall, apiConfig);
           
         // After vehicle lookup succeeds, auto-fetch ALL parts AND service packages for theatrical display
         if (toolCall.function.name === "lookup_vehicle") {
@@ -1007,7 +1127,7 @@ Do NOT ask for their email - you already have it.`;
             console.log(`Stored lookup vehicle ID for later verification: ${vehicleId}`);
             
             // Immediately fetch ALL parts (no filter) for impressive range display
-            const allParts = await retrieveParts(vehicleId);
+            const allParts = await retrieveParts(vehicleId, apiConfig);
             
             if (allParts.success && allParts.parts && allParts.parts.length > 0) {
               partsFoundResult = allParts.parts;
@@ -1015,7 +1135,7 @@ Do NOT ask for their email - you already have it.`;
             }
             
             // ALSO fetch service packages - store FULL packages for frontend display
-            const servicePackagesResult = await retrieveServicePackages(vehicleId);
+            const servicePackagesResult = await retrieveServicePackages(vehicleId, apiConfig);
             const servicePackagesData = servicePackagesResult as { success?: boolean; packages?: unknown[] };
             
             if (servicePackagesData.success && servicePackagesData.packages && servicePackagesData.packages.length > 0) {
@@ -1131,14 +1251,14 @@ Do NOT ask for their email - you already have it.`;
             console.log('Auto-fetching parts and service packages for confirmed vehicle...');
             
             // Fetch ALL parts for this vehicle
-            const allParts = await retrieveParts(vehicleId);
+            const allParts = await retrieveParts(vehicleId, apiConfig);
             if (allParts.success && allParts.parts && allParts.parts.length > 0) {
               console.log(`Fetched ${allParts.parts.length} parts for confirmed vehicle`);
               (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit = allParts.parts;
             }
             
             // Fetch service packages for this vehicle
-            const servicePackagesResult = await retrieveServicePackages(vehicleId);
+            const servicePackagesResult = await retrieveServicePackages(vehicleId, apiConfig);
             const servicePackagesData = servicePackagesResult as { success?: boolean; packages?: unknown[] };
             
             if (servicePackagesData.success && servicePackagesData.packages && servicePackagesData.packages.length > 0) {
