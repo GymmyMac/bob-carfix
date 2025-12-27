@@ -1,0 +1,231 @@
+import { useState, useRef, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Send, Mic, MicOff, Volume2, VolumeX, ChevronUp, ChevronDown } from "lucide-react";
+import { Message } from "@/hooks/useBobChat";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { cn } from "@/lib/utils";
+
+interface MobileChatDrawerProps {
+  messages: Message[];
+  input: string;
+  setInput: (value: string) => void;
+  isLoading: boolean;
+  onSend: () => void;
+  onKeyPress: (e: React.KeyboardEvent) => void;
+  onInputFocus: () => void;
+  onInputBlur: () => void;
+  chatEndRef: React.RefObject<HTMLDivElement>;
+  isMuted?: boolean;
+  onToggleMute?: () => void;
+  isSpeaking?: boolean;
+}
+
+export const MobileChatDrawer = ({
+  messages,
+  input,
+  setInput,
+  isLoading,
+  onSend,
+  onKeyPress,
+  onInputFocus,
+  onInputBlur,
+  chatEndRef,
+  isMuted = false,
+  onToggleMute,
+  isSpeaking = false
+}: MobileChatDrawerProps) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  
+  const {
+    isListening,
+    transcript,
+    interimTranscript,
+    error: sttError,
+    isSupported,
+    toggleListening
+  } = useSpeechRecognition({
+    onTranscript: (text) => setInput(text),
+    onSpeechEnd: (text) => {
+      if (text.trim() && !isLoading) {
+        setTimeout(() => {
+          onSend();
+        }, 300);
+      }
+    },
+    language: 'en-NZ'
+  });
+
+  // Update input with interim transcript
+  useEffect(() => {
+    if (interimTranscript) {
+      setInput(interimTranscript);
+    }
+  }, [interimTranscript, setInput]);
+
+  // Get last assistant message for preview
+  const lastBobMessage = [...messages].reverse().find(m => m.role === 'assistant');
+  
+  // Truncate message for preview
+  const previewText = lastBobMessage?.content 
+    ? lastBobMessage.content.length > 80 
+      ? lastBobMessage.content.slice(0, 80) + '...'
+      : lastBobMessage.content
+    : "Ask Bob about car parts...";
+
+  return (
+    <div 
+      ref={drawerRef}
+      className={cn(
+        "fixed bottom-0 left-0 right-0 z-30",
+        "bg-background/95 backdrop-blur-md border-t border-border",
+        "transition-all duration-300 ease-out",
+        "shadow-[0_-4px_20px_rgba(0,0,0,0.15)]",
+        isExpanded ? "h-[55vh]" : "h-auto"
+      )}
+      style={{
+        paddingBottom: 'env(safe-area-inset-bottom, 8px)'
+      }}
+    >
+      {/* Expand/Collapse Handle */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="absolute -top-5 left-1/2 -translate-x-1/2 
+                   bg-background border border-border rounded-full 
+                   p-1.5 shadow-lg z-40"
+        aria-label={isExpanded ? "Collapse chat" : "Expand chat"}
+      >
+        {isExpanded ? (
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+        )}
+      </button>
+
+      {/* Collapsed Preview */}
+      {!isExpanded && (
+        <div 
+          className="px-4 pt-3 pb-1"
+          onClick={() => setIsExpanded(true)}
+        >
+          <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+            {previewText}
+          </p>
+        </div>
+      )}
+
+      {/* Expanded Chat History */}
+      {isExpanded && (
+        <div className="h-[calc(100%-100px)] overflow-y-auto p-4 space-y-2">
+          {[...messages].reverse().map((msg, idx) => (
+            <div
+              key={idx}
+              className={cn(
+                "flex",
+                msg.role === "user" ? "justify-end" : "justify-start"
+              )}
+            >
+              <div
+                className={cn(
+                  "max-w-[85%] rounded-lg px-3 py-2 text-sm",
+                  msg.role === "user"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-foreground"
+                )}
+              >
+                {msg.content}
+              </div>
+            </div>
+          ))}
+          <div ref={chatEndRef} />
+        </div>
+      )}
+
+      {/* Input Area - Always visible */}
+      <div className={cn(
+        "px-3 pb-2",
+        isExpanded ? "pt-2 border-t border-border" : "pt-1"
+      )}>
+        {/* Listening indicator */}
+        {isListening && (
+          <div className="mb-2 text-xs text-muted-foreground flex items-center gap-2">
+            <span className="inline-block w-2 h-2 bg-destructive rounded-full animate-pulse" />
+            Listening...
+          </div>
+        )}
+        
+        {sttError && (
+          <div className="mb-2 text-xs text-destructive">
+            {sttError}
+          </div>
+        )}
+        
+        <div className="flex gap-2 items-center">
+          {/* Mute button */}
+          {onToggleMute && (
+            <Button
+              onClick={onToggleMute}
+              size="icon"
+              variant="ghost"
+              className={cn(
+                "shrink-0 h-10 w-10",
+                isSpeaking && "text-primary animate-pulse"
+              )}
+              title={isMuted ? "Unmute" : "Mute"}
+            >
+              {isMuted ? (
+                <VolumeX className="h-5 w-5" />
+              ) : (
+                <Volume2 className="h-5 w-5" />
+              )}
+            </Button>
+          )}
+          
+          {/* Text input */}
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={onKeyPress}
+            onFocus={onInputFocus}
+            onBlur={onInputBlur}
+            placeholder="Message Bob..."
+            disabled={isLoading}
+            className="flex-1 h-11 text-base" // 16px prevents iOS zoom
+          />
+          
+          {/* Voice button - larger touch target */}
+          {isSupported && (
+            <Button
+              onClick={toggleListening}
+              disabled={isLoading}
+              size="icon"
+              variant={isListening ? "destructive" : "outline"}
+              className={cn(
+                "shrink-0 h-12 w-12 rounded-full",
+                isListening && "animate-pulse ring-2 ring-destructive/50"
+              )}
+              title={isListening ? "Stop" : "Speak"}
+            >
+              {isListening ? (
+                <MicOff className="h-5 w-5" />
+              ) : (
+                <Mic className="h-5 w-5" />
+              )}
+            </Button>
+          )}
+          
+          {/* Send button */}
+          <Button
+            onClick={onSend}
+            disabled={isLoading || !input.trim()}
+            size="icon"
+            className="shrink-0 h-11 w-11"
+          >
+            <Send className="h-5 w-5" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
