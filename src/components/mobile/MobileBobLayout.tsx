@@ -67,6 +67,9 @@ export const MobileBobLayout = ({
   vehicle,
   onChangeVehicle
 }: MobileBobLayoutProps) => {
+  // Detect if we're embedded in an iframe (CARFIX context)
+  const isEmbedded = typeof window !== 'undefined' && window.self !== window.top;
+
   return (
     <div 
       className="fixed inset-0 overflow-hidden"
@@ -101,8 +104,8 @@ export const MobileBobLayout = ({
         animationState={animationState}
       />
 
-      {/* Vehicle Context Bar - Top left */}
-      {vehicle && (
+      {/* Vehicle Context Bar - Top left (hidden when embedded in iframe) */}
+      {vehicle && !isEmbedded && (
         <div className="absolute top-2 left-2 right-2 z-20">
           <div 
             className="bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2 

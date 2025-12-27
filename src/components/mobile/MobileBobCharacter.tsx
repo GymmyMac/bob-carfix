@@ -11,11 +11,12 @@ export const MobileBobCharacter = ({
     <div 
       className="absolute bottom-0 left-0 z-10 pointer-events-none"
       style={{
-        // Position Bob slightly off-screen to the left for tighter framing
-        transform: 'translateX(-15%)',
-        width: '75%',
-        maxWidth: '320px',
-        height: 'auto'
+        // Position Bob further off-screen to the left for tighter framing
+        transform: 'translateX(-20%)',
+        width: '85%',
+        maxWidth: '400px',
+        height: 'auto',
+        minHeight: '50vh'
       }}
     >
       <img 

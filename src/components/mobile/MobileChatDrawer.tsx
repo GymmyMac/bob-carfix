@@ -67,10 +67,10 @@ export const MobileChatDrawer = ({
   // Get last assistant message for preview
   const lastBobMessage = [...messages].reverse().find(m => m.role === 'assistant');
   
-  // Truncate message for preview
+  // Truncate message for preview - 1 line only for compact view
   const previewText = lastBobMessage?.content 
-    ? lastBobMessage.content.length > 80 
-      ? lastBobMessage.content.slice(0, 80) + '...'
+    ? lastBobMessage.content.length > 50 
+      ? lastBobMessage.content.slice(0, 50) + '...'
       : lastBobMessage.content
     : "Ask Bob about car parts...";
 
@@ -103,13 +103,13 @@ export const MobileChatDrawer = ({
         )}
       </button>
 
-      {/* Collapsed Preview */}
+      {/* Collapsed Preview - more compact, 1 line */}
       {!isExpanded && (
         <div 
-          className="px-4 pt-3 pb-1"
+          className="px-3 pt-2 pb-0.5"
           onClick={() => setIsExpanded(true)}
         >
-          <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+          <p className="text-xs text-muted-foreground line-clamp-1">
             {previewText}
           </p>
         </div>
@@ -142,10 +142,10 @@ export const MobileChatDrawer = ({
         </div>
       )}
 
-      {/* Input Area - Always visible */}
+      {/* Input Area - Always visible, more compact */}
       <div className={cn(
-        "px-3 pb-2",
-        isExpanded ? "pt-2 border-t border-border" : "pt-1"
+        "px-2 pb-1.5",
+        isExpanded ? "pt-2 border-t border-border" : "pt-0.5"
       )}>
         {/* Listening indicator */}
         {isListening && (
@@ -161,28 +161,28 @@ export const MobileChatDrawer = ({
           </div>
         )}
         
-        <div className="flex gap-2 items-center">
-          {/* Mute button */}
-          {onToggleMute && (
+        <div className="flex gap-1.5 items-center">
+          {/* Mute button - only show when expanded to save space */}
+          {onToggleMute && isExpanded && (
             <Button
               onClick={onToggleMute}
               size="icon"
               variant="ghost"
               className={cn(
-                "shrink-0 h-10 w-10",
+                "shrink-0 h-9 w-9",
                 isSpeaking && "text-primary animate-pulse"
               )}
               title={isMuted ? "Unmute" : "Mute"}
             >
               {isMuted ? (
-                <VolumeX className="h-5 w-5" />
+                <VolumeX className="h-4 w-4" />
               ) : (
-                <Volume2 className="h-5 w-5" />
+                <Volume2 className="h-4 w-4" />
               )}
             </Button>
           )}
           
-          {/* Text input */}
+          {/* Text input - slightly smaller */}
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -191,10 +191,10 @@ export const MobileChatDrawer = ({
             onBlur={onInputBlur}
             placeholder="Message Bob..."
             disabled={isLoading}
-            className="flex-1 h-11 text-base" // 16px prevents iOS zoom
+            className="flex-1 h-10 text-base" // 16px prevents iOS zoom
           />
           
-          {/* Voice button - larger touch target */}
+          {/* Voice button - slightly smaller touch target */}
           {isSupported && (
             <Button
               onClick={toggleListening}
@@ -202,15 +202,15 @@ export const MobileChatDrawer = ({
               size="icon"
               variant={isListening ? "destructive" : "outline"}
               className={cn(
-                "shrink-0 h-12 w-12 rounded-full",
+                "shrink-0 h-10 w-10 rounded-full",
                 isListening && "animate-pulse ring-2 ring-destructive/50"
               )}
               title={isListening ? "Stop" : "Speak"}
             >
               {isListening ? (
-                <MicOff className="h-5 w-5" />
+                <MicOff className="h-4 w-4" />
               ) : (
-                <Mic className="h-5 w-5" />
+                <Mic className="h-4 w-4" />
               )}
             </Button>
           )}
@@ -220,9 +220,9 @@ export const MobileChatDrawer = ({
             onClick={onSend}
             disabled={isLoading || !input.trim()}
             size="icon"
-            className="shrink-0 h-11 w-11"
+            className="shrink-0 h-10 w-10"
           >
-            <Send className="h-5 w-5" />
+            <Send className="h-4 w-4" />
           </Button>
         </div>
       </div>

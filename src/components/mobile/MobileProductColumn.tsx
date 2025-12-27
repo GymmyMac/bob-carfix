@@ -54,13 +54,13 @@ export const MobileProductColumn = ({
   return (
     <div 
       ref={scrollRef}
-      className="absolute right-2 top-16 bottom-32 w-[45%] max-w-[200px] 
+      className="absolute right-2 top-4 bottom-24 w-[45%] max-w-[200px] 
                  overflow-y-auto overflow-x-hidden z-20
                  flex flex-col gap-2 pb-4
                  scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent"
       style={{
         // Safe area for notches
-        paddingTop: 'env(safe-area-inset-top, 8px)'
+        paddingTop: 'env(safe-area-inset-top, 4px)'
       }}
     >
       {/* Loading state */}
