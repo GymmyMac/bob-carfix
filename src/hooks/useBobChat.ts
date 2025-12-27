@@ -459,10 +459,14 @@ export const useBobChat = ({
       );
       
       // Detect and emit highlighted part type for shelf navigation
+      // Emit normalized base form (e.g., "SPARK PLUG" not "SPARK PLUGS") for flexible matching
       const lowerContent = assistantContent.toLowerCase();
       for (const partType of PART_TYPE_KEYWORDS) {
         if (lowerContent.includes(partType.toLowerCase())) {
-          onHighlightPart?.(partType);
+          // Normalize: remove trailing 's' to get base form for consistent matching
+          const normalized = partType.replace(/s\s*$/i, '').toUpperCase();
+          console.log('[useBobChat] Highlighting part type:', normalized);
+          onHighlightPart?.(normalized);
           break; // Only highlight one part type at a time
         }
       }

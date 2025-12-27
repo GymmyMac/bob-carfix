@@ -20,11 +20,22 @@ interface ProductGroup {
   products: Product[];
 }
 
+// Flexible matching: handles plurals and word variations
+// "SPARK PLUG" matches "SPARK PLUG SET", "SPARK PLUGS", etc.
+const matchesPartType = (description: string, partType: string): boolean => {
+  if (!description || !partType) return false;
+  const desc = description.toLowerCase();
+  // Normalize: remove trailing 's' for plural handling
+  const baseTerms = partType.toLowerCase()
+    .replace(/s\b/g, '') // "plugs" → "plug", "brakes" → "brake"
+    .split(/\s+/)
+    .filter(Boolean);
+  return baseTerms.every(term => desc.includes(term));
+};
+
 // Check if a group name matches the highlighted part type
 const groupMatchesHighlight = (groupName: string, highlightType: string): boolean => {
-  const searchTerms = highlightType.toLowerCase().split(' ');
-  const name = groupName.toLowerCase();
-  return searchTerms.every(term => name.includes(term));
+  return matchesPartType(groupName, highlightType);
 };
 
 // Check if a product matches the spotlight criteria
