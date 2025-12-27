@@ -131,7 +131,7 @@ export const MobileBobLayout = ({
       <MobileBobCharacter
         currentImage={currentImage}
         animationState={animationState}
-        counterHeightPercent={15}
+        counterHeightPercent={22}
         scale={200}
         position={bobPosition}
       />
