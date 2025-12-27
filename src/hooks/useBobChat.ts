@@ -118,9 +118,23 @@ export const useBobChat = ({
   const lastContentTimeRef = useRef<number>(0);
   const latestAssistantMessageRef = useRef<string>("");
 
-  // Speech synthesis for Bob's voice
+  // Track if speech started for fallback logic
+  const speechStartedRef = useRef(false);
+  const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const clearFallbackTimeout = () => {
+    if (fallbackTimeoutRef.current) {
+      clearTimeout(fallbackTimeoutRef.current);
+      fallbackTimeoutRef.current = null;
+    }
+  };
+
+  // Speech synthesis for Bob's voice with resilient fallback
   const { speak, stop: stopSpeech, isSpeaking } = useSpeechSynthesis({
     onStart: () => {
+      clearFallbackTimeout();
+      speechStartedRef.current = true;
+      console.log('[useBobChat] Speech started - revealing products');
       // Trigger ready to speak - reveals products synchronized with speech
       onReadyToSpeak?.();
       // Keep Bob in talking state while speaking
@@ -129,6 +143,7 @@ export const useBobChat = ({
       }
     },
     onEnd: () => {
+      clearFallbackTimeout();
       // Check if the spoken content had product keywords
       const hasProductContent = PRODUCT_KEYWORDS.some(keyword => 
         latestAssistantMessageRef.current.toLowerCase().includes(keyword.toLowerCase())
@@ -146,6 +161,10 @@ export const useBobChat = ({
           setTimeout(() => safeSetState(listenState), 3000);
         }
       }
+    },
+    onFailed: () => {
+      console.warn('[useBobChat] Speech synthesis failed - fallback triggered');
+      // Products should already be revealed via onStart fallback in useSpeechSynthesis
     }
   });
 
@@ -448,9 +467,33 @@ export const useBobChat = ({
 
       // Speak the response if not muted (use cleaned content)
       if (!isMuted && latestAssistantMessageRef.current.trim()) {
+        speechStartedRef.current = false;
+        clearFallbackTimeout();
+        
         speak(latestAssistantMessageRef.current);
+        
+        // Secondary fallback: if speech doesn't start within 2s, reveal products anyway
+        fallbackTimeoutRef.current = setTimeout(() => {
+          if (!speechStartedRef.current) {
+            console.warn('[useBobChat] Speech fallback after 2s - forcing product reveal');
+            onReadyToSpeak?.();
+            
+            // Also handle animation states
+            if (!manualMode) {
+              if (hasProductContent && onShowingProduct) {
+                onShowingProduct();
+              } else if (onStreamComplete) {
+                onStreamComplete();
+              } else {
+                safeSetState(completeState);
+                setTimeout(() => safeSetState(listenState), 3000);
+              }
+            }
+          }
+        }, 2000);
       } else {
         // If muted or empty message, still trigger ready to speak to reveal products
+        console.log('[useBobChat] Muted or empty - revealing products immediately');
         onReadyToSpeak?.();
         
         if (!manualMode) {

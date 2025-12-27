@@ -84,39 +84,61 @@ serve(async (req) => {
 
     console.log(`Generating TTS for text: "${text.substring(0, 50)}..." with voice: ${voiceName}`);
 
-    const response = await fetch(
-      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          input: { ssml: convertToSSML(text) },
-          voice: {
-            languageCode,
-            name: voiceName,
-          },
-          audioConfig: {
-            audioEncoding: "MP3",
-            speakingRate: 0.95,
-            pitch: 0,
-          },
-        }),
+    // Create abort controller for timeout (8 seconds)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const response = await fetch(
+        `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            input: { ssml: convertToSSML(text) },
+            voice: {
+              languageCode,
+              name: voiceName,
+            },
+            audioConfig: {
+              audioEncoding: "MP3",
+              speakingRate: 0.95,
+              pitch: 0,
+            },
+          }),
+          signal: controller.signal,
+        }
+      );
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error("Google TTS API error:", response.status, error);
+        throw new Error(`TTS API error: ${response.status}`);
       }
-    );
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error("Google TTS API error:", response.status, error);
-      throw new Error(`TTS API error: ${response.status}`);
+      const data = await response.json();
+      console.log("TTS audio generated successfully");
+      
+      return new Response(
+        JSON.stringify({ audioContent: data.audioContent }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=3600" // Cache for 1 hour
+          } 
+        }
+      );
+    } catch (fetchError: unknown) {
+      clearTimeout(timeoutId);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error("Google TTS API timeout after 8s");
+        throw new Error("TTS API timeout");
+      }
+      throw fetchError;
     }
-
-    const data = await response.json();
-    console.log("TTS audio generated successfully");
-    
-    return new Response(
-      JSON.stringify({ audioContent: data.audioContent }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
   } catch (error) {
     console.error("bob-tts error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
