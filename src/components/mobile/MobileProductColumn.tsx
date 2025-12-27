@@ -21,6 +21,19 @@ interface MobileProductColumnProps {
   hasVehicle?: boolean; // For dynamic top offset
 }
 
+// Flexible matching: handles plurals and word variations
+// "SPARK PLUG" matches "SPARK PLUG SET", "SPARK PLUGS", etc.
+const matchesPartType = (description: string, partType: string): boolean => {
+  if (!description || !partType) return false;
+  const desc = description.toLowerCase();
+  // Normalize: remove trailing 's' for plural handling
+  const baseTerms = partType.toLowerCase()
+    .replace(/s\b/g, '') // "plugs" → "plug", "brakes" → "brake"
+    .split(/\s+/)
+    .filter(Boolean);
+  return baseTerms.every(term => desc.includes(term));
+};
+
 // Check if a product matches the spotlight criteria
 const productMatchesSpotlight = (product: Product, spotlight: HighlightedProduct): boolean => {
   const brandMatch = product.brand?.toLowerCase() === spotlight.brand.toLowerCase();
@@ -56,11 +69,11 @@ export const MobileProductColumn = ({
     if (aIsSpotlighted && !bIsSpotlighted) return -1;
     if (bIsSpotlighted && !aIsSpotlighted) return 1;
     
-    // Then highlighted part type products
+    // Then highlighted part type products (using flexible matching)
     const aIsHighlighted = highlightedPartType && 
-      a.partslotDescription?.toLowerCase().includes(highlightedPartType.toLowerCase());
+      matchesPartType(a.partslotDescription || '', highlightedPartType);
     const bIsHighlighted = highlightedPartType && 
-      b.partslotDescription?.toLowerCase().includes(highlightedPartType.toLowerCase());
+      matchesPartType(b.partslotDescription || '', highlightedPartType);
     
     if (aIsHighlighted && !bIsHighlighted) return -1;
     if (bIsHighlighted && !aIsHighlighted) return 1;
@@ -163,7 +176,7 @@ export const MobileProductColumn = ({
       {showContent && sortedProducts.slice(0, 8).map((product, index) => {
         const isSpotlighted = highlightedProduct && productMatchesSpotlight(product, highlightedProduct);
         const isHighlighted = highlightedPartType && 
-          product.partslotDescription?.toLowerCase().includes(highlightedPartType.toLowerCase());
+          matchesPartType(product.partslotDescription || '', highlightedPartType);
         
         return (
           <div
