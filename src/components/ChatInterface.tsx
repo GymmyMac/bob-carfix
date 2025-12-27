@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import { Mic, Volume2, VolumeX } from "lucide-react";
 import { Message } from "@/hooks/useBobChat";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 interface ChatInterfaceProps {
@@ -20,9 +20,6 @@ interface ChatInterfaceProps {
   onToggleMute?: () => void;
   isSpeaking?: boolean;
 }
-
-type VoiceMode = 'toggle' | 'ptt';
-
 export const ChatInterface = ({
   messages,
   input,
@@ -37,39 +34,20 @@ export const ChatInterface = ({
   onToggleMute,
   isSpeaking = false
 }: ChatInterfaceProps) => {
-  const [voiceMode, setVoiceMode] = useState<VoiceMode>(() => {
-    const saved = localStorage.getItem('bob-voice-mode');
-    return (saved === 'ptt' || saved === 'toggle') ? saved : 'ptt';
-  });
   const pttActiveRef = useRef(false);
 
   const {
     isListening,
-    transcript,
     interimTranscript,
     error: sttError,
     isSupported,
     startListening,
     stopListening,
-    toggleListening
   } = useSpeechRecognition({
     onTranscript: (text) => setInput(text),
-    onSpeechEnd: (text) => {
-      // Only auto-send in toggle mode
-      if (voiceMode === 'toggle' && text.trim() && !isLoading) {
-        setTimeout(() => {
-          onSend();
-        }, 300);
-      }
-    },
     language: 'en-NZ',
-    mode: voiceMode
+    mode: 'ptt'
   });
-
-  // Save voice mode preference
-  useEffect(() => {
-    localStorage.setItem('bob-voice-mode', voiceMode);
-  }, [voiceMode]);
 
   // Update input with interim transcript for real-time feedback
   useEffect(() => {
@@ -94,10 +72,6 @@ export const ChatInterface = ({
       onSend();
     }, 150);
   }, [stopListening, onSend]);
-
-  const toggleVoiceMode = () => {
-    setVoiceMode(prev => prev === 'toggle' ? 'ptt' : 'toggle');
-  };
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 pb-8">
@@ -131,7 +105,7 @@ export const ChatInterface = ({
                 onClick={onToggleMute}
                 size="icon"
                 variant="outline"
-                className={`shrink-0 ${isSpeaking ? 'animate-pulse' : ''}`}
+                className={cn("shrink-0", isSpeaking && "animate-pulse")}
                 title={isMuted ? "Unmute Bob's voice" : "Mute Bob's voice"}
               >
                 {isMuted ? (
@@ -141,23 +115,7 @@ export const ChatInterface = ({
                 )}
               </Button>
             )}
-            {isSupported && voiceMode === 'toggle' && (
-              <Button
-                onClick={toggleListening}
-                disabled={isLoading}
-                size="icon"
-                variant={isListening ? "destructive" : "outline"}
-                className={cn("shrink-0", isListening && "animate-pulse")}
-                title={isListening ? "Stop recording" : "Start voice input"}
-              >
-                {isListening ? (
-                  <MicOff className="h-4 w-4" />
-                ) : (
-                  <Mic className="h-4 w-4" />
-                )}
-              </Button>
-            )}
-            {isSupported && voiceMode === 'ptt' && (
+            {isSupported && (
               <Button
                 onMouseDown={handlePTTStart}
                 onMouseUp={handlePTTEnd}
@@ -166,9 +124,9 @@ export const ChatInterface = ({
                 onTouchEnd={handlePTTEnd}
                 disabled={isLoading}
                 size="icon"
-                variant={isListening ? "destructive" : "outline"}
+                variant={isListening ? "destructive" : "default"}
                 className={cn(
-                  "shrink-0 select-none",
+                  "shrink-0 select-none h-10 w-10",
                   isListening && "animate-pulse ring-2 ring-destructive/50 scale-110"
                 )}
                 title="Hold to talk"
@@ -176,25 +134,6 @@ export const ChatInterface = ({
                 <Mic className="h-4 w-4" />
               </Button>
             )}
-            {isSupported && (
-              <Button
-                onClick={toggleVoiceMode}
-                size="icon"
-                variant="ghost"
-                className="shrink-0 text-xs"
-                title={`Switch to ${voiceMode === 'ptt' ? 'toggle' : 'hold-to-talk'} mode`}
-              >
-                {voiceMode === 'ptt' ? 'PTT' : 'TOG'}
-              </Button>
-            )}
-            <Button
-              onClick={onSend}
-              disabled={isLoading || !input.trim()}
-              size="icon"
-              className="shrink-0"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
           </div>
         </div>
 

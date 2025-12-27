@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Mic, MicOff, Volume2, VolumeX, ChevronUp, ChevronDown } from "lucide-react";
+import { Mic, Volume2, VolumeX, ChevronUp, ChevronDown } from "lucide-react";
 import { Message } from "@/hooks/useBobChat";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { cn } from "@/lib/utils";
@@ -20,9 +20,6 @@ interface MobileChatDrawerProps {
   onToggleMute?: () => void;
   isSpeaking?: boolean;
 }
-
-type VoiceMode = 'toggle' | 'ptt';
-
 export const MobileChatDrawer = ({
   messages,
   input,
@@ -38,40 +35,21 @@ export const MobileChatDrawer = ({
   isSpeaking = false
 }: MobileChatDrawerProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [voiceMode, setVoiceMode] = useState<VoiceMode>(() => {
-    const saved = localStorage.getItem('bob-voice-mode');
-    return (saved === 'ptt' || saved === 'toggle') ? saved : 'ptt';
-  });
   const drawerRef = useRef<HTMLDivElement>(null);
   const pttActiveRef = useRef(false);
   
   const {
     isListening,
-    transcript,
     interimTranscript,
     error: sttError,
     isSupported,
     startListening,
     stopListening,
-    toggleListening
   } = useSpeechRecognition({
     onTranscript: (text) => setInput(text),
-    onSpeechEnd: (text) => {
-      // Only auto-send in toggle mode
-      if (voiceMode === 'toggle' && text.trim() && !isLoading) {
-        setTimeout(() => {
-          onSend();
-        }, 300);
-      }
-    },
     language: 'en-NZ',
-    mode: voiceMode
+    mode: 'ptt'
   });
-
-  // Save voice mode preference
-  useEffect(() => {
-    localStorage.setItem('bob-voice-mode', voiceMode);
-  }, [voiceMode]);
 
   // Update input with interim transcript
   useEffect(() => {
@@ -104,10 +82,6 @@ export const MobileChatDrawer = ({
       onSend();
     }, 150);
   }, [stopListening, onSend]);
-
-  const toggleVoiceMode = () => {
-    setVoiceMode(prev => prev === 'toggle' ? 'ptt' : 'toggle');
-  };
 
   // Get last assistant message for preview
   const lastBobMessage = [...messages].reverse().find(m => m.role === 'assistant');
@@ -240,28 +214,8 @@ export const MobileChatDrawer = ({
             className="flex-1 h-10 text-base" // 16px prevents iOS zoom
           />
           
-          {/* Voice button - Toggle mode */}
-          {isSupported && voiceMode === 'toggle' && (
-            <Button
-              onClick={toggleListening}
-              disabled={isLoading}
-              size="icon"
-              variant={isListening ? "destructive" : "outline"}
-              className={cn(
-                "shrink-0 h-10 w-10 rounded-full",
-                isListening && "animate-pulse ring-2 ring-destructive/50"
-              )}
-              title={isListening ? "Stop" : "Speak"}
-            >
-              {isListening ? (
-                <MicOff className="h-4 w-4" />
-              ) : (
-                <Mic className="h-4 w-4" />
-              )}
-            </Button>
-          )}
-          {/* Voice button - PTT mode with larger touch target */}
-          {isSupported && voiceMode === 'ptt' && (
+          {/* PTT button */}
+          {isSupported && (
             <Button
               onTouchStart={handlePTTStart}
               onTouchEnd={handlePTTEnd}
@@ -271,7 +225,7 @@ export const MobileChatDrawer = ({
               onMouseLeave={handlePTTEnd}
               disabled={isLoading}
               size="icon"
-              variant={isListening ? "destructive" : "outline"}
+              variant={isListening ? "destructive" : "default"}
               className={cn(
                 "shrink-0 h-12 w-12 rounded-full select-none touch-none",
                 isListening && "animate-pulse ring-2 ring-destructive/50 scale-110"
@@ -281,28 +235,6 @@ export const MobileChatDrawer = ({
               <Mic className="h-5 w-5" />
             </Button>
           )}
-          {/* Mode toggle - compact */}
-          {isSupported && (
-            <Button
-              onClick={toggleVoiceMode}
-              size="icon"
-              variant="ghost"
-              className="shrink-0 h-8 w-8 text-[10px]"
-              title={`Switch to ${voiceMode === 'ptt' ? 'toggle' : 'hold-to-talk'} mode`}
-            >
-              {voiceMode === 'ptt' ? 'PTT' : 'TOG'}
-            </Button>
-          )}
-          
-          {/* Send button */}
-          <Button
-            onClick={onSend}
-            disabled={isLoading || !input.trim()}
-            size="icon"
-            className="shrink-0 h-10 w-10"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
         </div>
       </div>
     </div>
