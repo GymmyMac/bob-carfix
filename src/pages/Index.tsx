@@ -14,7 +14,7 @@ import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 import { useBobChat, HighlightedProduct } from "@/hooks/useBobChat";
 import { useSessionHandoff } from "@/hooks/useSessionHandoff";
 import { Product, APIPart, apiPartToProduct } from "@/types/product";
-import { AdminButton } from "@/components/AdminButton";
+
 import { useBobStateTransitions } from "@/hooks/useBobStateTransitions";
 import { useBobBackdrop } from "@/hooks/useBobBackdrop";
 import { Vehicle } from "@/types/vehicle";
@@ -242,10 +242,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Navigation Bar */}
-      <div className="fixed top-4 right-4 z-50 flex gap-2">
-        <AdminButton />
-      </div>
 
       {/* Desktop: Side-by-side layout */}
       <div className="hidden lg:flex min-h-screen">
