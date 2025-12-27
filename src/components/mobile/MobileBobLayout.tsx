@@ -98,10 +98,12 @@ export const MobileBobLayout = ({
         }}
       />
 
-      {/* Layer 2: Bob Character - Bottom left, large */}
+      {/* Layer 2: Bob Character - Bottom left, large with counter */}
       <MobileBobCharacter
         currentImage={currentImage}
         animationState={animationState}
+        counterHeightPercent={15}
+        scale={200}
       />
 
       {/* Vehicle Context Bar - Top left (hidden when embedded in iframe) */}
