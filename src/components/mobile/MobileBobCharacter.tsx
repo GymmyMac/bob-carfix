@@ -28,7 +28,7 @@ export const MobileBobCharacter = ({
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
       {/* Bob Character - positioned above counter */}
       <div 
-        className="absolute left-0 z-10"
+        className="absolute left-0 z-40"
         style={{
           bottom: `${counterHeightPercent - 2}%`,
           transform: `translateX(${translateX})`,
@@ -50,7 +50,7 @@ export const MobileBobCharacter = ({
       {/* Counter Overlay - acts as spacer/stage */}
       {counterOverlayUrl && (
         <div 
-          className="absolute bottom-0 left-0 right-0 z-20"
+          className="absolute bottom-0 left-0 right-0 z-50"
           style={{
             height: `${counterHeightPercent}%`,
           }}
