@@ -128,11 +128,12 @@ const Index = () => {
     onPartsFound: (parts: APIPart[], isAutoFetch?: boolean) => {
       // Prevent auto-fetch from overwriting user request parts
       if (isAutoFetch && productSourceRef.current === 'user') {
-        console.log('Ignoring auto-fetch parts - user request in progress');
+        console.log('[Index] Ignoring auto-fetch parts - user request in progress');
         return;
       }
       
       const products = parts.map(apiPartToProduct);
+      console.log('[Index] Parts received:', { count: products.length, isAutoFetch, source: productSourceRef.current });
       pendingPartsRef.current = products;
       
       // Mark source and display
@@ -140,6 +141,7 @@ const Index = () => {
         productSourceRef.current = 'auto';
         // Display immediately for auto-fetch
         if (sessionData?.vehicle) {
+          console.log('[Index] Setting displayedParts from auto-fetch:', products.length);
           setDisplayedParts(products);
         }
       }
@@ -159,6 +161,9 @@ const Index = () => {
       productSourceRef.current = 'user';
       setIsResearching(true);
       pendingPartsRef.current = [];
+      // Clear highlight when user sends new message
+      setHighlightedPartType(null);
+      setHighlightedProduct(null);
     },
     onReadyToSpeak: () => {
       // Reveal products and service packages when Bob starts speaking
@@ -171,10 +176,9 @@ const Index = () => {
       setIsResearching(false);
     },
     onHighlightPart: (partType: string) => {
-      console.log('Highlighting part type:', partType);
+      console.log('[Index] Highlighting part type:', partType);
       setHighlightedPartType(partType);
-      // Clear highlight after 8 seconds
-      setTimeout(() => setHighlightedPartType(null), 8000);
+      // Don't auto-clear - highlight persists until next highlight or user message
     },
     onHighlightProduct: (product: HighlightedProduct) => {
       console.log('Spotlighting product:', product);

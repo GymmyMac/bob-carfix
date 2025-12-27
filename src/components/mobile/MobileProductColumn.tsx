@@ -60,33 +60,35 @@ export const MobileProductColumn = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const spotlightedRef = useRef<HTMLDivElement>(null);
 
-  // Sort products: highlighted part type first, then spotlighted product at very top
-  const sortedProducts = [...products].sort((a, b) => {
-    const aIsSpotlighted = highlightedProduct && productMatchesSpotlight(a, highlightedProduct);
-    const bIsSpotlighted = highlightedProduct && productMatchesSpotlight(b, highlightedProduct);
-    
-    // Spotlighted products come first
-    if (aIsSpotlighted && !bIsSpotlighted) return -1;
-    if (bIsSpotlighted && !aIsSpotlighted) return 1;
-    
-    // Then highlighted part type products (using flexible matching)
-    const aIsHighlighted = highlightedPartType && 
-      matchesPartType(a.partslotDescription || '', highlightedPartType);
-    const bIsHighlighted = highlightedPartType && 
-      matchesPartType(b.partslotDescription || '', highlightedPartType);
-    
-    if (aIsHighlighted && !bIsHighlighted) return -1;
-    if (bIsHighlighted && !aIsHighlighted) return 1;
-    
-    return 0;
-  });
+  // Group products by partslotDescription (like desktop)
+  const groupedProducts = products.reduce((acc, product) => {
+    const key = product.partslotDescription || 'Other';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(product);
+    return acc;
+  }, {} as Record<string, Product[]>);
 
-  // Auto-scroll to top when highlighted product changes (since it's now sorted to top)
+  const groupKeys = Object.keys(groupedProducts);
+  const groupRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Log for debugging
   useEffect(() => {
-    if ((highlightedProduct || highlightedPartType) && scrollRef.current) {
-      scrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    console.log('[MobileProductColumn] highlightedPartType changed:', highlightedPartType);
+    console.log('[MobileProductColumn] product groups:', groupKeys);
+  }, [highlightedPartType, groupKeys.length]);
+
+  // Auto-scroll to highlighted section
+  useEffect(() => {
+    if (highlightedPartType && scrollRef.current) {
+      // Find the matching group using flexible matching
+      const matchingGroup = groupKeys.find(key => matchesPartType(key, highlightedPartType));
+      console.log('[MobileProductColumn] Looking for group matching:', highlightedPartType, '-> found:', matchingGroup);
+      
+      if (matchingGroup && groupRefs.current[matchingGroup]) {
+        groupRefs.current[matchingGroup]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
-  }, [highlightedProduct, highlightedPartType]);
+  }, [highlightedPartType, groupKeys]);
 
   const hasContent = products.length > 0 || servicePackages.length > 0;
   const showLoading = isResearching;
@@ -172,84 +174,83 @@ export const MobileProductColumn = ({
         </div>
       )}
 
-      {/* Products - sorted with highlighted first */}
-      {showContent && sortedProducts.slice(0, 8).map((product, index) => {
-        const isSpotlighted = highlightedProduct && productMatchesSpotlight(product, highlightedProduct);
-        const isHighlighted = highlightedPartType && 
-          matchesPartType(product.partslotDescription || '', highlightedPartType);
+      {/* Products - grouped by category like desktop */}
+      {showContent && groupKeys.map((groupName) => {
+        const groupProducts = groupedProducts[groupName];
+        const isGroupHighlighted = highlightedPartType && matchesPartType(groupName, highlightedPartType);
         
         return (
           <div
-            key={product.id}
-            ref={index === 0 ? spotlightedRef : undefined}
-            onClick={() => onProductClick?.(product)}
+            key={groupName}
+            ref={(el) => { groupRefs.current[groupName] = el; }}
             className={cn(
-              "bg-background/95 backdrop-blur-sm rounded-lg border shadow-lg",
-              "p-2 cursor-pointer transition-all duration-200",
-              "hover:scale-[1.02] active:scale-[0.98]",
-              isSpotlighted && "ring-2 ring-primary border-primary animate-pulse",
-              isHighlighted && "border-primary/50 bg-primary/5",
-              !isSpotlighted && !isHighlighted && "border-border"
+              "bg-background/95 backdrop-blur-sm rounded-lg border shadow-lg overflow-hidden",
+              isGroupHighlighted && "ring-2 ring-primary border-primary"
             )}
-            style={{ 
-              animationDelay: `${index * 50}ms`,
-              animation: 'fade-in 0.3s ease-out forwards'
-            }}
           >
-            {/* Bob's Pick Badge */}
-            {isSpotlighted && (
-              <Badge className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 z-10">
-                ★ Pick
-              </Badge>
-            )}
-            
-            {/* Product Image - compact */}
-            <div className="aspect-square bg-muted rounded-md mb-1.5 overflow-hidden">
-              <ProductImage 
-                sku={product.sku || product.id}
-                brand={product.brand}
-                alt={product.name}
-                className="w-full h-full object-contain"
-              />
+            {/* Group Header */}
+            <div className={cn(
+              "px-2 py-1.5 text-xs font-semibold",
+              isGroupHighlighted ? "bg-primary text-primary-foreground" : "bg-muted/50 text-foreground"
+            )}>
+              {groupName} ({groupProducts.length})
             </div>
             
-            {/* Product Info - compact */}
-            <p className="text-xs font-medium text-foreground line-clamp-2 leading-tight mb-0.5">
-              {product.name}
-            </p>
-            {product.brand && (
-              <p className="text-[10px] text-muted-foreground truncate">
-                {product.brand}
-              </p>
-            )}
-            <p className="text-sm font-bold text-primary mt-1">
-              ${product.price.toFixed(0)}
-            </p>
-            
-            {/* Add to Cart Button */}
-            <Button
-              size="sm"
-              className="w-full mt-2 h-7 text-xs gap-1"
-              onClick={(e) => {
-                e.stopPropagation();
-                onProductClick?.(product);
-              }}
-            >
-              <ShoppingCart className="h-3 w-3" />
-              Add
-            </Button>
+            {/* Products in group */}
+            <div className="p-1.5 space-y-1.5">
+              {groupProducts.slice(0, 3).map((product) => {
+                const isSpotlighted = highlightedProduct && productMatchesSpotlight(product, highlightedProduct);
+                
+                return (
+                  <div
+                    key={product.id}
+                    onClick={() => onProductClick?.(product)}
+                    className={cn(
+                      "p-2 rounded-md cursor-pointer transition-all",
+                      "hover:bg-muted active:scale-[0.98]",
+                      isSpotlighted && "ring-2 ring-primary bg-primary/10 animate-pulse"
+                    )}
+                  >
+                    <div className="flex gap-2">
+                      <div className="w-12 h-12 bg-muted rounded overflow-hidden flex-shrink-0">
+                        <ProductImage 
+                          sku={product.sku || product.id}
+                          brand={product.brand}
+                          alt={product.name}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-foreground line-clamp-1">
+                          {product.name}
+                        </p>
+                        {product.brand && (
+                          <p className="text-[10px] text-muted-foreground">
+                            {product.brand}
+                          </p>
+                        )}
+                        <p className="text-sm font-bold text-primary">
+                          ${product.price.toFixed(0)}
+                        </p>
+                      </div>
+                    </div>
+                    {isSpotlighted && (
+                      <Badge className="mt-1 bg-primary text-primary-foreground text-[10px]">
+                        ★ Bob's Pick
+                      </Badge>
+                    )}
+                  </div>
+                );
+              })}
+              {groupProducts.length > 3 && (
+                <p className="text-[10px] text-muted-foreground text-center py-1">
+                  +{groupProducts.length - 3} more
+                </p>
+              )}
+            </div>
           </div>
         );
       })}
-      
-      {/* More products indicator */}
-      {showContent && sortedProducts.length > 8 && (
-        <div className="bg-muted/50 rounded-lg p-2 text-center">
-          <p className="text-xs text-muted-foreground">
-            +{sortedProducts.length - 8} more parts
-          </p>
-        </div>
-      )}
     </div>
   );
 };
