@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { MobileBobCharacter } from "./MobileBobCharacter";
 import { MobileProductColumn } from "./MobileProductColumn";
 import { MobileChatDrawer } from "./MobileChatDrawer";
@@ -69,6 +69,35 @@ export const MobileBobLayout = ({
 }: MobileBobLayoutProps) => {
   // Detect if we're embedded in an iframe (CARFIX context)
   const isEmbedded = typeof window !== 'undefined' && window.self !== window.top;
+  
+  // Bob position and product visibility state for animation sequence
+  const [bobPosition, setBobPosition] = useState<'center' | 'left'>('center');
+  const [showProducts, setShowProducts] = useState(false);
+  
+  // When products arrive, trigger the animation sequence:
+  // 1. Slide Bob left
+  // 2. After animation completes, show products
+  useEffect(() => {
+    const hasProducts = products.length > 0 || servicePackages.length > 0;
+    
+    if (hasProducts && bobPosition === 'center') {
+      // Start sliding Bob left
+      setBobPosition('left');
+      
+      // After Bob's slide animation (400ms), reveal products
+      const timer = setTimeout(() => {
+        setShowProducts(true);
+      }, 400);
+      
+      return () => clearTimeout(timer);
+    }
+    
+    // If no products, reset to center (for when vehicle is cleared)
+    if (!hasProducts && bobPosition === 'left') {
+      setShowProducts(false);
+      setBobPosition('center');
+    }
+  }, [products.length, servicePackages.length, bobPosition]);
 
   return (
     <div 
@@ -104,6 +133,7 @@ export const MobileBobLayout = ({
         animationState={animationState}
         counterHeightPercent={15}
         scale={200}
+        position={bobPosition}
       />
 
       {/* Vehicle Context Bar - Top left (hidden when embedded in iframe) */}
@@ -145,6 +175,7 @@ export const MobileBobLayout = ({
         onProductClick={onProductClick}
         onPackageSelect={onPackageSelect}
         isResearching={isResearching}
+        visible={showProducts || isResearching}
       />
 
       {/* Layer 4: Collapsible Chat Drawer - Bottom */}
