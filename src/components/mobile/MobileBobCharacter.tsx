@@ -6,6 +6,7 @@ interface MobileBobCharacterProps {
   counterOverlayUrl?: string;
   counterHeightPercent?: number;
   scale?: number;
+  position?: 'center' | 'left';
 }
 
 export const MobileBobCharacter = ({
@@ -13,11 +14,15 @@ export const MobileBobCharacter = ({
   animationState,
   counterOverlayUrl = bobCounter,
   counterHeightPercent = 15,
-  scale = 100
+  scale = 100,
+  position = 'center'
 }: MobileBobCharacterProps) => {
   // Calculate scaled dimensions
   const scaledWidth = (85 * scale) / 100;
   const scaledMaxWidth = (400 * scale) / 100;
+  
+  // Position-based transform: center = face visible, left = pushed for products
+  const translateX = position === 'center' ? '-5%' : '-35%';
   
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -26,9 +31,10 @@ export const MobileBobCharacter = ({
         className="absolute left-0 z-10"
         style={{
           bottom: `${counterHeightPercent}%`,
-          transform: 'translateX(-20%)',
+          transform: `translateX(${translateX})`,
           width: `${scaledWidth}%`,
           maxWidth: `${scaledMaxWidth}px`,
+          transition: 'transform 0.4s ease-out',
         }}
       >
         <img 

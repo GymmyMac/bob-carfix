@@ -16,6 +16,7 @@ interface MobileProductColumnProps {
   onProductClick?: (product: Product) => void;
   onPackageSelect?: (pkg: ServicePackage) => void;
   isResearching?: boolean;
+  visible?: boolean;
 }
 
 // Check if a product matches the spotlight criteria
@@ -32,7 +33,8 @@ export const MobileProductColumn = ({
   highlightedProduct,
   onProductClick,
   onPackageSelect,
-  isResearching
+  isResearching,
+  visible = true
 }: MobileProductColumnProps) => {
   const [showPackages, setShowPackages] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -54,10 +56,14 @@ export const MobileProductColumn = ({
   return (
     <div 
       ref={scrollRef}
-      className="absolute right-2 top-4 bottom-24 w-[45%] max-w-[200px] 
-                 overflow-y-auto overflow-x-hidden z-20
-                 flex flex-col gap-2 pb-4
-                 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent"
+      className={cn(
+        "absolute right-2 top-4 bottom-24 w-[45%] max-w-[200px]",
+        "overflow-y-auto overflow-x-hidden z-20",
+        "flex flex-col gap-2 pb-4",
+        "scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent",
+        "transition-all duration-300 ease-out",
+        visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4 pointer-events-none"
+      )}
       style={{
         // Safe area for notches
         paddingTop: 'env(safe-area-inset-top, 4px)'
