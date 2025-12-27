@@ -21,8 +21,8 @@ export const MobileBobCharacter = ({
   const scaledWidth = (85 * scale) / 100;
   const scaledMaxWidth = (400 * scale) / 100;
   
-  // Position-based transform: center = face visible, left = pushed for products
-  const translateX = position === 'center' ? '-5%' : '-35%';
+  // Position-based transform: center = original offset, left = pushed further for products
+  const translateX = position === 'center' ? '-20%' : '-35%';
   
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
