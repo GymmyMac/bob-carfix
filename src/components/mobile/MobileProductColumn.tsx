@@ -40,7 +40,7 @@ const productMatchesSpotlight = (product: Product, spotlight: HighlightedProduct
   return brandMatch && priceMatch;
 };
 
-const CHAT_DRAWER_HEIGHT = 80;
+// Removed CHAT_DRAWER_HEIGHT - column sits above counter, not chat drawer
 
 export const MobileProductColumn = ({
   products,
@@ -103,7 +103,8 @@ export const MobileProductColumn = ({
   const hasContent = products.length > 0 || servicePackages.length > 0;
   const showLoading = isResearching;
   const showContent = hasContent && !isResearching;
-  const topOffset = hasVehicle ? '64px' : '16px';
+  // Maximize vertical space - just below vehicle bar or near top
+  const topOffset = hasVehicle ? '56px' : '8px';
 
   return (
     <div 
@@ -118,7 +119,7 @@ export const MobileProductColumn = ({
       )}
       style={{
         top: topOffset,
-        bottom: `calc(${counterHeightPercent + 4}% + ${CHAT_DRAWER_HEIGHT}px)`,
+        bottom: `calc(${counterHeightPercent}% + 16px)`,
         paddingTop: 'env(safe-area-inset-top, 4px)'
       }}
     >
@@ -170,8 +171,8 @@ export const MobileProductColumn = ({
               if (isFirstHighlighted) highlightedRef.current = el;
             }}
             className={cn(
-              "rounded-lg transition-all",
-              isHighlighted && "ring-2 ring-primary p-2 bg-primary/5"
+              "rounded-lg transition-all border border-transparent",
+              isHighlighted && "ring-2 ring-primary p-2 bg-primary/10 shadow-lg shadow-primary/20"
             )}
           >
             {/* Group Header */}
@@ -198,7 +199,8 @@ export const MobileProductColumn = ({
                     onClick={() => onProductClick?.(product)}
                     className={cn(
                       "cursor-pointer transition-all hover:shadow-md bg-transparent relative",
-                      isSpotlighted && "ring-2 ring-primary scale-[1.02] z-10"
+                      "border border-border/30",
+                      isSpotlighted && "ring-4 ring-primary animate-spotlight-pulse scale-105 z-10"
                     )}
                   >
                     {/* Bob's Pick Badge */}
