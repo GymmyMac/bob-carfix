@@ -33,16 +33,20 @@ interface Window {
   };
 }
 
+type SpeechMode = 'toggle' | 'ptt';
+
 interface UseSpeechRecognitionProps {
   onTranscript?: (transcript: string) => void;
   onSpeechEnd?: (transcript: string) => void;
   language?: string;
+  mode?: SpeechMode;
 }
 
 export const useSpeechRecognition = ({
   onTranscript,
   onSpeechEnd,
-  language = 'en-NZ'
+  language = 'en-NZ',
+  mode = 'toggle'
 }: UseSpeechRecognitionProps = {}) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -69,7 +73,8 @@ export const useSpeechRecognition = ({
       setIsSupported(true);
       const recognition: SpeechRecognition = new SpeechRecognitionAPI();
       
-      recognition.continuous = false; // Single utterance
+      // PTT mode: continuous listening while held; Toggle: single utterance
+      recognition.continuous = mode === 'ptt';
       recognition.interimResults = true; // Show real-time results
       recognition.lang = language;
       recognition.maxAlternatives = 1;
@@ -139,7 +144,7 @@ export const useSpeechRecognition = ({
         recognitionRef.current.stop();
       }
     };
-  }, [language]);
+  }, [language, mode]);
 
   const startListening = () => {
     if (recognitionRef.current && !isListening) {

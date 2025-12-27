@@ -3,7 +3,8 @@ import { Input } from "@/components/ui/input";
 import { Send, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 import { Message } from "@/hooks/useBobChat";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
-import { useEffect } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { cn } from "@/lib/utils";
 
 interface ChatInterfaceProps {
   messages: Message[];
@@ -20,6 +21,8 @@ interface ChatInterfaceProps {
   isSpeaking?: boolean;
 }
 
+type VoiceMode = 'toggle' | 'ptt';
+
 export const ChatInterface = ({
   messages,
   input,
@@ -34,25 +37,39 @@ export const ChatInterface = ({
   onToggleMute,
   isSpeaking = false
 }: ChatInterfaceProps) => {
+  const [voiceMode, setVoiceMode] = useState<VoiceMode>(() => {
+    const saved = localStorage.getItem('bob-voice-mode');
+    return (saved === 'ptt' || saved === 'toggle') ? saved : 'ptt';
+  });
+  const pttActiveRef = useRef(false);
+
   const {
     isListening,
     transcript,
     interimTranscript,
     error: sttError,
     isSupported,
+    startListening,
+    stopListening,
     toggleListening
   } = useSpeechRecognition({
     onTranscript: (text) => setInput(text),
     onSpeechEnd: (text) => {
-      // Auto-send after a brief delay so user sees the transcribed text
-      if (text.trim() && !isLoading) {
+      // Only auto-send in toggle mode
+      if (voiceMode === 'toggle' && text.trim() && !isLoading) {
         setTimeout(() => {
           onSend();
         }, 300);
       }
     },
-    language: 'en-NZ'
+    language: 'en-NZ',
+    mode: voiceMode
   });
+
+  // Save voice mode preference
+  useEffect(() => {
+    localStorage.setItem('bob-voice-mode', voiceMode);
+  }, [voiceMode]);
 
   // Update input with interim transcript for real-time feedback
   useEffect(() => {
@@ -60,6 +77,27 @@ export const ChatInterface = ({
       setInput(interimTranscript);
     }
   }, [interimTranscript, setInput]);
+
+  // PTT handlers
+  const handlePTTStart = useCallback(() => {
+    if (isLoading || pttActiveRef.current) return;
+    pttActiveRef.current = true;
+    startListening();
+  }, [isLoading, startListening]);
+
+  const handlePTTEnd = useCallback(() => {
+    if (!pttActiveRef.current) return;
+    pttActiveRef.current = false;
+    stopListening();
+    // Send after brief delay to capture final transcript
+    setTimeout(() => {
+      onSend();
+    }, 150);
+  }, [stopListening, onSend]);
+
+  const toggleVoiceMode = () => {
+    setVoiceMode(prev => prev === 'toggle' ? 'ptt' : 'toggle');
+  };
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 pb-8">
@@ -103,13 +141,13 @@ export const ChatInterface = ({
                 )}
               </Button>
             )}
-            {isSupported && (
+            {isSupported && voiceMode === 'toggle' && (
               <Button
                 onClick={toggleListening}
                 disabled={isLoading}
                 size="icon"
                 variant={isListening ? "destructive" : "outline"}
-                className={`shrink-0 ${isListening ? 'animate-pulse' : ''}`}
+                className={cn("shrink-0", isListening && "animate-pulse")}
                 title={isListening ? "Stop recording" : "Start voice input"}
               >
                 {isListening ? (
@@ -117,6 +155,36 @@ export const ChatInterface = ({
                 ) : (
                   <Mic className="h-4 w-4" />
                 )}
+              </Button>
+            )}
+            {isSupported && voiceMode === 'ptt' && (
+              <Button
+                onMouseDown={handlePTTStart}
+                onMouseUp={handlePTTEnd}
+                onMouseLeave={handlePTTEnd}
+                onTouchStart={handlePTTStart}
+                onTouchEnd={handlePTTEnd}
+                disabled={isLoading}
+                size="icon"
+                variant={isListening ? "destructive" : "outline"}
+                className={cn(
+                  "shrink-0 select-none",
+                  isListening && "animate-pulse ring-2 ring-destructive/50 scale-110"
+                )}
+                title="Hold to talk"
+              >
+                <Mic className="h-4 w-4" />
+              </Button>
+            )}
+            {isSupported && (
+              <Button
+                onClick={toggleVoiceMode}
+                size="icon"
+                variant="ghost"
+                className="shrink-0 text-xs"
+                title={`Switch to ${voiceMode === 'ptt' ? 'toggle' : 'hold-to-talk'} mode`}
+              >
+                {voiceMode === 'ptt' ? 'PTT' : 'TOG'}
               </Button>
             )}
             <Button
