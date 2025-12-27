@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { MobileBobCharacter } from "./MobileBobCharacter";
 import { MobileProductColumn } from "./MobileProductColumn";
 import { MobileChatDrawer } from "./MobileChatDrawer";
@@ -8,6 +8,9 @@ import { ServicePackage } from "@/types/servicePackage";
 import { Vehicle } from "@/types/vehicle";
 import { HighlightedProduct } from "@/hooks/useBobChat";
 import bobBgWall from "@/assets/bob-bg-wall.png";
+
+// Panel visibility state machine to prevent dead zones
+type PanelState = 'hidden' | 'loading' | 'transitioning' | 'visible';
 
 interface MobileBobLayoutProps {
   // Bob animation
@@ -70,34 +73,65 @@ export const MobileBobLayout = ({
   // Detect if we're embedded in an iframe (CARFIX context)
   const isEmbedded = typeof window !== 'undefined' && window.self !== window.top;
   
-  // Bob position and product visibility state for animation sequence
+  // Bob position state
   const [bobPosition, setBobPosition] = useState<'center' | 'left'>('center');
-  const [showProducts, setShowProducts] = useState(false);
   
-  // When products arrive, trigger the animation sequence:
-  // 1. Slide Bob left
-  // 2. After animation completes, show products
+  // Panel state machine - eliminates the 400ms visibility dead zone
+  const [panelState, setPanelState] = useState<PanelState>('hidden');
+  
+  const hasProducts = products.length > 0 || servicePackages.length > 0;
+  
+  // State machine for panel visibility
   useEffect(() => {
-    const hasProducts = products.length > 0 || servicePackages.length > 0;
+    console.log('[MobileBobLayout] State check:', { 
+      isResearching, 
+      hasProducts, 
+      panelState, 
+      bobPosition,
+      productCount: products.length,
+      packageCount: servicePackages.length
+    });
     
-    if (hasProducts && bobPosition === 'center') {
-      // Start sliding Bob left
-      setBobPosition('left');
+    if (isResearching && panelState !== 'loading' && panelState !== 'visible') {
+      // Research started - show loading immediately
+      console.log('[MobileBobLayout] → loading state');
+      setPanelState('loading');
       
-      // After Bob's slide animation (400ms), reveal products
-      const timer = setTimeout(() => {
-        setShowProducts(true);
-      }, 400);
-      
-      return () => clearTimeout(timer);
-    }
-    
-    // If no products, reset to center (for when vehicle is cleared)
-    if (!hasProducts && bobPosition === 'left') {
-      setShowProducts(false);
+      // Move Bob left if not already
+      if (bobPosition === 'center') {
+        setBobPosition('left');
+      }
+    } else if (hasProducts && panelState !== 'visible') {
+      // Products arrived
+      if (bobPosition === 'center') {
+        // Need to slide Bob first
+        console.log('[MobileBobLayout] → transitioning state (sliding Bob)');
+        setBobPosition('left');
+        setPanelState('transitioning');
+        
+        // After Bob's slide animation, show products
+        const timer = setTimeout(() => {
+          console.log('[MobileBobLayout] → visible state (after slide)');
+          setPanelState('visible');
+        }, 400);
+        
+        return () => clearTimeout(timer);
+      } else {
+        // Bob already left, show products immediately
+        console.log('[MobileBobLayout] → visible state (Bob already left)');
+        setPanelState('visible');
+      }
+    } else if (!hasProducts && !isResearching && panelState !== 'hidden') {
+      // No products and not researching - hide panel and reset Bob
+      console.log('[MobileBobLayout] → hidden state');
+      setPanelState('hidden');
       setBobPosition('center');
     }
-  }, [products.length, servicePackages.length, bobPosition]);
+  }, [hasProducts, isResearching, panelState, bobPosition, products.length, servicePackages.length]);
+
+  // Determine if product column should be visible
+  // visible during: loading, transitioning, or visible states
+  const showProductColumn = panelState !== 'hidden';
 
   return (
     <div 
@@ -175,7 +209,7 @@ export const MobileBobLayout = ({
         onProductClick={onProductClick}
         onPackageSelect={onPackageSelect}
         isResearching={isResearching}
-        visible={showProducts || isResearching}
+        visible={showProductColumn}
         counterHeightPercent={22}
       />
 

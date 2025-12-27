@@ -2,7 +2,6 @@ import { Product } from "@/types/product";
 import { ServicePackage } from "@/types/servicePackage";
 import { ProductImage } from "@/components/ProductImage";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Package, ChevronDown, ChevronUp } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -27,6 +26,9 @@ const productMatchesSpotlight = (product: Product, spotlight: HighlightedProduct
   return brandMatch && priceMatch;
 };
 
+// Chat drawer collapsed height (approximately 80px)
+const CHAT_DRAWER_HEIGHT = 80;
+
 export const MobileProductColumn = ({
   products,
   servicePackages,
@@ -50,31 +52,31 @@ export const MobileProductColumn = ({
   }, [highlightedProduct]);
 
   const hasContent = products.length > 0 || servicePackages.length > 0;
+  const showLoading = isResearching;
+  const showContent = hasContent && !isResearching;
 
-  if (!hasContent && !isResearching) {
-    return null;
-  }
-
+  // Always render the container - use CSS for visibility
+  // This prevents unmounting/remounting flicker
   return (
     <div 
       ref={scrollRef}
       className={cn(
         "absolute right-2 top-4 w-[45%] max-w-[200px]",
-        "overflow-y-auto overflow-x-hidden z-30",
+        "overflow-y-auto overflow-x-hidden z-40", // z-40 to be above chat drawer (z-30)
         "flex flex-col gap-2 pb-4",
         "scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent",
         "transition-all duration-300 ease-out",
-        visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4 pointer-events-none"
+        visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-8 pointer-events-none"
       )}
       style={{
         // Safe area for notches
         paddingTop: 'env(safe-area-inset-top, 4px)',
-        // Position above counter
-        bottom: `${counterHeightPercent + 4}%`
+        // Position above counter AND above chat drawer
+        bottom: `calc(${counterHeightPercent + 4}% + ${CHAT_DRAWER_HEIGHT}px)`
       }}
     >
       {/* Loading state */}
-      {isResearching && (
+      {showLoading && (
         <div className="bg-background/90 backdrop-blur-sm rounded-lg p-3 border border-border shadow-lg">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -84,7 +86,7 @@ export const MobileProductColumn = ({
       )}
 
       {/* Service Packages */}
-      {servicePackages.length > 0 && (
+      {showContent && servicePackages.length > 0 && (
         <div className="bg-background/95 backdrop-blur-sm rounded-lg border border-border shadow-lg overflow-hidden">
           <button
             onClick={() => setShowPackages(!showPackages)}
@@ -129,7 +131,7 @@ export const MobileProductColumn = ({
       )}
 
       {/* Products */}
-      {products.slice(0, 8).map((product, index) => {
+      {showContent && products.slice(0, 8).map((product, index) => {
         const isSpotlighted = highlightedProduct && productMatchesSpotlight(product, highlightedProduct);
         const isHighlighted = highlightedPartType && 
           product.partslotDescription?.toLowerCase().includes(highlightedPartType.toLowerCase());
@@ -186,7 +188,7 @@ export const MobileProductColumn = ({
       })}
       
       {/* More products indicator */}
-      {products.length > 8 && (
+      {showContent && products.length > 8 && (
         <div className="bg-muted/50 rounded-lg p-2 text-center">
           <p className="text-xs text-muted-foreground">
             +{products.length - 8} more parts
