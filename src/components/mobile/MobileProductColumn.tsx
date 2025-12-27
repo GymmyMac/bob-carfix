@@ -1,7 +1,7 @@
 import { Product } from "@/types/product";
 import { ServicePackage } from "@/types/servicePackage";
 import { ProductImage } from "@/components/ProductImage";
-import { Badge } from "@/components/ui/badge";
+// Badge removed - using inline star instead
 import { Button } from "@/components/ui/button";
 import { Package, ChevronDown, ChevronUp, ShoppingCart } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
@@ -174,8 +174,8 @@ export const MobileProductColumn = ({
         </div>
       )}
 
-      {/* Products - grouped by category like desktop */}
-      {showContent && groupKeys.map((groupName) => {
+      {/* Products - show compact cards, scroll to highlighted group */}
+      {showContent && groupKeys.slice(0, 6).map((groupName) => {
         const groupProducts = groupedProducts[groupName];
         const isGroupHighlighted = highlightedPartType && matchesPartType(groupName, highlightedPartType);
         
@@ -184,21 +184,22 @@ export const MobileProductColumn = ({
             key={groupName}
             ref={(el) => { groupRefs.current[groupName] = el; }}
             className={cn(
-              "bg-background/95 backdrop-blur-sm rounded-lg border shadow-lg overflow-hidden",
+              "bg-background/95 backdrop-blur-sm rounded-lg overflow-hidden",
+              "border border-border/50 shadow-md",
               isGroupHighlighted && "ring-2 ring-primary border-primary"
             )}
           >
-            {/* Group Header */}
+            {/* Compact Group Header */}
             <div className={cn(
-              "px-2 py-1.5 text-xs font-semibold",
-              isGroupHighlighted ? "bg-primary text-primary-foreground" : "bg-muted/50 text-foreground"
+              "px-2 py-1 text-[10px] font-semibold uppercase tracking-wide",
+              isGroupHighlighted ? "bg-primary text-primary-foreground" : "bg-muted/80 text-muted-foreground"
             )}>
-              {groupName} ({groupProducts.length})
+              {groupName}
             </div>
             
-            {/* Products in group */}
-            <div className="p-1.5 space-y-1.5">
-              {groupProducts.slice(0, 3).map((product) => {
+            {/* Products in group - show 2 max per group for space */}
+            <div className="p-1 space-y-1">
+              {groupProducts.slice(0, 2).map((product) => {
                 const isSpotlighted = highlightedProduct && productMatchesSpotlight(product, highlightedProduct);
                 
                 return (
@@ -206,51 +207,53 @@ export const MobileProductColumn = ({
                     key={product.id}
                     onClick={() => onProductClick?.(product)}
                     className={cn(
-                      "p-2 rounded-md cursor-pointer transition-all",
-                      "hover:bg-muted active:scale-[0.98]",
-                      isSpotlighted && "ring-2 ring-primary bg-primary/10 animate-pulse"
+                      "flex items-center gap-2 p-1.5 rounded cursor-pointer transition-all",
+                      "hover:bg-muted/50 active:scale-[0.98]",
+                      isSpotlighted && "ring-1 ring-primary bg-primary/10"
                     )}
                   >
-                    <div className="flex gap-2">
-                      <div className="w-12 h-12 bg-muted rounded overflow-hidden flex-shrink-0">
-                        <ProductImage 
-                          sku={product.sku || product.id}
-                          brand={product.brand}
-                          alt={product.name}
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-foreground line-clamp-1">
-                          {product.name}
-                        </p>
-                        {product.brand && (
-                          <p className="text-[10px] text-muted-foreground">
-                            {product.brand}
-                          </p>
-                        )}
-                        <p className="text-sm font-bold text-primary">
-                          ${product.price.toFixed(0)}
-                        </p>
-                      </div>
+                    {/* Tiny product image */}
+                    <div className="w-8 h-8 bg-muted rounded overflow-hidden flex-shrink-0">
+                      <ProductImage 
+                        sku={product.sku || product.id}
+                        brand={product.brand}
+                        alt={product.name}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    {/* Product info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-medium text-foreground line-clamp-1">
+                        {product.brand || product.name}
+                      </p>
+                      <p className="text-xs font-bold text-primary">
+                        ${product.price.toFixed(0)}
+                      </p>
                     </div>
                     {isSpotlighted && (
-                      <Badge className="mt-1 bg-primary text-primary-foreground text-[10px]">
-                        ★ Bob's Pick
-                      </Badge>
+                      <span className="text-[8px] text-primary font-bold">★</span>
                     )}
                   </div>
                 );
               })}
-              {groupProducts.length > 3 && (
-                <p className="text-[10px] text-muted-foreground text-center py-1">
-                  +{groupProducts.length - 3} more
+              {groupProducts.length > 2 && (
+                <p className="text-[9px] text-muted-foreground text-center">
+                  +{groupProducts.length - 2} more
                 </p>
               )}
             </div>
           </div>
         );
       })}
+      
+      {/* Show more groups indicator */}
+      {showContent && groupKeys.length > 6 && (
+        <div className="bg-muted/50 rounded-lg py-1.5 text-center">
+          <p className="text-[10px] text-muted-foreground">
+            +{groupKeys.length - 6} more categories
+          </p>
+        </div>
+      )}
     </div>
   );
 };
