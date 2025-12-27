@@ -2,9 +2,10 @@ import { Product } from "@/types/product";
 import { ServicePackage } from "@/types/servicePackage";
 import { ProductImage } from "@/components/ProductImage";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Package, ChevronDown, ChevronUp, ShoppingCart } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { Package, Star } from "lucide-react";
+import { useRef, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { HighlightedProduct } from "@/hooks/useBobChat";
 
@@ -18,17 +19,15 @@ interface MobileProductColumnProps {
   isResearching?: boolean;
   visible?: boolean;
   counterHeightPercent?: number;
-  hasVehicle?: boolean; // For dynamic top offset
+  hasVehicle?: boolean;
 }
 
 // Flexible matching: handles plurals and word variations
-// "SPARK PLUG" matches "SPARK PLUG SET", "SPARK PLUGS", etc.
 const matchesPartType = (description: string, partType: string): boolean => {
   if (!description || !partType) return false;
   const desc = description.toLowerCase();
-  // Normalize: remove trailing 's' for plural handling
   const baseTerms = partType.toLowerCase()
-    .replace(/s\b/g, '') // "plugs" → "plug", "brakes" → "brake"
+    .replace(/s\b/g, '')
     .split(/\s+/)
     .filter(Boolean);
   return baseTerms.every(term => desc.includes(term));
@@ -41,7 +40,6 @@ const productMatchesSpotlight = (product: Product, spotlight: HighlightedProduct
   return brandMatch && priceMatch;
 };
 
-// Chat drawer collapsed height (approximately 80px)
 const CHAT_DRAWER_HEIGHT = 80;
 
 export const MobileProductColumn = ({
@@ -56,72 +54,77 @@ export const MobileProductColumn = ({
   counterHeightPercent = 22,
   hasVehicle = false
 }: MobileProductColumnProps) => {
-  const [showPackages, setShowPackages] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const highlightedRef = useRef<HTMLElement>(null);
   const spotlightedRef = useRef<HTMLDivElement>(null);
+  const groupRefs = useRef<Record<string, HTMLElement | null>>({});
 
-  // Group products by partslotDescription (like desktop)
-  const groupedProducts = products.reduce((acc, product) => {
-    const key = product.partslotDescription || 'Other';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(product);
-    return acc;
-  }, {} as Record<string, Product[]>);
+  // Group products by partslotDescription - matching ProductShelf exactly
+  const groupedProducts = useMemo(() => {
+    const groups: Record<string, Product[]> = {};
+    
+    products.forEach(product => {
+      const key = product.partslotDescription || 'Other Parts';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(product);
+    });
+    
+    // Sort group names alphabetically for stable order
+    const sortedGroupNames = Object.keys(groups).sort((a, b) => a.localeCompare(b));
+    
+    return sortedGroupNames.map(name => ({ name, products: groups[name] }));
+  }, [products]);
 
-  const groupKeys = Object.keys(groupedProducts);
-  const groupRefs = useRef<Record<string, HTMLDivElement | null>>({});
-
-  // Log for debugging
+  // Debug logging
   useEffect(() => {
-    console.log('[MobileProductColumn] highlightedPartType changed:', highlightedPartType);
-    console.log('[MobileProductColumn] product groups:', groupKeys);
-  }, [highlightedPartType, groupKeys.length]);
+    console.log('[MobileProductColumn] highlightedPartType:', highlightedPartType);
+    console.log('[MobileProductColumn] groups:', groupedProducts.map(g => g.name));
+  }, [highlightedPartType, groupedProducts]);
 
   // Auto-scroll to highlighted section
   useEffect(() => {
-    if (highlightedPartType && scrollRef.current) {
-      // Find the matching group using flexible matching
-      const matchingGroup = groupKeys.find(key => matchesPartType(key, highlightedPartType));
-      console.log('[MobileProductColumn] Looking for group matching:', highlightedPartType, '-> found:', matchingGroup);
+    if (highlightedPartType) {
+      const matchingGroup = groupedProducts.find(g => matchesPartType(g.name, highlightedPartType));
+      console.log('[MobileProductColumn] Scroll to:', matchingGroup?.name);
       
-      if (matchingGroup && groupRefs.current[matchingGroup]) {
-        groupRefs.current[matchingGroup]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (matchingGroup && groupRefs.current[matchingGroup.name]) {
+        groupRefs.current[matchingGroup.name]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }
-  }, [highlightedPartType, groupKeys]);
+  }, [highlightedPartType, groupedProducts]);
+
+  // Auto-scroll to spotlighted product
+  useEffect(() => {
+    if (highlightedProduct && spotlightedRef.current) {
+      spotlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlightedProduct]);
 
   const hasContent = products.length > 0 || servicePackages.length > 0;
   const showLoading = isResearching;
   const showContent = hasContent && !isResearching;
-
-  // Calculate dynamic top offset based on vehicle bar presence
   const topOffset = hasVehicle ? '64px' : '16px';
 
-  // Always render the container - use CSS for visibility
-  // This prevents unmounting/remounting flicker
   return (
     <div 
       ref={scrollRef}
       className={cn(
         "absolute right-2 w-[45%] max-w-[200px]",
-        "overflow-y-auto overflow-x-hidden z-40", // z-40 to be above chat drawer (z-30)
-        "flex flex-col gap-2 pb-4",
+        "overflow-y-auto overflow-x-hidden z-40",
+        "flex flex-col gap-3 pb-4",
         "scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent",
         "transition-all duration-300 ease-out",
         visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-8 pointer-events-none"
       )}
       style={{
-        // Dynamic top based on vehicle bar
         top: topOffset,
-        // Position above counter AND above chat drawer
         bottom: `calc(${counterHeightPercent + 4}% + ${CHAT_DRAWER_HEIGHT}px)`,
-        // Safe area for notches
         paddingTop: 'env(safe-area-inset-top, 4px)'
       }}
     >
       {/* Loading state */}
       {showLoading && (
-        <div className="bg-background/90 backdrop-blur-sm rounded-lg p-3 border border-border shadow-lg">
+        <div className="rounded-lg p-3">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             <span>Finding parts...</span>
@@ -129,90 +132,84 @@ export const MobileProductColumn = ({
         </div>
       )}
 
-      {/* Service Packages */}
+      {/* Service Packages - compact display */}
       {showContent && servicePackages.length > 0 && (
-        <div className="bg-background/95 backdrop-blur-sm rounded-lg border border-border shadow-lg overflow-hidden">
-          <button
-            onClick={() => setShowPackages(!showPackages)}
-            className="w-full p-2 flex items-center justify-between text-left bg-primary/10"
-          >
-            <span className="text-xs font-semibold text-primary flex items-center gap-1">
-              <Package className="h-3 w-3" />
-              Packages ({servicePackages.length})
-            </span>
-            {showPackages ? (
-              <ChevronUp className="h-3 w-3 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="h-3 w-3 text-muted-foreground" />
-            )}
-          </button>
-          
-          {showPackages && (
-            <div className="p-1.5 space-y-1.5">
-              {servicePackages.slice(0, 3).map((pkg) => (
-                <button
-                  key={pkg.id}
-                  onClick={() => onPackageSelect?.(pkg)}
-                  className="w-full p-2 rounded-md bg-muted/50 hover:bg-muted 
-                           text-left transition-colors"
-                >
-                  <p className="text-xs font-medium text-foreground truncate">
-                    {pkg.title}
-                  </p>
-                  <p className="text-xs font-bold text-primary">
-                    ${pkg.from_price.toFixed(0)}
-                  </p>
-                </button>
-              ))}
-              {servicePackages.length > 3 && (
-                <p className="text-xs text-muted-foreground text-center py-1">
-                  +{servicePackages.length - 3} more
-                </p>
-              )}
-            </div>
-          )}
+        <div className="space-y-2">
+          <div className="text-xs font-semibold text-primary flex items-center gap-1 px-1">
+            <Package className="h-3 w-3" />
+            Service Packages
+          </div>
+          {servicePackages.map((pkg) => (
+            <Card
+              key={pkg.id}
+              onClick={() => onPackageSelect?.(pkg)}
+              className="cursor-pointer hover:shadow-md transition-all bg-transparent"
+            >
+              <CardContent className="p-2">
+                <p className="text-xs font-medium line-clamp-1">{pkg.title}</p>
+                <p className="text-sm font-bold text-primary">${pkg.from_price.toFixed(0)}</p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
-      {/* Products - show compact cards, scroll to highlighted group */}
-      {showContent && groupKeys.slice(0, 6).map((groupName) => {
-        const groupProducts = groupedProducts[groupName];
-        const isGroupHighlighted = highlightedPartType && matchesPartType(groupName, highlightedPartType);
+      {/* Products - ALL groups, ALL products, transparent cards */}
+      {showContent && groupedProducts.map(({ name, products: groupProducts }, groupIndex) => {
+        const isHighlighted = highlightedPartType && matchesPartType(name, highlightedPartType);
+        const firstHighlightedIndex = highlightedPartType 
+          ? groupedProducts.findIndex(g => matchesPartType(g.name, highlightedPartType))
+          : -1;
+        const isFirstHighlighted = isHighlighted && groupIndex === firstHighlightedIndex;
         
         return (
-          <div
-            key={groupName}
-            ref={(el) => { groupRefs.current[groupName] = el; }}
+          <section 
+            key={name}
+            ref={(el) => { 
+              groupRefs.current[name] = el;
+              if (isFirstHighlighted) highlightedRef.current = el;
+            }}
             className={cn(
-              "bg-background/95 backdrop-blur-sm rounded-lg overflow-hidden",
-              "border border-border/50 shadow-md",
-              isGroupHighlighted && "ring-2 ring-primary border-primary"
+              "rounded-lg transition-all",
+              isHighlighted && "ring-2 ring-primary p-2 bg-primary/5"
             )}
           >
-            {/* Compact Group Header */}
-            <div className={cn(
-              "px-2 py-1 text-[10px] font-semibold uppercase tracking-wide",
-              isGroupHighlighted ? "bg-primary text-primary-foreground" : "bg-muted/80 text-muted-foreground"
-            )}>
-              {groupName}
-            </div>
+            {/* Group Header */}
+            <h3 className="text-xs font-semibold mb-2 flex items-center gap-1 px-1 text-foreground">
+              <Package className="h-3 w-3 text-muted-foreground" />
+              <span className="truncate">{name}</span>
+              <span className="text-[10px] text-muted-foreground">({groupProducts.length})</span>
+              {isHighlighted && (
+                <Badge className="bg-primary text-primary-foreground text-[8px] px-1 py-0 ml-1">
+                  ★
+                </Badge>
+              )}
+            </h3>
             
-            {/* Products in group - proper cards */}
-            <div className="p-2 space-y-2">
-              {groupProducts.slice(0, 3).map((product) => {
+            {/* Product Cards - show ALL, no slice */}
+            <div className="space-y-2">
+              {groupProducts.map((product, index) => {
                 const isSpotlighted = highlightedProduct && productMatchesSpotlight(product, highlightedProduct);
                 
                 return (
                   <Card 
-                    key={product.id}
+                    key={`${product.id}-${index}`}
+                    ref={isSpotlighted ? spotlightedRef : undefined}
                     onClick={() => onProductClick?.(product)}
                     className={cn(
-                      "cursor-pointer transition-all hover:shadow-md",
-                      isSpotlighted && "ring-2 ring-primary bg-primary/5"
+                      "cursor-pointer transition-all hover:shadow-md bg-transparent relative",
+                      isSpotlighted && "ring-2 ring-primary scale-[1.02] z-10"
                     )}
                   >
+                    {/* Bob's Pick Badge */}
+                    {isSpotlighted && (
+                      <Badge className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-[8px] px-1 py-0.5 z-20">
+                        <Star className="h-2 w-2 mr-0.5 fill-current" />
+                        Pick
+                      </Badge>
+                    )}
                     <CardHeader className="p-2">
-                      <div className="aspect-square bg-muted rounded-md mb-1 flex items-center justify-center overflow-hidden">
+                      <div className="aspect-square bg-muted/50 rounded-md mb-1 flex items-center justify-center overflow-hidden">
                         <ProductImage 
                           sku={product.sku || product.id}
                           brand={product.brand}
@@ -239,31 +236,16 @@ export const MobileProductColumn = ({
                           onProductClick?.(product);
                         }}
                       >
-                        <ShoppingCart className="h-3 w-3 mr-1" />
                         Buy Now
                       </Button>
                     </CardFooter>
                   </Card>
                 );
               })}
-              {groupProducts.length > 3 && (
-                <p className="text-xs text-muted-foreground text-center py-1">
-                  +{groupProducts.length - 3} more
-                </p>
-              )}
             </div>
-          </div>
+          </section>
         );
       })}
-      
-      {/* Show more groups indicator */}
-      {showContent && groupKeys.length > 6 && (
-        <div className="bg-muted/50 rounded-lg py-1.5 text-center">
-          <p className="text-[10px] text-muted-foreground">
-            +{groupKeys.length - 6} more categories
-          </p>
-        </div>
-      )}
     </div>
   );
 };
