@@ -176,6 +176,7 @@ export const MobileBobLayout = ({
         onPackageSelect={onPackageSelect}
         isResearching={isResearching}
         visible={showProducts || isResearching}
+        counterHeightPercent={22}
       />
 
       {/* Layer 4: Collapsible Chat Drawer - Bottom */}

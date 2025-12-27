@@ -17,6 +17,7 @@ interface MobileProductColumnProps {
   onPackageSelect?: (pkg: ServicePackage) => void;
   isResearching?: boolean;
   visible?: boolean;
+  counterHeightPercent?: number;
 }
 
 // Check if a product matches the spotlight criteria
@@ -34,7 +35,8 @@ export const MobileProductColumn = ({
   onProductClick,
   onPackageSelect,
   isResearching,
-  visible = true
+  visible = true,
+  counterHeightPercent = 22
 }: MobileProductColumnProps) => {
   const [showPackages, setShowPackages] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -57,7 +59,7 @@ export const MobileProductColumn = ({
     <div 
       ref={scrollRef}
       className={cn(
-        "absolute right-2 top-4 bottom-24 w-[45%] max-w-[200px]",
+        "absolute right-2 top-4 w-[45%] max-w-[200px]",
         "overflow-y-auto overflow-x-hidden z-20",
         "flex flex-col gap-2 pb-4",
         "scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent",
@@ -66,7 +68,9 @@ export const MobileProductColumn = ({
       )}
       style={{
         // Safe area for notches
-        paddingTop: 'env(safe-area-inset-top, 4px)'
+        paddingTop: 'env(safe-area-inset-top, 4px)',
+        // Position above counter
+        bottom: `${counterHeightPercent + 4}%`
       }}
     >
       {/* Loading state */}
