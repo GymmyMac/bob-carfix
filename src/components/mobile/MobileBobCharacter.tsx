@@ -30,7 +30,7 @@ export const MobileBobCharacter = ({
       <div 
         className="absolute left-0 z-10"
         style={{
-          bottom: `${counterHeightPercent}%`,
+          bottom: `${counterHeightPercent - 2}%`,
           transform: `translateX(${translateX})`,
           width: `${scaledWidth}%`,
           maxWidth: `${scaledMaxWidth}px`,
