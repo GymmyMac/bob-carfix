@@ -1,7 +1,7 @@
 import { Product } from "@/types/product";
 import { ServicePackage } from "@/types/servicePackage";
 import { ProductImage } from "@/components/ProductImage";
-// Badge removed - using inline star instead
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Package, ChevronDown, ChevronUp, ShoppingCart } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
@@ -197,48 +197,58 @@ export const MobileProductColumn = ({
               {groupName}
             </div>
             
-            {/* Products in group - show 2 max per group for space */}
-            <div className="p-1 space-y-1">
-              {groupProducts.slice(0, 2).map((product) => {
+            {/* Products in group - proper cards */}
+            <div className="p-2 space-y-2">
+              {groupProducts.slice(0, 3).map((product) => {
                 const isSpotlighted = highlightedProduct && productMatchesSpotlight(product, highlightedProduct);
                 
                 return (
-                  <div
+                  <Card 
                     key={product.id}
                     onClick={() => onProductClick?.(product)}
                     className={cn(
-                      "flex items-center gap-2 p-1.5 rounded cursor-pointer transition-all",
-                      "hover:bg-muted/50 active:scale-[0.98]",
-                      isSpotlighted && "ring-1 ring-primary bg-primary/10"
+                      "cursor-pointer transition-all hover:shadow-md",
+                      isSpotlighted && "ring-2 ring-primary bg-primary/5"
                     )}
                   >
-                    {/* Tiny product image */}
-                    <div className="w-8 h-8 bg-muted rounded overflow-hidden flex-shrink-0">
-                      <ProductImage 
-                        sku={product.sku || product.id}
-                        brand={product.brand}
-                        alt={product.name}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    {/* Product info */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] font-medium text-foreground line-clamp-1">
-                        {product.brand || product.name}
-                      </p>
-                      <p className="text-xs font-bold text-primary">
-                        ${product.price.toFixed(0)}
-                      </p>
-                    </div>
-                    {isSpotlighted && (
-                      <span className="text-[8px] text-primary font-bold">★</span>
-                    )}
-                  </div>
+                    <CardHeader className="p-2">
+                      <div className="aspect-square bg-muted rounded-md mb-1 flex items-center justify-center overflow-hidden">
+                        <ProductImage 
+                          sku={product.sku || product.id}
+                          brand={product.brand}
+                          alt={product.name}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <CardTitle className="text-xs line-clamp-2">{product.name}</CardTitle>
+                      {product.brand && (
+                        <p className="text-[10px] text-muted-foreground">{product.brand}</p>
+                      )}
+                    </CardHeader>
+                    <CardContent className="p-2 pt-0">
+                      <span className="text-sm font-bold text-primary">
+                        {product.price > 0 ? `$${product.price.toFixed(2)}` : 'Price on request'}
+                      </span>
+                    </CardContent>
+                    <CardFooter className="p-2 pt-0">
+                      <Button 
+                        className="w-full" 
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onProductClick?.(product);
+                        }}
+                      >
+                        <ShoppingCart className="h-3 w-3 mr-1" />
+                        Buy Now
+                      </Button>
+                    </CardFooter>
+                  </Card>
                 );
               })}
-              {groupProducts.length > 2 && (
-                <p className="text-[9px] text-muted-foreground text-center">
-                  +{groupProducts.length - 2} more
+              {groupProducts.length > 3 && (
+                <p className="text-xs text-muted-foreground text-center py-1">
+                  +{groupProducts.length - 3} more
                 </p>
               )}
             </div>
