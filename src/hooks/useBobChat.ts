@@ -31,7 +31,7 @@ interface UseBobChatProps {
   onShowingProduct?: () => void;
   onVehicleIdentified?: (vehicle: Vehicle) => void;
   onMultipleVehiclesFound?: () => void;
-  onPartsFound?: (parts: APIPart[]) => void;
+  onPartsFound?: (parts: APIPart[], isAutoFetch?: boolean) => void;
   onServicePackagesFound?: (packages: ServicePackage[]) => void;
   onResearchStart?: () => void;
   onReadyToSpeak?: () => void;
@@ -275,7 +275,7 @@ export const useBobChat = ({
               }
 
               if (parsed.type === "parts_found" && parsed.parts) {
-                onPartsFound?.(parsed.parts);
+                onPartsFound?.(parsed.parts, true); // isAutoFetch = true
               }
 
               if (parsed.type === "error") {
@@ -395,10 +395,10 @@ export const useBobChat = ({
               continue;
             }
             
-            // Check for parts_found event
+            // Check for parts_found event (user request, not auto-fetch)
             if (parsed.type === "parts_found" && parsed.parts) {
               console.log("Parts found:", parsed.parts.length, "parts");
-              onPartsFound?.(parsed.parts);
+              onPartsFound?.(parsed.parts, false); // isAutoFetch = false
               continue;
             }
             

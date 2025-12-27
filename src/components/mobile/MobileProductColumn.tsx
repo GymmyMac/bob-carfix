@@ -17,6 +17,7 @@ interface MobileProductColumnProps {
   isResearching?: boolean;
   visible?: boolean;
   counterHeightPercent?: number;
+  hasVehicle?: boolean; // For dynamic top offset
 }
 
 // Check if a product matches the spotlight criteria
@@ -38,7 +39,8 @@ export const MobileProductColumn = ({
   onPackageSelect,
   isResearching,
   visible = true,
-  counterHeightPercent = 22
+  counterHeightPercent = 22,
+  hasVehicle = false
 }: MobileProductColumnProps) => {
   const [showPackages, setShowPackages] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -76,13 +78,16 @@ export const MobileProductColumn = ({
   const showLoading = isResearching;
   const showContent = hasContent && !isResearching;
 
+  // Calculate dynamic top offset based on vehicle bar presence
+  const topOffset = hasVehicle ? '64px' : '16px';
+
   // Always render the container - use CSS for visibility
   // This prevents unmounting/remounting flicker
   return (
     <div 
       ref={scrollRef}
       className={cn(
-        "absolute right-2 top-4 w-[45%] max-w-[200px]",
+        "absolute right-2 w-[45%] max-w-[200px]",
         "overflow-y-auto overflow-x-hidden z-40", // z-40 to be above chat drawer (z-30)
         "flex flex-col gap-2 pb-4",
         "scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent",
@@ -90,10 +95,12 @@ export const MobileProductColumn = ({
         visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-8 pointer-events-none"
       )}
       style={{
-        // Safe area for notches
-        paddingTop: 'env(safe-area-inset-top, 4px)',
+        // Dynamic top based on vehicle bar
+        top: topOffset,
         // Position above counter AND above chat drawer
-        bottom: `calc(${counterHeightPercent + 4}% + ${CHAT_DRAWER_HEIGHT}px)`
+        bottom: `calc(${counterHeightPercent + 4}% + ${CHAT_DRAWER_HEIGHT}px)`,
+        // Safe area for notches
+        paddingTop: 'env(safe-area-inset-top, 4px)'
       }}
     >
       {/* Loading state */}
