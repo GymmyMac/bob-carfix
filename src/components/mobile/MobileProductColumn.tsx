@@ -110,9 +110,9 @@ export const MobileProductColumn = ({
     <div 
       ref={scrollRef}
       className={cn(
-        "absolute right-2 w-[45%] max-w-[200px]",
-        "overflow-y-auto overflow-x-hidden z-40",
-        "flex flex-col gap-3 pb-4",
+        "absolute right-2 w-[52%] max-w-[220px]",
+        "overflow-y-auto overflow-x-hidden z-30",
+        "flex flex-col gap-2 pb-4",
         "scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent",
         "transition-all duration-300 ease-out",
         visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-8 pointer-events-none"
