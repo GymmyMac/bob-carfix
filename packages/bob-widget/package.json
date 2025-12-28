@@ -1,5 +1,5 @@
 {
-  "name": "@carfix/bob-widget",
+  "name": "@gymmymac/bob-widget",
   "version": "1.0.0",
   "description": "Bob - AI-powered automotive parts assistant widget",
   "main": "dist/index.js",
@@ -11,6 +11,9 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   },
   "peerDependencies": {
     "react": "^18.0.0",
@@ -35,7 +38,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/carfix/bob-widget"
+    "url": "git+https://github.com/GymmyMac/bob-lovable.git"
   },
   "keywords": [
     "carfix",
