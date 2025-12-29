@@ -58,7 +58,7 @@ export const Bob: React.FC<BobProps> = ({
   const [animationState, setAnimationState] = useState(initialState);
   const [currentImage, setCurrentImage] = useState(defaultBobImage || "");
   const [animationImages, setAnimationImages] = useState<Record<string, string[]>>({});
-  const [imageIndex, setImageIndex] = useState(0);
+  const [_imageIndex, setImageIndex] = useState(0);
 
   // Load animation images from Bob's Supabase
   useEffect(() => {

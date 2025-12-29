@@ -17,7 +17,7 @@ export interface HostUserContext {
 
 export interface Vehicle {
   id?: number;
-  vehicle_id?: number;
+  vehicle_id?: number | string;
   rego?: string;
   make?: string;
   model?: string;

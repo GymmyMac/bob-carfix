@@ -5,7 +5,6 @@ import type {
   HostApiConfig,
   HostContext,
   BobCallbacks,
-  BobProviderConfig,
 } from './types';
 
 /**

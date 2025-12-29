@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef } from "react";
+import React from "react";
 import type { Message } from "../types/message";
 
 interface ChatInterfaceProps {
