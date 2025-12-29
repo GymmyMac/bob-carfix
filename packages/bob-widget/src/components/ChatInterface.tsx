@@ -33,11 +33,21 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   className = ""
 }) => {
   return (
-    <div className={`w-full max-w-6xl mx-auto px-4 pb-8 ${className}`}>
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden">
+    <div className={className} style={{ width: '100%', maxWidth: '72rem', margin: '0 auto', padding: '0 16px 32px 16px' }}>
+      <div style={{
+        backgroundColor: 'white',
+        border: '1px solid #e5e7eb',
+        borderRadius: '8px',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        overflow: 'hidden'
+      }}>
         {/* Input Area */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-          <div className="flex gap-2">
+        <div style={{
+          padding: '16px',
+          borderBottom: '1px solid #e5e7eb',
+          backgroundColor: '#f9fafb'
+        }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -46,12 +56,30 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               onBlur={onInputBlur}
               placeholder="Ask Bob about car parts..."
               disabled={isLoading}
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{
+                flex: 1,
+                padding: '8px 16px',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                backgroundColor: 'white',
+                color: '#111827',
+                fontSize: '16px',
+                outline: 'none'
+              }}
             />
             {onToggleMute && (
               <button
                 onClick={onToggleMute}
-                className={`shrink-0 p-2 border border-gray-300 dark:border-gray-600 rounded-md ${isSpeaking ? 'animate-pulse' : ''}`}
+                style={{
+                  flexShrink: 0,
+                  padding: '8px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  backgroundColor: 'white',
+                  cursor: 'pointer',
+                  minHeight: 'unset',
+                  minWidth: 'unset'
+                }}
                 title={isMuted ? "Unmute Bob's voice" : "Mute Bob's voice"}
               >
                 {isMuted ? "🔇" : "🔊"}
@@ -60,7 +88,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             <button
               onClick={onSend}
               disabled={isLoading || !input.trim()}
-              className="shrink-0 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                flexShrink: 0,
+                padding: '8px 16px',
+                backgroundColor: isLoading || !input.trim() ? '#93c5fd' : '#2563eb',
+                color: 'white',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: isLoading || !input.trim() ? 'not-allowed' : 'pointer',
+                opacity: isLoading || !input.trim() ? 0.5 : 1,
+                minHeight: 'unset',
+                minWidth: 'unset'
+              }}
             >
               Send
             </button>
@@ -68,18 +107,21 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         </div>
 
         {/* Chat History */}
-        <div className="overflow-y-auto p-4 space-y-3 h-[300px] md:h-[400px]">
+        <div style={{ overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', height: '400px' }}>
           {[...messages].reverse().map((msg, idx) => (
             <div
               key={idx}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              style={{ display: 'flex', justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}
             >
               <div
-                className={`max-w-[80%] rounded-lg px-4 py-2 text-sm md:text-base ${
-                  msg.role === "user"
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                }`}
+                style={{
+                  maxWidth: '80%',
+                  borderRadius: '8px',
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  backgroundColor: msg.role === "user" ? '#2563eb' : '#f3f4f6',
+                  color: msg.role === "user" ? 'white' : '#111827'
+                }}
               >
                 {msg.content}
               </div>

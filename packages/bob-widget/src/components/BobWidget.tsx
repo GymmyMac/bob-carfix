@@ -8,6 +8,9 @@ import type {
   BobCallbacks,
 } from '../types';
 
+// Import CSS reset for isolation
+import '../styles/widget-reset.css';
+
 /**
  * Props for the self-contained BobWidget component
  */
@@ -87,25 +90,27 @@ export const BobWidget: React.FC<BobWidgetProps> = ({
   scale,
 }) => {
   return (
-    <BobProvider
-      bobConfig={bobConfig}
-      hostApiConfig={hostApiConfig}
-      hostContext={hostContext}
-      callbacks={callbacks}
-    >
-      <Bob
-        variant={variant}
-        initialState={initialState}
-        showChat={showChat}
-        className={className}
-        backdropUrl={backdropUrl}
-        counterOverlayUrl={counterOverlayUrl}
-        counterHeightPercent={counterHeightPercent}
-        defaultBobImage={defaultBobImage}
-        verticalOffset={verticalOffset}
-        scale={scale}
-      />
-    </BobProvider>
+    <div className="bob-widget-root" style={{ width: '100%', height: '100%' }}>
+      <BobProvider
+        bobConfig={bobConfig}
+        hostApiConfig={hostApiConfig}
+        hostContext={hostContext}
+        callbacks={callbacks}
+      >
+        <Bob
+          variant={variant}
+          initialState={initialState}
+          showChat={showChat}
+          className={className}
+          backdropUrl={backdropUrl}
+          counterOverlayUrl={counterOverlayUrl}
+          counterHeightPercent={counterHeightPercent}
+          defaultBobImage={defaultBobImage}
+          verticalOffset={verticalOffset}
+          scale={scale}
+        />
+      </BobProvider>
+    </div>
   );
 };
 

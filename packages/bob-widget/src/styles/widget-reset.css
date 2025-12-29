@@ -1,0 +1,142 @@
+/**
+ * Bob Widget CSS Reset - Complete isolation from host page styles
+ * This prevents CarFix (and other host sites) from bleeding styles into Bob
+ */
+
+.bob-widget-root {
+  /* Reset all inherited properties */
+  all: initial;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #1a1a1a;
+  background: transparent;
+  
+  /* CSS Containment for performance and isolation */
+  contain: layout style paint;
+  isolation: isolate;
+  
+  /* Override CarFix's box model */
+  box-sizing: border-box;
+  
+  /* Override any inherited --border CSS variable from host */
+  --border: transparent;
+  --border-border: transparent;
+}
+
+/* Reset all child elements */
+.bob-widget-root *,
+.bob-widget-root *::before,
+.bob-widget-root *::after {
+  box-sizing: border-box;
+  border-width: 0;
+  border-style: solid;
+  border-color: transparent;
+}
+
+/* Reset buttons - override CarFix's 44px minimum touch targets */
+.bob-widget-root button,
+.bob-widget-root [role="button"] {
+  all: unset;
+  box-sizing: border-box;
+  min-height: unset !important;
+  min-width: unset !important;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Reset inputs - override CarFix's !important font-size: 16px */
+.bob-widget-root input,
+.bob-widget-root textarea {
+  all: unset;
+  box-sizing: border-box;
+  font-size: inherit !important;
+  font-family: inherit;
+  line-height: inherit;
+  display: block;
+  width: 100%;
+}
+
+/* Reset focus states - Bob's own focus indicators */
+.bob-widget-root *:focus-visible {
+  outline: 2px solid #2563eb !important;
+  outline-offset: 2px !important;
+}
+
+/* Reset anchors */
+.bob-widget-root a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Reset SVG icons */
+.bob-widget-root svg {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Reset images */
+.bob-widget-root img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Reset lists */
+.bob-widget-root ul,
+.bob-widget-root ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Reset headings */
+.bob-widget-root h1,
+.bob-widget-root h2,
+.bob-widget-root h3,
+.bob-widget-root h4,
+.bob-widget-root h5,
+.bob-widget-root h6 {
+  font-size: inherit;
+  font-weight: inherit;
+  margin: 0;
+}
+
+/* Reset paragraphs */
+.bob-widget-root p {
+  margin: 0;
+}
+
+/* Utility classes for Bob's internal styling */
+.bob-widget-root .bob-flex {
+  display: flex;
+}
+
+.bob-widget-root .bob-flex-col {
+  flex-direction: column;
+}
+
+.bob-widget-root .bob-items-center {
+  align-items: center;
+}
+
+.bob-widget-root .bob-justify-center {
+  justify-content: center;
+}
+
+.bob-widget-root .bob-gap-2 {
+  gap: 0.5rem;
+}
+
+.bob-widget-root .bob-gap-3 {
+  gap: 0.75rem;
+}
