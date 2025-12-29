@@ -999,6 +999,20 @@ Do NOT ask for their email - you already have it.`;
       if (typedHostContext.currentPage) {
         enhancedSystemPrompt += `\nCurrently on page: ${typedHostContext.currentPage}`;
       }
+      
+      // CRITICAL: Add garage vehicles with EXACT vehicle_ids to prevent AI hallucination
+      // When user references a garage vehicle, the AI must use the REAL vehicle_id listed here
+      if (typedHostContext.vehicle?.garageVehicles && typedHostContext.vehicle.garageVehicles.length > 0) {
+        enhancedSystemPrompt += `\n\n## CUSTOMER'S GARAGE VEHICLES (use these EXACT vehicle_ids!)
+CRITICAL: When customer mentions a REGO from their garage, you MUST use the EXACT vehicle_id listed below.
+DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
+`;
+        for (const gv of typedHostContext.vehicle.garageVehicles) {
+          const vid = gv.vehicle_id || gv.id;
+          enhancedSystemPrompt += `- ${gv.rego}: ${gv.year} ${gv.make} ${gv.model} ${gv.variant || ''} (vehicle_id: ${vid})\n`;
+        }
+        enhancedSystemPrompt += `\nWhen emitting VEHICLE_CONFIRMED for a garage vehicle, copy the vehicle_id EXACTLY from this list.`;
+      }
     }
 
     // Build conversation with system prompt
@@ -1238,6 +1252,35 @@ Do NOT ask for their email - you already have it.`;
             // Merge in correct vehicle data from actual lookup
             if (storedVehicleData) {
               Object.assign(confirmedVehicle, storedVehicleData);
+            }
+          }
+          
+          // GARAGE VEHICLE CROSS-REFERENCE: If no lookup was done (AI skipped it for garage vehicles),
+          // check if the rego matches a garage vehicle and use its REAL vehicle_id
+          const garageVehicles = typedHostContext?.vehicle?.garageVehicles || [];
+          if (!storedVehicleId && confirmedVehicle.rego && garageVehicles.length > 0) {
+            const garageMatch = garageVehicles.find((gv: Record<string, unknown>) => 
+              String(gv.rego).toUpperCase() === String(confirmedVehicle.rego).toUpperCase()
+            );
+            
+            if (garageMatch) {
+              const realGarageVehicleId = garageMatch.vehicle_id || garageMatch.id;
+              if (realGarageVehicleId && realGarageVehicleId !== vehicleId) {
+                console.warn(`GARAGE OVERRIDE: AI used vehicle_id ${vehicleId}, actual garage vehicle_id: ${realGarageVehicleId}`);
+                vehicleId = realGarageVehicleId as number;
+                confirmedVehicle.vehicle_id = realGarageVehicleId;
+                // Merge correct vehicle data from garage
+                Object.assign(confirmedVehicle, {
+                  make: garageMatch.make || confirmedVehicle.make,
+                  model: garageMatch.model || confirmedVehicle.model,
+                  year: garageMatch.year || confirmedVehicle.year,
+                  variant: garageMatch.variant || confirmedVehicle.variant,
+                  engine_size: garageMatch.engine_size || confirmedVehicle.engine_size,
+                  fuel_type: garageMatch.fuel_type || confirmedVehicle.fuel_type,
+                  rego: garageMatch.rego || confirmedVehicle.rego,
+                });
+                console.log(`Using corrected garage vehicle data for ${confirmedVehicle.rego}`);
+              }
             }
           }
           
