@@ -143,6 +143,9 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
   };
 
   const showProductColumn = panelState !== 'hidden' && currentView === 'products';
+  
+  // Background blurs when products are showing
+  const shouldBlurBackground = panelState !== 'hidden';
 
   return (
     <div 
@@ -155,12 +158,14 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
       {backdropUrl && (
         <>
           <div 
-            className="absolute inset-0 z-0"
+            className="absolute inset-0 z-0 transition-all duration-500 ease-out"
             style={{
               backgroundImage: `url(${backdropUrl})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center bottom',
-              filter: 'blur(12px) brightness(0.7)',
+              filter: shouldBlurBackground 
+                ? 'blur(12px) brightness(0.7)' 
+                : 'blur(0px) brightness(1)',
               transform: 'scale(1.1)'
             }}
           />
