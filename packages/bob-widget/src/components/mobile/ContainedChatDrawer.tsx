@@ -90,25 +90,49 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
   return (
     <div 
       ref={drawerRef}
-      className={`absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 transition-all duration-300 ease-out shadow-[0_-4px_20px_rgba(0,0,0,0.15)] ${isExpanded ? "h-[55%]" : "overflow-hidden"}`}
       style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        borderTop: '1px solid #e5e7eb',
+        transition: 'all 0.3s ease-out',
+        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.15)',
+        height: isExpanded ? '55%' : '70px',
+        overflow: isExpanded ? 'visible' : 'hidden',
         zIndex: 60,
-        paddingBottom: 'env(safe-area-inset-bottom, 8px)',
-        height: isExpanded ? undefined : '70px'
+        paddingBottom: 'env(safe-area-inset-bottom, 8px)'
       }}
     >
-      {/* Expand/Collapse Handle - centered with absolute positioning */}
+      {/* Expand/Collapse Handle */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="absolute -top-5 left-1/2 -translate-x-1/2 z-40 bg-white border border-gray-200 rounded-full p-1.5 shadow-lg"
+        style={{
+          position: 'absolute',
+          top: '-20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: 'white',
+          border: '1px solid #e5e7eb',
+          borderRadius: '9999px',
+          padding: '6px',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          zIndex: 40,
+          cursor: 'pointer',
+          minHeight: 'unset',
+          minWidth: 'unset'
+        }}
         aria-label={isExpanded ? "Collapse chat" : "Expand chat"}
       >
         {isExpanded ? (
-          <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg style={{ height: '16px', width: '16px', color: '#6b7280' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         ) : (
-          <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg style={{ height: '16px', width: '16px', color: '#6b7280' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
           </svg>
         )}
@@ -116,21 +140,27 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
 
       {/* Collapsed Preview */}
       {!isExpanded && (
-        <div className="px-3 pt-1.5 pb-1 h-[26px] overflow-hidden" onClick={() => setIsExpanded(true)}>
-          <p className="text-xs text-gray-500 line-clamp-1">{previewText}</p>
+        <div 
+          onClick={() => setIsExpanded(true)}
+          style={{ padding: '6px 12px 4px 12px', height: '26px', overflow: 'hidden', cursor: 'pointer' }}
+        >
+          <p style={{ fontSize: '12px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewText}</p>
         </div>
       )}
 
       {/* Expanded Chat History */}
       {isExpanded && (
-        <div className="h-[calc(100%-100px)] overflow-y-auto p-4 space-y-2">
+        <div style={{ height: 'calc(100% - 100px)', overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {[...messages].reverse().map((msg, idx) => (
-            <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                msg.role === "user" 
-                  ? "bg-blue-600 text-white" 
-                  : "bg-gray-100 text-gray-900"
-              }`}>
+            <div key={idx} style={{ display: 'flex', justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
+              <div style={{
+                maxWidth: '85%',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                fontSize: '14px',
+                backgroundColor: msg.role === "user" ? '#2563eb' : '#f3f4f6',
+                color: msg.role === "user" ? 'white' : '#111827'
+              }}>
                 {msg.content}
               </div>
             </div>
@@ -140,34 +170,49 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
       )}
 
       {/* Input Area */}
-      <div className={`px-3 pb-1 ${isExpanded ? "pt-2 border-t border-gray-200" : "pt-1"}`}>
+      <div style={{
+        padding: isExpanded ? '8px 12px 4px 12px' : '4px 12px 4px 12px',
+        borderTop: isExpanded ? '1px solid #e5e7eb' : 'none'
+      }}>
         {isListening && (
-          <div className="mb-2 text-xs text-gray-500 flex items-center gap-2">
-            <span className="inline-block w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+          <div style={{ marginBottom: '8px', fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ display: 'inline-block', width: '8px', height: '8px', backgroundColor: '#ef4444', borderRadius: '50%', animation: 'pulse 2s infinite' }} />
             Listening...
           </div>
         )}
         
         {sttError && (
-          <div className="mb-2 text-xs text-red-500">{sttError}</div>
+          <div style={{ marginBottom: '8px', fontSize: '12px', color: '#ef4444' }}>{sttError}</div>
         )}
         
-        <div className="flex gap-1.5 items-center">
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
           {onToggleMute && isExpanded && (
             <button
               onClick={onToggleMute}
-              className={`shrink-0 h-9 w-9 flex items-center justify-center rounded-md hover:bg-gray-100 ${
-                isSpeaking ? "text-blue-600 animate-pulse" : "text-gray-600"
-              }`}
+              style={{
+                flexShrink: 0,
+                height: '36px',
+                width: '36px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '6px',
+                backgroundColor: 'transparent',
+                color: isSpeaking ? '#2563eb' : '#4b5563',
+                cursor: 'pointer',
+                border: 'none',
+                minHeight: 'unset',
+                minWidth: 'unset'
+              }}
               title={isMuted ? "Unmute" : "Mute"}
             >
               {isMuted ? (
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg style={{ height: '16px', width: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
                 </svg>
               ) : (
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg style={{ height: '16px', width: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                 </svg>
               )}
@@ -183,7 +228,18 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
             onBlur={onInputBlur}
             placeholder="Message Bob..."
             disabled={isLoading}
-            className="flex-1 h-10 text-base px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            style={{
+              flex: 1,
+              height: '40px',
+              fontSize: '16px',
+              padding: '0 12px',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              backgroundColor: 'white',
+              color: '#111827',
+              outline: 'none',
+              opacity: isLoading ? 0.5 : 1
+            }}
           />
           
           {isSupported && (
@@ -195,14 +251,30 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
               onMouseUp={handlePTTEnd}
               onMouseLeave={handlePTTEnd}
               disabled={isLoading}
-              className={`shrink-0 h-12 w-12 rounded-full flex items-center justify-center select-none touch-none ${
-                isListening 
-                  ? "bg-red-500 text-white animate-pulse ring-2 ring-red-300 scale-110" 
-                  : "bg-blue-600 text-white"
-              } disabled:opacity-50`}
+              style={{
+                flexShrink: 0,
+                height: '48px',
+                width: '48px',
+                minHeight: 'unset',
+                minWidth: 'unset',
+                borderRadius: '9999px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                userSelect: 'none',
+                touchAction: 'none',
+                backgroundColor: isListening ? '#ef4444' : '#2563eb',
+                color: 'white',
+                border: 'none',
+                cursor: 'pointer',
+                opacity: isLoading ? 0.5 : 1,
+                transform: isListening ? 'scale(1.1)' : 'scale(1)',
+                boxShadow: isListening ? '0 0 0 2px rgba(239, 68, 68, 0.3)' : 'none',
+                transition: 'transform 0.15s ease, background-color 0.15s ease'
+              }}
               title="Hold to talk"
             >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg style={{ height: '20px', width: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
               </svg>
             </button>

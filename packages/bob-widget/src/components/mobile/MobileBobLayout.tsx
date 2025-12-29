@@ -153,23 +153,44 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
 
       {/* Vehicle Context Bar */}
       {vehicle && !isEmbedded && (
-        <div className="absolute top-2 left-2 right-2 z-20">
+        <div style={{ position: 'absolute', top: '8px', left: '8px', right: '8px', zIndex: 20 }}>
           <div 
-            className="bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 border border-gray-200 shadow-lg flex items-center justify-between"
-            style={{ paddingTop: 'calc(env(safe-area-inset-top, 4px) + 8px)' }}
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
+              borderRadius: '8px',
+              padding: '8px 12px',
+              paddingTop: 'calc(env(safe-area-inset-top, 4px) + 8px)',
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}
           >
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-gray-900 truncate">
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: '12px', fontWeight: 500, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {vehicle.year} {vehicle.make} {vehicle.model}
               </p>
               {vehicle.rego && (
-                <p className="text-[10px] text-gray-500">{vehicle.rego}</p>
+                <p style={{ fontSize: '10px', color: '#6b7280' }}>{vehicle.rego}</p>
               )}
             </div>
             {onChangeVehicle && (
               <button
                 onClick={onChangeVehicle}
-                className="text-xs text-blue-600 hover:underline ml-2 shrink-0"
+                style={{
+                  fontSize: '12px',
+                  color: '#2563eb',
+                  marginLeft: '8px',
+                  flexShrink: 0,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  minHeight: 'unset',
+                  minWidth: 'unset'
+                }}
               >
                 Change
               </button>
