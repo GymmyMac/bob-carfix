@@ -56,7 +56,10 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
       {counterOverlayUrl && (
         <div 
           className="absolute bottom-0 left-0 right-0 z-50"
-          style={{ height: `${counterHeightPercent}%` }}
+          style={{ 
+            height: `${counterHeightPercent}%`,
+            pointerEvents: 'none' // Allow clicks through to chat drawer
+          }}
         >
           <img 
             src={counterOverlayUrl} 

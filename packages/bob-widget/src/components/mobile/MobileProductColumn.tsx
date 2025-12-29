@@ -50,6 +50,14 @@ const MobileProductCard: React.FC<{
         ? "ring-2 ring-blue-500 shadow-lg border-blue-200" 
         : "border-gray-100 shadow-md"
     }`}
+    style={{
+      backgroundColor: 'white',
+      borderRadius: '12px',
+      border: isSpotlighted ? '1px solid #bfdbfe' : '1px solid #f3f4f6',
+      boxShadow: isSpotlighted 
+        ? '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' 
+        : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+    }}
   >
     {isSpotlighted && <SpotlightBadge />}
     

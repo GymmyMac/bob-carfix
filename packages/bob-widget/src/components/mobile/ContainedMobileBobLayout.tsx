@@ -97,8 +97,16 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
   
   const hasProducts = products.length > 0 || servicePackages.length > 0;
   
-  // Dynamic Bob scale: 50% smaller when viewing product detail, combined with database scale
-  const baseUIScale = currentView === 'productDetail' ? 65 : 130;
+  // Dynamic Bob scale based on state:
+  // - Welcome state (center, no products): larger scale (130%)
+  // - Showing products (left position): smaller scale (85%)
+  // - Product detail view: even smaller (65%)
+  const getBaseUIScale = () => {
+    if (currentView === 'productDetail') return 65;
+    if (bobPosition === 'center' && !hasProducts) return 130; // Welcome state - larger
+    return 85; // Showing products - smaller
+  };
+  const baseUIScale = getBaseUIScale();
   const finalBobScale = (baseUIScale * bobScale) / 100;
   
   useEffect(() => {
@@ -186,14 +194,14 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
         </>
       )}
 
-      {/* Bob Character - scales down 50% when viewing product detail */}
+      {/* Bob Character - scales based on state */}
       <MobileBobCharacter
         currentImage={currentImage}
         animationState={animationState}
         counterOverlayUrl={counterOverlayUrl}
         counterHeightPercent={counterHeightPercent}
         scale={finalBobScale}
-        position="left"
+        position={bobPosition}
         verticalOffset={bobOffset}
       />
 

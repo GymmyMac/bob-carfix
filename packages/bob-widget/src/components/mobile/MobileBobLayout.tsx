@@ -88,6 +88,16 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
   
   const hasProducts = products.length > 0 || servicePackages.length > 0;
   
+  // Dynamic Bob scale based on state:
+  // - Welcome state (center, no products): larger scale (200%)
+  // - Showing products (left position): smaller scale (130%)
+  const getBaseUIScale = () => {
+    if (bobPosition === 'center' && !hasProducts) return 200; // Welcome state - larger
+    return 130; // Showing products - smaller
+  };
+  const baseUIScale = getBaseUIScale();
+  const finalBobScale = (baseUIScale * bobScale) / 100;
+  
   useEffect(() => {
     if (isResearching && panelState !== 'loading' && panelState !== 'visible') {
       setPanelState('loading');
@@ -147,13 +157,13 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
         </>
       )}
 
-      {/* Bob Character */}
+      {/* Bob Character - scales based on state */}
       <MobileBobCharacter
         currentImage={currentImage}
         animationState={animationState}
         counterOverlayUrl={counterOverlayUrl}
         counterHeightPercent={counterHeightPercent}
-        scale={(200 * bobScale) / 100}
+        scale={finalBobScale}
         position={bobPosition}
         verticalOffset={bobOffset}
       />

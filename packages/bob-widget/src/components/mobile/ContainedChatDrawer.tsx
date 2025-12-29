@@ -120,7 +120,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
           borderRadius: '9999px',
           padding: '6px',
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-          zIndex: 40,
+          zIndex: 70, // Increased from 40 to be above counter (z-50)
           cursor: 'pointer',
           minHeight: 'unset',
           minWidth: 'unset'
