@@ -1,6 +1,17 @@
 /**
- * Product types for the Bob widget
+ * Extended Product type for the Bob widget
  */
+export interface Product {
+  id: string;
+  name: string;
+  brand?: string;
+  price: number;
+  sku?: string;
+  partNumber?: string;
+  partslotDescription?: string;
+  image_url?: string;
+  quantity?: number;
+}
 
 export interface APIPart {
   SKU?: string;

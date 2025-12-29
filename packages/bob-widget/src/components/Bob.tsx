@@ -1,120 +1,63 @@
 import React, { useState, useEffect } from "react";
 import { useBobContext } from "../BobProvider";
 import { useBobChat } from "../hooks/useBobChat";
+import { useBobAnimation } from "../hooks/useBobAnimation";
+import { useBobBackdrop } from "../hooks/useBobBackdrop";
 import { BobCharacter } from "./BobCharacter";
 import { ChatInterface } from "./ChatInterface";
+import { MobileBobLayout } from "./mobile/MobileBobLayout";
+import type { Product, ServicePackage } from "../types";
+import type { HighlightedProduct } from "../types/message";
 
-export type BobVariant = "inline" | "floating" | "fullscreen";
+export type BobVariant = "inline" | "floating" | "fullscreen" | "mobile";
 
 interface BobProps {
-  /** Display variant */
   variant?: BobVariant;
-  /** Initial animation state */
   initialState?: string;
-  /** Show chat interface */
   showChat?: boolean;
-  /** Custom class name */
   className?: string;
-  /** Backdrop image URL */
   backdropUrl?: string;
-  /** Counter overlay image URL */
   counterOverlayUrl?: string;
-  /** Counter height as percentage */
   counterHeightPercent?: number;
-  /** Default Bob image when no animations loaded */
   defaultBobImage?: string;
-  /** Vertical offset for Bob positioning */
   verticalOffset?: number;
-  /** Scale factor for Bob (100 = 100%) */
   scale?: number;
 }
 
-/**
- * Main Bob component - combines character animation and chat interface
- * 
- * @example
- * ```tsx
- * <Bob 
- *   variant="inline"
- *   showChat={true}
- *   backdropUrl="https://example.com/backdrop.png"
- *   counterOverlayUrl="https://example.com/counter.png"
- * />
- * ```
- */
 export const Bob: React.FC<BobProps> = ({
   variant = "inline",
   initialState = "idle",
   showChat = true,
   className = "",
-  backdropUrl,
-  counterOverlayUrl,
-  counterHeightPercent = 12,
+  backdropUrl: propBackdropUrl,
+  counterOverlayUrl: propCounterUrl,
+  counterHeightPercent: propCounterHeight,
   defaultBobImage,
   verticalOffset = 0,
   scale = 100
 }) => {
-  const { bobSupabase } = useBobContext();
-  const [animationState, setAnimationState] = useState(initialState);
-  const [currentImage, setCurrentImage] = useState(defaultBobImage || "");
-  const [animationImages, setAnimationImages] = useState<Record<string, string[]>>({});
-  const [_imageIndex, setImageIndex] = useState(0);
+  const { callbacks } = useBobContext();
+  
+  // Use the full animation system
+  const {
+    animationState,
+    setAnimationState,
+    getCurrentImage,
+    availableStates,
+    isLoading: animationLoading
+  } = useBobAnimation();
 
-  // Load animation images from Bob's Supabase
-  useEffect(() => {
-    const loadAnimations = async () => {
-      try {
-        const { data, error } = await bobSupabase
-          .from('bob_animations')
-          .select('animation_state, image_url')
-          .eq('is_active', true)
-          .order('sequence_order', { ascending: true });
+  // Load backdrop from database
+  const { activeBackdrop } = useBobBackdrop();
 
-        if (error) {
-          console.error('[BobWidget] Failed to load animations:', error);
-          return;
-        }
+  // Product state
+  const [products, setProducts] = useState<Product[]>([]);
+  const [servicePackages, setServicePackages] = useState<ServicePackage[]>([]);
+  const [highlightedPartType, setHighlightedPartType] = useState<string | null>(null);
+  const [highlightedProduct, setHighlightedProduct] = useState<HighlightedProduct | null>(null);
+  const [isResearching, setIsResearching] = useState(false);
 
-        const grouped: Record<string, string[]> = {};
-        for (const row of data || []) {
-          if (!grouped[row.animation_state]) {
-            grouped[row.animation_state] = [];
-          }
-          grouped[row.animation_state].push(row.image_url);
-        }
-
-        setAnimationImages(grouped);
-
-        // Set initial image
-        if (grouped[initialState]?.[0]) {
-          setCurrentImage(grouped[initialState][0]);
-        }
-      } catch (error) {
-        console.error('[BobWidget] Animation load error:', error);
-      }
-    };
-
-    loadAnimations();
-  }, [bobSupabase, initialState]);
-
-  // Animate through frames for current state
-  useEffect(() => {
-    const frames = animationImages[animationState];
-    if (!frames || frames.length <= 1) {
-      if (frames?.[0]) setCurrentImage(frames[0]);
-      return;
-    }
-
-    let frameIndex = 0;
-    const interval = setInterval(() => {
-      frameIndex = (frameIndex + 1) % frames.length;
-      setCurrentImage(frames[frameIndex]);
-      setImageIndex(frameIndex);
-    }, 150); // ~6.6 fps
-
-    return () => clearInterval(interval);
-  }, [animationState, animationImages]);
-
+  // Chat hook with full integration
   const bobChat = useBobChat({
     setAnimationState,
     manualMode: false,
@@ -122,14 +65,109 @@ export const Bob: React.FC<BobProps> = ({
       console.log('[BobWidget] Ready to speak');
     },
     onStreamComplete: () => {
-      setAnimationState('idle');
+      setAnimationState(availableStates.find(s => s.includes('idle')) || 'idle');
+    },
+    onResearchStart: () => {
+      setIsResearching(true);
+    },
+    onHighlightPart: (partType) => {
+      setHighlightedPartType(partType);
+      setTimeout(() => setHighlightedPartType(null), 8000);
+    },
+    onHighlightProduct: (product) => {
+      setHighlightedProduct(product);
+      setTimeout(() => setHighlightedProduct(null), 8000);
+    },
+    onAutoFetchComplete: () => {
+      setIsResearching(false);
     }
   });
 
+  // Wire up callbacks to update local state
+  useEffect(() => {
+    const originalOnPartsFound = callbacks.onPartsFound;
+    const originalOnPackagesFound = callbacks.onServicePackagesFound;
+
+    callbacks.onPartsFound = (parts: unknown[]) => {
+      setIsResearching(false);
+      const mappedProducts: Product[] = (parts as any[]).map((p, idx) => ({
+        id: p.SKU || p.sku || `part-${idx}`,
+        name: p["Part Product Type"] || p.partslot_description || 'Unknown Part',
+        brand: p.Brand || p.brand,
+        price: p["Metro Retail Price"] || p.price || 0,
+        sku: p.SKU || p.sku,
+        partNumber: p["Part Number"] || p.part_number,
+        partslotDescription: p["Part Product Type"] || p.partslot_description,
+        image_url: p.image_url
+      }));
+      setProducts(mappedProducts);
+      originalOnPartsFound?.(parts);
+    };
+
+    callbacks.onServicePackagesFound = (packages: unknown[]) => {
+      setServicePackages(packages as ServicePackage[]);
+      originalOnPackagesFound?.(packages);
+    };
+
+    return () => {
+      callbacks.onPartsFound = originalOnPartsFound;
+      callbacks.onServicePackagesFound = originalOnPackagesFound;
+    };
+  }, [callbacks]);
+
+  // Resolve backdrop URLs
+  const backdropUrl = propBackdropUrl || activeBackdrop?.image_url;
+  const counterOverlayUrl = propCounterUrl || activeBackdrop?.counter_overlay_url || undefined;
+  const counterHeightPercent = propCounterHeight || activeBackdrop?.counter_height_percent || 12;
+
+  const currentImage = getCurrentImage() || defaultBobImage || "";
+
+  // Mobile variant - full immersive experience
+  if (variant === "mobile" || variant === "fullscreen") {
+    return (
+      <MobileBobLayout
+        currentImage={currentImage}
+        animationState={animationState}
+        backdropUrl={backdropUrl}
+        counterOverlayUrl={counterOverlayUrl}
+        counterHeightPercent={counterHeightPercent}
+        messages={bobChat.messages}
+        input={bobChat.input}
+        setInput={bobChat.setInput}
+        isLoading={bobChat.isLoading}
+        onSend={bobChat.handleSend}
+        onKeyPress={bobChat.handleKeyPress}
+        onInputFocus={bobChat.handleInputFocus}
+        onInputBlur={bobChat.handleInputBlur}
+        chatEndRef={bobChat.chatEndRef}
+        isMuted={bobChat.isMuted}
+        onToggleMute={bobChat.toggleMute}
+        isSpeaking={bobChat.isSpeaking}
+        products={products}
+        servicePackages={servicePackages}
+        highlightedPartType={highlightedPartType}
+        highlightedProduct={highlightedProduct}
+        onProductClick={(product) => callbacks.onAddToCart?.({
+          product_id: product.id,
+          product_name: product.name,
+          quantity: 1,
+          unit_price: product.price,
+          sku: product.sku,
+          brand: product.brand
+        })}
+        onPackageSelect={(pkg) => console.log('[BobWidget] Package selected:', pkg)}
+        isResearching={isResearching}
+        vehicle={bobChat.identifiedVehicle}
+      />
+    );
+  }
+
+  // Desktop variants
   const variantClasses = {
     inline: "",
     floating: "fixed bottom-4 right-4 w-96 z-50 shadow-2xl rounded-lg overflow-hidden",
-    fullscreen: "fixed inset-0 z-50 bg-black/80"
+    fullscreen: "fixed inset-0 z-50 bg-black/80",
+    mobile: ""
   };
 
   return (
