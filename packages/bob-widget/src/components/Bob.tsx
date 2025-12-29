@@ -43,6 +43,8 @@ export const Bob: React.FC<BobProps> = ({
     animationState,
     setAnimationState,
     getCurrentImage,
+    getCurrentOffset,
+    getCurrentScale,
     availableStates,
     isLoading: animationLoading
   } = useBobAnimation();
@@ -121,6 +123,10 @@ export const Bob: React.FC<BobProps> = ({
   const counterHeightPercent = propCounterHeight || activeBackdrop?.counter_height_percent || 12;
 
   const currentImage = getCurrentImage() || defaultBobImage || "";
+  
+  // Get database-driven offset and scale values
+  const dbOffset = getCurrentOffset();
+  const dbScale = getCurrentScale();
 
   // Mobile/fullscreen variant - full viewport takeover
   if (variant === "mobile" || variant === "fullscreen") {
@@ -131,6 +137,8 @@ export const Bob: React.FC<BobProps> = ({
         backdropUrl={backdropUrl}
         counterOverlayUrl={counterOverlayUrl}
         counterHeightPercent={counterHeightPercent}
+        bobOffset={dbOffset}
+        bobScale={dbScale}
         messages={bobChat.messages}
         input={bobChat.input}
         setInput={bobChat.setInput}
@@ -173,6 +181,8 @@ export const Bob: React.FC<BobProps> = ({
           backdropUrl={backdropUrl}
           counterOverlayUrl={counterOverlayUrl}
           counterHeightPercent={counterHeightPercent}
+          bobOffset={dbOffset}
+          bobScale={dbScale}
           messages={bobChat.messages}
           input={bobChat.input}
           setInput={bobChat.setInput}
@@ -221,8 +231,8 @@ export const Bob: React.FC<BobProps> = ({
           backdropUrl={backdropUrl}
           counterOverlayUrl={counterOverlayUrl}
           counterHeightPercent={counterHeightPercent}
-          verticalOffset={verticalOffset}
-          scale={scale}
+          verticalOffset={dbOffset}
+          scale={dbScale}
         />
       )}
       

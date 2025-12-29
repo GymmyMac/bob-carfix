@@ -47,6 +47,10 @@ interface ContainedMobileBobLayoutProps {
   // Vehicle
   vehicle?: Vehicle | null;
   onChangeVehicle?: () => void;
+  
+  // Bob positioning from database
+  bobOffset?: number;
+  bobScale?: number;
 }
 
 /**
@@ -82,7 +86,9 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
   onAddToCart,
   onNavigateToProductPage,
   vehicle,
-  onChangeVehicle
+  onChangeVehicle,
+  bobOffset = 0,
+  bobScale = 100
 }) => {
   const [bobPosition, setBobPosition] = useState<'center' | 'left'>('center');
   const [panelState, setPanelState] = useState<PanelState>('hidden');
@@ -91,8 +97,9 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
   
   const hasProducts = products.length > 0 || servicePackages.length > 0;
   
-  // Dynamic Bob scale: 50% smaller when viewing product detail
-  const bobScale = currentView === 'productDetail' ? 65 : 130;
+  // Dynamic Bob scale: 50% smaller when viewing product detail, combined with database scale
+  const baseUIScale = currentView === 'productDetail' ? 65 : 130;
+  const finalBobScale = (baseUIScale * bobScale) / 100;
   
   useEffect(() => {
     if (isResearching && panelState !== 'loading' && panelState !== 'visible') {
@@ -185,8 +192,9 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
         animationState={animationState}
         counterOverlayUrl={counterOverlayUrl}
         counterHeightPercent={counterHeightPercent}
-        scale={bobScale}
+        scale={finalBobScale}
         position="left"
+        verticalOffset={bobOffset}
       />
 
       {/* Vehicle Context Bar */}

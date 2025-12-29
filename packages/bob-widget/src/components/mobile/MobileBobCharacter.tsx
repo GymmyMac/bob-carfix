@@ -7,6 +7,7 @@ interface MobileBobCharacterProps {
   counterHeightPercent?: number;
   scale?: number;
   position?: 'center' | 'left';
+  verticalOffset?: number;
 }
 
 export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
@@ -15,7 +16,8 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
   counterOverlayUrl,
   counterHeightPercent = 15,
   scale = 100,
-  position = 'center'
+  position = 'center',
+  verticalOffset = 0
 }) => {
   // Reduced base width from 85% to 65% for better fit
   const scaledWidth = (65 * scale) / 100;
@@ -24,13 +26,16 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
   // Better centering: center position moves Bob more to middle, left moves him further left
   const translateX = position === 'center' ? '5%' : '-25%';
   
+  // Calculate bottom position including vertical offset from database
+  const bottomPercent = counterHeightPercent - 2 + verticalOffset;
+  
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
       {/* Bob Character */}
       <div 
         className="absolute left-0 z-40"
         style={{
-          bottom: `${counterHeightPercent - 2}%`,
+          bottom: `${bottomPercent}%`,
           // Add max-height to prevent clipping at top
           maxHeight: `${100 - counterHeightPercent - 5}%`,
           transform: `translateX(${translateX})`,

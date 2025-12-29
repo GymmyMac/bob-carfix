@@ -45,6 +45,10 @@ interface MobileBobLayoutProps {
   // Vehicle
   vehicle?: Vehicle | null;
   onChangeVehicle?: () => void;
+  
+  // Bob positioning from database
+  bobOffset?: number;
+  bobScale?: number;
 }
 
 export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
@@ -73,7 +77,9 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
   onPackageSelect,
   isResearching,
   vehicle,
-  onChangeVehicle
+  onChangeVehicle,
+  bobOffset = 0,
+  bobScale = 100
 }) => {
   const isEmbedded = typeof window !== 'undefined' && window.self !== window.top;
   
@@ -147,8 +153,9 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
         animationState={animationState}
         counterOverlayUrl={counterOverlayUrl}
         counterHeightPercent={counterHeightPercent}
-        scale={200}
+        scale={(200 * bobScale) / 100}
         position={bobPosition}
+        verticalOffset={bobOffset}
       />
 
       {/* Vehicle Context Bar */}
