@@ -1,11 +1,5 @@
 import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
-import { BobCharacter } from "@/components/BobCharacter";
-import { ChatInterface } from "@/components/ChatInterface";
-import { ProductShelf } from "@/components/ProductShelf";
-import { ProductShelfLoading } from "@/components/ProductShelfLoading";
-import VehicleCard from "@/components/vehicle/VehicleCard";
-import { ServicePackagesSection } from "@/components/ServicePackagesSection";
 import { ServicePackageDetailDialog } from "@/components/ServicePackageDetailDialog";
 import { ProductConfirmDialog } from "@/components/ProductConfirmDialog";
 import { MobileBobLayout } from "@/components/mobile/MobileBobLayout";
@@ -242,122 +236,38 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-
-      {/* Desktop: Side-by-side layout */}
-      <div className="hidden lg:flex min-h-screen">
-        {/* Bob + Chat Area (Left) - STICKY */}
-        <div className="w-[40%] h-screen sticky top-0 flex flex-col border-r border-border bg-background">
-          <div className="pt-8 flex-shrink-0">
-            <BobCharacter 
-              currentImage={getCurrentImage()}
-              animationState={animationState}
-              backdropUrl={bobBgWall}
-              counterOverlayUrl={bobCounter}
-              counterHeightPercent={activeBackdrop?.counter_height_percent ?? 12}
-              verticalOffset={getCurrentOffset()}
-              scale={getCurrentScale()}
-            />
-          </div>
-          
-          <div className="px-6 pb-8 pt-2 flex-1 min-h-0 flex flex-col overflow-hidden">
-            <ChatInterface
-              messages={messages}
-              input={input}
-              setInput={setInput}
-              isLoading={isLoading}
-              onSend={handleSend}
-              onKeyPress={handleKeyPress}
-              onInputFocus={handleInputFocus}
-              onInputBlur={handleInputBlur}
-              chatEndRef={chatEndRef}
-              isMuted={isMuted}
-              onToggleMute={toggleMute}
-              isSpeaking={isSpeaking}
-            />
-          </div>
-        </div>
-
-        {/* Vehicle/Product Area (Right) - SCROLLABLE */}
-        <div className="w-[60%] bg-background p-6 overflow-y-auto flex flex-col gap-6">
-          {displayedVehicle && (
-            <VehicleCard
-              vehicle={displayedVehicle}
-              onShopParts={(vehicle) => console.log("Shop parts for:", vehicle)}
-              onChangeVehicle={() => {
-                setDisplayedVehicle(null);
-                setDisplayedParts([]);
-                setDisplayedPackages([]);
-                pendingPackagesRef.current = [];
-                clearVehicle();
-              }}
-              initialExpanded={true}
-            />
-          )}
-          {/* Service Packages - Above Product Shelf - Synchronized reveal */}
-          {/* Show placeholders when multiple matches but no confirmed vehicle */}
-          {hasMultipleMatches && !displayedVehicle && (
-            <ServicePackagesSection
-              packages={[]}
-              isLoading={false}
-              showPlaceholders={true}
-              vehicleUnconfirmed={true}
-            />
-          )}
-          {/* Show real packages when vehicle confirmed and packages available */}
-          {displayedVehicle && displayedPackages.length > 0 && !isResearching && (
-            <ServicePackagesSection
-              packages={displayedPackages}
-              isLoading={false}
-              onPackageSelect={(pkg) => setSelectedPackage(pkg)}
-            />
-          )}
-          {isResearching ? (
-            <ProductShelfLoading />
-          ) : (displayedVehicle || displayedParts.length > 0) ? (
-            <ProductShelf 
-              products={displayedParts}
-              highlightedPartType={highlightedPartType}
-              highlightedProduct={highlightedProduct}
-              onProductClick={(product) => setConfirmProduct(product)}
-            />
-          ) : null}
-        </div>
-      </div>
-
-      {/* Mobile/Tablet: Immersive full-screen layout */}
-      <div className="lg:hidden">
-        <MobileBobLayout
-          currentImage={getCurrentImage()}
-          animationState={animationState}
-          messages={messages}
-          input={input}
-          setInput={setInput}
-          isLoading={isLoading}
-          onSend={handleSend}
-          onKeyPress={handleKeyPress}
-          onInputFocus={handleInputFocus}
-          onInputBlur={handleInputBlur}
-          chatEndRef={chatEndRef}
-          isMuted={isMuted}
-          onToggleMute={toggleMute}
-          isSpeaking={isSpeaking}
-          products={displayedParts}
-          servicePackages={displayedPackages}
-          highlightedPartType={highlightedPartType}
-          highlightedProduct={highlightedProduct}
-          onProductClick={(product) => setConfirmProduct(product)}
-          onPackageSelect={(pkg) => setSelectedPackage(pkg)}
-          isResearching={isResearching}
-          vehicle={displayedVehicle}
-          onChangeVehicle={() => {
-            setDisplayedVehicle(null);
-            setDisplayedParts([]);
-            setDisplayedPackages([]);
-            pendingPackagesRef.current = [];
-            clearVehicle();
-          }}
-        />
-      </div>
+      {/* Immersive full-screen layout - ALL viewports */}
+      <MobileBobLayout
+        currentImage={getCurrentImage()}
+        animationState={animationState}
+        messages={messages}
+        input={input}
+        setInput={setInput}
+        isLoading={isLoading}
+        onSend={handleSend}
+        onKeyPress={handleKeyPress}
+        onInputFocus={handleInputFocus}
+        onInputBlur={handleInputBlur}
+        chatEndRef={chatEndRef}
+        isMuted={isMuted}
+        onToggleMute={toggleMute}
+        isSpeaking={isSpeaking}
+        products={displayedParts}
+        servicePackages={displayedPackages}
+        highlightedPartType={highlightedPartType}
+        highlightedProduct={highlightedProduct}
+        onProductClick={(product) => setConfirmProduct(product)}
+        onPackageSelect={(pkg) => setSelectedPackage(pkg)}
+        isResearching={isResearching}
+        vehicle={displayedVehicle}
+        onChangeVehicle={() => {
+          setDisplayedVehicle(null);
+          setDisplayedParts([]);
+          setDisplayedPackages([]);
+          pendingPackagesRef.current = [];
+          clearVehicle();
+        }}
+      />
 
       {/* Service Package Detail Dialog */}
       <ServicePackageDetailDialog
@@ -372,13 +282,11 @@ const Index = () => {
         open={!!confirmProduct}
         onOpenChange={(open) => !open && setConfirmProduct(null)}
         onConfirm={(product, quantity) => {
-          // Build message to send to Bob
           const qtyText = quantity > 1 ? `${quantity} of the` : 'the';
           const productDesc = product.brand 
             ? `${product.brand} ${product.name}` 
             : product.name;
           setInput(`Add ${qtyText} ${productDesc} to my cart`);
-          // Trigger send after a brief delay to allow state update
           setTimeout(() => {
             handleSend();
           }, 100);
