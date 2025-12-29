@@ -141,14 +141,16 @@ export const MobileBobLayout = ({
         touchAction: 'manipulation'
       }}
     >
-      {/* Layer 1: Blurred Background */}
+      {/* Layer 1: Background with conditional blur */}
       <div 
-        className="absolute inset-0 z-0"
+        className="absolute inset-0 z-0 transition-all duration-500 ease-out"
         style={{
           backgroundImage: `url(${bobBgWall})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center bottom',
-          filter: 'blur(12px) brightness(0.7)',
+          filter: showProductColumn 
+            ? 'blur(12px) brightness(0.7)' 
+            : 'blur(0px) brightness(1)',
           transform: 'scale(1.1)' // Prevent blur edge artifacts
         }}
       />
