@@ -24,13 +24,12 @@ export default defineConfig({
         'react',
         'react-dom',
         '@supabase/supabase-js',
-        '@tanstack/react-query',
+        // Note: @tanstack/react-query is now bundled for self-contained operation
       ],
       output: {
         globals: {
           react: 'React',
           'react-dom': 'ReactDOM',
-          '@tanstack/react-query': 'ReactQuery',
         },
       },
     },

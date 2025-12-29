@@ -8,83 +8,95 @@ AI-powered automotive parts assistant widget for integration into partner websit
 npm install @gymmymac/bob-widget
 ```
 
-## Quick Start
+## Quick Start (Recommended)
+
+The easiest way to integrate Bob - just use the `BobWidget` component:
 
 ```tsx
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BobProvider, Bob } from '@gymmymac/bob-widget';
-
-const queryClient = new QueryClient();
+import { BobWidget } from '@gymmymac/bob-widget';
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BobProvider
-        bobConfig={{
-          supabaseUrl: 'https://gjoguxzstsihhxvdgpto.supabase.co',
-          supabaseKey: 'eyJhbGciOiJI...', // Bob's public anon key
-        }}
-        hostApiConfig={{
-          baseUrl: 'https://api.yoursite.com',
-          apiKey: process.env.CARFIX_PARTNER_API_KEY!,
-          partnerCode: 'YOUR_PARTNER_CODE',
-        }}
-        hostContext={{
-          user: { id: user?.id, email: user?.email, name: user?.name },
-          vehicle: { selectedVehicle: currentVehicle },
-        }}
-        callbacks={{
-          onVehicleIdentified: (vehicle) => saveVehicle(vehicle),
-          onPartsFound: (parts) => displayParts(parts),
-          onAddToCart: (item) => addToCart(item),
-        }}
-      >
-        <YourApp />
-        <Bob variant="floating" />
-      </BobProvider>
-    </QueryClientProvider>
+    <BobWidget
+      bobConfig={{
+        supabaseUrl: 'https://gjoguxzstsihhxvdgpto.supabase.co',
+        supabaseKey: 'eyJhbGciOiJI...', // Bob's public anon key
+      }}
+      hostApiConfig={{
+        baseUrl: 'https://api.yoursite.com',
+        apiKey: process.env.API_KEY!,
+        partnerCode: 'YOUR_PARTNER_CODE',
+      }}
+      hostContext={{
+        user: { id: user?.id, email: user?.email },
+        vehicle: { selectedVehicle: currentVehicle },
+      }}
+      callbacks={{
+        onVehicleIdentified: (vehicle) => saveVehicle(vehicle),
+        onAddToCart: (item) => addToCart(item),
+      }}
+      variant="mobile"
+    />
   );
 }
 ```
 
-## Troubleshooting
+**That's it!** No `QueryClientProvider` wrapping needed - Bob handles everything internally.
 
-### "No QueryClient set" Error
+## Alternative: BobProvider + Bob
 
-If you see this error, ensure:
+If you need access to Bob's context in other components:
 
-1. **Install `@tanstack/react-query`** as a peer dependency:
-   ```bash
-   npm install @tanstack/react-query
-   ```
+```tsx
+import { BobProvider, Bob, useHostContext } from '@gymmymac/bob-widget';
 
-2. **Wrap `BobProvider` inside `QueryClientProvider`**:
-   ```tsx
-   import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-   
-   const queryClient = new QueryClient();
-   
-   <QueryClientProvider client={queryClient}>
-     <BobProvider ...>
-       ...
-     </BobProvider>
-   </QueryClientProvider>
-   ```
+function App() {
+  return (
+    <BobProvider
+      bobConfig={{
+        supabaseUrl: 'https://gjoguxzstsihhxvdgpto.supabase.co',
+        supabaseKey: 'eyJhbGciOiJI...',
+      }}
+      hostApiConfig={{
+        baseUrl: 'https://api.yoursite.com',
+        apiKey: process.env.API_KEY!,
+        partnerCode: 'YOUR_PARTNER_CODE',
+      }}
+      hostContext={{
+        user: { id: user?.id, email: user?.email },
+      }}
+      callbacks={{
+        onAddToCart: (item) => addToCart(item),
+      }}
+    >
+      <YourApp />
+      <Bob variant="mobile" />
+    </BobProvider>
+  );
+}
+```
 
-### Checking Bob's Version
+## Checking Bob's Version
 
-You can ask Bob directly: "What version are you running?"
+Ask Bob directly: "What version are you running?"
 
 Or programmatically:
 ```tsx
 import { BOB_VERSION, getBobVersion } from '@gymmymac/bob-widget';
 
-console.log(`Bob Widget Version: ${getBobVersion()}`); // e.g., "1.1.3"
+console.log(`Bob Widget Version: ${getBobVersion()}`); // e.g., "1.1.4"
+```
+
+Check the console for startup logs:
+```
+[BobWidget] Package loaded - v1.1.4
+[BobWidget] v1.1.4 initialized
+[BobWidget] QueryClient: internal
 ```
 
 ## Configuration
 
-### BobProvider Props
+### BobWidget / BobProvider Props
 
 | Prop | Type | Description |
 |------|------|-------------|
@@ -92,6 +104,15 @@ console.log(`Bob Widget Version: ${getBobVersion()}`); // e.g., "1.1.3"
 | `hostApiConfig` | `HostApiConfig` | Your API credentials for product/vehicle lookups |
 | `hostContext` | `HostContext` | Current user, vehicle, cart, and purchase history |
 | `callbacks` | `BobCallbacks` | Event handlers for Bob actions |
+| `queryClient` | `QueryClient` | Optional: share your app's QueryClient |
+
+### BobWidget Additional Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `variant` | `'mobile' \| 'inline' \| 'floating' \| 'fullscreen'` | `'mobile'` | Display variant |
+| `showChat` | `boolean` | `true` | Show chat interface |
+| `className` | `string` | `''` | Additional CSS classes |
 
 ### Host Context
 
@@ -127,22 +148,15 @@ Handle Bob's actions in your app:
 
 ```tsx
 const callbacks = {
-  // Called when Bob identifies a vehicle
   onVehicleIdentified: (vehicle) => {
     dispatch(setCurrentVehicle(vehicle));
   },
-  
-  // Called when parts are found
   onPartsFound: (parts) => {
     dispatch(setParts(parts));
   },
-  
-  // Called when user wants to add to cart
   onAddToCart: (item) => {
     dispatch(addToCart(item));
   },
-  
-  // Called when checkout is requested
   onCheckoutRequested: (url) => {
     window.location.href = url;
   },
@@ -151,7 +165,7 @@ const callbacks = {
 
 ## Hooks
 
-Access Bob's context from anywhere in your app:
+Access Bob's context from anywhere in your app (when using BobProvider):
 
 ```tsx
 import { 
@@ -169,6 +183,41 @@ function MyComponent() {
   }, [newEmail]);
 }
 ```
+
+## Advanced: Shared QueryClient
+
+If you want Bob to share your app's React Query cache:
+
+```tsx
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BobProvider, Bob } from '@gymmymac/bob-widget';
+
+const queryClient = new QueryClient();
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BobProvider
+        bobConfig={...}
+        hostApiConfig={...}
+        queryClient={queryClient} // Share the cache
+      >
+        <Bob variant="mobile" />
+      </BobProvider>
+    </QueryClientProvider>
+  );
+}
+```
+
+## Dependencies
+
+Bob Widget v1.1.4+ bundles its own dependencies. You only need:
+- `react` ^18.0.0
+- `react-dom` ^18.0.0
+
+## Integration Guide
+
+For detailed integration instructions, see [CARFIX-INTEGRATION.md](./CARFIX-INTEGRATION.md).
 
 ## License
 
