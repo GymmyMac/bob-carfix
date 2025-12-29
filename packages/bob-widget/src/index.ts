@@ -39,7 +39,9 @@ export {
   MobileBobCharacter,
   MobileChatDrawer,
   MobileProductColumn,
-  MobileBobLayout
+  MobileBobLayout,
+  ContainedMobileBobLayout,
+  ContainedChatDrawer
 } from './components/mobile';
 
 // Core hooks

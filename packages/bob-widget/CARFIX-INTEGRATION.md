@@ -1,4 +1,4 @@
-# CARFIX Integration Guide - Bob Widget v1.1.4
+# CARFIX Integration Guide - Bob Widget v1.1.5
 
 ## 🚀 One-Click Install Instructions
 
@@ -25,7 +25,7 @@ npm uninstall @gymmymac/bob-widget
 rm -rf node_modules/.vite
 
 # Install latest version
-npm install @gymmymac/bob-widget@^1.1.4
+npm install @gymmymac/bob-widget@^1.1.5
 
 # Restart dev server
 npm run dev
@@ -160,8 +160,8 @@ This allows Bob's queries to share the same cache as your app.
 Open browser DevTools (F12) and check the console. You should see:
 
 ```
-[BobWidget] Package loaded - v1.1.4
-[BobWidget] v1.1.4 initialized
+[BobWidget] Package loaded - v1.1.5
+[BobWidget] v1.1.5 initialized
 [BobWidget] QueryClient: internal
 ```
 
@@ -171,15 +171,15 @@ If you see "QueryClient: external (shared)", you're using a shared QueryClient.
 
 Type in the chat: **"What version are you running?"**
 
-Bob should respond with his current version (1.1.4).
+Bob should respond with his current version (1.1.5).
 
 ### Programmatic Check
 
 ```tsx
 import { getBobVersion, BOB_VERSION } from '@gymmymac/bob-widget';
 
-console.log('Bob Version:', getBobVersion()); // "1.1.4"
-console.log('BOB_VERSION constant:', BOB_VERSION); // "1.1.4"
+console.log('Bob Version:', getBobVersion()); // "1.1.5"
+console.log('BOB_VERSION constant:', BOB_VERSION); // "1.1.5"
 ```
 
 ---
@@ -229,7 +229,7 @@ npm run dev
 
 ## Dependencies
 
-Bob Widget v1.1.4 **bundles** its own dependencies. Your project only needs:
+Bob Widget v1.1.5 **bundles** its own dependencies. Your project only needs:
 
 | Dependency | Version | Required |
 |------------|---------|----------|
@@ -252,6 +252,39 @@ Bob Widget v1.1.4 **bundles** its own dependencies. Your project only needs:
 | `variant` | `'mobile' \| 'inline' \| 'floating' \| 'fullscreen'` | ❌ | Display mode (default: 'mobile') |
 | `showChat` | `boolean` | ❌ | Show chat interface (default: true) |
 | `className` | `string` | ❌ | Additional CSS classes |
+
+### Choosing the Right Variant
+
+| Variant | Use Case | Behavior |
+|---------|----------|----------|
+| `"mobile"` | Full viewport takeover (standalone Bob page) | Uses `position: fixed`, takes over entire screen |
+| `"fullscreen"` | Same as mobile | Alias for mobile variant |
+| `"inline"` + `showChat={true}` | **Embedded immersive experience** | Uses `position: absolute`, fills parent container |
+| `"inline"` + `showChat={false}` | Just Bob's animation | Shows only BobCharacter, no chat |
+| `"floating"` | Small widget in corner | Fixed position bottom-right, 96px wide |
+
+#### 📱 Recommended for CARFIX `/ask-bob` Page
+
+```tsx
+// For a contained immersive experience within your page layout
+<div className="h-[calc(100dvh-136px)] relative">
+  <BobWidget
+    variant="inline"
+    showChat={true}
+    className="h-full w-full"
+    bobConfig={...}
+    hostApiConfig={...}
+    callbacks={...}
+  />
+</div>
+```
+
+This renders Bob with:
+- ✅ Immersive animation filling the container
+- ✅ Blurred backdrop for depth
+- ✅ Collapsible chat drawer at bottom
+- ✅ Product column slide-in when parts found
+- ✅ Respects parent container bounds (doesn't escape header/nav)
 
 ### BobConfig
 
@@ -303,7 +336,13 @@ If you encounter any issues:
 
 ## Changelog
 
-### v1.1.4 (Current)
+### v1.1.5 (Current)
+- ✅ **Immersive inline variant** - `variant="inline"` + `showChat={true}` now renders full immersive experience
+- ✅ New `ContainedMobileBobLayout` - uses `position: absolute` instead of `fixed`
+- ✅ New `ContainedChatDrawer` - chat drawer that respects parent bounds
+- ✅ Better variant documentation
+
+### v1.1.4
 - ✅ Internal QueryClientProvider - no wrapper needed
 - ✅ New `BobWidget` component for easy integration
 - ✅ Startup logging for debugging

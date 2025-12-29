@@ -6,9 +6,9 @@ import { useBobBackdrop } from "../hooks/useBobBackdrop";
 import { BobCharacter } from "./BobCharacter";
 import { ChatInterface } from "./ChatInterface";
 import { MobileBobLayout } from "./mobile/MobileBobLayout";
+import { ContainedMobileBobLayout } from "./mobile/ContainedMobileBobLayout";
 import type { Product, ServicePackage } from "../types";
 import type { HighlightedProduct } from "../types/message";
-
 export type BobVariant = "inline" | "floating" | "fullscreen" | "mobile";
 
 interface BobProps {
@@ -122,7 +122,7 @@ export const Bob: React.FC<BobProps> = ({
 
   const currentImage = getCurrentImage() || defaultBobImage || "";
 
-  // Mobile variant - full immersive experience
+  // Mobile/fullscreen variant - full viewport takeover
   if (variant === "mobile" || variant === "fullscreen") {
     return (
       <MobileBobLayout
@@ -162,16 +162,56 @@ export const Bob: React.FC<BobProps> = ({
     );
   }
 
-  // Desktop variants
+  // Inline variant with chat - immersive contained experience
+  if (variant === "inline" && showChat) {
+    return (
+      <div className={`relative w-full h-full ${className}`}>
+        <ContainedMobileBobLayout
+          currentImage={currentImage}
+          animationState={animationState}
+          backdropUrl={backdropUrl}
+          counterOverlayUrl={counterOverlayUrl}
+          counterHeightPercent={counterHeightPercent}
+          messages={bobChat.messages}
+          input={bobChat.input}
+          setInput={bobChat.setInput}
+          isLoading={bobChat.isLoading}
+          onSend={bobChat.handleSend}
+          onKeyPress={bobChat.handleKeyPress}
+          onInputFocus={bobChat.handleInputFocus}
+          onInputBlur={bobChat.handleInputBlur}
+          chatEndRef={bobChat.chatEndRef}
+          isMuted={bobChat.isMuted}
+          onToggleMute={bobChat.toggleMute}
+          isSpeaking={bobChat.isSpeaking}
+          products={products}
+          servicePackages={servicePackages}
+          highlightedPartType={highlightedPartType}
+          highlightedProduct={highlightedProduct}
+          onProductClick={(product) => callbacks.onAddToCart?.({
+            product_id: product.id,
+            product_name: product.name,
+            quantity: 1,
+            unit_price: product.price,
+            sku: product.sku,
+            brand: product.brand
+          })}
+          onPackageSelect={(pkg) => console.log('[BobWidget] Package selected:', pkg)}
+          isResearching={isResearching}
+          vehicle={bobChat.identifiedVehicle}
+        />
+      </div>
+    );
+  }
+
+  // Desktop/floating variants - legacy layout
   const variantClasses = {
     inline: "",
-    floating: "fixed bottom-4 right-4 w-96 z-50 shadow-2xl rounded-lg overflow-hidden",
-    fullscreen: "fixed inset-0 z-50 bg-black/80",
-    mobile: ""
+    floating: "fixed bottom-4 right-4 w-96 z-50 shadow-2xl rounded-lg overflow-hidden"
   };
 
   return (
-    <div className={`${variantClasses[variant]} ${className}`}>
+    <div className={`${variantClasses[variant as keyof typeof variantClasses] || ''} ${className}`}>
       {currentImage && (
         <BobCharacter
           currentImage={currentImage}
