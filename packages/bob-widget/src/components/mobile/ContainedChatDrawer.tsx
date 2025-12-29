@@ -92,7 +92,8 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
       ref={drawerRef}
       className={`absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 transition-all duration-300 ease-out shadow-[0_-4px_20px_rgba(0,0,0,0.15)] ${isExpanded ? "h-[55%]" : "h-auto"}`}
       style={{
-        zIndex: 60
+        zIndex: 60,
+        paddingBottom: 'env(safe-area-inset-bottom, 8px)'
       }}
     >
       {/* Expand/Collapse Handle */}
@@ -114,7 +115,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
 
       {/* Collapsed Preview */}
       {!isExpanded && (
-        <div className="px-3 pt-2 pb-0.5" onClick={() => setIsExpanded(true)}>
+        <div className="px-3 pt-1.5 pb-1" onClick={() => setIsExpanded(true)}>
           <p className="text-xs text-gray-500 line-clamp-1">{previewText}</p>
         </div>
       )}
@@ -138,7 +139,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
       )}
 
       {/* Input Area */}
-      <div className={`px-2 pb-2 ${isExpanded ? "pt-2 border-t border-gray-200" : "pt-0.5"}`}>
+      <div className={`px-3 pb-1 ${isExpanded ? "pt-2 border-t border-gray-200" : "pt-1"}`}>
         {isListening && (
           <div className="mb-2 text-xs text-gray-500 flex items-center gap-2">
             <span className="inline-block w-2 h-2 bg-red-500 rounded-full animate-pulse" />

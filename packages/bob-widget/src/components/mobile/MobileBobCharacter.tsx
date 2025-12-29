@@ -17,10 +17,12 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
   scale = 100,
   position = 'center'
 }) => {
-  const scaledWidth = (85 * scale) / 100;
-  const scaledMaxWidth = (400 * scale) / 100;
+  // Reduced base width from 85% to 65% for better fit
+  const scaledWidth = (65 * scale) / 100;
+  const scaledMaxWidth = (320 * scale) / 100;
   
-  const translateX = position === 'center' ? '-20%' : '-35%';
+  // Better centering: center position moves Bob more to middle, left moves him further left
+  const translateX = position === 'center' ? '5%' : '-25%';
   
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -29,6 +31,8 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
         className="absolute left-0 z-40"
         style={{
           bottom: `${counterHeightPercent - 2}%`,
+          // Add max-height to prevent clipping at top
+          maxHeight: `${100 - counterHeightPercent - 5}%`,
           transform: `translateX(${translateX})`,
           width: `${scaledWidth}%`,
           maxWidth: `${scaledMaxWidth}px`,
@@ -39,7 +43,7 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
           src={currentImage} 
           alt={`Bob ${animationState}`} 
           className="w-full h-auto object-contain"
-          style={{ display: 'block' }}
+          style={{ display: 'block', maxHeight: '100%' }}
         />
       </div>
 

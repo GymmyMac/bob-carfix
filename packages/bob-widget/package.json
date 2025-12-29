@@ -1,6 +1,6 @@
 {
   "name": "@gymmymac/bob-widget",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "Bob - AI-powered automotive parts assistant widget with full immersive experience",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

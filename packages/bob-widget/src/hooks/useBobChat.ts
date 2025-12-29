@@ -153,26 +153,32 @@ export const useBobChat = ({
     }
   }, [hostContext.vehicle?.selectedVehicle]);
 
-  // Send initial greeting
+  // Send initial greeting with TTS
   useEffect(() => {
     if (messages.length === 0 && !initialGreetingSentRef.current) {
+      initialGreetingSentRef.current = true;
       const selectedVehicle = hostContext.vehicle?.selectedVehicle;
       
+      let greetingMessage: string;
       if (selectedVehicle) {
-        initialGreetingSentRef.current = true;
         const vehicleName = `${selectedVehicle.year} ${selectedVehicle.make} ${selectedVehicle.model}`;
-        setMessages([{
-          role: "assistant",
-          content: `G'day! Saw you've got the ${vehicleName} - choice wagon! What can I help you find for it today?`
-        }]);
+        greetingMessage = `G'day! Saw you've got the ${vehicleName} - choice wagon! What can I help you find for it today?`;
       } else {
-        setMessages([{
-          role: "assistant",
-          content: "G'day! Bob from CARFIX here. How can I help ya today?"
-        }]);
+        greetingMessage = "G'day! Bob from CARFIX here. How can I help ya today?";
+      }
+      
+      setMessages([{ role: "assistant", content: greetingMessage }]);
+      
+      // Speak the greeting after a short delay to allow component to mount
+      // and avoid browser autoplay restrictions by queuing it
+      if (!isMuted) {
+        setTimeout(() => {
+          console.log('[BobWidget] Speaking initial greeting');
+          speak(greetingMessage);
+        }, 800);
       }
     }
-  }, [hostContext.vehicle?.selectedVehicle, messages.length]);
+  }, [hostContext.vehicle?.selectedVehicle, messages.length, isMuted, speak]);
 
   // Auto-fetch parts when vehicle is provided
   useEffect(() => {
