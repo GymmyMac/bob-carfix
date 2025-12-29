@@ -4,8 +4,8 @@
  */
 
 .bob-widget-root {
-  /* Reset all inherited properties */
-  all: initial;
+  /* Targeted reset - NOT using all: initial which breaks Tailwind */
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -17,53 +17,36 @@
   background: transparent;
   
   /* CSS Containment for performance and isolation */
-  contain: layout style paint;
   isolation: isolate;
   
   /* Override CarFix's box model */
   box-sizing: border-box;
   
   /* Override any inherited --border CSS variable from host */
-  --border: transparent;
-  --border-border: transparent;
+  --border: transparent !important;
+  --border-border: transparent !important;
 }
 
-/* Reset all child elements */
+/* Reset box-sizing for all child elements */
 .bob-widget-root *,
 .bob-widget-root *::before,
 .bob-widget-root *::after {
   box-sizing: border-box;
-  border-width: 0;
-  border-style: solid;
-  border-color: transparent;
 }
 
 /* Reset buttons - override CarFix's 44px minimum touch targets */
 .bob-widget-root button,
 .bob-widget-root [role="button"] {
-  all: unset;
-  box-sizing: border-box;
+  /* Targeted overrides only - NOT using all: unset */
   min-height: unset !important;
   min-width: unset !important;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* Reset inputs - override CarFix's !important font-size: 16px */
 .bob-widget-root input,
 .bob-widget-root textarea {
-  all: unset;
-  box-sizing: border-box;
-  font-size: inherit !important;
-  font-family: inherit;
-  line-height: inherit;
-  display: block;
-  width: 100%;
+  /* Targeted overrides only - NOT using all: unset */
+  font-size: 16px !important;
 }
 
 /* Reset focus states - Bob's own focus indicators */
