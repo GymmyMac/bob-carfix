@@ -1,33 +1,7 @@
 /**
- * @carfix/bob-widget
+ * @gymmymac/bob-widget
  * 
- * AI-powered automotive parts assistant widget
- * 
- * @example
- * ```tsx
- * import { BobProvider, Bob } from '@carfix/bob-widget';
- * 
- * function App() {
- *   return (
- *     <BobProvider
- *       bobConfig={{
- *         supabaseUrl: 'https://your-bob-project.supabase.co',
- *         supabaseKey: 'your-anon-key',
- *       }}
- *       hostApiConfig={{
- *         baseUrl: 'https://your-api.com',
- *         apiKey: 'your-api-key',
- *       }}
- *       hostContext={{
- *         user: { email: 'user@example.com' },
- *       }}
- *     >
- *       <YourApp />
- *       <Bob variant="floating" />
- *     </BobProvider>
- *   );
- * }
- * ```
+ * AI-powered automotive parts assistant widget - Full immersive experience
  */
 
 // Provider and hooks
@@ -40,37 +14,46 @@ export {
   useBobCallbacks,
 } from './BobProvider';
 
-// Components
+// Main components
 export { Bob } from './components/Bob';
 export type { BobVariant } from './components/Bob';
 export { BobCharacter } from './components/BobCharacter';
 export { ChatInterface } from './components/ChatInterface';
 
-// Hooks
+// Mobile components
+export {
+  MobileBobCharacter,
+  MobileChatDrawer,
+  MobileProductColumn,
+  MobileBobLayout
+} from './components/mobile';
+
+// Core hooks
 export { useBobChat } from './hooks/useBobChat';
 export { useSpeechSynthesis } from './hooks/useSpeechSynthesis';
+export { useBobAnimation } from './hooks/useBobAnimation';
+export { useBobAnimationData } from './hooks/useBobAnimationData';
+export { useBobStateTransitions } from './hooks/useBobStateTransitions';
+export { useSpeechRecognition } from './hooks/useSpeechRecognition';
+export { useBobBackdrop } from './hooks/useBobBackdrop';
 
 // Types
 export type {
-  // Host context types
   HostContext,
   HostUserContext,
   HostVehicleContext,
   HostCartContext,
   HostHistoryContext,
-  
-  // Configuration types
   BobConfig,
   HostApiConfig,
   BobCallbacks,
   BobProviderConfig,
 } from './types/context';
 
-export type {
-  Vehicle,
-} from './types/vehicle';
+export type { Vehicle } from './types/vehicle';
 
 export type {
+  Product,
   APIPart,
   CartItem,
   ServicePackage,
@@ -80,3 +63,10 @@ export type {
   Message,
   HighlightedProduct,
 } from './types/message';
+
+export type {
+  BobAnimationConfig,
+  AnimationStateDefinition,
+  BobLook,
+  BobAnimationData,
+} from './hooks/useBobAnimationData';
