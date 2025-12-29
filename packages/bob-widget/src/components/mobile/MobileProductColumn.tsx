@@ -83,12 +83,12 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
   return (
     <div 
       ref={scrollRef}
-      className={`absolute right-2 w-[52%] max-w-[240px] overflow-y-auto overflow-x-hidden z-30 flex flex-col gap-3 pb-4 transition-all duration-300 ease-out ${
+      className={`absolute right-2 w-[52%] md:w-[48%] lg:w-[45%] max-w-[320px] overflow-y-auto overflow-x-hidden z-30 flex flex-col gap-4 pb-4 transition-all duration-300 ease-out ${
         visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-8 pointer-events-none"
       }`}
       style={{
         top: topOffset,
-        bottom: '90px',
+        bottom: 'calc(70px + env(safe-area-inset-bottom, 8px))',
         paddingTop: 'env(safe-area-inset-top, 4px)'
       }}
     >
@@ -144,7 +144,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
               <span className="text-[10px] text-gray-500 font-medium">({groupProducts.length})</span>
             </h3>
             
-            <div className="space-y-3">
+            <div className="space-y-4">
               {groupProducts.map((product, index) => {
                 const isSpotlighted = highlightedProduct && productMatchesSpotlight(product, highlightedProduct);
                 
@@ -153,15 +153,15 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                     key={`${product.id}-${index}`}
                     ref={isSpotlighted ? spotlightedRef : undefined}
                     onClick={() => onProductClick?.(product)}
-                    className={`cursor-pointer active:scale-[0.98] transition-all bg-white rounded-xl border relative overflow-hidden shadow-md ${
+                    className={`cursor-pointer active:scale-[0.98] transition-all duration-200 bg-white rounded-2xl border relative overflow-hidden hover:scale-[1.02] ${
                       isSpotlighted 
                         ? "ring-2 ring-blue-500 shadow-xl border-blue-200" 
-                        : "border-gray-100 hover:shadow-lg"
+                        : "border-gray-100 shadow-lg hover:shadow-xl"
                     }`}
                   >
                     {isSpotlighted && (
-                      <span className="absolute top-2 right-2 bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full z-20 flex items-center gap-0.5 font-medium shadow-sm">
-                        <svg className="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 20 20">
+                      <span className="absolute top-3 right-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs px-2.5 py-1 rounded-full z-20 flex items-center gap-1 font-semibold shadow-md">
+                        <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
                           <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                         </svg>
                         Bob's Pick
@@ -169,36 +169,34 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                     )}
                     
                     {/* Product Image */}
-                    <div className="aspect-[4/3] bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
+                    <div className="aspect-[4/3] md:aspect-[3/2] bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
                       {product.image_url ? (
-                        <img src={product.image_url} alt={product.name} className="w-full h-full object-contain p-2" />
+                        <img src={product.image_url} alt={product.name} className="w-full h-full object-contain p-3 md:p-4" />
                       ) : (
                         <div className="flex flex-col items-center justify-center text-gray-400">
-                          <svg className="h-8 w-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="h-10 w-10 md:h-12 md:w-12 mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                           </svg>
-                          <span className="text-[10px] font-medium uppercase tracking-wide">No Image</span>
+                          <span className="text-xs font-medium uppercase tracking-wide">No Image</span>
                         </div>
                       )}
                     </div>
                     
                     {/* Product Info */}
-                    <div className="p-3">
-                      <p className="text-sm font-semibold text-gray-900 line-clamp-2 mb-1">{product.name}</p>
+                    <div className="p-3 md:p-4">
+                      <p className="text-sm md:text-base font-semibold text-gray-900 line-clamp-2 mb-1">{product.name}</p>
                       {product.brand && (
-                        <p className="text-xs text-gray-600 font-medium mb-2">{product.brand}</p>
+                        <p className="text-xs md:text-sm text-gray-600 font-medium mb-2">{product.brand}</p>
                       )}
-                      <div className="flex items-center justify-between">
-                        <span className="text-base font-bold text-blue-600">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-lg md:text-xl font-bold text-blue-600">
                           {product.price > 0 ? `$${product.price.toFixed(2)}` : 'POA'}
                         </span>
                       </div>
-                    </div>
-                    
-                    {/* Action Button */}
-                    <div className="px-3 pb-3">
+                      
+                      {/* Action Button */}
                       <button 
-                        className="w-full bg-blue-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-sm"
+                        className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white text-sm md:text-base font-semibold py-2.5 md:py-3 rounded-xl hover:from-blue-700 hover:to-blue-600 active:from-blue-800 active:to-blue-700 transition-all shadow-md"
                         onClick={(e) => {
                           e.stopPropagation();
                           onProductClick?.(product);

@@ -147,7 +147,7 @@ export const Bob: React.FC<BobProps> = ({
         servicePackages={servicePackages}
         highlightedPartType={highlightedPartType}
         highlightedProduct={highlightedProduct}
-        onProductClick={(product) => callbacks.onAddToCart?.({
+        onAddToCart={(product) => callbacks.onAddToCart?.({
           product_id: product.id,
           product_name: product.name,
           quantity: 1,
@@ -188,7 +188,7 @@ export const Bob: React.FC<BobProps> = ({
           servicePackages={servicePackages}
           highlightedPartType={highlightedPartType}
           highlightedProduct={highlightedProduct}
-          onProductClick={(product) => callbacks.onAddToCart?.({
+          onAddToCart={(product) => callbacks.onAddToCart?.({
             product_id: product.id,
             product_name: product.name,
             quantity: 1,
