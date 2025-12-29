@@ -155,6 +155,7 @@ export const Bob: React.FC<BobProps> = ({
           sku: product.sku,
           brand: product.brand
         })}
+        onNavigateToProductPage={(product) => callbacks.onNavigateToProductPage?.(product)}
         onPackageSelect={(pkg) => console.log('[BobWidget] Package selected:', pkg)}
         isResearching={isResearching}
         vehicle={bobChat.identifiedVehicle}
@@ -196,6 +197,7 @@ export const Bob: React.FC<BobProps> = ({
             sku: product.sku,
             brand: product.brand
           })}
+          onNavigateToProductPage={(product) => callbacks.onNavigateToProductPage?.(product)}
           onPackageSelect={(pkg) => console.log('[BobWidget] Package selected:', pkg)}
           isResearching={isResearching}
           vehicle={bobChat.identifiedVehicle}

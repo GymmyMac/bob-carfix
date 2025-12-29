@@ -120,11 +120,19 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
     }
   }, [hasProducts, isResearching, panelState, bobPosition]);
 
-  // Handle product click - navigate to detail view
+  // Handle product click - navigate to product page or show detail view
   const handleProductClick = (product: Product) => {
+    // If navigation callback is provided, use it to navigate to real product page
+    if (onNavigateToProductPage) {
+      onNavigateToProductPage(product);
+      // Also call parent callback if provided
+      onProductClick?.(product);
+      return;
+    }
+    
+    // Fallback: show internal detail view
     setSelectedProduct(product);
     setCurrentView('productDetail');
-    // Also call parent callback if provided
     onProductClick?.(product);
   };
 
