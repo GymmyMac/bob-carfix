@@ -2,7 +2,14 @@
  * @gymmymac/bob-widget
  * 
  * AI-powered automotive parts assistant widget - Full immersive experience
+ * 
+ * v1.1.4+ - Self-contained with internal QueryClientProvider
  */
+
+import { BOB_VERSION } from './version';
+
+// Log package load for debugging
+console.log(`[BobWidget] Package loaded - v${BOB_VERSION}`);
 
 // Version
 export { BOB_VERSION, getBobVersion } from './version';
@@ -16,6 +23,10 @@ export {
   useHostApiConfig,
   useBobCallbacks,
 } from './BobProvider';
+
+// Self-contained widget (recommended for easy integration)
+export { BobWidget } from './components/BobWidget';
+export type { BobWidgetProps } from './components/BobWidget';
 
 // Main components
 export { Bob } from './components/Bob';

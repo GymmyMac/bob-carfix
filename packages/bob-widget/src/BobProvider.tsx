@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useMemo, useEffect, ReactNode } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BOB_VERSION } from './version';
 import type {
   BobConfig,
   HostApiConfig,
@@ -37,6 +39,8 @@ interface BobProviderProps {
   hostContext?: HostContext;
   /** Event callbacks */
   callbacks?: BobCallbacks;
+  /** Optional external QueryClient - if not provided, an internal one is created */
+  queryClient?: QueryClient;
 }
 
 /**
@@ -77,7 +81,31 @@ export function BobProvider({
   hostApiConfig,
   hostContext: initialHostContext = {},
   callbacks = {},
+  queryClient: externalQueryClient,
 }: BobProviderProps) {
+  // Create internal QueryClient if none provided
+  const internalQueryClient = useMemo(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: 1,
+            staleTime: 5 * 60 * 1000,
+          },
+        },
+      }),
+    []
+  );
+
+  const activeQueryClient = externalQueryClient || internalQueryClient;
+  const usingExternalClient = !!externalQueryClient;
+
+  // Log startup info
+  useEffect(() => {
+    console.log(`[BobWidget] v${BOB_VERSION} initialized`);
+    console.log(`[BobWidget] QueryClient: ${usingExternalClient ? 'external (shared)' : 'internal'}`);
+  }, [usingExternalClient]);
+
   // Create Bob's Supabase client (for animations, settings)
   const bobSupabase = useMemo(() => {
     return createClient(bobConfig.supabaseUrl, bobConfig.supabaseKey);
@@ -111,7 +139,11 @@ export function BobProvider({
     [bobSupabase, bobConfig, hostApiConfig, hostContext, callbacks, updateHostContext]
   );
 
-  return <BobContext.Provider value={value}>{children}</BobContext.Provider>;
+  return (
+    <QueryClientProvider client={activeQueryClient}>
+      <BobContext.Provider value={value}>{children}</BobContext.Provider>
+    </QueryClientProvider>
+  );
 }
 
 /**
