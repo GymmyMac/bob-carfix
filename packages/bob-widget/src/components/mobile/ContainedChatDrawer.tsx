@@ -90,28 +90,31 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
   return (
     <div 
       ref={drawerRef}
-      className={`absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 transition-all duration-300 ease-out shadow-[0_-4px_20px_rgba(0,0,0,0.15)] ${isExpanded ? "h-[55%]" : "h-auto"}`}
+      className={`absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 transition-all duration-300 ease-out shadow-[0_-4px_20px_rgba(0,0,0,0.15)] ${isExpanded ? "h-[55%]" : ""}`}
       style={{
         zIndex: 60,
-        paddingBottom: 'env(safe-area-inset-bottom, 8px)'
+        paddingBottom: 'env(safe-area-inset-bottom, 8px)',
+        minHeight: isExpanded ? undefined : '70px'
       }}
     >
-      {/* Expand/Collapse Handle */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="absolute -top-5 left-1/2 -translate-x-1/2 bg-white border border-gray-200 rounded-full p-1.5 shadow-lg z-40"
-        aria-label={isExpanded ? "Collapse chat" : "Expand chat"}
-      >
-        {isExpanded ? (
-          <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        ) : (
-          <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-          </svg>
-        )}
-      </button>
+      {/* Expand/Collapse Handle - centered with flexbox */}
+      <div className="absolute -top-5 left-0 right-0 flex justify-center z-40">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="bg-white border border-gray-200 rounded-full p-1.5 shadow-lg"
+          aria-label={isExpanded ? "Collapse chat" : "Expand chat"}
+        >
+          {isExpanded ? (
+            <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          ) : (
+            <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+            </svg>
+          )}
+        </button>
+      </div>
 
       {/* Collapsed Preview */}
       {!isExpanded && (

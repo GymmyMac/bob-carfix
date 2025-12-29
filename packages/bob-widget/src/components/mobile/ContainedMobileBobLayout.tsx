@@ -2,12 +2,14 @@ import React, { useState, useEffect } from "react";
 import { MobileBobCharacter } from "./MobileBobCharacter";
 import { MobileProductColumn } from "./MobileProductColumn";
 import { ContainedChatDrawer } from "./ContainedChatDrawer";
+import { ProductDetailView } from "./ProductDetailView";
 import type { Message } from "../../types/message";
 import type { Product, ServicePackage } from "../../types";
 import type { HighlightedProduct } from "../../types/message";
 import type { Vehicle } from "../../types/vehicle";
 
 type PanelState = 'hidden' | 'loading' | 'transitioning' | 'visible';
+type ViewState = 'products' | 'productDetail';
 
 interface ContainedMobileBobLayoutProps {
   // Bob animation
@@ -39,6 +41,8 @@ interface ContainedMobileBobLayoutProps {
   onProductClick?: (product: Product) => void;
   onPackageSelect?: (pkg: ServicePackage) => void;
   isResearching?: boolean;
+  onAddToCart?: (product: Product) => void;
+  onNavigateToProductPage?: (product: Product) => void;
   
   // Vehicle
   vehicle?: Vehicle | null;
@@ -75,13 +79,20 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
   onProductClick,
   onPackageSelect,
   isResearching,
+  onAddToCart,
+  onNavigateToProductPage,
   vehicle,
   onChangeVehicle
 }) => {
   const [bobPosition, setBobPosition] = useState<'center' | 'left'>('center');
   const [panelState, setPanelState] = useState<PanelState>('hidden');
+  const [currentView, setCurrentView] = useState<ViewState>('products');
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   
   const hasProducts = products.length > 0 || servicePackages.length > 0;
+  
+  // Dynamic Bob scale: 50% smaller when viewing product detail
+  const bobScale = currentView === 'productDetail' ? 65 : 130;
   
   useEffect(() => {
     if (isResearching && panelState !== 'loading' && panelState !== 'visible') {
@@ -109,7 +120,21 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
     }
   }, [hasProducts, isResearching, panelState, bobPosition]);
 
-  const showProductColumn = panelState !== 'hidden';
+  // Handle product click - navigate to detail view
+  const handleProductClick = (product: Product) => {
+    setSelectedProduct(product);
+    setCurrentView('productDetail');
+    // Also call parent callback if provided
+    onProductClick?.(product);
+  };
+
+  // Handle back to products
+  const handleBackToProducts = () => {
+    setSelectedProduct(null);
+    setCurrentView('products');
+  };
+
+  const showProductColumn = panelState !== 'hidden' && currentView === 'products';
 
   return (
     <div 
@@ -141,18 +166,18 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
         </>
       )}
 
-      {/* Bob Character */}
+      {/* Bob Character - scales down 50% when viewing product detail */}
       <MobileBobCharacter
         currentImage={currentImage}
         animationState={animationState}
         counterOverlayUrl={counterOverlayUrl}
         counterHeightPercent={counterHeightPercent}
-        scale={130}
-        position={bobPosition}
+        scale={bobScale}
+        position="left"
       />
 
       {/* Vehicle Context Bar */}
-      {vehicle && (
+      {vehicle && currentView === 'products' && (
         <div className="absolute top-2 left-2 right-2 z-20">
           <div 
             className="bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 border border-gray-200 shadow-lg flex items-center justify-between"
@@ -177,13 +202,13 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
         </div>
       )}
 
-      {/* Product Column */}
+      {/* Product Column - shown in products view */}
       <MobileProductColumn
         products={products}
         servicePackages={servicePackages}
         highlightedPartType={highlightedPartType}
         highlightedProduct={highlightedProduct}
-        onProductClick={onProductClick}
+        onProductClick={handleProductClick}
         onPackageSelect={onPackageSelect}
         isResearching={isResearching}
         visible={showProductColumn}
@@ -191,21 +216,33 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
         hasVehicle={!!vehicle}
       />
 
-      {/* Chat Drawer - Contained mode */}
-      <ContainedChatDrawer
-        messages={messages}
-        input={input}
-        setInput={setInput}
-        isLoading={isLoading}
-        onSend={onSend}
-        onKeyPress={onKeyPress}
-        onInputFocus={onInputFocus}
-        onInputBlur={onInputBlur}
-        chatEndRef={chatEndRef}
-        isMuted={isMuted}
-        onToggleMute={onToggleMute}
-        isSpeaking={isSpeaking}
-      />
+      {/* Product Detail View - shown when customer clicks a product */}
+      {currentView === 'productDetail' && selectedProduct && (
+        <ProductDetailView
+          product={selectedProduct}
+          onBack={handleBackToProducts}
+          onAddToCart={onAddToCart}
+          onNavigateToProductPage={onNavigateToProductPage}
+        />
+      )}
+
+      {/* Chat Drawer - Contained mode, hidden when viewing product detail */}
+      {currentView === 'products' && (
+        <ContainedChatDrawer
+          messages={messages}
+          input={input}
+          setInput={setInput}
+          isLoading={isLoading}
+          onSend={onSend}
+          onKeyPress={onKeyPress}
+          onInputFocus={onInputFocus}
+          onInputBlur={onInputBlur}
+          chatEndRef={chatEndRef}
+          isMuted={isMuted}
+          onToggleMute={onToggleMute}
+          isSpeaking={isSpeaking}
+        />
+      )}
     </div>
   );
 };
