@@ -146,6 +146,8 @@ export interface BobCallbacks {
   onCheckoutRequested?: (checkoutUrl: string) => void;
   /** Called when Bob sends a message */
   onBobMessage?: (message: string) => void;
+  /** Called when user clicks a product to view full details page */
+  onNavigateToProductPage?: (product: unknown) => void;
   /** Called on any error */
   onError?: (error: Error) => void;
 }

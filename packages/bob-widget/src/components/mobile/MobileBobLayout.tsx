@@ -39,6 +39,8 @@ interface MobileBobLayoutProps {
   onProductClick?: (product: Product) => void;
   onPackageSelect?: (pkg: ServicePackage) => void;
   isResearching?: boolean;
+  onAddToCart?: (product: Product) => void;
+  onNavigateToProductPage?: (product: Product) => void;
   
   // Vehicle
   vehicle?: Vehicle | null;
