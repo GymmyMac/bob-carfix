@@ -147,7 +147,7 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
         animationState={animationState}
         counterOverlayUrl={counterOverlayUrl}
         counterHeightPercent={counterHeightPercent}
-        scale={200}
+        scale={130}
         position={bobPosition}
       />
 

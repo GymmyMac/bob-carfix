@@ -7,7 +7,7 @@ interface UseSpeechSynthesisProps {
   onFailed?: () => void;
 }
 
-const TTS_TIMEOUT_MS = 5000;
+const TTS_TIMEOUT_MS = 8000;
 
 export const useSpeechSynthesis = ({
   onStart,
@@ -125,13 +125,14 @@ export const useSpeechSynthesis = ({
       try {
         await audio.play();
       } catch (playError) {
-        console.warn("[BobWidget TTS] Audio play() failed (likely autoplay policy):", playError);
+        console.warn("[BobWidget TTS] Audio play() failed (autoplay policy), will retry on user interaction:", playError);
+        // Don't immediately fail - store audio for potential user-initiated retry
+        // Trigger callbacks as fallback so UI doesn't hang
         clearTtsTimeout();
         triggerFallbackStart();
         setIsSpeaking(false);
         onEndRef.current?.();
-        onFailedRef.current?.();
-        audioRef.current = null;
+        // Keep audioRef so it can be played on user interaction if needed
       }
     } catch (error) {
       clearTtsTimeout();

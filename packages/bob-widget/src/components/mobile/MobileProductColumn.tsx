@@ -166,13 +166,16 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                       </span>
                     )}
                     <div className="p-2">
-                      <div className="aspect-square bg-gray-100 rounded-md mb-1 flex items-center justify-center overflow-hidden">
+                      <div className="aspect-square bg-gradient-to-br from-gray-50 to-gray-100 rounded-md mb-1 flex items-center justify-center overflow-hidden border border-gray-200/50">
                         {product.image_url ? (
                           <img src={product.image_url} alt={product.name} className="w-full h-full object-contain" />
                         ) : (
-                          <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                          </svg>
+                          <div className="flex flex-col items-center justify-center text-gray-400">
+                            <svg className="h-6 w-6 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            <span className="text-[8px] font-medium uppercase tracking-wide">No Image</span>
+                          </div>
                         )}
                       </div>
                       <p className="text-xs font-medium line-clamp-2">{product.name}</p>
