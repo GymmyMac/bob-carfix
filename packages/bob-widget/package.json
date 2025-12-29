@@ -12,11 +12,10 @@
     "build": "vite build",
     "dev": "vite build --watch"
   },
- "publishConfig": {
-  "access": "public",
-  "registry": "https://registry.npmjs.org"
-}
-
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
   "peerDependencies": {
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
