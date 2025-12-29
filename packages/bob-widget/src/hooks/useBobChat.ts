@@ -1,11 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 import { useBobContext } from "../BobProvider";
 import { useSpeechSynthesis } from "./useSpeechSynthesis";
+import { BOB_VERSION } from "../version";
 import type { Vehicle } from "../types/vehicle";
 
 import type { Message, HighlightedProduct } from "../types/message";
 
 export type AnimationState = string;
+
+// Keywords that indicate a version query
+const VERSION_KEYWORDS = [
+  'what version', 'which version', 'software version', 'bob version',
+  'your version', 'current version', 'running version', 'version number',
+  'what ver', 'which ver'
+];
 
 interface UseBobChatProps {
   setAnimationState: (state: AnimationState) => void;
@@ -462,6 +470,21 @@ export const useBobChat = ({
     const userMessage: Message = { role: "user", content: input };
     setMessages(prev => [...prev, userMessage]);
     setInput("");
+    
+    // Check for version query
+    const lowerInput = input.toLowerCase();
+    const isVersionQuery = VERSION_KEYWORDS.some(keyword => lowerInput.includes(keyword));
+    
+    if (isVersionQuery) {
+      const versionResponse = `G'day mate! I'm running Bob v${BOB_VERSION} - she's running sweet as! Anything else I can help ya with?`;
+      setMessages(prev => [...prev, { role: "assistant", content: versionResponse }]);
+      
+      if (!isMuted) {
+        speak(versionResponse);
+      }
+      return;
+    }
+    
     setIsLoading(true);
     
     onResearchStart?.();

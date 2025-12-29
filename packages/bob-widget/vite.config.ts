@@ -1,8 +1,12 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import dts from 'vite-plugin-dts';
+import pkg from './package.json';
 
 export default defineConfig({
+  define: {
+    '__BOB_VERSION__': JSON.stringify(pkg.version),
+  },
   plugins: [
     dts({
       insertTypesEntry: true,
@@ -16,11 +20,17 @@ export default defineConfig({
       fileName: (format) => `index.${format === 'es' ? 'mjs' : 'js'}`,
     },
     rollupOptions: {
-      external: ['react', 'react-dom', '@supabase/supabase-js'],
+      external: [
+        'react',
+        'react-dom',
+        '@supabase/supabase-js',
+        '@tanstack/react-query',
+      ],
       output: {
         globals: {
           react: 'React',
           'react-dom': 'ReactDOM',
+          '@tanstack/react-query': 'ReactQuery',
         },
       },
     },

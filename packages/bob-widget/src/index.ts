@@ -4,6 +4,9 @@
  * AI-powered automotive parts assistant widget - Full immersive experience
  */
 
+// Version
+export { BOB_VERSION, getBobVersion } from './version';
+
 // Provider and hooks
 export {
   BobProvider,
