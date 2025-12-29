@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useBobContext } from "../BobProvider";
 import { useSpeechSynthesis } from "./useSpeechSynthesis";
 import type { Vehicle } from "../types/vehicle";
-import type { APIPart, ServicePackage } from "../types/product";
+
 import type { Message, HighlightedProduct } from "../types/message";
 
 export type AnimationState = string;
