@@ -3,6 +3,7 @@
  * 
  * AI-powered automotive parts assistant widget - Full immersive experience
  * 
+ * v1.4.0 - Redesigned PTT button: 3x larger, green "TALK" text, floating cartoon style
  * v1.3.1 - Bottom offset support for host navigation bars
  * v1.3.0 - GA4 Analytics integration
  */
