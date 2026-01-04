@@ -1,0 +1,35 @@
+name: Verify bob-widget
+
+on:
+  push:
+    paths:
+      - "packages/bob-widget/**"
+      - ".github/workflows/verify-bob-widget.yml"
+  pull_request:
+    paths:
+      - "packages/bob-widget/**"
+      - ".github/workflows/verify-bob-widget.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: packages/bob-widget
+        run: npm install --no-audit --no-fund
+
+      - name: Build package
+        working-directory: packages/bob-widget
+        run: npm run build
