@@ -124,3 +124,42 @@
 .bob-widget-root .bob-gap-3 {
   gap: 0.75rem;
 }
+
+/* ============================================
+   PTT (Push-to-Talk) Button Animations
+   Mechanic's Radio Button - Industrial Style
+   ============================================ */
+
+/* Idle pulse glow - green breathing effect */
+@keyframes ptt-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 16px rgba(34, 197, 94, 0);
+  }
+}
+
+/* Active radio wave - concentric rings expanding outward */
+@keyframes ptt-wave {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2);
+    opacity: 0;
+  }
+}
+
+/* Active indicator dot pulse */
+@keyframes ptt-dot {
+  0% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

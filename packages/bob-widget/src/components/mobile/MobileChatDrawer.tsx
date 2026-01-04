@@ -61,8 +61,9 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
   const handlePTTStart = useCallback(() => {
     if (isLoading || pttActiveRef.current) return;
     pttActiveRef.current = true;
+    // Stronger haptic for mechanic feel
     if (navigator.vibrate) {
-      navigator.vibrate(10);
+      navigator.vibrate(30);
     }
     startListening();
   }, [isLoading, startListening]);
@@ -70,8 +71,9 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
   const handlePTTEnd = useCallback(() => {
     if (!pttActiveRef.current) return;
     pttActiveRef.current = false;
+    // Double pulse on release
     if (navigator.vibrate) {
-      navigator.vibrate(10);
+      navigator.vibrate([20, 50, 20]);
     }
     stopListening();
     setTimeout(() => {
@@ -86,6 +88,28 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
       ? lastBobMessage.content.slice(0, 50) + '...'
       : lastBobMessage.content
     : "Ask Bob about car parts...";
+
+  // PTT button styles - mechanic's radio button
+  const pttButtonStyles = {
+    idle: {
+      background: 'linear-gradient(145deg, #22c55e 0%, #16a34a 100%)',
+      boxShadow: '0 6px 20px rgba(34, 197, 94, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.2), 0 0 0 4px #15803d',
+    },
+    active: {
+      background: 'linear-gradient(145deg, #f59e0b 0%, #d97706 100%)',
+      boxShadow: '0 2px 8px rgba(245, 158, 11, 0.5), inset 0 2px 8px rgba(0, 0, 0, 0.2), 0 0 0 4px #b45309',
+    },
+    disabled: {
+      background: 'linear-gradient(145deg, #9ca3af 0%, #6b7280 100%)',
+      boxShadow: '0 2px 8px rgba(156, 163, 175, 0.3), 0 0 0 4px #4b5563',
+    }
+  };
+
+  const currentPttStyle = isLoading 
+    ? pttButtonStyles.disabled 
+    : isListening 
+      ? pttButtonStyles.active 
+      : pttButtonStyles.idle;
 
   return (
     <div 
@@ -241,42 +265,123 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
             }}
           />
           
+          {/* Mechanic's Radio PTT Button - Large and prominent */}
           {isSupported && (
-            <button
-              onTouchStart={handlePTTStart}
-              onTouchEnd={handlePTTEnd}
-              onTouchCancel={handlePTTEnd}
-              onMouseDown={handlePTTStart}
-              onMouseUp={handlePTTEnd}
-              onMouseLeave={handlePTTEnd}
-              disabled={isLoading}
-              style={{
-                flexShrink: 0,
-                height: '48px',
-                width: '48px',
-                minHeight: 'unset',
-                minWidth: 'unset',
-                borderRadius: '9999px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                userSelect: 'none',
-                touchAction: 'none',
-                backgroundColor: isListening ? '#ef4444' : '#2563eb',
-                color: 'white',
-                border: 'none',
-                cursor: 'pointer',
-                opacity: isLoading ? 0.5 : 1,
-                transform: isListening ? 'scale(1.1)' : 'scale(1)',
-                boxShadow: isListening ? '0 0 0 2px rgba(239, 68, 68, 0.3)' : 'none',
-                transition: 'transform 0.15s ease, background-color 0.15s ease'
-              }}
-              title="Hold to talk"
-            >
-              <svg style={{ height: '20px', width: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
-            </button>
+            <div style={{ position: 'relative', marginLeft: '4px' }}>
+              {/* Radio wave animations when active */}
+              {isListening && (
+                <>
+                  <div style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    width: '72px',
+                    height: '72px',
+                    borderRadius: '50%',
+                    border: '2px solid #f59e0b',
+                    transform: 'translate(-50%, -50%)',
+                    animation: 'ptt-wave 1.5s ease-out infinite',
+                    opacity: 0,
+                    pointerEvents: 'none'
+                  }} />
+                  <div style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    width: '72px',
+                    height: '72px',
+                    borderRadius: '50%',
+                    border: '2px solid #f59e0b',
+                    transform: 'translate(-50%, -50%)',
+                    animation: 'ptt-wave 1.5s ease-out infinite 0.5s',
+                    opacity: 0,
+                    pointerEvents: 'none'
+                  }} />
+                </>
+              )}
+              
+              {/* Idle pulse glow */}
+              {!isListening && !isLoading && (
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  width: '72px',
+                  height: '72px',
+                  borderRadius: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  animation: 'ptt-pulse 2s ease-in-out infinite',
+                  pointerEvents: 'none'
+                }} />
+              )}
+              
+              <button
+                onTouchStart={handlePTTStart}
+                onTouchEnd={handlePTTEnd}
+                onTouchCancel={handlePTTEnd}
+                onMouseDown={handlePTTStart}
+                onMouseUp={handlePTTEnd}
+                onMouseLeave={handlePTTEnd}
+                disabled={isLoading}
+                aria-label="Hold to talk to Bob"
+                style={{
+                  position: 'relative',
+                  flexShrink: 0,
+                  height: '72px',
+                  width: '72px',
+                  minHeight: 'unset',
+                  minWidth: 'unset',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  userSelect: 'none',
+                  touchAction: 'none',
+                  color: 'white',
+                  border: 'none',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  opacity: isLoading ? 0.6 : 1,
+                  transform: isListening ? 'scale(1.15)' : 'scale(1)',
+                  transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease',
+                  zIndex: zIndexBase + 25,
+                  ...currentPttStyle
+                }}
+                title="Hold to talk"
+              >
+                {/* Microphone icon - chunky style */}
+                <svg 
+                  style={{ 
+                    height: '28px', 
+                    width: '28px',
+                    filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2))'
+                  }} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2.5} 
+                    d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" 
+                  />
+                </svg>
+                
+                {/* Active indicator waves on icon */}
+                {isListening && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '8px',
+                    right: '8px',
+                    width: '12px',
+                    height: '12px',
+                    borderRadius: '50%',
+                    backgroundColor: '#fef3c7',
+                    animation: 'ptt-dot 0.6s ease-in-out infinite alternate'
+                  }} />
+                )}
+              </button>
+            </div>
           )}
         </div>
       </div>
