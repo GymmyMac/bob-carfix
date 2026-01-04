@@ -31,6 +31,10 @@ interface BobContextValue {
   ga4Config?: BobGA4Config;
   /** Whether analytics is enabled */
   analyticsEnabled: boolean;
+  /** Bottom offset in pixels for host navigation bars */
+  bottomOffset: number;
+  /** Base z-index for Bob's UI elements */
+  zIndexBase: number;
 }
 
 const BobContext = createContext<BobContextValue | null>(null);
@@ -51,6 +55,10 @@ interface BobProviderProps {
   ga4Config?: BobGA4Config;
   /** Enable/disable analytics tracking */
   analyticsEnabled?: boolean;
+  /** Bottom offset in pixels for host navigation bars */
+  bottomOffset?: number;
+  /** Base z-index for Bob's UI elements */
+  zIndexBase?: number;
 }
 
 /**
@@ -94,6 +102,8 @@ export function BobProvider({
   queryClient: externalQueryClient,
   ga4Config,
   analyticsEnabled = true,
+  bottomOffset = 0,
+  zIndexBase = 50,
 }: BobProviderProps) {
   // Create internal QueryClient if none provided
   const internalQueryClient = useMemo(
@@ -153,8 +163,10 @@ export function BobProvider({
       updateHostContext,
       ga4Config,
       analyticsEnabled,
+      bottomOffset,
+      zIndexBase,
     }),
-    [bobSupabase, bobConfig, hostApiConfig, hostContext, callbacks, updateHostContext, ga4Config, analyticsEnabled]
+    [bobSupabase, bobConfig, hostApiConfig, hostContext, callbacks, updateHostContext, ga4Config, analyticsEnabled, bottomOffset, zIndexBase]
   );
 
   return (
@@ -214,6 +226,14 @@ export function useBobCallbacks(): BobCallbacks {
 export function useBobAnalyticsConfig(): { ga4Config?: BobGA4Config; enabled: boolean } {
   const { ga4Config, analyticsEnabled } = useBobContext();
   return { ga4Config, enabled: analyticsEnabled };
+}
+
+/**
+ * Hook to access layout configuration (bottomOffset, zIndexBase)
+ */
+export function useBobLayoutConfig(): { bottomOffset: number; zIndexBase: number } {
+  const { bottomOffset, zIndexBase } = useBobContext();
+  return { bottomOffset, zIndexBase };
 }
 
 /**

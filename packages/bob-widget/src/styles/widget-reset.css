@@ -18,6 +18,7 @@
   
   /* CSS Containment for performance and isolation */
   isolation: isolate;
+  contain: layout style;
   
   /* Override CarFix's box model */
   box-sizing: border-box;

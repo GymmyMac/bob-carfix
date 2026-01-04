@@ -48,6 +48,18 @@ export interface BobWidgetProps {
   ga4Config?: BobGA4Config;
   /** Enable/disable analytics tracking */
   analyticsEnabled?: boolean;
+  /** 
+   * Bottom offset in pixels for host navigation bars.
+   * Bob's UI will be positioned this many pixels above the viewport bottom.
+   * Use this when your host site has a bottom navigation bar.
+   * @example bottomOffset={60} // For a 60px bottom nav
+   */
+  bottomOffset?: number;
+  /**
+   * Base z-index for Bob's UI elements. Default: 50
+   * Bob calculates internal z-indexes relative to this base.
+   */
+  zIndexBase?: number;
 }
 
 /**
@@ -95,6 +107,8 @@ export const BobWidget: React.FC<BobWidgetProps> = ({
   scale,
   ga4Config,
   analyticsEnabled = true,
+  bottomOffset = 0,
+  zIndexBase = 50,
 }) => {
   return (
     <div className="bob-widget-root" style={{ width: '100%', height: '100%' }}>
@@ -105,6 +119,8 @@ export const BobWidget: React.FC<BobWidgetProps> = ({
         callbacks={callbacks}
         ga4Config={ga4Config}
         analyticsEnabled={analyticsEnabled}
+        bottomOffset={bottomOffset}
+        zIndexBase={zIndexBase}
       >
         <Bob
           variant={variant}
