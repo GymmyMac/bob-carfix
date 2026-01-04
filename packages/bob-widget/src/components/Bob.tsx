@@ -45,8 +45,7 @@ export const Bob: React.FC<BobProps> = ({
     getCurrentImage,
     getCurrentOffset,
     getCurrentScale,
-    availableStates,
-    isLoading: animationLoading
+    availableStates
   } = useBobAnimation();
 
   // Load backdrop from database

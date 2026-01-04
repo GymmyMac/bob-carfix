@@ -8,6 +8,9 @@ export interface Product {
   price: number;
   sku?: string;
   partNumber?: string;
+  part_number?: string; // alias for external/legacy payloads
+  productUrl?: string;
+  product_url?: string; // alias for external/legacy payloads
   partslotDescription?: string;
   image_url?: string;
   image?: string; // Alias for demo compatibility

@@ -502,6 +502,7 @@ export const useBobChat = ({
         safeSetState(idleState);
       }
     }
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
