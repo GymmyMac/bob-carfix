@@ -18,7 +18,9 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
   onAddToCart,
   onNavigateToProductPage
 }) => {
-  const hasExternalUrl = product.product_url || onNavigateToProductPage;
+  const externalUrl = product.productUrl || product.product_url;
+  const partNumber = product.partNumber || product.part_number;
+  const hasExternalUrl = !!externalUrl || !!onNavigateToProductPage;
 
   return (
     <div className="absolute inset-0 z-35 flex flex-col bg-white/95 backdrop-blur-md overflow-hidden">
@@ -90,10 +92,10 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
                 <span className="text-sm font-medium text-gray-900">{product.sku}</span>
               </div>
             )}
-            {product.part_number && (
+            {partNumber && (
               <div className="flex justify-between py-2 border-b border-gray-100">
                 <span className="text-sm text-gray-500">Part Number</span>
-                <span className="text-sm font-medium text-gray-900">{product.part_number}</span>
+                <span className="text-sm font-medium text-gray-900">{partNumber}</span>
               </div>
             )}
           </div>
@@ -101,15 +103,15 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
           {/* External Link */}
           {hasExternalUrl && (
             <a
-              href={product.product_url || '#'}
+              href={externalUrl || '#'}
               onClick={(e) => {
                 if (onNavigateToProductPage) {
                   e.preventDefault();
                   onNavigateToProductPage(product);
                 }
               }}
-              target={product.product_url && !onNavigateToProductPage ? "_blank" : undefined}
-              rel={product.product_url && !onNavigateToProductPage ? "noopener noreferrer" : undefined}
+              target={externalUrl && !onNavigateToProductPage ? "_blank" : undefined}
+              rel={externalUrl && !onNavigateToProductPage ? "noopener noreferrer" : undefined}
               className="block text-center text-blue-600 text-sm font-medium hover:underline py-2"
             >
               View Full Details on CARFIX →
