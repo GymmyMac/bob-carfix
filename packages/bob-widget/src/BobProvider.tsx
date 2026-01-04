@@ -230,10 +230,15 @@ export function useBobAnalyticsConfig(): { ga4Config?: BobGA4Config; enabled: bo
 
 /**
  * Hook to access layout configuration (bottomOffset, zIndexBase)
+ * Returns safe defaults when used outside BobProvider (for demo/standalone usage)
  */
 export function useBobLayoutConfig(): { bottomOffset: number; zIndexBase: number } {
-  const { bottomOffset, zIndexBase } = useBobContext();
-  return { bottomOffset, zIndexBase };
+  const context = useContext(BobContext);
+  // Gracefully fallback for standalone/demo usage
+  if (!context) {
+    return { bottomOffset: 0, zIndexBase: 50 };
+  }
+  return { bottomOffset: context.bottomOffset, zIndexBase: context.zIndexBase };
 }
 
 /**

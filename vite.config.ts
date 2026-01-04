@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@bob-widget": path.resolve(__dirname, "./packages/bob-widget/src"),
     },
   },
 }));

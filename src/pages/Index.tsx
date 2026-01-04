@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 import { ServicePackageDetailDialog } from "@/components/ServicePackageDetailDialog";
 import { ProductConfirmDialog } from "@/components/ProductConfirmDialog";
-import { MobileBobLayout } from "@/components/mobile/MobileBobLayout";
+import { MobileBobLayout } from "@bob-widget/components/mobile/MobileBobLayout";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 import { useBobChat, HighlightedProduct } from "@/hooks/useBobChat";
@@ -13,6 +13,8 @@ import { useBobStateTransitions } from "@/hooks/useBobStateTransitions";
 import { useBobBackdrop } from "@/hooks/useBobBackdrop";
 import { Vehicle } from "@/types/vehicle";
 import { ServicePackage } from "@/types/servicePackage";
+import bobBgWall from "@/assets/bob-bg-wall.png";
+import bobCounter from "@/assets/bob-counter.png";
 
 const Index = () => {
   const { 
@@ -238,6 +240,8 @@ const Index = () => {
       <MobileBobLayout
         currentImage={getCurrentImage()}
         animationState={animationState}
+        backdropUrl={bobBgWall}
+        counterOverlayUrl={bobCounter}
         messages={messages}
         input={input}
         setInput={setInput}
