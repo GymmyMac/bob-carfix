@@ -106,7 +106,7 @@ export const useBobChat = ({
   const initialGreetingSentRef = useRef(false);
   const latestAssistantMessageRef = useRef<string>("");
   const speechStartedRef = useRef(false);
-  const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearFallbackTimeout = () => {
     if (fallbackTimeoutRef.current) {
