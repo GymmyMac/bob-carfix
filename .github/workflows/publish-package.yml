@@ -23,10 +23,7 @@ jobs:
 
       - name: Echo package version
         working-directory: packages/bob-widget
-        run: |
-          echo "=== Package Version Check ==="
-          echo "package.json version: $(node -p "require('./package.json').version")"
-          echo "version.ts fallback: $(grep -oP \"'\\d+\\.\\d+\\.\\d+'\" src/version.ts | tr -d \"'\")"
+        run: echo "Publishing version $(node -p "require('./package.json').version")"
 
       - name: Install dependencies
         working-directory: packages/bob-widget
