@@ -8,6 +8,7 @@ import { ServicePackage } from "@/types/servicePackage";
 import { Vehicle } from "@/types/vehicle";
 import { HighlightedProduct } from "@/hooks/useBobChat";
 import bobBgWall from "@/assets/bob-bg-wall.png";
+import bobCounter from "@/assets/bob-counter.png";
 
 type PanelState = 'hidden' | 'loading' | 'transitioning' | 'visible';
 
@@ -128,6 +129,7 @@ export const MobileBobLayout = ({
       <MobileBobCharacter
         currentImage={currentImage}
         animationState={animationState}
+        counterOverlayUrl={bobCounter}
         counterHeightPercent={22}
         scale={200}
         position={bobPosition}
