@@ -21,10 +21,6 @@ jobs:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Echo package version
-        working-directory: packages/bob-widget
-        run: echo "Publishing version $(node -p "require('./package.json').version")"
-
       - name: Install dependencies
         working-directory: packages/bob-widget
         run: npm install --no-audit --no-fund
