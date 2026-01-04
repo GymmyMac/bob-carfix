@@ -8,6 +8,8 @@ import type {
   HostContext,
   BobCallbacks,
 } from './types';
+import type { BobGA4Config } from './types/analytics';
+import { useBobAnalytics } from './hooks/useBobAnalytics';
 
 /**
  * Internal context value structure
@@ -25,6 +27,10 @@ interface BobContextValue {
   callbacks: BobCallbacks;
   /** Update host context (for dynamic updates) */
   updateHostContext: (updates: Partial<HostContext>) => void;
+  /** GA4 configuration */
+  ga4Config?: BobGA4Config;
+  /** Whether analytics is enabled */
+  analyticsEnabled: boolean;
 }
 
 const BobContext = createContext<BobContextValue | null>(null);
@@ -41,6 +47,10 @@ interface BobProviderProps {
   callbacks?: BobCallbacks;
   /** Optional external QueryClient - if not provided, an internal one is created */
   queryClient?: QueryClient;
+  /** GA4 configuration for analytics */
+  ga4Config?: BobGA4Config;
+  /** Enable/disable analytics tracking */
+  analyticsEnabled?: boolean;
 }
 
 /**
@@ -82,6 +92,8 @@ export function BobProvider({
   hostContext: initialHostContext = {},
   callbacks = {},
   queryClient: externalQueryClient,
+  ga4Config,
+  analyticsEnabled = true,
 }: BobProviderProps) {
   // Create internal QueryClient if none provided
   const internalQueryClient = useMemo(
@@ -104,7 +116,11 @@ export function BobProvider({
   useEffect(() => {
     console.log(`[BobWidget] v${BOB_VERSION} initialized`);
     console.log(`[BobWidget] QueryClient: ${usingExternalClient ? 'external (shared)' : 'internal'}`);
-  }, [usingExternalClient]);
+    console.log(`[BobWidget] Analytics: ${analyticsEnabled ? 'enabled' : 'disabled'}`);
+    if (ga4Config?.measurementId) {
+      console.log(`[BobWidget] GA4: ${ga4Config.measurementId}`);
+    }
+  }, [usingExternalClient, analyticsEnabled, ga4Config?.measurementId]);
 
   // Create Bob's Supabase client (for animations, settings)
   const bobSupabase = useMemo(() => {
@@ -135,8 +151,10 @@ export function BobProvider({
       hostContext,
       callbacks,
       updateHostContext,
+      ga4Config,
+      analyticsEnabled,
     }),
-    [bobSupabase, bobConfig, hostApiConfig, hostContext, callbacks, updateHostContext]
+    [bobSupabase, bobConfig, hostApiConfig, hostContext, callbacks, updateHostContext, ga4Config, analyticsEnabled]
   );
 
   return (
@@ -189,5 +207,18 @@ export function useBobCallbacks(): BobCallbacks {
   const { callbacks } = useBobContext();
   return callbacks;
 }
+
+/**
+ * Hook to access GA4 config and analytics status
+ */
+export function useBobAnalyticsConfig(): { ga4Config?: BobGA4Config; enabled: boolean } {
+  const { ga4Config, analyticsEnabled } = useBobContext();
+  return { ga4Config, enabled: analyticsEnabled };
+}
+
+/**
+ * Re-export the analytics hook with context wiring
+ */
+export { useBobAnalytics };
 
 export default BobProvider;

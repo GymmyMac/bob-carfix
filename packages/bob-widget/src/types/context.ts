@@ -128,6 +128,9 @@ export interface HostApiConfig {
   customHeaders?: Record<string, string>;
 }
 
+// Import analytics event type
+import type { BobAnalyticsEvent } from './analytics';
+
 /**
  * Callbacks for Bob events that the host can handle
  */
@@ -150,6 +153,8 @@ export interface BobCallbacks {
   onNavigateToProductPage?: (product: unknown) => void;
   /** Called on any error */
   onError?: (error: Error) => void;
+  /** Called for every trackable event - for server-side analytics */
+  onAnalyticsEvent?: (event: BobAnalyticsEvent) => void;
 }
 
 /**

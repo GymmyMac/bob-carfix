@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useBobContext } from "../BobProvider";
 import { useSpeechSynthesis } from "./useSpeechSynthesis";
+import { useBobAnalytics } from "./useBobAnalytics";
 import { BOB_VERSION } from "../version";
 import type { Vehicle } from "../types/vehicle";
 
@@ -85,7 +86,15 @@ export const useBobChat = ({
   onNoPartsFound,
   onAutoFetchComplete
 }: UseBobChatProps) => {
-  const { bobConfig, hostApiConfig, hostContext, callbacks } = useBobContext();
+  const { bobConfig, hostApiConfig, hostContext, callbacks, ga4Config, analyticsEnabled } = useBobContext();
+  
+  // Initialize analytics
+  const analytics = useBobAnalytics({
+    ga4Config,
+    hostContext,
+    callbacks,
+    enabled: analyticsEnabled,
+  });
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -111,6 +120,7 @@ export const useBobChat = ({
       clearFallbackTimeout();
       speechStartedRef.current = true;
       console.log('[BobWidget] Speech started - revealing products');
+      analytics.trackSpeechPlayed(latestAssistantMessageRef.current.length);
       onReadyToSpeak?.();
       if (!manualMode) {
         safeSetState(talkingState);
@@ -135,6 +145,7 @@ export const useBobChat = ({
     },
     onFailed: () => {
       console.warn('[BobWidget] Speech synthesis failed - fallback triggered');
+      analytics.trackSpeechFailed(latestAssistantMessageRef.current.length);
     }
   });
 
@@ -150,6 +161,12 @@ export const useBobChat = ({
       console.log('[BobWidget] Setting vehicle from host context:', selectedVehicle);
       setIdentifiedVehicle(selectedVehicle as Vehicle);
       callbacks.onVehicleIdentified?.(selectedVehicle as Vehicle);
+      analytics.trackVehicleIdentified({
+        make: selectedVehicle.make,
+        model: selectedVehicle.model,
+        year: selectedVehicle.year,
+        rego: selectedVehicle.rego,
+      });
     }
   }, [hostContext.vehicle?.selectedVehicle]);
 
@@ -253,6 +270,10 @@ export const useBobChat = ({
 
               if (parsed.type === "parts_found" && parsed.parts) {
                 callbacks.onPartsFound?.(parsed.parts);
+                analytics.trackPartsViewed(
+                  Array.isArray(parsed.parts) ? parsed.parts.length : 0,
+                  String(vehicleIdNum)
+                );
               }
             } catch {
               // Ignore parse errors
@@ -351,6 +372,12 @@ export const useBobChat = ({
             if (parsed.type === "vehicle_identified" && parsed.vehicle) {
               setIdentifiedVehicle(parsed.vehicle);
               callbacks.onVehicleIdentified?.(parsed.vehicle);
+              analytics.trackVehicleIdentified({
+                make: parsed.vehicle.make,
+                model: parsed.vehicle.model,
+                year: parsed.vehicle.year,
+                rego: parsed.vehicle.rego,
+              });
               continue;
             }
             
@@ -361,6 +388,10 @@ export const useBobChat = ({
             
             if (parsed.type === "parts_found" && parsed.parts) {
               callbacks.onPartsFound?.(parsed.parts);
+              analytics.trackPartsViewed(
+                Array.isArray(parsed.parts) ? parsed.parts.length : 0,
+                identifiedVehicle?.vehicle_id?.toString()
+              );
               continue;
             }
             
@@ -461,12 +492,16 @@ export const useBobChat = ({
       }
     } catch (error) {
       console.error("[BobWidget] Chat error:", error);
-      callbacks.onError?.(error instanceof Error ? error : new Error("Unknown error"));
+      const errorObj = error instanceof Error ? error : new Error("Unknown error");
+      callbacks.onError?.(errorObj);
+      analytics.trackError(
+        errorObj.name || 'ChatError',
+        errorObj.message || 'Unknown chat error'
+      );
       if (!manualMode) {
         safeSetState(idleState);
       }
     }
-  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -476,6 +511,9 @@ export const useBobChat = ({
     const userMessage: Message = { role: "user", content: input };
     setMessages(prev => [...prev, userMessage]);
     setInput("");
+    
+    // Track message sent
+    analytics.trackMessageSent(input.length, !!identifiedVehicle);
     
     // Check for version query
     const lowerInput = input.toLowerCase();

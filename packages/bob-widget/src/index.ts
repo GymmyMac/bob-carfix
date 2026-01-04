@@ -3,7 +3,7 @@
  * 
  * AI-powered automotive parts assistant widget - Full immersive experience
  * 
- * v1.1.4+ - Self-contained with internal QueryClientProvider
+ * v1.3.0+ - GA4 Analytics integration
  */
 
 import { BOB_VERSION } from './version';
@@ -22,6 +22,8 @@ export {
   useHostContext,
   useHostApiConfig,
   useBobCallbacks,
+  useBobAnalyticsConfig,
+  useBobAnalytics,
 } from './BobProvider';
 
 // Self-contained widget (recommended for easy integration)
@@ -86,3 +88,18 @@ export type {
   BobLook,
   BobAnimationData,
 } from './hooks/useBobAnimationData';
+
+// Analytics types
+export type {
+  BobEventName,
+  BobAnalyticsEvent,
+  BobGA4Config,
+  SessionStartParams,
+  MessageSentParams,
+  VehicleIdentifiedParams,
+  PartsViewedParams,
+  ProductParams,
+  CheckoutParams,
+  SpeechParams,
+  ErrorParams,
+} from './types/analytics';
