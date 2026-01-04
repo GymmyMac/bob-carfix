@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useSpeechRecognition } from "../../hooks/useSpeechRecognition";
+import { useBobLayoutConfig } from "../../BobProvider";
 import type { Message } from "../../types/message";
 
 interface ContainedChatDrawerProps {
@@ -38,6 +39,9 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
   const pttActiveRef = useRef(false);
+  
+  // Get layout config from context for bottom offset
+  const { bottomOffset, zIndexBase } = useBobLayoutConfig();
   
   const {
     isListening,
@@ -92,7 +96,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
       ref={drawerRef}
       style={{
         position: 'absolute',
-        bottom: 0,
+        bottom: `${bottomOffset}px`,
         left: 0,
         right: 0,
         backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -103,8 +107,8 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
         boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.15)',
         height: isExpanded ? '55%' : '70px',
         overflow: isExpanded ? 'visible' : 'hidden',
-        zIndex: 60,
-        paddingBottom: 'env(safe-area-inset-bottom, 8px)'
+        zIndex: zIndexBase + 10,
+        paddingBottom: bottomOffset > 0 ? '8px' : 'env(safe-area-inset-bottom, 8px)'
       }}
     >
       {/* Expand/Collapse Handle */}
@@ -120,7 +124,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
           borderRadius: '9999px',
           padding: '6px',
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-          zIndex: 70, // Increased from 40 to be above counter (z-50)
+          zIndex: zIndexBase + 20,
           cursor: 'pointer',
           minHeight: 'unset',
           minWidth: 'unset'

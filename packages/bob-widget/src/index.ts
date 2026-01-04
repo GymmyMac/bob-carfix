@@ -3,7 +3,8 @@
  * 
  * AI-powered automotive parts assistant widget - Full immersive experience
  * 
- * v1.3.0+ - GA4 Analytics integration
+ * v1.3.1 - Bottom offset support for host navigation bars
+ * v1.3.0 - GA4 Analytics integration
  */
 
 import { BOB_VERSION } from './version';
@@ -24,6 +25,7 @@ export {
   useBobCallbacks,
   useBobAnalyticsConfig,
   useBobAnalytics,
+  useBobLayoutConfig,
 } from './BobProvider';
 
 // Self-contained widget (recommended for easy integration)
@@ -66,6 +68,7 @@ export type {
   HostApiConfig,
   BobCallbacks,
   BobProviderConfig,
+  BobLayoutConfig,
 } from './types/context';
 
 export type { Vehicle } from './types/vehicle';

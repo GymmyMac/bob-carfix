@@ -1,4 +1,4 @@
-# CARFIX Integration Guide - Bob Widget v1.1.5
+# CARFIX Integration Guide - Bob Widget v1.3.1
 
 ## 🚀 One-Click Install Instructions
 
@@ -6,10 +6,15 @@ This guide provides step-by-step instructions to integrate or update Bob Widget 
 
 ---
 
-## Quick Summary
+## What's New in v1.3.1
 
-| What Changed | Impact |
-|-------------|--------|
+| Feature | Description |
+|---------|-------------|
+| `bottomOffset` prop | Position Bob above your bottom navigation bar |
+| `zIndexBase` prop | Control z-index stacking to avoid conflicts |
+| CSS containment | Improved style isolation with `contain: layout style` |
+
+---
 | Internal QueryClientProvider | **No more "No QueryClient set" errors!** |
 | New `BobWidget` component | Simpler one-component integration |
 | Bundled react-query | No peer dependency required |
@@ -25,7 +30,7 @@ npm uninstall @gymmymac/bob-widget
 rm -rf node_modules/.vite
 
 # Install latest version
-npm install @gymmymac/bob-widget@^1.1.5
+npm install @gymmymac/bob-widget@^1.3.1
 
 # Restart dev server
 npm run dev
@@ -33,9 +38,40 @@ npm run dev
 
 ---
 
-## Step 2: Choose Your Integration Method
+## Step 2: Handle Bottom Navigation (NEW!)
 
-### Option A: BobWidget (Recommended - Simplest)
+If your site has a bottom navigation bar, use the `bottomOffset` prop to position Bob above it:
+
+```tsx
+<BobWidget
+  bobConfig={{...}}
+  hostApiConfig={{...}}
+  variant="mobile"
+  // NEW: Tell Bob about your 60px bottom navigation
+  bottomOffset={60}
+/>
+```
+
+This ensures:
+- ✅ Chat drawer appears above your navigation
+- ✅ Push-to-talk button is fully accessible
+- ✅ Text input is not obscured
+- ✅ Expand/collapse button is tappable
+
+### Z-Index Control (Optional)
+
+If you have z-index conflicts, specify a base z-index:
+
+```tsx
+<BobWidget
+  bottomOffset={60}
+  zIndexBase={100}  // Bob's elements will use z-100, z-110, z-120, etc.
+/>
+```
+
+---
+
+## Step 3: Choose Your Integration Method
 
 This is the easiest way to integrate Bob. It handles all providers internally.
 

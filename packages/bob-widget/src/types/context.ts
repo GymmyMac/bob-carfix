@@ -128,6 +128,16 @@ export interface HostApiConfig {
   customHeaders?: Record<string, string>;
 }
 
+/**
+ * Layout configuration for host navigation awareness
+ */
+export interface BobLayoutConfig {
+  /** Bottom offset in pixels for host navigation bars (e.g., 60 for CARFIX bottom nav) */
+  bottomOffset?: number;
+  /** Base z-index for Bob's UI elements. Default: 50 */
+  zIndexBase?: number;
+}
+
 // Import analytics event type
 import type { BobAnalyticsEvent } from './analytics';
 
