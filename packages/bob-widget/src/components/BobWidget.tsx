@@ -7,6 +7,7 @@ import type {
   HostContext,
   BobCallbacks,
 } from '../types';
+import type { BobGA4Config } from '../types/analytics';
 
 // Import CSS reset for isolation
 import '../styles/widget-reset.css';
@@ -43,6 +44,10 @@ export interface BobWidgetProps {
   verticalOffset?: number;
   /** Scale percentage for Bob character */
   scale?: number;
+  /** GA4 configuration for analytics */
+  ga4Config?: BobGA4Config;
+  /** Enable/disable analytics tracking */
+  analyticsEnabled?: boolean;
 }
 
 /**
@@ -88,6 +93,8 @@ export const BobWidget: React.FC<BobWidgetProps> = ({
   defaultBobImage,
   verticalOffset,
   scale,
+  ga4Config,
+  analyticsEnabled = true,
 }) => {
   return (
     <div className="bob-widget-root" style={{ width: '100%', height: '100%' }}>
@@ -96,6 +103,8 @@ export const BobWidget: React.FC<BobWidgetProps> = ({
         hostApiConfig={hostApiConfig}
         hostContext={hostContext}
         callbacks={callbacks}
+        ga4Config={ga4Config}
+        analyticsEnabled={analyticsEnabled}
       >
         <Bob
           variant={variant}
