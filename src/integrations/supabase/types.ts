@@ -73,6 +73,63 @@ export type Database = {
           },
         ]
       }
+      bob_analytics_events: {
+        Row: {
+          cart_value: number | null
+          created_at: string | null
+          event_name: string
+          id: string
+          item_count: number | null
+          parameters: Json | null
+          product_name: string | null
+          product_price: number | null
+          product_sku: string | null
+          rego: string | null
+          session_id: string
+          user_email: string | null
+          user_id: string | null
+          vehicle_id: string | null
+          vehicle_make: string | null
+          vehicle_model: string | null
+        }
+        Insert: {
+          cart_value?: number | null
+          created_at?: string | null
+          event_name: string
+          id?: string
+          item_count?: number | null
+          parameters?: Json | null
+          product_name?: string | null
+          product_price?: number | null
+          product_sku?: string | null
+          rego?: string | null
+          session_id: string
+          user_email?: string | null
+          user_id?: string | null
+          vehicle_id?: string | null
+          vehicle_make?: string | null
+          vehicle_model?: string | null
+        }
+        Update: {
+          cart_value?: number | null
+          created_at?: string | null
+          event_name?: string
+          id?: string
+          item_count?: number | null
+          parameters?: Json | null
+          product_name?: string | null
+          product_price?: number | null
+          product_sku?: string | null
+          rego?: string | null
+          session_id?: string
+          user_email?: string | null
+          user_id?: string | null
+          vehicle_id?: string | null
+          vehicle_make?: string | null
+          vehicle_model?: string | null
+        }
+        Relationships: []
+      }
       bob_animations: {
         Row: {
           animation_state: string
