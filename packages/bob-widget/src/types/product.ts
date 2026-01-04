@@ -10,6 +10,7 @@ export interface Product {
   partNumber?: string;
   partslotDescription?: string;
   image_url?: string;
+  image?: string; // Alias for demo compatibility
   quantity?: number;
 }
 
