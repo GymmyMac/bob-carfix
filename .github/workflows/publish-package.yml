@@ -10,25 +10,63 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
-      
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
       - name: Install dependencies
         working-directory: packages/bob-widget
-        run: npm install
-      
+        run: npm install --no-audit --no-fund
+
       - name: Build package
         working-directory: packages/bob-widget
         run: npm run build
-      
+
+      - name: Verify dist output
+        working-directory: packages/bob-widget
+        run: |
+          echo "=== Checking dist folder ==="
+          ls -la dist/
+
+          # Verify ESM bundle exists
+          if [ ! -f dist/index.mjs ]; then
+            echo "❌ Missing ESM bundle (dist/index.mjs)"
+            exit 1
+          fi
+          echo "✅ ESM bundle exists"
+
+          # Verify CJS bundle exists
+          if [ ! -f dist/index.js ]; then
+            echo "❌ Missing CJS bundle (dist/index.js)"
+            exit 1
+          fi
+          echo "✅ CJS bundle exists"
+
+          # Verify TypeScript declarations exist
+          if ! ls dist/*.d.ts 1> /dev/null 2>&1; then
+            echo "❌ Missing TypeScript declarations (.d.ts files)"
+            exit 1
+          fi
+          echo "✅ TypeScript declarations exist"
+
+          # Verify CSS is bundled
+          if [ ! -f dist/style.css ]; then
+            echo "⚠️  No style.css found (may be expected if CSS is inlined)"
+          else
+            echo "✅ CSS bundle exists"
+          fi
+
+          echo ""
+          echo "=== npm pack dry-run ==="
+          npm pack --dry-run
+
       - name: Publish to npm
         working-directory: packages/bob-widget
         run: npm publish --access public
