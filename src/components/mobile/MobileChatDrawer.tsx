@@ -20,6 +20,7 @@ interface MobileChatDrawerProps {
   onToggleMute?: () => void;
   isSpeaking?: boolean;
 }
+
 export const MobileChatDrawer = ({
   messages,
   input,
@@ -51,20 +52,19 @@ export const MobileChatDrawer = ({
     mode: 'ptt'
   });
 
-  // Update input with interim transcript
   useEffect(() => {
     if (interimTranscript) {
       setInput(interimTranscript);
     }
   }, [interimTranscript, setInput]);
 
-  // PTT handlers with haptic feedback
+  // PTT handlers with haptic feedback - mechanic's feel
   const handlePTTStart = useCallback(() => {
     if (isLoading || pttActiveRef.current) return;
     pttActiveRef.current = true;
-    // Haptic feedback if available
+    // Stronger haptic for mechanic feel
     if (navigator.vibrate) {
-      navigator.vibrate(10);
+      navigator.vibrate(30);
     }
     startListening();
   }, [isLoading, startListening]);
@@ -72,21 +72,18 @@ export const MobileChatDrawer = ({
   const handlePTTEnd = useCallback(() => {
     if (!pttActiveRef.current) return;
     pttActiveRef.current = false;
-    // Haptic feedback if available
+    // Double pulse on release
     if (navigator.vibrate) {
-      navigator.vibrate(10);
+      navigator.vibrate([20, 50, 20]);
     }
     stopListening();
-    // Send after brief delay to capture final transcript
     setTimeout(() => {
       onSend();
     }, 150);
   }, [stopListening, onSend]);
 
-  // Get last assistant message for preview
   const lastBobMessage = [...messages].reverse().find(m => m.role === 'assistant');
   
-  // Truncate message for preview - 1 line only for compact view
   const previewText = lastBobMessage?.content 
     ? lastBobMessage.content.length > 50 
       ? lastBobMessage.content.slice(0, 50) + '...'
@@ -123,7 +120,7 @@ export const MobileChatDrawer = ({
         )}
       </button>
 
-      {/* Collapsed Preview - more compact, 1 line */}
+      {/* Collapsed Preview */}
       {!isExpanded && (
         <div 
           className="px-3 pt-2 pb-0.5"
@@ -162,15 +159,14 @@ export const MobileChatDrawer = ({
         </div>
       )}
 
-      {/* Input Area - Always visible, more compact */}
+      {/* Input Area */}
       <div className={cn(
         "px-2 pb-1.5",
         isExpanded ? "pt-2 border-t border-border" : "pt-0.5"
       )}>
-        {/* Listening indicator */}
         {isListening && (
           <div className="mb-2 text-xs text-muted-foreground flex items-center gap-2">
-            <span className="inline-block w-2 h-2 bg-destructive rounded-full animate-pulse" />
+            <span className="inline-block w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
             Listening...
           </div>
         )}
@@ -182,7 +178,7 @@ export const MobileChatDrawer = ({
         )}
         
         <div className="flex gap-1.5 items-center">
-          {/* Mute button - only show when expanded to save space */}
+          {/* Mute button */}
           {onToggleMute && isExpanded && (
             <Button
               onClick={onToggleMute}
@@ -202,7 +198,7 @@ export const MobileChatDrawer = ({
             </Button>
           )}
           
-          {/* Text input - slightly smaller */}
+          {/* Text input */}
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -211,29 +207,55 @@ export const MobileChatDrawer = ({
             onBlur={onInputBlur}
             placeholder="Message Bob..."
             disabled={isLoading}
-            className="flex-1 h-10 text-base" // 16px prevents iOS zoom
+            className="flex-1 h-10 text-base"
           />
           
-          {/* PTT button */}
+          {/* Mechanic's Radio PTT Button - Large green button */}
           {isSupported && (
-            <Button
-              onTouchStart={handlePTTStart}
-              onTouchEnd={handlePTTEnd}
-              onTouchCancel={handlePTTEnd}
-              onMouseDown={handlePTTStart}
-              onMouseUp={handlePTTEnd}
-              onMouseLeave={handlePTTEnd}
-              disabled={isLoading}
-              size="icon"
-              variant={isListening ? "destructive" : "default"}
-              className={cn(
-                "shrink-0 h-12 w-12 rounded-full select-none touch-none",
-                isListening && "animate-pulse ring-2 ring-destructive/50 scale-110"
+            <div className="relative ml-1">
+              {/* Radio wave animations when active */}
+              {isListening && (
+                <>
+                  <div className="absolute top-1/2 left-1/2 w-[72px] h-[72px] rounded-full border-2 border-amber-500 -translate-x-1/2 -translate-y-1/2 animate-ptt-wave opacity-0 pointer-events-none" />
+                  <div className="absolute top-1/2 left-1/2 w-[72px] h-[72px] rounded-full border-2 border-amber-500 -translate-x-1/2 -translate-y-1/2 animate-ptt-wave opacity-0 pointer-events-none" style={{ animationDelay: '0.5s' }} />
+                </>
               )}
-              title="Hold to talk"
-            >
-              <Mic className="h-5 w-5" />
-            </Button>
+              
+              {/* Idle pulse glow */}
+              {!isListening && !isLoading && (
+                <div className="absolute top-1/2 left-1/2 w-[72px] h-[72px] rounded-full -translate-x-1/2 -translate-y-1/2 animate-ptt-pulse pointer-events-none" />
+              )}
+              
+              <Button
+                onTouchStart={handlePTTStart}
+                onTouchEnd={handlePTTEnd}
+                onTouchCancel={handlePTTEnd}
+                onMouseDown={handlePTTStart}
+                onMouseUp={handlePTTEnd}
+                onMouseLeave={handlePTTEnd}
+                disabled={isLoading}
+                size="icon"
+                className={cn(
+                  "relative shrink-0 rounded-full select-none touch-none transition-all duration-200",
+                  "h-[72px] w-[72px]",
+                  isListening 
+                    ? "scale-115 bg-gradient-to-b from-amber-400 to-amber-600 shadow-[0_6px_20px_rgba(245,158,11,0.4),inset_0_2px_4px_rgba(255,255,255,0.2),0_0_0_4px_rgb(180,83,9)]" 
+                    : "bg-gradient-to-b from-emerald-400 to-emerald-600 shadow-[0_6px_20px_rgba(34,197,94,0.4),inset_0_2px_4px_rgba(255,255,255,0.2),0_0_0_4px_rgb(21,128,61)]",
+                  isLoading && "opacity-60 cursor-not-allowed bg-gradient-to-b from-gray-400 to-gray-600 shadow-[0_2px_8px_rgba(156,163,175,0.3),0_0_0_4px_rgb(75,85,99)]"
+                )}
+                style={{
+                  transform: isListening ? 'scale(1.15)' : 'scale(1)',
+                }}
+                title="Hold to talk"
+              >
+                <Mic className="h-7 w-7 drop-shadow-sm" strokeWidth={2.5} />
+                
+                {/* Active indicator dot */}
+                {isListening && (
+                  <div className="absolute top-2 right-2 w-3 h-3 rounded-full bg-amber-100 animate-pulse" />
+                )}
+              </Button>
+            </div>
           )}
         </div>
       </div>

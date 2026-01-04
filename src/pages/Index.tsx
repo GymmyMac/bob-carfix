@@ -13,8 +13,6 @@ import { useBobStateTransitions } from "@/hooks/useBobStateTransitions";
 import { useBobBackdrop } from "@/hooks/useBobBackdrop";
 import { Vehicle } from "@/types/vehicle";
 import { ServicePackage } from "@/types/servicePackage";
-import bobBgWall from "@/assets/bob-bg-wall.png";
-import bobCounter from "@/assets/bob-counter.png";
 
 const Index = () => {
   const { 
