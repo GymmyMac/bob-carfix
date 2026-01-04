@@ -1,4 +1,4 @@
-import bobCounter from "@/assets/bob-counter.png";
+import React from "react";
 
 interface MobileBobCharacterProps {
   currentImage: string;
@@ -7,30 +7,30 @@ interface MobileBobCharacterProps {
   counterHeightPercent?: number;
   scale?: number;
   position?: 'center' | 'left';
+  verticalOffset?: number;
 }
 
-export const MobileBobCharacter = ({
+export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
   currentImage,
   animationState,
-  counterOverlayUrl = bobCounter,
+  counterOverlayUrl,
   counterHeightPercent = 15,
   scale = 100,
-  position = 'center'
-}: MobileBobCharacterProps) => {
-  // Calculate scaled dimensions
-  const scaledWidth = (85 * scale) / 100;
-  const scaledMaxWidth = (400 * scale) / 100;
-  
-  // Position-based transform: center = original offset, left = pushed further for products
-  const translateX = position === 'center' ? '-20%' : '-35%';
+  position = 'center',
+  verticalOffset = 0
+}) => {
+  const scaledWidth = (65 * scale) / 100;
+  const scaledMaxWidth = (320 * scale) / 100;
+  const translateX = position === 'center' ? '5%' : '-25%';
+  const bottomPercent = counterHeightPercent - 2 + verticalOffset;
   
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
-      {/* Bob Character - positioned above counter */}
       <div 
         className="absolute left-0 z-40"
         style={{
-          bottom: `${counterHeightPercent - 2}%`,
+          bottom: `${bottomPercent}%`,
+          maxHeight: `${100 - counterHeightPercent - 5}%`,
           transform: `translateX(${translateX})`,
           width: `${scaledWidth}%`,
           maxWidth: `${scaledMaxWidth}px`,
@@ -41,18 +41,16 @@ export const MobileBobCharacter = ({
           src={currentImage} 
           alt={`Bob ${animationState}`} 
           className="w-full h-auto object-contain"
-          style={{
-            display: 'block'
-          }}
+          style={{ display: 'block', maxHeight: '100%' }}
         />
       </div>
 
-      {/* Counter Overlay - acts as spacer/stage */}
       {counterOverlayUrl && (
         <div 
           className="absolute bottom-0 left-0 right-0 z-50"
-          style={{
+          style={{ 
             height: `${counterHeightPercent}%`,
+            pointerEvents: 'none'
           }}
         >
           <img 

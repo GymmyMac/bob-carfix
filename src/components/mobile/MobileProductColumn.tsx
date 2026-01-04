@@ -1,12 +1,6 @@
+import { useRef, useEffect, useMemo } from "react";
 import { Product } from "@/types/product";
 import { ServicePackage } from "@/types/servicePackage";
-import { ProductImage } from "@/components/ProductImage";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Package, Star } from "lucide-react";
-import { useRef, useEffect, useMemo } from "react";
-import { cn } from "@/lib/utils";
 import { HighlightedProduct } from "@/hooks/useBobChat";
 
 interface MobileProductColumnProps {
@@ -22,7 +16,6 @@ interface MobileProductColumnProps {
   hasVehicle?: boolean;
 }
 
-// Flexible matching: handles plurals and word variations
 const matchesPartType = (description: string, partType: string): boolean => {
   if (!description || !partType) return false;
   const desc = description.toLowerCase();
@@ -33,14 +26,11 @@ const matchesPartType = (description: string, partType: string): boolean => {
   return baseTerms.every(term => desc.includes(term));
 };
 
-// Check if a product matches the spotlight criteria
 const productMatchesSpotlight = (product: Product, spotlight: HighlightedProduct): boolean => {
   const brandMatch = product.brand?.toLowerCase() === spotlight.brand.toLowerCase();
   const priceMatch = Math.abs(product.price - spotlight.price) < 1;
   return brandMatch && priceMatch;
 };
-
-// Removed CHAT_DRAWER_HEIGHT - column sits above counter, not chat drawer
 
 export const MobileProductColumn = ({
   products,
@@ -55,11 +45,9 @@ export const MobileProductColumn = ({
   hasVehicle = false
 }: MobileProductColumnProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const highlightedRef = useRef<HTMLElement>(null);
-  const spotlightedRef = useRef<HTMLDivElement>(null);
   const groupRefs = useRef<Record<string, HTMLElement | null>>({});
+  const spotlightedRef = useRef<HTMLDivElement>(null);
 
-  // Group products by partslotDescription - matching ProductShelf exactly
   const groupedProducts = useMemo(() => {
     const groups: Record<string, Product[]> = {};
     
@@ -69,31 +57,19 @@ export const MobileProductColumn = ({
       groups[key].push(product);
     });
     
-    // Sort group names alphabetically for stable order
     const sortedGroupNames = Object.keys(groups).sort((a, b) => a.localeCompare(b));
-    
     return sortedGroupNames.map(name => ({ name, products: groups[name] }));
   }, [products]);
 
-  // Debug logging
-  useEffect(() => {
-    console.log('[MobileProductColumn] highlightedPartType:', highlightedPartType);
-    console.log('[MobileProductColumn] groups:', groupedProducts.map(g => g.name));
-  }, [highlightedPartType, groupedProducts]);
-
-  // Auto-scroll to highlighted section
   useEffect(() => {
     if (highlightedPartType) {
       const matchingGroup = groupedProducts.find(g => matchesPartType(g.name, highlightedPartType));
-      console.log('[MobileProductColumn] Scroll to:', matchingGroup?.name);
-      
       if (matchingGroup && groupRefs.current[matchingGroup.name]) {
         groupRefs.current[matchingGroup.name]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }
   }, [highlightedPartType, groupedProducts]);
 
-  // Auto-scroll to spotlighted product
   useEffect(() => {
     if (highlightedProduct && spotlightedRef.current) {
       spotlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -103,145 +79,120 @@ export const MobileProductColumn = ({
   const hasContent = products.length > 0 || servicePackages.length > 0;
   const showLoading = isResearching;
   const showContent = hasContent && !isResearching;
-  // Maximize vertical space - just below vehicle bar or near top
   const topOffset = hasVehicle ? '56px' : '8px';
 
   return (
     <div 
       ref={scrollRef}
-      className={cn(
-        "absolute right-2 w-[52%] max-w-[220px]",
-        "overflow-y-auto overflow-x-hidden z-30",
-        "flex flex-col gap-2 pb-4",
-        "scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent",
-        "transition-all duration-300 ease-out",
+      className={`absolute right-2 w-[52%] max-w-[280px] overflow-y-auto overflow-x-hidden z-30 flex flex-col gap-3 pb-4 transition-all duration-300 ease-out ${
         visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-8 pointer-events-none"
-      )}
+      }`}
       style={{
         top: topOffset,
-        bottom: `calc(${counterHeightPercent}% + 16px)`,
+        bottom: 'calc(70px + env(safe-area-inset-bottom, 8px))',
         paddingTop: 'env(safe-area-inset-top, 4px)'
       }}
     >
       {/* Loading state */}
       {showLoading && (
-        <div className="rounded-lg p-3">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            <span>Finding parts...</span>
+        <div className="rounded-xl bg-white/90 backdrop-blur-sm p-4 shadow-lg border border-gray-100">
+          <div className="flex items-center gap-3 text-sm text-gray-600">
+            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <span className="font-medium">Finding parts...</span>
           </div>
         </div>
       )}
 
-      {/* Service Packages - compact display */}
+      {/* Service Packages */}
       {showContent && servicePackages.length > 0 && (
         <div className="space-y-2">
-          <div className="text-xs font-semibold text-primary flex items-center gap-1 px-1">
-            <Package className="h-3 w-3" />
+          <div className="text-xs font-bold text-blue-700 flex items-center gap-1.5 px-1 uppercase tracking-wide">
             Service Packages
           </div>
           {servicePackages.map((pkg) => (
-            <Card
+            <div
               key={pkg.id}
               onClick={() => onPackageSelect?.(pkg)}
-              className="cursor-pointer hover:shadow-md transition-all bg-transparent"
+              className="cursor-pointer active:scale-[0.98] transition-all bg-white rounded-xl border border-gray-100 p-3 shadow-md"
             >
-              <CardContent className="p-2">
-                <p className="text-xs font-medium line-clamp-1">{pkg.title}</p>
-                <p className="text-sm font-bold text-primary">${pkg.from_price.toFixed(0)}</p>
-              </CardContent>
-            </Card>
+              <p className="text-sm font-semibold text-gray-900 line-clamp-2 mb-1">{pkg.title}</p>
+              <p className="text-lg font-bold text-blue-600">From ${pkg.from_price.toFixed(0)}</p>
+            </div>
           ))}
         </div>
       )}
 
-      {/* Products - ALL groups, ALL products, transparent cards */}
-      {showContent && groupedProducts.map(({ name, products: groupProducts }, groupIndex) => {
+      {/* Products - Grouped by part type */}
+      {showContent && groupedProducts.map(({ name, products: groupProducts }) => {
         const isHighlighted = highlightedPartType && matchesPartType(name, highlightedPartType);
-        const firstHighlightedIndex = highlightedPartType 
-          ? groupedProducts.findIndex(g => matchesPartType(g.name, highlightedPartType))
-          : -1;
-        const isFirstHighlighted = isHighlighted && groupIndex === firstHighlightedIndex;
         
         return (
           <section 
             key={name}
-            ref={(el) => { 
-              groupRefs.current[name] = el;
-              if (isFirstHighlighted) highlightedRef.current = el;
-            }}
-            className={cn(
-              "rounded-lg transition-all border border-transparent",
-              isHighlighted && "ring-2 ring-primary p-2 bg-primary/10 shadow-lg shadow-primary/20"
-            )}
+            ref={(el) => { groupRefs.current[name] = el; }}
+            className={`rounded-xl transition-all ${
+              isHighlighted ? "ring-2 ring-blue-500 bg-blue-50/80 p-2 shadow-lg" : ""
+            }`}
           >
-            {/* Group Header */}
-            <h3 className="text-xs font-semibold mb-2 flex items-center gap-1 px-1 text-foreground">
-              <Package className="h-3 w-3 text-muted-foreground" />
+            <h3 className="text-xs font-bold mb-2 flex items-center gap-1.5 px-1 text-gray-800 uppercase tracking-wide">
               <span className="truncate">{name}</span>
-              <span className="text-[10px] text-muted-foreground">({groupProducts.length})</span>
-              {isHighlighted && (
-                <Badge className="bg-primary text-primary-foreground text-[8px] px-1 py-0 ml-1">
-                  ★
-                </Badge>
-              )}
+              <span className="text-[10px] text-gray-500 font-medium">({groupProducts.length})</span>
             </h3>
             
-            {/* Product Cards - show ALL, no slice */}
-            <div className="space-y-2">
+            <div className="flex flex-col gap-3">
               {groupProducts.map((product, index) => {
                 const isSpotlighted = highlightedProduct && productMatchesSpotlight(product, highlightedProduct);
                 
                 return (
-                  <Card 
+                  <div 
                     key={`${product.id}-${index}`}
                     ref={isSpotlighted ? spotlightedRef : undefined}
                     onClick={() => onProductClick?.(product)}
-                    className={cn(
-                      "cursor-pointer transition-all hover:shadow-md bg-transparent relative",
-                      "border border-border/30",
-                      isSpotlighted && "ring-4 ring-primary animate-spotlight-pulse scale-105 z-10"
-                    )}
+                    className={`cursor-pointer active:scale-[0.98] transition-all bg-white rounded-xl border relative overflow-hidden ${
+                      isSpotlighted 
+                        ? "ring-2 ring-blue-500 shadow-lg border-blue-200" 
+                        : "border-gray-100 shadow-md"
+                    }`}
                   >
-                    {/* Bob's Pick Badge */}
                     {isSpotlighted && (
-                      <Badge className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-[8px] px-1 py-0.5 z-20">
-                        <Star className="h-2 w-2 mr-0.5 fill-current" />
-                        Pick
-                      </Badge>
-                    )}
-                    <CardHeader className="p-2">
-                      <div className="aspect-square bg-muted/50 rounded-md mb-1 flex items-center justify-center overflow-hidden">
-                        <ProductImage 
-                          sku={product.sku || product.id}
-                          brand={product.brand}
-                          alt={product.name}
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <CardTitle className="text-xs line-clamp-2">{product.name}</CardTitle>
-                      {product.brand && (
-                        <p className="text-[10px] text-muted-foreground">{product.brand}</p>
-                      )}
-                    </CardHeader>
-                    <CardContent className="p-2 pt-0">
-                      <span className="text-sm font-bold text-primary">
-                        {product.price > 0 ? `$${product.price.toFixed(2)}` : 'Price on request'}
+                      <span className="absolute top-3 right-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs px-2.5 py-1 rounded-full z-20 flex items-center gap-1 font-semibold shadow-md">
+                        ★ Bob's Pick
                       </span>
-                    </CardContent>
-                    <CardFooter className="p-2 pt-0">
-                      <Button 
-                        className="w-full" 
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onProductClick?.(product);
-                        }}
-                      >
-                        Buy Now
-                      </Button>
-                    </CardFooter>
-                  </Card>
+                    )}
+                    
+                    {/* Image */}
+                    <div className="aspect-[16/10] bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
+                      {product.image ? (
+                        <img src={product.image} alt={product.name} className="w-full h-full object-contain p-2" />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center text-gray-400">
+                          <span className="text-xs font-medium uppercase tracking-wide">No Image</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Info */}
+                    <div className="p-2.5">
+                      <p className="text-sm font-semibold text-gray-900 line-clamp-1 mb-0.5">{product.name}</p>
+                      {product.brand && (
+                        <p className="text-xs text-gray-500 mb-1.5">{product.brand}</p>
+                      )}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-base font-bold text-blue-600">
+                          {product.price > 0 ? `$${product.price.toFixed(2)}` : 'POA'}
+                        </span>
+                        <button 
+                          className="bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onProductClick?.(product);
+                          }}
+                        >
+                          View
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 );
               })}
             </div>

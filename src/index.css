@@ -260,3 +260,37 @@ All colors MUST be HSL.
 .scrollbar-track-transparent::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* PTT Button Animations - Mechanic's Radio Button */
+@keyframes ptt-pulse {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); 
+  }
+  50% { 
+    box-shadow: 0 0 0 12px rgba(34, 197, 94, 0); 
+  }
+}
+
+@keyframes ptt-wave {
+  0% { 
+    transform: translate(-50%, -50%) scale(1); 
+    opacity: 0.6; 
+  }
+  100% { 
+    transform: translate(-50%, -50%) scale(2.5); 
+    opacity: 0; 
+  }
+}
+
+@keyframes ptt-dot {
+  0% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+.animate-ptt-pulse {
+  animation: ptt-pulse 2s ease-in-out infinite;
+}
+
+.animate-ptt-wave {
+  animation: ptt-wave 1.5s ease-out infinite;
+}

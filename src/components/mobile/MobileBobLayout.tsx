@@ -9,15 +9,11 @@ import { Vehicle } from "@/types/vehicle";
 import { HighlightedProduct } from "@/hooks/useBobChat";
 import bobBgWall from "@/assets/bob-bg-wall.png";
 
-// Panel visibility state machine to prevent dead zones
 type PanelState = 'hidden' | 'loading' | 'transitioning' | 'visible';
 
 interface MobileBobLayoutProps {
-  // Bob animation
   currentImage: string;
   animationState: string;
-  
-  // Chat
   messages: Message[];
   input: string;
   setInput: (value: string) => void;
@@ -30,8 +26,6 @@ interface MobileBobLayoutProps {
   isMuted?: boolean;
   onToggleMute?: () => void;
   isSpeaking?: boolean;
-  
-  // Products & Packages
   products: Product[];
   servicePackages: ServicePackage[];
   highlightedPartType?: string | null;
@@ -39,8 +33,6 @@ interface MobileBobLayoutProps {
   onProductClick?: (product: Product) => void;
   onPackageSelect?: (pkg: ServicePackage) => void;
   isResearching?: boolean;
-  
-  // Vehicle
   vehicle?: Vehicle | null;
   onChangeVehicle?: () => void;
 }
@@ -70,78 +62,47 @@ export const MobileBobLayout = ({
   vehicle,
   onChangeVehicle
 }: MobileBobLayoutProps) => {
-  // Detect if we're embedded in an iframe (CARFIX context)
   const isEmbedded = typeof window !== 'undefined' && window.self !== window.top;
   
-  // Bob position state
   const [bobPosition, setBobPosition] = useState<'center' | 'left'>('center');
-  
-  // Panel state machine - eliminates the 400ms visibility dead zone
   const [panelState, setPanelState] = useState<PanelState>('hidden');
   
   const hasProducts = products.length > 0 || servicePackages.length > 0;
   
-  // State machine for panel visibility
   useEffect(() => {
-    console.log('[MobileBobLayout] State check:', { 
-      isResearching, 
-      hasProducts, 
-      panelState, 
-      bobPosition,
-      productCount: products.length,
-      packageCount: servicePackages.length
-    });
-    
     if (isResearching && panelState !== 'loading' && panelState !== 'visible') {
-      // Research started - show loading immediately
-      console.log('[MobileBobLayout] → loading state');
       setPanelState('loading');
-      
-      // Move Bob left if not already
       if (bobPosition === 'center') {
         setBobPosition('left');
       }
     } else if (hasProducts && panelState !== 'visible') {
-      // Products arrived
       if (bobPosition === 'center') {
-        // Need to slide Bob first
-        console.log('[MobileBobLayout] → transitioning state (sliding Bob)');
         setBobPosition('left');
         setPanelState('transitioning');
-        
-        // After Bob's slide animation, show products
         const timer = setTimeout(() => {
-          console.log('[MobileBobLayout] → visible state (after slide)');
           setPanelState('visible');
         }, 400);
-        
         return () => clearTimeout(timer);
       } else {
-        // Bob already left, show products immediately
-        console.log('[MobileBobLayout] → visible state (Bob already left)');
         setPanelState('visible');
       }
     } else if (!hasProducts && !isResearching && panelState !== 'hidden') {
-      // No products and not researching - hide panel and reset Bob
-      console.log('[MobileBobLayout] → hidden state');
       setPanelState('hidden');
       setBobPosition('center');
     }
-  }, [hasProducts, isResearching, panelState, bobPosition, products.length, servicePackages.length]);
+  }, [hasProducts, isResearching, panelState, bobPosition]);
 
-  // Determine if product column should be visible
-  // visible during: loading, transitioning, or visible states
   const showProductColumn = panelState !== 'hidden';
 
   return (
     <div 
       className="fixed inset-0 overflow-hidden"
       style={{
-        height: '100dvh', // Dynamic viewport height for mobile browsers
+        height: '100dvh',
         touchAction: 'manipulation'
       }}
     >
-      {/* Layer 1: Background with conditional blur */}
+      {/* Background with conditional blur */}
       <div 
         className="absolute inset-0 z-0 transition-all duration-500 ease-out"
         style={{
@@ -151,11 +112,11 @@ export const MobileBobLayout = ({
           filter: showProductColumn 
             ? 'blur(12px) brightness(0.7)' 
             : 'blur(0px) brightness(1)',
-          transform: 'scale(1.1)' // Prevent blur edge artifacts
+          transform: 'scale(1.1)'
         }}
       />
       
-      {/* Gradient overlay for depth */}
+      {/* Gradient overlay */}
       <div 
         className="absolute inset-0 z-[1]"
         style={{
@@ -163,7 +124,7 @@ export const MobileBobLayout = ({
         }}
       />
 
-      {/* Layer 2: Bob Character - Bottom left, large with counter */}
+      {/* Bob Character */}
       <MobileBobCharacter
         currentImage={currentImage}
         animationState={animationState}
@@ -172,7 +133,7 @@ export const MobileBobLayout = ({
         position={bobPosition}
       />
 
-      {/* Vehicle Context Bar - Top left (hidden when embedded in iframe) */}
+      {/* Vehicle Context Bar */}
       {vehicle && !isEmbedded && (
         <div className="absolute top-2 left-2 right-2 z-20">
           <div 
@@ -202,7 +163,7 @@ export const MobileBobLayout = ({
         </div>
       )}
 
-      {/* Layer 3: Floating Product Column - Right side */}
+      {/* Product Column */}
       <MobileProductColumn
         products={products}
         servicePackages={servicePackages}
@@ -216,7 +177,7 @@ export const MobileBobLayout = ({
         hasVehicle={!!vehicle}
       />
 
-      {/* Layer 4: Collapsible Chat Drawer - Bottom */}
+      {/* Chat Drawer */}
       <MobileChatDrawer
         messages={messages}
         input={input}
