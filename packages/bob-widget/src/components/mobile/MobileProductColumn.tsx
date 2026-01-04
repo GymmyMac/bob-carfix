@@ -380,7 +380,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
             {/* Desktop: Single column of horizontal cards */}
             <div className="flex flex-col gap-3 md:grid md:grid-cols-2 md:gap-4 lg:flex lg:flex-col lg:gap-4">
               {groupProducts.map((product, index) => {
-                const isSpotlighted = highlightedProduct && productMatchesSpotlight(product, highlightedProduct);
+                const isSpotlighted = !!(highlightedProduct && productMatchesSpotlight(product, highlightedProduct));
                 
                 return (
                   <React.Fragment key={`${product.id}-${index}`}>
