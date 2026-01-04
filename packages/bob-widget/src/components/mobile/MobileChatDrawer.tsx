@@ -89,31 +89,33 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
       : lastBobMessage.content
     : "Ask Bob about car parts...";
 
-  // PTT button styles - Bob's cartoon style (bold outlines, flat colors)
-  const pttButtonStyles = {
+  // Bob's cartoon-style TALK button (big, bold, green!)
+  const talkButtonStyles = {
     idle: {
-      background: '#3B82F6', // Flat blue like Bob's overalls
-      border: '3px solid #1a1a1a', // Bold black cartoon outline
-      boxShadow: '4px 4px 0 #1a1a1a', // Cartoon offset shadow
+      background: '#22c55e', // Green base
+      border: '4px solid #1a1a1a',
+      boxShadow: '6px 6px 0 #1a1a1a',
+      transform: 'translate(0, 0)',
     },
     active: {
-      background: '#F59E0B', // Flat amber when talking
-      border: '3px solid #1a1a1a',
-      boxShadow: '2px 2px 0 #1a1a1a', // Pressed in effect
-      transform: 'translate(2px, 2px)', // Cartoon press-down
+      background: '#f59e0b', // Amber when talking
+      border: '4px solid #1a1a1a',
+      boxShadow: '2px 2px 0 #1a1a1a',
+      transform: 'translate(4px, 4px)', // Pressed down
     },
     disabled: {
-      background: '#9CA3AF', // Flat grey
-      border: '3px solid #6B7280',
-      boxShadow: '4px 4px 0 #6B7280',
+      background: '#9ca3af',
+      border: '4px solid #6b7280',
+      boxShadow: '4px 4px 0 #6b7280',
+      transform: 'translate(0, 0)',
     }
   };
 
-  const currentPttStyle = isLoading 
-    ? pttButtonStyles.disabled 
+  const currentTalkStyle = isLoading 
+    ? talkButtonStyles.disabled 
     : isListening 
-      ? pttButtonStyles.active 
-      : pttButtonStyles.idle;
+      ? talkButtonStyles.active 
+      : talkButtonStyles.idle;
 
   return (
     <div 
@@ -196,50 +198,91 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
         </div>
       )}
 
+      {/* Floating TALK Button - Bob's cartoon style */}
+      {isSupported && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          padding: '12px 16px 8px 16px',
+        }}>
+          <button
+            onTouchStart={handlePTTStart}
+            onTouchEnd={handlePTTEnd}
+            onTouchCancel={handlePTTEnd}
+            onMouseDown={handlePTTStart}
+            onMouseUp={handlePTTEnd}
+            onMouseLeave={handlePTTEnd}
+            disabled={isLoading}
+            aria-label="Hold to talk to Bob"
+            style={{
+              width: '200px',
+              height: '64px',
+              minHeight: 'unset',
+              minWidth: 'unset',
+              borderRadius: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              userSelect: 'none',
+              touchAction: 'none',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              opacity: isLoading ? 0.6 : 1,
+              transition: 'transform 0.1s ease, box-shadow 0.1s ease, background 0.15s ease',
+              ...currentTalkStyle
+            }}
+            title="Hold to talk"
+          >
+            <span style={{
+              fontSize: '24px',
+              fontWeight: 800,
+              letterSpacing: '0.15em',
+              color: '#1a1a1a',
+              textTransform: 'uppercase',
+              fontFamily: 'system-ui, -apple-system, sans-serif',
+            }}>
+              {isListening ? 'LISTENING' : 'TALK'}
+            </span>
+          </button>
+        </div>
+      )}
+
       {/* Input Area */}
       <div style={{
-        padding: isExpanded ? '8px 8px 6px 8px' : '2px 8px 6px 8px',
-        borderTop: isExpanded ? '1px solid #e5e7eb' : 'none'
+        padding: '4px 12px 8px 12px',
+        borderTop: '1px solid #e5e7eb'
       }}>
-        {isListening && (
-          <div style={{ marginBottom: '8px', fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ display: 'inline-block', width: '8px', height: '8px', backgroundColor: '#ef4444', borderRadius: '50%', animation: 'pulse 2s infinite' }} />
-            Listening...
-          </div>
-        )}
-        
         {sttError && (
           <div style={{ marginBottom: '8px', fontSize: '12px', color: '#ef4444' }}>{sttError}</div>
         )}
         
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-          {onToggleMute && isExpanded && (
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {onToggleMute && (
             <button
               onClick={onToggleMute}
               style={{
                 flexShrink: 0,
-                height: '36px',
-                width: '36px',
+                height: '40px',
+                width: '40px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderRadius: '6px',
+                borderRadius: '8px',
                 backgroundColor: 'transparent',
                 color: isSpeaking ? '#2563eb' : '#4b5563',
                 cursor: 'pointer',
-                border: 'none',
+                border: '2px solid #d1d5db',
                 minHeight: 'unset',
                 minWidth: 'unset'
               }}
               title={isMuted ? "Unmute" : "Mute"}
             >
               {isMuted ? (
-                <svg style={{ height: '16px', width: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg style={{ height: '18px', width: '18px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
                 </svg>
               ) : (
-                <svg style={{ height: '16px', width: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg style={{ height: '18px', width: '18px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                 </svg>
               )}
@@ -253,74 +296,21 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
             onKeyPress={onKeyPress}
             onFocus={onInputFocus}
             onBlur={onInputBlur}
-            placeholder="Message Bob..."
+            placeholder="Or type here..."
             disabled={isLoading}
             style={{
               flex: 1,
               height: '40px',
               fontSize: '16px',
               padding: '0 12px',
-              border: '1px solid #d1d5db',
-              borderRadius: '6px',
+              border: '2px solid #d1d5db',
+              borderRadius: '8px',
               backgroundColor: 'white',
               color: '#111827',
               outline: 'none',
               opacity: isLoading ? 0.5 : 1
             }}
           />
-          
-          {/* Bob's Cartoon PTT Button */}
-          {isSupported && (
-            <button
-              onTouchStart={handlePTTStart}
-              onTouchEnd={handlePTTEnd}
-              onTouchCancel={handlePTTEnd}
-              onMouseDown={handlePTTStart}
-              onMouseUp={handlePTTEnd}
-              onMouseLeave={handlePTTEnd}
-              disabled={isLoading}
-              aria-label="Hold to talk to Bob"
-              style={{
-                position: 'relative',
-                flexShrink: 0,
-                height: '64px',
-                width: '64px',
-                minHeight: 'unset',
-                minWidth: 'unset',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                userSelect: 'none',
-                touchAction: 'none',
-                color: '#1a1a1a', // Black icon for cartoon look
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                opacity: isLoading ? 0.6 : 1,
-                transition: 'transform 0.1s ease, box-shadow 0.1s ease',
-                marginLeft: '4px',
-                ...currentPttStyle
-              }}
-              title="Hold to talk"
-            >
-              {/* Microphone icon - bold cartoon stroke */}
-              <svg 
-                style={{ 
-                  height: '26px', 
-                  width: '26px',
-                }} 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={3} 
-                  d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" 
-                />
-              </svg>
-            </button>
-          )}
         </div>
       </div>
     </div>
