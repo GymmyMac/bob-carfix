@@ -4,6 +4,11 @@ on:
   release:
     types: [created]
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish to npm (set false to just build + verify)"
+        required: true
+        default: "true"
 
 jobs:
   publish:
@@ -21,17 +26,67 @@ jobs:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
 
+      - name: Read package name + version
+        id: pkg
+        run: |
+          set -euo pipefail
+          cd packages/bob-widget
+          PKG_NAME="$(node -p 'require("./package.json").name')"
+          PKG_VERSION="$(node -p 'require("./package.json").version')"
+          echo "Package: ${PKG_NAME}@${PKG_VERSION}"
+          echo "name=${PKG_NAME}" >> "$GITHUB_OUTPUT"
+          echo "version=${PKG_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate release tag matches package.json version
+        if: github.event_name == 'release'
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.release.tag_name }}"
+          TAG_VERSION="${TAG#v}"
+          if [ "$TAG_VERSION" != "${{ steps.pkg.outputs.version }}" ]; then
+            echo "❌ Tag/version mismatch"
+            echo "Release tag:   ${TAG} (version ${TAG_VERSION})"
+            echo "package.json:  ${{ steps.pkg.outputs.version }}"
+            echo "Fix: recreate the release/tag from the commit that contains the correct package.json version."
+            exit 1
+          fi
+          echo "✅ Tag matches package.json version"
+
+      - name: Skip if version already published
+        id: published
+        run: |
+          set -euo pipefail
+          PKG_NAME="${{ steps.pkg.outputs.name }}"
+          PKG_VERSION="${{ steps.pkg.outputs.version }}"
+          if npm view "${PKG_NAME}@${PKG_VERSION}" version --silent >/dev/null 2>&1; then
+            echo "✅ Already published: ${PKG_NAME}@${PKG_VERSION}"
+            echo "already=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Not published yet: ${PKG_NAME}@${PKG_VERSION}"
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install dependencies
+        if: steps.published.outputs.already != 'true'
         working-directory: packages/bob-widget
-        run: npm install --no-audit --no-fund
+        run: |
+          set -euo pipefail
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund
+          else
+            npm install --no-audit --no-fund
+          fi
 
       - name: Build package
+        if: steps.published.outputs.already != 'true'
         working-directory: packages/bob-widget
         run: npm run build
 
       - name: Verify dist output
+        if: steps.published.outputs.already != 'true'
         working-directory: packages/bob-widget
         run: |
+          set -euo pipefail
           echo "=== Checking dist folder ==="
           ls -la dist/
 
@@ -68,6 +123,9 @@ jobs:
           npm pack --dry-run
 
       - name: Publish to npm
+        if: |
+          steps.published.outputs.already != 'true' &&
+          (github.event_name == 'release' || inputs.publish == 'true')
         working-directory: packages/bob-widget
         run: npm publish --access public
         env:
