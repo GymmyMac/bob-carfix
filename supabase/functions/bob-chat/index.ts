@@ -1,10 +1,71 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// ============= DYNAMIC PROMPT LOADING =============
+interface BobPrompt {
+  prompt_key: string;
+  content: string;
+  is_active: boolean;
+  display_order: number;
+}
+
+// Cache for prompts (refreshed every 5 minutes)
+let cachedPrompts: BobPrompt[] | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+async function fetchPromptsFromDB(): Promise<BobPrompt[]> {
+  const now = Date.now();
+  if (cachedPrompts && (now - cacheTimestamp) < CACHE_TTL_MS) {
+    console.log('Using cached prompts');
+    return cachedPrompts;
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('Missing Supabase credentials for prompt loading');
+      return [];
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data, error } = await supabase
+      .from('bob_prompts')
+      .select('prompt_key, content, is_active, display_order')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching prompts:', error);
+      return cachedPrompts || [];
+    }
+
+    cachedPrompts = data || [];
+    cacheTimestamp = now;
+    console.log(`Loaded ${cachedPrompts.length} prompts from database`);
+    return cachedPrompts;
+  } catch (err) {
+    console.error('Failed to fetch prompts:', err);
+    return cachedPrompts || [];
+  }
+}
+
+function buildSystemPromptFromDB(prompts: BobPrompt[]): string {
+  if (prompts.length === 0) {
+    console.log('No DB prompts, using fallback');
+    return FALLBACK_SYSTEM_PROMPT;
+  }
+  
+  return prompts.map(p => p.content).join('\n\n');
+}
 
 const tools = [
   {
@@ -208,7 +269,8 @@ const UNIVERSAL_PART_TYPES = [
   'NUMBER PLATE', 'LICENSE PLATE',
 ];
 
-const systemPrompt = `You are Bob, a friendly Kiwi auto parts expert at CARFIX. You're busy but helpful - like a mate at the shop.
+// Fallback prompt used when database prompts are unavailable
+const FALLBACK_SYSTEM_PROMPT = `You are Bob, a friendly Kiwi auto parts expert at CARFIX. You're busy but helpful - like a mate at the shop.
 
 CRITICAL RULES:
 - Keep responses SHORT (1-3 sentences max) until you know their vehicle
@@ -941,8 +1003,12 @@ serve(async (req) => {
       });
     }
 
+    // Load prompts from database and build system prompt
+    const dbPrompts = await fetchPromptsFromDB();
+    const baseSystemPrompt = buildSystemPromptFromDB(dbPrompts);
+    
     // Build enhanced system prompt if vehicle context is provided from session
-    let enhancedSystemPrompt = systemPrompt;
+    let enhancedSystemPrompt = baseSystemPrompt;
     
     if (vehicleContext) {
       const vehicleId = vehicleContext.id || vehicleContext.vehicle_id;

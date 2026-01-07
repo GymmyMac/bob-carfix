@@ -9,7 +9,8 @@ import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image, Database, Volume2, Wand2, ArrowLeft } from "lucide-react";
+import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image, Database, Volume2, Wand2, ArrowLeft, FileText } from "lucide-react";
+import { PromptsManager } from "@/components/PromptsManager";
 import { ImageUploaderWithState } from "@/components/ImageUploaderWithState";
 import { StateAssignmentCard } from "@/components/StateAssignmentCard";
 import { AnimationPreview } from "@/components/AnimationPreview";
@@ -181,10 +182,14 @@ const Admin = () => {
           {/* Admin Tabs (Main Area) */}
           <div className="lg:col-span-3">
             <Tabs defaultValue="controls" className="w-full">
-              <TabsList className="grid w-full grid-cols-6">
+              <TabsList className="grid w-full grid-cols-7">
                 <TabsTrigger value="controls" className="gap-2">
                   <Zap className="w-4 h-4" />
                   Controls
+                </TabsTrigger>
+                <TabsTrigger value="prompts" className="gap-2">
+                  <FileText className="w-4 h-4" />
+                  Prompts
                 </TabsTrigger>
                 <TabsTrigger value="settings" className="gap-2">
                   <Settings className="w-4 h-4" />
@@ -344,6 +349,11 @@ const Admin = () => {
                     </Button>
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              {/* PROMPTS TAB */}
+              <TabsContent value="prompts" className="space-y-6 mt-6">
+                <PromptsManager />
               </TabsContent>
 
               {/* SETTINGS TAB */}
