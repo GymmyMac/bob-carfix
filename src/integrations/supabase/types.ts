@@ -249,6 +249,45 @@ export type Database = {
         }
         Relationships: []
       }
+      bob_prompts: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          prompt_key: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          content: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          prompt_key: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          prompt_key?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bob_settings: {
         Row: {
           created_at: string
