@@ -54,4 +54,5 @@ export interface ServicePackage {
   description: string;
   from_price: number;
   partslots?: unknown[];
+  icon_url?: string; // Custom icon image URL for premium display
 }
