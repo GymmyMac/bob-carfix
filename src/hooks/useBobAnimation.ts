@@ -7,15 +7,30 @@ interface UseBobAnimationOptions {
   isSpeaking?: boolean;
 }
 
+// Minimum time between state changes to prevent rapid jumping
+const MIN_STATE_DURATION_MS = 400;
+
 export const useBobAnimation = (options: UseBobAnimationOptions = {}) => {
   const { isSpeaking = false } = options;
   
-  const [animationState, setAnimationState] = useState<AnimationState>("");
+  const [animationState, setAnimationStateInternal] = useState<AnimationState>("");
   const [sequenceIndex, setSequenceIndex] = useState(0);
   const [talkSpeed, setTalkSpeed] = useState(400);
   const [manualMode, setManualMode] = useState(false);
   
   const animationIntervalRef = useRef<NodeJS.Timeout>();
+  const lastStateChangeRef = useRef<number>(0);
+  
+  // Stable state setter that prevents rapid state changes
+  const setAnimationState = useCallback((newState: AnimationState) => {
+    const now = Date.now();
+    if (now - lastStateChangeRef.current < MIN_STATE_DURATION_MS) {
+      console.log('[useBobAnimation] Ignoring rapid state change to:', newState);
+      return;
+    }
+    lastStateChangeRef.current = now;
+    setAnimationStateInternal(newState);
+  }, []);
 
   // Use centralized cached data
   const { data, isLoading } = useBobAnimationData();
@@ -77,10 +92,11 @@ export const useBobAnimation = (options: UseBobAnimationOptions = {}) => {
     imageUrlsMapRef.current = imageUrlsMap;
   }, [imageUrlsMap]);
 
-  // Initialize animation state from database
+  // Initialize animation state from database (bypass debounce for initial state)
   useEffect(() => {
     if (availableStates.length > 0 && !animationState) {
-      setAnimationState(availableStates[0]);
+      lastStateChangeRef.current = 0; // Reset to allow immediate first state
+      setAnimationStateInternal(availableStates[0]);
     }
   }, [availableStates, animationState]);
 
