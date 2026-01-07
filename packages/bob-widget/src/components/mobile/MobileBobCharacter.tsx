@@ -20,13 +20,14 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
   verticalOffset = 0
 }) => {
   // ============================================================================
-  // BOB v2.0 - FIXED CENTERING AND SCALE
+  // BOB v2.0 - CONSISTENT SIZE, ONLY POSITION CHANGES
   // ============================================================================
   
-  // Base width calculation - Bob fills more of the screen in welcome state
-  const baseWidth = position === 'center' ? 75 : 55; // Larger when centered
+  // FIXED: Bob maintains the SAME size regardless of position
+  // He only moves left when products appear - no shrinking!
+  const baseWidth = 75; // Always 75% - same size center or left
   const scaledWidth = (baseWidth * scale) / 100;
-  const scaledMaxWidth = position === 'center' ? (450 * scale) / 100 : (320 * scale) / 100;
+  const scaledMaxWidth = (450 * scale) / 100; // Always 450px max
   
   // TRUE CENTERING: Use left: 50% with translateX(-50%) for perfect center
   // When showing products (left position), move Bob exactly 15px from left edge

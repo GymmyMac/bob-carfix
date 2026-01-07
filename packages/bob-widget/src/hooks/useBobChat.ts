@@ -188,7 +188,7 @@ export const useBobChat = ({
     }
   };
 
-  const { speak, stop: stopSpeech, isSpeaking } = useSpeechSynthesis({
+  const { speak, stop: stopSpeech, isSpeaking, retryPendingGreeting } = useSpeechSynthesis({
     onStart: () => {
       clearFallbackTimeout();
       speechStartedRef.current = true;
@@ -259,13 +259,13 @@ export const useBobChat = ({
       
       setMessages([{ role: "assistant", content: greetingMessage }]);
       
-      // Speak the greeting after a short delay to allow component to mount
-      // and avoid browser autoplay restrictions by queuing it
+      // Speak the greeting after a delay - mark as priority greeting
+      // Increased delay to 1000ms to allow component to fully mount
       if (!isMuted) {
         setTimeout(() => {
-          console.log('[BobWidget] Speaking initial greeting');
-          speak(greetingMessage);
-        }, 800);
+          console.log('[BobWidget] Speaking initial greeting (priority)');
+          speak(greetingMessage, true); // true = isGreeting priority
+        }, 1000);
       }
     }
   }, [hostContext.vehicle?.selectedVehicle, messages.length, isMuted, speak]);
@@ -587,6 +587,9 @@ export const useBobChat = ({
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
+    // Retry any pending greeting on first user interaction
+    retryPendingGreeting();
+    
     stopSpeech();
 
     const userMessage: Message = { role: "user", content: input };
