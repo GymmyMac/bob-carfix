@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { useSpeechSynthesis } from "./useSpeechSynthesis";
 import { Vehicle } from "@/types/vehicle";
@@ -287,13 +287,13 @@ export const useBobChat = ({
   }, [initialVehicle, customerEmail]);
 
 
-  const safeSetState = (state: AnimationState) => {
+  const safeSetState = useCallback((state: AnimationState) => {
     try {
       setAnimationState(state);
     } catch (error) {
       console.warn(`State "${state}" not available, staying in current state`);
     }
-  };
+  }, [setAnimationState]);
 
   const streamChat = async (userMessage: Message) => {
     const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bob-chat`;
