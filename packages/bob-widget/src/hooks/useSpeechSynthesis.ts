@@ -7,7 +7,8 @@ interface UseSpeechSynthesisProps {
   onFailed?: () => void;
 }
 
-const TTS_TIMEOUT_MS = 8000;
+// INCREASED timeout from 8s to 15s to allow longer responses to complete
+const TTS_TIMEOUT_MS = 15000;
 
 export const useSpeechSynthesis = ({
   onStart,

@@ -314,48 +314,112 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
   return (
     <div 
       ref={scrollRef}
-      className={`absolute right-2 md:right-3 lg:right-4 w-[52%] md:w-[55%] lg:w-[58%] max-w-[280px] md:max-w-[400px] lg:max-w-[520px] overflow-y-auto overflow-x-hidden z-30 flex flex-col gap-3 md:gap-4 lg:gap-5 pb-4 transition-all duration-300 ease-out ${
-        visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-8 pointer-events-none"
+      className={`absolute right-0 md:right-2 lg:right-3 overflow-y-auto overflow-x-hidden z-30 flex flex-col gap-4 md:gap-5 transition-all duration-400 ease-out ${
+        visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-12 pointer-events-none"
       }`}
       style={{
+        // v2.0: WIDER product column for better visibility
+        width: 'calc(55% - 8px)',
+        maxWidth: '320px',
         top: topOffset,
-        bottom: 'calc(70px + env(safe-area-inset-bottom, 8px))',
-        paddingTop: 'env(safe-area-inset-top, 4px)'
+        bottom: 'calc(75px + env(safe-area-inset-bottom, 8px))',
+        paddingTop: 'env(safe-area-inset-top, 4px)',
+        paddingRight: '8px',
+        paddingLeft: '4px',
       }}
     >
-      {/* Loading state */}
+      {/* ============================================================================
+          v2.0 SHELF HEADER - "Bob's Shelf" visual branding
+          ============================================================================ */}
+      <div 
+        className="sticky top-0 z-10 -mx-1 px-2 py-2 rounded-lg"
+        style={{
+          background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.95) 0%, rgba(59, 130, 246, 0.9) 100%)',
+          backdropFilter: 'blur(8px)',
+          boxShadow: '0 4px 15px -3px rgba(37, 99, 235, 0.4)',
+        }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+              <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+            </div>
+            <span className="text-white font-bold text-sm tracking-wide">Bob's Shelf</span>
+          </div>
+          <span className="text-white/80 text-xs font-medium">
+            {products.length} {products.length === 1 ? 'item' : 'items'}
+          </span>
+        </div>
+      </div>
+
+      {/* Loading state - v2.0 enhanced */}
       {showLoading && (
-        <div className="rounded-xl bg-white/90 backdrop-blur-sm p-4 shadow-lg border border-gray-100">
-          <div className="flex items-center gap-3 text-sm text-gray-600">
-            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            <span className="font-medium">Finding parts...</span>
+        <div 
+          className="rounded-2xl p-5 border"
+          style={{
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(249,250,251,0.95) 100%)',
+            borderColor: 'rgba(59, 130, 246, 0.2)',
+            boxShadow: '0 8px 25px -5px rgba(0, 0, 0, 0.1)',
+          }}
+        >
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+              <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+            <div>
+              <p className="font-semibold text-gray-800 text-sm">Searching shelves...</p>
+              <p className="text-xs text-gray-500 mt-0.5">Finding the best parts for you</p>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Service Packages */}
+      {/* Service Packages - v2.0 enhanced cards */}
       {showContent && servicePackages.length > 0 && (
-        <div className="space-y-2 md:space-y-3">
-          <div className="text-xs font-bold text-blue-700 flex items-center gap-1.5 px-1 uppercase tracking-wide">
-            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-            Service Packages
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-1">
+            <div className="w-5 h-5 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-sm">
+              <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Service Deals</span>
           </div>
           {servicePackages.map((pkg) => (
             <div
               key={pkg.id}
               onClick={() => onPackageSelect?.(pkg)}
-              className="cursor-pointer active:scale-[0.98] transition-all bg-white rounded-xl md:rounded-2xl border border-gray-100 p-3 md:p-4 shadow-md hover:shadow-lg md:hover:scale-[1.02]"
+              className="cursor-pointer active:scale-[0.97] transition-all duration-200 rounded-2xl border overflow-hidden"
+              style={{
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(240,253,244,0.95) 100%)',
+                borderColor: 'rgba(16, 185, 129, 0.3)',
+                boxShadow: '0 6px 20px -4px rgba(16, 185, 129, 0.15)',
+              }}
             >
-              <p className="text-sm md:text-base font-semibold text-gray-900 line-clamp-2 mb-1">{pkg.title}</p>
-              <p className="text-lg md:text-xl font-bold text-blue-600">From ${pkg.from_price.toFixed(0)}</p>
+              <div className="p-4">
+                <p className="text-sm font-bold text-gray-900 line-clamp-2 mb-2">{pkg.title}</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xs text-gray-500">From</span>
+                  <span className="text-xl font-extrabold text-emerald-600">${pkg.from_price.toFixed(0)}</span>
+                </div>
+              </div>
+              <div 
+                className="px-4 py-2 text-center"
+                style={{
+                  background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%)',
+                  borderTop: '1px solid rgba(16, 185, 129, 0.1)',
+                }}
+              >
+                <span className="text-xs font-semibold text-emerald-700">View Package →</span>
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Products - Grouped by part type */}
+      {/* Products - Grouped by part type with v2.0 shelf styling */}
       {showContent && groupedProducts.map(({ name, products: groupProducts }) => {
         const isHighlighted = highlightedPartType && matchesPartType(name, highlightedPartType);
         
@@ -363,22 +427,61 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           <section 
             key={name}
             ref={(el) => { groupRefs.current[name] = el; }}
-            className={`rounded-xl md:rounded-2xl transition-all ${
-              isHighlighted ? "ring-2 ring-blue-500 bg-blue-50/80 p-2 md:p-3 shadow-lg" : ""
+            className={`rounded-2xl transition-all duration-300 overflow-hidden ${
+              isHighlighted 
+                ? "ring-2 ring-blue-500 shadow-xl" 
+                : ""
             }`}
+            style={{
+              background: isHighlighted 
+                ? 'linear-gradient(135deg, rgba(239, 246, 255, 0.98) 0%, rgba(219, 234, 254, 0.95) 100%)'
+                : 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(249,250,251,0.9) 100%)',
+              boxShadow: isHighlighted 
+                ? '0 10px 30px -5px rgba(59, 130, 246, 0.25)'
+                : '0 4px 15px -3px rgba(0, 0, 0, 0.08)',
+              border: isHighlighted ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(0,0,0,0.05)',
+            }}
           >
-            <h3 className="text-xs md:text-sm font-bold mb-2 md:mb-3 flex items-center gap-1.5 px-1 text-gray-800 uppercase tracking-wide">
-              <svg className="h-3.5 w-3.5 md:h-4 md:w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
-              <span className="truncate">{name}</span>
-              <span className="text-[10px] md:text-xs text-gray-500 font-medium">({groupProducts.length})</span>
-            </h3>
+            {/* Section Header */}
+            <div 
+              className="px-3 py-2.5 flex items-center justify-between"
+              style={{
+                background: isHighlighted 
+                  ? 'linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%)'
+                  : 'rgba(0,0,0,0.02)',
+                borderBottom: '1px solid rgba(0,0,0,0.05)',
+              }}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <div 
+                  className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
+                  style={{
+                    background: isHighlighted 
+                      ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'
+                      : 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
+                  }}
+                >
+                  <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                </div>
+                <span className={`text-xs font-bold truncate uppercase tracking-wide ${isHighlighted ? 'text-blue-800' : 'text-gray-700'}`}>
+                  {name}
+                </span>
+              </div>
+              <span 
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                style={{
+                  background: isHighlighted ? 'rgba(59, 130, 246, 0.2)' : 'rgba(0,0,0,0.06)',
+                  color: isHighlighted ? '#1e40af' : '#6b7280',
+                }}
+              >
+                {groupProducts.length}
+              </span>
+            </div>
             
-            {/* Mobile: Single column */}
-            {/* Tablet: 2-column grid */}
-            {/* Desktop: Single column of horizontal cards */}
-            <div className="flex flex-col gap-3 md:grid md:grid-cols-2 md:gap-4 lg:flex lg:flex-col lg:gap-4">
+            {/* Products Grid */}
+            <div className="p-3 flex flex-col gap-3">
               {groupProducts.map((product, index) => {
                 const isSpotlighted = !!(highlightedProduct && productMatchesSpotlight(product, highlightedProduct));
                 
@@ -414,6 +517,9 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           </section>
         );
       })}
+      
+      {/* Bottom padding for scroll */}
+      <div className="h-4" />
     </div>
   );
 };

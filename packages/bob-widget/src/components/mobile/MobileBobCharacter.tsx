@@ -19,29 +19,49 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
   position = 'center',
   verticalOffset = 0
 }) => {
-  // Reduced base width from 85% to 65% for better fit
-  const scaledWidth = (65 * scale) / 100;
-  const scaledMaxWidth = (320 * scale) / 100;
+  // ============================================================================
+  // BOB v2.0 - FIXED CENTERING AND SCALE
+  // ============================================================================
   
-  // Better centering: center position moves Bob more to middle, left moves him further left
-  const translateX = position === 'center' ? '5%' : '-25%';
+  // Base width calculation - Bob fills more of the screen in welcome state
+  const baseWidth = position === 'center' ? 75 : 55; // Larger when centered
+  const scaledWidth = (baseWidth * scale) / 100;
+  const scaledMaxWidth = position === 'center' ? (450 * scale) / 100 : (320 * scale) / 100;
+  
+  // TRUE CENTERING: Use left: 50% with translateX(-50%) for perfect center
+  // When showing products (left position), shift Bob to the left side
+  const getTransform = () => {
+    if (position === 'center') {
+      return 'translateX(-50%)'; // Perfect center
+    }
+    return 'translateX(-30%)'; // Shifted left for product display
+  };
+  
+  const getLeftPosition = () => {
+    if (position === 'center') {
+      return '50%'; // Center anchor point
+    }
+    return '0'; // Left edge anchor
+  };
   
   // Calculate bottom position including vertical offset from database
+  // Bob sits above the counter
   const bottomPercent = counterHeightPercent - 2 + verticalOffset;
   
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
-      {/* Bob Character */}
+      {/* Bob Character - Centered properly */}
       <div 
-        className="absolute left-0 z-40"
+        className="absolute z-40"
         style={{
           bottom: `${bottomPercent}%`,
-          // Add max-height to prevent clipping at top
-          maxHeight: `${100 - counterHeightPercent - 5}%`,
-          transform: `translateX(${translateX})`,
+          left: getLeftPosition(),
+          // Prevent clipping at top while allowing Bob to be large
+          maxHeight: `${100 - counterHeightPercent - 2}%`,
+          transform: getTransform(),
           width: `${scaledWidth}%`,
           maxWidth: `${scaledMaxWidth}px`,
-          transition: 'transform 0.4s ease-out',
+          transition: 'all 0.4s ease-out', // Smooth transitions for position changes
         }}
       >
         <img 
