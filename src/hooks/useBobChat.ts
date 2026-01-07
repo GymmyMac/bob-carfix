@@ -121,22 +121,9 @@ export const useBobChat = ({
   const lastContentTimeRef = useRef<number>(0);
   const latestAssistantMessageRef = useRef<string>("");
 
-  // Track if speech started for fallback logic
-  const speechStartedRef = useRef(false);
-  const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const clearFallbackTimeout = () => {
-    if (fallbackTimeoutRef.current) {
-      clearTimeout(fallbackTimeoutRef.current);
-      fallbackTimeoutRef.current = null;
-    }
-  };
-
-  // Speech synthesis for Bob's voice with resilient fallback
+  // Speech synthesis for Bob's voice
   const { speak, stop: stopSpeech, isSpeaking } = useSpeechSynthesis({
     onStart: () => {
-      clearFallbackTimeout();
-      speechStartedRef.current = true;
       console.log('[useBobChat] Speech started - revealing products');
       // Trigger ready to speak - reveals products synchronized with speech
       onReadyToSpeak?.();
@@ -146,7 +133,7 @@ export const useBobChat = ({
       }
     },
     onEnd: () => {
-      clearFallbackTimeout();
+      console.log('[useBobChat] Speech ended');
       // Check if the spoken content had product keywords
       const hasProductContent = PRODUCT_KEYWORDS.some(keyword => 
         latestAssistantMessageRef.current.toLowerCase().includes(keyword.toLowerCase())
@@ -481,30 +468,8 @@ export const useBobChat = ({
 
       // Speak the response if not muted (use cleaned content)
       if (!isMuted && latestAssistantMessageRef.current.trim()) {
-        speechStartedRef.current = false;
-        clearFallbackTimeout();
-        
+        // TTS hook handles all fallbacks - just call speak()
         speak(latestAssistantMessageRef.current);
-        
-        // Secondary fallback: if speech doesn't start within 2s, reveal products anyway
-        fallbackTimeoutRef.current = setTimeout(() => {
-          if (!speechStartedRef.current) {
-            console.warn('[useBobChat] Speech fallback after 2s - forcing product reveal');
-            onReadyToSpeak?.();
-            
-            // Also handle animation states
-            if (!manualMode) {
-              if (hasProductContent && onShowingProduct) {
-                onShowingProduct();
-              } else if (onStreamComplete) {
-                onStreamComplete();
-              } else {
-                safeSetState(completeState);
-                setTimeout(() => safeSetState(listenState), 3000);
-              }
-            }
-          }
-        }, 2000);
       } else {
         // If muted or empty message, still trigger ready to speak to reveal products
         console.log('[useBobChat] Muted or empty - revealing products immediately');
@@ -542,8 +507,16 @@ export const useBobChat = ({
     setInput("");
     setIsLoading(true);
     
-    // Notify that research is starting (shows loading in product shelf)
-    onResearchStart?.();
+    // Only trigger research if we have a vehicle OR user is asking for general products
+    const lowerInput = input.toLowerCase();
+    const isGeneralProduct = ['tyre shine', 'windscreen', 'accessories', 'wash', 'cleaner'].some(
+      term => lowerInput.includes(term)
+    );
+    const hasVehicle = !!identifiedVehicle || !!initialVehicle;
+    
+    if (hasVehicle || isGeneralProduct) {
+      onResearchStart?.();
+    }
     
     if (!manualMode) {
       safeSetState(thinkingState);
