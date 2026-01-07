@@ -30,7 +30,7 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
   const scaledMaxWidth = (450 * scale) / 100; // Always 450px max
   
   // TRUE CENTERING: Use left: 50% with translateX(-50%) for perfect center
-  // When showing products (left position), move Bob exactly 15px from left edge
+  // When showing products, move Bob further left - allow right arm off-screen
   const getTransform = () => {
     if (position === 'center') {
       return 'translateX(-50%)'; // Perfect center
@@ -42,7 +42,9 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
     if (position === 'center') {
       return '50%'; // Center anchor point
     }
-    return '15px'; // Exactly 15px from left edge as requested
+    // Move Bob further left - his right arm can extend off-screen
+    // This makes room for products on the right
+    return '-15%';
   };
   
   // Calculate bottom position including vertical offset from database
@@ -50,7 +52,7 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
   const bottomPercent = counterHeightPercent - 2 + verticalOffset;
   
   return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+    <div className="absolute inset-0 pointer-events-none" style={{ overflow: 'visible' }}>
       {/* Bob Character - Centered properly */}
       <div 
         className="absolute z-40"
