@@ -3,7 +3,13 @@ import { useBobAnimationData } from "./useBobAnimationData";
 
 export type AnimationState = string;
 
-export const useBobAnimation = () => {
+interface UseBobAnimationOptions {
+  isSpeaking?: boolean;
+}
+
+export const useBobAnimation = (options: UseBobAnimationOptions = {}) => {
+  const { isSpeaking = false } = options;
+  
   const [animationState, setAnimationState] = useState<AnimationState>("");
   const [sequenceIndex, setSequenceIndex] = useState(0);
   const [talkSpeed, setTalkSpeed] = useState(400);
@@ -79,6 +85,7 @@ export const useBobAnimation = () => {
   }, [availableStates, animationState]);
 
   // Enhanced sequence animation for ALL states with multiple images
+  // KEY: When isSpeaking is true and animation is a "talk" state, keep looping
   useEffect(() => {
     const alternates = alternateImages[animationState];
     
@@ -97,6 +104,9 @@ export const useBobAnimation = () => {
       const loopCount = stateInfo?.loop_count || 0;
       const pauseDuration = stateInfo?.pause_duration || 0;
       
+      // Check if this is a "talk" animation state
+      const isTalkState = animationState.toLowerCase().includes('talk');
+      
       let currentLoop = 0;
       let isPaused = false;
       
@@ -109,6 +119,12 @@ export const useBobAnimation = () => {
             
             if (nextIndex === 0) {
               currentLoop++;
+              
+              // KEY CHANGE: If speaking and in talk state, ignore loop_count - keep animating
+              if (isTalkState && isSpeaking) {
+                // Keep looping while speaking - don't stop
+                return nextIndex;
+              }
               
               if (loopCount > 0 && currentLoop >= loopCount) {
                 clearInterval(animationIntervalRef.current!);
@@ -142,7 +158,7 @@ export const useBobAnimation = () => {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [animationState, alternateImages]);
+  }, [animationState, alternateImages, isSpeaking]);
 
   const getCurrentImage = () => {
     const alternates = alternateImages[animationState];

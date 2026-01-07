@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useBobContext } from "../BobProvider";
 import { useBobChat } from "../hooks/useBobChat";
 import { useBobAnimation } from "../hooks/useBobAnimation";
@@ -38,7 +38,10 @@ export const Bob: React.FC<BobProps> = ({
 }) => {
   const { callbacks } = useBobContext();
   
-  // Use the full animation system
+  // Track speaking state for animation sync (will be set after bobChat is initialized)
+  const [isSpeakingForAnimation, setIsSpeakingForAnimation] = useState(false);
+  
+  // Use the full animation system - pass isSpeaking to sync mouth animation with speech
   const {
     animationState,
     setAnimationState,
@@ -46,7 +49,7 @@ export const Bob: React.FC<BobProps> = ({
     getCurrentOffset,
     getCurrentScale,
     availableStates
-  } = useBobAnimation();
+  } = useBobAnimation({ isSpeaking: isSpeakingForAnimation });
 
   // Load backdrop from database
   const { activeBackdrop } = useBobBackdrop();
@@ -83,6 +86,11 @@ export const Bob: React.FC<BobProps> = ({
       setIsResearching(false);
     }
   });
+
+  // Sync isSpeaking from bobChat to animation hook
+  useEffect(() => {
+    setIsSpeakingForAnimation(bobChat.isSpeaking);
+  }, [bobChat.isSpeaking]);
 
   // Wire up callbacks to update local state
   useEffect(() => {
