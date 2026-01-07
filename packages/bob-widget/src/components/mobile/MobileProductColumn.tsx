@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useMemo } from "react";
+import { useViewportSize, type ViewportSize } from "../../hooks/useViewportSize";
 import type { Product, ServicePackage } from "../../types";
 import type { HighlightedProduct } from "../../types/message";
 
@@ -35,186 +36,163 @@ const productMatchesSpotlight = (product: Product, spotlight: HighlightedProduct
 // PRODUCT CARD COMPONENTS - Different layouts for each viewport
 // =============================================================================
 
-/** Mobile Card: Compact vertical layout with image on top */
-const MobileProductCard: React.FC<{
+/** Responsive Product Card - renders appropriate layout based on viewport */
+const ResponsiveProductCard: React.FC<{
   product: Product;
   isSpotlighted: boolean;
   spotlightedRef?: React.RefObject<HTMLDivElement>;
   onProductClick?: (product: Product) => void;
-}> = ({ product, isSpotlighted, spotlightedRef, onProductClick }) => (
-  <div 
-    ref={isSpotlighted ? spotlightedRef : undefined}
-    onClick={() => onProductClick?.(product)}
-    className={`md:hidden cursor-pointer active:scale-[0.98] transition-all duration-200 bg-white rounded-xl border relative overflow-hidden ${
-      isSpotlighted 
-        ? "ring-2 ring-blue-500 shadow-lg border-blue-200" 
-        : "border-gray-100 shadow-md"
-    }`}
-    style={{
-      backgroundColor: 'white',
-      borderRadius: '12px',
-      border: isSpotlighted ? '1px solid #bfdbfe' : '1px solid #f3f4f6',
-      boxShadow: isSpotlighted 
-        ? '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' 
-        : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-    }}
-  >
-    {isSpotlighted && <SpotlightBadge />}
-    
-    {/* Compact Image */}
-    <div className="aspect-[16/10] bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
-      {product.image_url ? (
-        <img src={product.image_url} alt={product.name} className="w-full h-full object-contain p-2" />
-      ) : (
-        <NoImagePlaceholder size="sm" />
-      )}
-    </div>
-    
-    {/* Compact Info */}
-    <div className="p-2.5">
-      <p className="text-sm font-semibold text-gray-900 line-clamp-1 mb-0.5">{product.name}</p>
-      {product.brand && (
-        <p className="text-xs text-gray-500 mb-1.5">{product.brand}</p>
-      )}
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-base font-bold text-blue-600">
-          {product.price > 0 ? `$${product.price.toFixed(2)}` : 'POA'}
-        </span>
-        <button 
-          className="bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors"
-          onClick={(e) => {
-            e.stopPropagation();
-            onProductClick?.(product);
-          }}
-        >
-          View
-        </button>
-      </div>
-    </div>
-  </div>
-);
-
-/** Tablet Card: Medium vertical card with hover effects, 2-column grid */
-const TabletProductCard: React.FC<{
-  product: Product;
-  isSpotlighted: boolean;
-  spotlightedRef?: React.RefObject<HTMLDivElement>;
-  onProductClick?: (product: Product) => void;
-}> = ({ product, isSpotlighted, spotlightedRef, onProductClick }) => (
-  <div 
-    ref={isSpotlighted ? spotlightedRef : undefined}
-    onClick={() => onProductClick?.(product)}
-    className={`hidden md:block lg:hidden cursor-pointer transition-all duration-300 bg-white rounded-2xl border relative overflow-hidden hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1 ${
-      isSpotlighted 
-        ? "ring-2 ring-blue-500 shadow-xl border-blue-200" 
-        : "border-gray-100 shadow-lg"
-    }`}
-  >
-    {isSpotlighted && <SpotlightBadge />}
-    
-    {/* Larger Image for Tablet */}
-    <div className="aspect-[4/3] bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
-      {product.image_url ? (
-        <img src={product.image_url} alt={product.name} className="w-full h-full object-contain p-4" />
-      ) : (
-        <NoImagePlaceholder size="md" />
-      )}
-    </div>
-    
-    {/* Info Section */}
-    <div className="p-4">
-      <p className="text-base font-semibold text-gray-900 line-clamp-2 mb-1">{product.name}</p>
-      {product.brand && (
-        <p className="text-sm text-gray-600 font-medium mb-2 flex items-center gap-1">
-          <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-          {product.brand}
-        </p>
-      )}
-      <div className="flex items-center justify-between">
-        <span className="text-xl font-bold text-blue-600">
-          {product.price > 0 ? `$${product.price.toFixed(2)}` : 'POA'}
-        </span>
-      </div>
-      
-      <button 
-        className="mt-3 w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white text-sm font-semibold py-2.5 rounded-xl hover:from-blue-700 hover:to-blue-600 active:from-blue-800 active:to-blue-700 transition-all shadow-md"
-        onClick={(e) => {
-          e.stopPropagation();
-          onProductClick?.(product);
-        }}
+  viewportSize: ViewportSize;
+}> = ({ product, isSpotlighted, spotlightedRef, onProductClick, viewportSize }) => {
+  // Desktop: Premium horizontal layout
+  if (viewportSize === 'desktop') {
+    return (
+      <div 
+        ref={isSpotlighted ? spotlightedRef : undefined}
+        onClick={() => onProductClick?.(product)}
+        className={`flex flex-row cursor-pointer transition-all duration-300 bg-white rounded-2xl border relative overflow-hidden hover:shadow-2xl hover:scale-[1.01] hover:-translate-y-0.5 group ${
+          isSpotlighted 
+            ? "ring-2 ring-blue-500 shadow-xl border-blue-200" 
+            : "border-gray-100 shadow-lg"
+        }`}
+        style={{ minHeight: '140px' }}
       >
-        View Details
-      </button>
-    </div>
-  </div>
-);
+        {isSpotlighted && <SpotlightBadge variant="horizontal" />}
+        
+        <div className="w-36 shrink-0 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
+          {product.image_url ? (
+            <img src={product.image_url} alt={product.name} className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-300" />
+          ) : (
+            <NoImagePlaceholder size="lg" />
+          )}
+        </div>
+        
+        <div className="flex-1 p-4 flex flex-col justify-between">
+          <div>
+            <p className="text-base font-semibold text-gray-900 line-clamp-2 mb-1 group-hover:text-blue-700 transition-colors">{product.name}</p>
+            {product.brand && (
+              <div className="flex items-center gap-2 mb-2">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                  <svg className="w-3 h-3 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  {product.brand}
+                </span>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-2xl font-bold text-blue-600">
+              {product.price > 0 ? `$${product.price.toFixed(2)}` : 'POA'}
+            </span>
+            <button 
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-sm font-semibold rounded-lg hover:from-blue-700 hover:to-blue-600 transition-all shadow-md"
+              onClick={(e) => {
+                e.stopPropagation();
+                onProductClick?.(product);
+              }}
+            >
+              View
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-/** Desktop Card: Premium horizontal layout with image left, info right */
-const DesktopProductCard: React.FC<{
-  product: Product;
-  isSpotlighted: boolean;
-  spotlightedRef?: React.RefObject<HTMLDivElement>;
-  onProductClick?: (product: Product) => void;
-}> = ({ product, isSpotlighted, spotlightedRef, onProductClick }) => (
-  <div 
-    ref={isSpotlighted ? spotlightedRef : undefined}
-    onClick={() => onProductClick?.(product)}
-    className={`hidden lg:flex flex-row cursor-pointer transition-all duration-300 bg-white rounded-2xl border relative overflow-hidden hover:shadow-2xl hover:scale-[1.01] hover:-translate-y-0.5 group ${
-      isSpotlighted 
-        ? "ring-2 ring-blue-500 shadow-xl border-blue-200" 
-        : "border-gray-100 shadow-lg"
-    }`}
-    style={{ minHeight: '140px' }}
-  >
-    {isSpotlighted && <SpotlightBadge variant="horizontal" />}
-    
-    {/* Left: Image Section */}
-    <div className="w-36 shrink-0 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
-      {product.image_url ? (
-        <img 
-          src={product.image_url} 
-          alt={product.name} 
-          className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-300" 
-        />
-      ) : (
-        <NoImagePlaceholder size="lg" />
-      )}
-    </div>
-    
-    {/* Right: Info Section */}
-    <div className="flex-1 p-4 flex flex-col justify-between">
-      <div>
-        <p className="text-base font-semibold text-gray-900 line-clamp-2 mb-1 group-hover:text-blue-700 transition-colors">{product.name}</p>
-        {product.brand && (
-          <div className="flex items-center gap-2 mb-2">
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
-              <svg className="w-3 h-3 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
+  // Tablet: Medium vertical card
+  if (viewportSize === 'tablet') {
+    return (
+      <div 
+        ref={isSpotlighted ? spotlightedRef : undefined}
+        onClick={() => onProductClick?.(product)}
+        className={`cursor-pointer transition-all duration-300 bg-white rounded-2xl border relative overflow-hidden hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1 ${
+          isSpotlighted 
+            ? "ring-2 ring-blue-500 shadow-xl border-blue-200" 
+            : "border-gray-100 shadow-lg"
+        }`}
+      >
+        {isSpotlighted && <SpotlightBadge />}
+        
+        <div className="aspect-[4/3] bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
+          {product.image_url ? (
+            <img src={product.image_url} alt={product.name} className="w-full h-full object-contain p-4" />
+          ) : (
+            <NoImagePlaceholder size="md" />
+          )}
+        </div>
+        
+        <div className="p-4">
+          <p className="text-base font-semibold text-gray-900 line-clamp-2 mb-1">{product.name}</p>
+          {product.brand && (
+            <p className="text-sm text-gray-600 font-medium mb-2 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
               {product.brand}
+            </p>
+          )}
+          <div className="flex items-center justify-between">
+            <span className="text-xl font-bold text-blue-600">
+              {product.price > 0 ? `$${product.price.toFixed(2)}` : 'POA'}
             </span>
           </div>
-        )}
-      </div>
-      
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-2xl font-bold text-blue-600">
-          {product.price > 0 ? `$${product.price.toFixed(2)}` : 'POA'}
-        </span>
-        
-        {/* Desktop: Dual action buttons */}
-        <div className="flex gap-2">
+          
           <button 
-            className="px-4 py-2 border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all opacity-0 group-hover:opacity-100"
+            className="mt-3 w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white text-sm font-semibold py-2.5 rounded-xl hover:from-blue-700 hover:to-blue-600 active:from-blue-800 active:to-blue-700 transition-all shadow-md"
             onClick={(e) => {
               e.stopPropagation();
               onProductClick?.(product);
             }}
           >
-            Details
+            View Details
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Mobile: Compact vertical layout
+  return (
+    <div 
+      ref={isSpotlighted ? spotlightedRef : undefined}
+      onClick={() => onProductClick?.(product)}
+      className={`cursor-pointer active:scale-[0.98] transition-all duration-200 bg-white rounded-xl border relative overflow-hidden ${
+        isSpotlighted 
+          ? "ring-2 ring-blue-500 shadow-lg border-blue-200" 
+          : "border-gray-100 shadow-md"
+      }`}
+      style={{
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        border: isSpotlighted ? '1px solid #bfdbfe' : '1px solid #f3f4f6',
+        boxShadow: isSpotlighted 
+          ? '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' 
+          : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        minHeight: '140px',
+        display: 'block'
+      }}
+    >
+      {isSpotlighted && <SpotlightBadge />}
+      
+      <div className="aspect-[16/10] bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
+        {product.image_url ? (
+          <img src={product.image_url} alt={product.name} className="w-full h-full object-contain p-2" />
+        ) : (
+          <NoImagePlaceholder size="sm" />
+        )}
+      </div>
+      
+      <div className="p-2.5">
+        <p className="text-sm font-semibold text-gray-900 line-clamp-1 mb-0.5">{product.name}</p>
+        {product.brand && (
+          <p className="text-xs text-gray-500 mb-1.5">{product.brand}</p>
+        )}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-base font-bold text-blue-600">
+            {product.price > 0 ? `$${product.price.toFixed(2)}` : 'POA'}
+          </span>
           <button 
-            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-sm font-semibold rounded-lg hover:from-blue-700 hover:to-blue-600 transition-all shadow-md"
+            className="bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors"
             onClick={(e) => {
               e.stopPropagation();
               onProductClick?.(product);
@@ -225,8 +203,10 @@ const DesktopProductCard: React.FC<{
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
+
+/** Spotlight Badge Component */
 
 /** Spotlight Badge Component */
 const SpotlightBadge: React.FC<{ variant?: 'default' | 'horizontal' }> = ({ variant = 'default' }) => (
@@ -274,6 +254,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
   counterHeightPercent = 22,
   hasVehicle = false
 }) => {
+  const viewportSize = useViewportSize();
   const scrollRef = useRef<HTMLDivElement>(null);
   const groupRefs = useRef<Record<string, HTMLElement | null>>({});
   const spotlightedRef = useRef<HTMLDivElement>(null);
@@ -398,11 +379,34 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                 boxShadow: '0 6px 20px -4px rgba(16, 185, 129, 0.15)',
               }}
             >
-              <div className="p-4">
-                <p className="text-sm font-bold text-gray-900 line-clamp-2 mb-2">{pkg.title}</p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-xs text-gray-500">From</span>
-                  <span className="text-xl font-extrabold text-emerald-600">${pkg.from_price.toFixed(0)}</span>
+              <div className="p-4 flex gap-3">
+                {/* Icon container - shows custom icon or fallback checkmark */}
+                <div 
+                  className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%)',
+                  }}
+                >
+                  {pkg.icon_url ? (
+                    <img 
+                      src={pkg.icon_url} 
+                      alt={pkg.title} 
+                      className="w-full h-full object-contain p-1"
+                    />
+                  ) : (
+                    <svg className="h-7 w-7 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+                
+                {/* Text content */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-gray-900 line-clamp-2 mb-1">{pkg.title}</p>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-xs text-gray-500">From</span>
+                    <span className="text-xl font-extrabold text-emerald-600">${pkg.from_price.toFixed(0)}</span>
+                  </div>
                 </div>
               </div>
               <div 
@@ -486,31 +490,14 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                 const isSpotlighted = !!(highlightedProduct && productMatchesSpotlight(product, highlightedProduct));
                 
                 return (
-                  <React.Fragment key={`${product.id}-${index}`}>
-                    {/* Mobile Card */}
-                    <MobileProductCard
-                      product={product}
-                      isSpotlighted={isSpotlighted}
-                      spotlightedRef={spotlightedRef}
-                      onProductClick={onProductClick}
-                    />
-                    
-                    {/* Tablet Card */}
-                    <TabletProductCard
-                      product={product}
-                      isSpotlighted={isSpotlighted}
-                      spotlightedRef={spotlightedRef}
-                      onProductClick={onProductClick}
-                    />
-                    
-                    {/* Desktop Card */}
-                    <DesktopProductCard
-                      product={product}
-                      isSpotlighted={isSpotlighted}
-                      spotlightedRef={spotlightedRef}
-                      onProductClick={onProductClick}
-                    />
-                  </React.Fragment>
+                  <ResponsiveProductCard
+                    key={`${product.id}-${index}`}
+                    product={product}
+                    isSpotlighted={isSpotlighted}
+                    spotlightedRef={spotlightedRef}
+                    onProductClick={onProductClick}
+                    viewportSize={viewportSize}
+                  />
                 );
               })}
             </div>

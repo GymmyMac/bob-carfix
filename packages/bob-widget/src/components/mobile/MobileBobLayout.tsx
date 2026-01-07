@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { MobileBobCharacter } from "./MobileBobCharacter";
 import { MobileProductColumn } from "./MobileProductColumn";
 import { MobileChatDrawer } from "./MobileChatDrawer";
+import { useViewportSize } from "../../hooks/useViewportSize";
 import type { Message } from "../../types/message";
 import type { Product, ServicePackage } from "../../types";
 import type { HighlightedProduct } from "../../types/message";
@@ -82,6 +83,7 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
   bobScale = 100
 }) => {
   const isEmbedded = typeof window !== 'undefined' && window.self !== window.top;
+  const viewportSize = useViewportSize();
   
   const [bobPosition, setBobPosition] = useState<'center' | 'left'>('center');
   const [panelState, setPanelState] = useState<PanelState>('hidden');
@@ -89,14 +91,21 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
   const hasProducts = products.length > 0 || servicePackages.length > 0;
   
   // ============================================================================
-  // BOB v2.0 - ENHANCED WELCOME STATE SCALING
+  // BOB v2.1 - VIEWPORT-AWARE SCALING (WAIST-UP ON ALL DEVICES)
   // ============================================================================
-  // Dynamic Bob scale based on state:
-  // - Welcome state (center, no products): MUCH larger scale (280%) for welcoming presence
-  // - Showing products (left position): smaller scale (140%) to make room for products
+  // Bob's scale is based on viewport size for consistent waist-up presentation:
+  // - Desktop: 100% - smaller to fit properly on large screens
+  // - Tablet: 140% - medium scale
+  // - Mobile: 200% - larger for close-up welcome feel
+  // 
+  // IMPORTANT: Scale does NOT change when products appear - Bob only moves left
   const getBaseUIScale = () => {
-    if (bobPosition === 'center' && !hasProducts) return 280; // Welcome state - MUCH larger
-    return 140; // Showing products - slightly larger than before
+    switch (viewportSize) {
+      case 'desktop': return 100;
+      case 'tablet': return 140;
+      case 'mobile': return 200;
+      default: return 200;
+    }
   };
   const baseUIScale = getBaseUIScale();
   const finalBobScale = (baseUIScale * bobScale) / 100;
