@@ -42,9 +42,9 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
     if (position === 'center') {
       return '50%'; // Center anchor point
     }
-    // Move Bob further left - his right arm can extend off-screen
-    // This makes room for products on the right
-    return '-35%';
+    // Move Bob further left - hair should touch screen edge
+    // This makes maximum room for products on the right
+    return '-48%';
   };
   
   // Calculate bottom position including vertical offset from database
