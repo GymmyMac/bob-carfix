@@ -288,8 +288,9 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
   }, [highlightedProduct]);
 
   const hasContent = products.length > 0 || servicePackages.length > 0;
-  const showLoading = isResearching;
-  const showContent = hasContent && !isResearching;
+  // v2.2: Keep showing previous content while researching (don't blank out)
+  const showLoading = isResearching && !hasContent;
+  const showContent = hasContent;
   const topOffset = hasVehicle ? '56px' : '8px';
 
   return (
@@ -310,7 +311,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
       }}
     >
       {/* ============================================================================
-          v2.0 SHELF HEADER - "Bob's Shelf" visual branding
+          v2.2 SHELF HEADER - "Bob's Shelf" with search indicator
           ============================================================================ */}
       <div 
         className="sticky top-0 z-10 -mx-1 px-2 py-2 rounded-lg"
@@ -322,12 +323,21 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
-              <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
-            </div>
-            <span className="text-white font-bold text-sm tracking-wide">Bob's Shelf</span>
+            {isResearching && hasContent ? (
+              // Show spinner when researching with existing content
+              <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+              </div>
+            )}
+            <span className="text-white font-bold text-sm tracking-wide">
+              {isResearching && hasContent ? 'Updating...' : "Bob's Shelf"}
+            </span>
           </div>
           <span className="text-white/80 text-xs font-medium">
             {products.length + servicePackages.length} {(products.length + servicePackages.length) === 1 ? 'item' : 'items'}

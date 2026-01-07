@@ -17,6 +17,9 @@ import bobBgWall from "@/assets/bob-bg-wall.png";
 import bobCounter from "@/assets/bob-counter.png";
 
 const Index = () => {
+  // Shared isSpeaking state for animation sync
+  const [isSpeakingForAnimation, setIsSpeakingForAnimation] = useState(false);
+  
   const { 
     animationState, 
     setAnimationState, 
@@ -25,7 +28,7 @@ const Index = () => {
     getCurrentScale,
     manualMode,
     setManualMode
-  } = useBobAnimation();
+  } = useBobAnimation({ isSpeaking: isSpeakingForAnimation });
   
   // Get backdrop data
   const { activeBackdrop } = useBobBackdrop();
@@ -94,7 +97,7 @@ const Index = () => {
     isSpeaking,
     identifiedVehicle,
     clearVehicle
-  } = useBobChat({ 
+  } = useBobChat({
     setAnimationState, 
     manualMode,
     talkingState: getTalkingState() || "talk",
@@ -192,6 +195,11 @@ const Index = () => {
       console.log('Auto-fetch complete - products should be displayed');
     }
   });
+  
+  // Sync isSpeaking to animation hook for talk animation lock
+  useEffect(() => {
+    setIsSpeakingForAnimation(isSpeaking);
+  }, [isSpeaking]);
   
   // Safety timeout - if researching for more than 30 seconds, clear it
   useEffect(() => {

@@ -8,6 +8,20 @@ interface UseSpeechSynthesisProps {
 
 const TTS_TIMEOUT_MS = 5000; // 5 second timeout for TTS
 
+// Sanitize text for TTS - fix Kiwi slang pronunciation
+const sanitizeForTTS = (text: string): string => {
+  return text
+    .replace(/\bya\b/gi, 'you')
+    .replace(/\bon ya\b/gi, 'on you')
+    .replace(/\bare ya\b/gi, 'are you')
+    .replace(/\bsee ya\b/gi, 'see you')
+    .replace(/\bhow are ya\b/gi, 'how are you')
+    .replace(/\bgood on ya\b/gi, 'good on you')
+    .replace(/\bfor ya\b/gi, 'for you')
+    .replace(/\bto ya\b/gi, 'to you')
+    .replace(/\bwith ya\b/gi, 'with you');
+};
+
 export const useSpeechSynthesis = ({
   onStart,
   onEnd,
@@ -81,7 +95,7 @@ export const useSpeechSynthesis = ({
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify({ text: sanitizeForTTS(text) }),
           signal: controller.signal,
         }
       );
