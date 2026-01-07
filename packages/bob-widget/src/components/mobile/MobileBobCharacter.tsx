@@ -44,7 +44,7 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
     }
     // Move Bob further left - his right arm can extend off-screen
     // This makes room for products on the right
-    return '-15%';
+    return '-35%';
   };
   
   // Calculate bottom position including vertical offset from database

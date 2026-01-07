@@ -330,7 +330,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
             <span className="text-white font-bold text-sm tracking-wide">Bob's Shelf</span>
           </div>
           <span className="text-white/80 text-xs font-medium">
-            {products.length} {products.length === 1 ? 'item' : 'items'}
+            {products.length + servicePackages.length} {(products.length + servicePackages.length) === 1 ? 'item' : 'items'}
           </span>
         </div>
       </div>
