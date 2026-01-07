@@ -7,6 +7,79 @@ import type { Vehicle } from "../types/vehicle";
 
 import type { Message, HighlightedProduct } from "../types/message";
 
+// ============================================================================
+// CONTENT SANITIZATION - Remove raw function calls from chat/TTS
+// ============================================================================
+
+/**
+ * Sanitizes content to remove raw function call patterns that the AI
+ * sometimes streams (e.g., "retrieve_parts(vehicleid=17948, part_type='Brake')")
+ */
+const sanitizeContent = (text: string): string => {
+  if (!text) return text;
+  
+  let sanitized = text;
+  
+  // Remove function call patterns: function_name(params...)
+  // Matches: retrieve_parts(vehicleid=17948, part_type='Brake Pads')
+  // Also matches: lookup_vehicle(plate="ABC123")
+  // And: search_general_products(query="tire shine")
+  sanitized = sanitized.replace(
+    /\b(retrieve_parts|lookup_vehicle|search_general_products|retrieve_service_packages|add_to_cart|get_cart|create_checkout|get_customer_context|get_product_details|search_products|check_vehicle_fitment|search_web)\s*\([^)]*\)/gi,
+    ''
+  );
+  
+  // Remove JSON-like function arguments that might be split across chunks
+  // Matches: (vehicleid=12345, part_type="...")
+  sanitized = sanitized.replace(
+    /\(\s*(vehicleid|vehicle_id|part_type|query|plate|user_email|sku)\s*=\s*[^)]+\)/gi,
+    ''
+  );
+  
+  // Remove any remaining partial function patterns
+  // Matches: retrieve_parts( or lookup_vehicle(
+  sanitized = sanitized.replace(
+    /\b(retrieve_parts|lookup_vehicle|search_general_products|retrieve_service_packages|add_to_cart|get_cart|create_checkout|get_customer_context|get_product_details|search_products|check_vehicle_fitment|search_web)\s*\(/gi,
+    ''
+  );
+  
+  // Remove leftover function parameters that might be orphaned
+  // Matches: vehicleid=17948, or part_type='Brake Pads'
+  sanitized = sanitized.replace(
+    /\b(vehicleid|vehicle_id|part_type)\s*=\s*(['"]?[\w\s]+['"]?)\s*,?\s*/gi,
+    ''
+  );
+  
+  // Remove markdown code fences that might wrap function calls
+  sanitized = sanitized.replace(/```[\s\S]*?```/g, '');
+  
+  // Clean up excess whitespace and empty parentheses
+  sanitized = sanitized.replace(/\(\s*\)/g, '');
+  sanitized = sanitized.replace(/\s{2,}/g, ' ');
+  sanitized = sanitized.trim();
+  
+  return sanitized;
+};
+
+/**
+ * Sanitizes text specifically for TTS - more aggressive cleaning
+ */
+const sanitizeForTTS = (text: string): string => {
+  let sanitized = sanitizeContent(text);
+  
+  // Additional TTS-specific cleaning
+  // Remove any remaining brackets or special characters
+  sanitized = sanitized.replace(/[\[\]{}]/g, '');
+  
+  // Remove URLs
+  sanitized = sanitized.replace(/https?:\/\/[^\s]+/g, '');
+  
+  // Remove very technical terms that shouldn't be spoken
+  sanitized = sanitized.replace(/\bSKU\s*:?\s*\w+/gi, '');
+  
+  return sanitized;
+};
+
 export type AnimationState = string;
 
 // Keywords that indicate a version query
@@ -408,7 +481,9 @@ export const useBobChat = ({
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (content) {
               assistantContent += content;
-              const cleanContent = assistantContent.replace(/\[VEHICLE_CONFIRMED:\{[\s\S]*?\}\]/g, '');
+              // SANITIZE: Remove vehicle markers AND function call patterns
+              let cleanContent = assistantContent.replace(/\[VEHICLE_CONFIRMED:\{[\s\S]*?\}\]/g, '');
+              cleanContent = sanitizeContent(cleanContent);
               
               setMessages(prev => {
                 const last = prev[prev.length - 1];
@@ -429,7 +504,10 @@ export const useBobChat = ({
         }
       }
 
-      latestAssistantMessageRef.current = assistantContent.replace(/\[VEHICLE_CONFIRMED:\{[\s\S]*?\}\]/g, '');
+      // SANITIZE the final assistant message for storage and TTS
+      let finalCleanContent = assistantContent.replace(/\[VEHICLE_CONFIRMED:\{[\s\S]*?\}\]/g, '');
+      finalCleanContent = sanitizeContent(finalCleanContent);
+      latestAssistantMessageRef.current = finalCleanContent;
 
       const hasProductContent = PRODUCT_KEYWORDS.some(keyword => 
         assistantContent.toLowerCase().includes(keyword.toLowerCase())
@@ -452,12 +530,14 @@ export const useBobChat = ({
         onHighlightProduct?.({ brand, price: parseFloat(price) });
       }
 
-      // Handle speech
+      // Handle speech - SANITIZE specifically for TTS
       if (!isMuted && latestAssistantMessageRef.current.trim()) {
         speechStartedRef.current = false;
         clearFallbackTimeout();
         
-        speak(latestAssistantMessageRef.current);
+        // Use TTS-specific sanitization for cleaner spoken output
+        const ttsText = sanitizeForTTS(latestAssistantMessageRef.current);
+        speak(ttsText);
         
         fallbackTimeoutRef.current = setTimeout(() => {
           if (!speechStartedRef.current) {

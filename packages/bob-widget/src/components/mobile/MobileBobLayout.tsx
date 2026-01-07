@@ -88,12 +88,15 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
   
   const hasProducts = products.length > 0 || servicePackages.length > 0;
   
+  // ============================================================================
+  // BOB v2.0 - ENHANCED WELCOME STATE SCALING
+  // ============================================================================
   // Dynamic Bob scale based on state:
-  // - Welcome state (center, no products): larger scale (200%)
-  // - Showing products (left position): smaller scale (130%)
+  // - Welcome state (center, no products): MUCH larger scale (280%) for welcoming presence
+  // - Showing products (left position): smaller scale (140%) to make room for products
   const getBaseUIScale = () => {
-    if (bobPosition === 'center' && !hasProducts) return 200; // Welcome state - larger
-    return 130; // Showing products - smaller
+    if (bobPosition === 'center' && !hasProducts) return 280; // Welcome state - MUCH larger
+    return 140; // Showing products - slightly larger than before
   };
   const baseUIScale = getBaseUIScale();
   const finalBobScale = (baseUIScale * bobScale) / 100;
@@ -134,7 +137,7 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
         touchAction: 'manipulation'
       }}
     >
-      {/* Blurred Background */}
+      {/* Blurred Background - v2.0: REDUCED BLUR FOR READABILITY */}
       {backdropUrl && (
         <>
           <div 
@@ -143,15 +146,19 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
               backgroundImage: `url(${backdropUrl})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center bottom',
-              filter: 'blur(12px) brightness(0.7)',
-              transform: 'scale(1.1)'
+              // REDUCED blur from 12px to 4px so CARFIX branding is readable
+              // INCREASED brightness from 0.7 to 0.85 for better visibility
+              filter: 'blur(4px) brightness(0.85)',
+              transform: 'scale(1.05)' // Reduced scale to minimize edge bleeding
             }}
           />
           
+          {/* Lighter overlay - more transparent to show branding */}
           <div 
             className="absolute inset-0 z-[1]"
             style={{
-              background: 'linear-gradient(to bottom, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.6) 100%)'
+              // Much lighter overlay - allows backdrop text to show through
+              background: 'linear-gradient(to bottom, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.35) 100%)'
             }}
           />
         </>
