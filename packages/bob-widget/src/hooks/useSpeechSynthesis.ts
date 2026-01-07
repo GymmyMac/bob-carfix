@@ -7,7 +7,7 @@ interface UseSpeechSynthesisProps {
   onFailed?: () => void;
 }
 
-// INCREASED timeout from 8s to 15s to allow longer responses to complete
+// Timeout for TTS requests - generous to allow longer responses
 const TTS_TIMEOUT_MS = 15000;
 
 export const useSpeechSynthesis = ({
@@ -20,6 +20,14 @@ export const useSpeechSynthesis = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startTriggeredRef = useRef(false);
+  
+  // Queue for speech requests - greetings get priority
+  const speechQueueRef = useRef<Array<{ text: string; isGreeting: boolean }>>([]);
+  const isProcessingRef = useRef(false);
+  const greetingPlayingRef = useRef(false);
+  
+  // Store pending greeting for user interaction retry
+  const pendingGreetingRef = useRef<string | null>(null);
   
   const onStartRef = useRef(onStart);
   const onEndRef = useRef(onEnd);
@@ -46,9 +54,26 @@ export const useSpeechSynthesis = ({
     }
   }, []);
 
-  const speak = useCallback(async (text: string) => {
-    if (!text.trim()) return;
-
+  // Process the speech queue
+  const processQueue = useCallback(async () => {
+    if (isProcessingRef.current || speechQueueRef.current.length === 0) {
+      return;
+    }
+    
+    isProcessingRef.current = true;
+    const item = speechQueueRef.current.shift();
+    
+    if (!item) {
+      isProcessingRef.current = false;
+      return;
+    }
+    
+    const { text, isGreeting } = item;
+    
+    if (isGreeting) {
+      greetingPlayingRef.current = true;
+    }
+    
     startTriggeredRef.current = false;
     clearTtsTimeout();
 
@@ -57,19 +82,21 @@ export const useSpeechSynthesis = ({
       audioRef.current = null;
     }
 
+    // Set timeout for this speech attempt
     timeoutRef.current = setTimeout(() => {
-      console.warn("[BobWidget TTS] Timeout after 5s - triggering fallback callbacks");
+      console.warn("[BobWidget TTS] Timeout - triggering fallback callbacks");
       triggerFallbackStart();
       setIsSpeaking(false);
+      greetingPlayingRef.current = false;
       onEndRef.current?.();
       onFailedRef.current?.();
       audioRef.current = null;
+      isProcessingRef.current = false;
+      // Process next in queue
+      processQueue();
     }, TTS_TIMEOUT_MS);
 
     try {
-      const controller = new AbortController();
-      const fetchTimeout = setTimeout(() => controller.abort(), TTS_TIMEOUT_MS - 1000);
-
       const response = await fetch(
         `${bobConfig.supabaseUrl}/functions/v1/bob-tts`,
         {
@@ -79,11 +106,8 @@ export const useSpeechSynthesis = ({
             Authorization: `Bearer ${bobConfig.supabaseKey}`,
           },
           body: JSON.stringify({ text }),
-          signal: controller.signal,
         }
       );
-
-      clearTimeout(fetchTimeout);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -98,6 +122,7 @@ export const useSpeechSynthesis = ({
 
       audio.onplay = () => {
         clearTtsTimeout();
+        pendingGreetingRef.current = null; // Clear pending since we're playing
         if (!startTriggeredRef.current) {
           startTriggeredRef.current = true;
           setIsSpeaking(true);
@@ -109,8 +134,12 @@ export const useSpeechSynthesis = ({
       audio.onended = () => {
         clearTtsTimeout();
         setIsSpeaking(false);
+        greetingPlayingRef.current = false;
         onEndRef.current?.();
         audioRef.current = null;
+        isProcessingRef.current = false;
+        // Process next in queue
+        processQueue();
       };
 
       audio.onerror = (e) => {
@@ -118,40 +147,89 @@ export const useSpeechSynthesis = ({
         console.warn("[BobWidget TTS] Audio playback error:", e);
         triggerFallbackStart();
         setIsSpeaking(false);
+        greetingPlayingRef.current = false;
         onEndRef.current?.();
         onFailedRef.current?.();
         audioRef.current = null;
+        isProcessingRef.current = false;
+        // Process next in queue
+        processQueue();
       };
 
       try {
         await audio.play();
       } catch (playError) {
-        console.warn("[BobWidget TTS] Audio play() failed (autoplay policy), will retry on user interaction:", playError);
-        // Don't immediately fail - store audio for potential user-initiated retry
-        // Trigger callbacks as fallback so UI doesn't hang
+        console.warn("[BobWidget TTS] Audio play() failed (autoplay policy):", playError);
         clearTtsTimeout();
+        
+        // Store greeting for retry on user interaction
+        if (isGreeting) {
+          pendingGreetingRef.current = text;
+          console.log("[BobWidget TTS] Greeting stored for retry on user interaction");
+        }
+        
         triggerFallbackStart();
         setIsSpeaking(false);
+        greetingPlayingRef.current = false;
         onEndRef.current?.();
-        // Keep audioRef so it can be played on user interaction if needed
+        isProcessingRef.current = false;
+        // Process next in queue
+        processQueue();
       }
     } catch (error) {
       clearTtsTimeout();
       console.error("[BobWidget TTS] Speech synthesis error:", error);
       triggerFallbackStart();
       setIsSpeaking(false);
+      greetingPlayingRef.current = false;
       onEndRef.current?.();
       onFailedRef.current?.();
+      isProcessingRef.current = false;
+      // Process next in queue
+      processQueue();
     }
   }, [bobConfig.supabaseUrl, bobConfig.supabaseKey, clearTtsTimeout, triggerFallbackStart]);
 
+  const speak = useCallback((text: string, isGreeting = false) => {
+    if (!text.trim()) return;
+
+    // If a greeting is currently playing, queue non-greeting messages
+    if (greetingPlayingRef.current && !isGreeting) {
+      console.log("[BobWidget TTS] Greeting playing - queueing message");
+      speechQueueRef.current.push({ text, isGreeting });
+      return;
+    }
+
+    // Greetings go to front of queue, others to back
+    if (isGreeting) {
+      speechQueueRef.current.unshift({ text, isGreeting });
+    } else {
+      speechQueueRef.current.push({ text, isGreeting });
+    }
+    
+    processQueue();
+  }, [processQueue]);
+
+  // Retry pending greeting on user interaction
+  const retryPendingGreeting = useCallback(() => {
+    if (pendingGreetingRef.current) {
+      console.log("[BobWidget TTS] Retrying pending greeting on user interaction");
+      const greetingText = pendingGreetingRef.current;
+      pendingGreetingRef.current = null;
+      speak(greetingText, true);
+    }
+  }, [speak]);
+
   const stop = useCallback(() => {
     clearTtsTimeout();
+    speechQueueRef.current = []; // Clear queue
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
     }
     setIsSpeaking(false);
+    greetingPlayingRef.current = false;
+    isProcessingRef.current = false;
   }, [clearTtsTimeout]);
 
   const pause = useCallback(() => {
@@ -165,6 +243,7 @@ export const useSpeechSynthesis = ({
   useEffect(() => {
     return () => {
       clearTtsTimeout();
+      speechQueueRef.current = [];
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
@@ -179,5 +258,6 @@ export const useSpeechSynthesis = ({
     resume,
     isSpeaking,
     isSupported: true,
+    retryPendingGreeting,
   };
 };
