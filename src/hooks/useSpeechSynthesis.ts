@@ -63,6 +63,9 @@ export const useSpeechSynthesis = ({
   const speak = useCallback(async (text: string) => {
     if (!text.trim()) return;
 
+    // Set speaking state immediately for animation sync
+    setIsSpeaking(true);
+    
     // Reset start trigger for this new speak call
     startTriggeredRef.current = false;
     clearTtsTimeout();
@@ -84,9 +87,6 @@ export const useSpeechSynthesis = ({
     }, TTS_TIMEOUT_MS);
 
     try {
-      const controller = new AbortController();
-      const fetchTimeout = setTimeout(() => controller.abort(), TTS_TIMEOUT_MS - 1000);
-
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bob-tts`,
         {
@@ -96,11 +96,8 @@ export const useSpeechSynthesis = ({
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({ text: sanitizeForTTS(text) }),
-          signal: controller.signal,
         }
       );
-
-      clearTimeout(fetchTimeout);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -119,7 +116,6 @@ export const useSpeechSynthesis = ({
         clearTtsTimeout();
         if (!startTriggeredRef.current) {
           startTriggeredRef.current = true;
-          setIsSpeaking(true);
           console.log("[TTS] Audio playing, triggering onStart");
           onStartRef.current?.();
         }
@@ -128,6 +124,7 @@ export const useSpeechSynthesis = ({
       audio.onended = () => {
         clearTtsTimeout();
         setIsSpeaking(false);
+        console.log("[TTS] Audio ended");
         onEndRef.current?.();
         audioRef.current = null;
       };
@@ -135,7 +132,6 @@ export const useSpeechSynthesis = ({
       audio.onerror = (e) => {
         clearTtsTimeout();
         console.warn("[TTS] Audio playback error:", e);
-        // Still trigger onStart as fallback to reveal products
         triggerFallbackStart();
         setIsSpeaking(false);
         onEndRef.current?.();
@@ -143,13 +139,12 @@ export const useSpeechSynthesis = ({
         audioRef.current = null;
       };
 
-      // Try to play - may fail on mobile without user gesture
+      // Try to play
       try {
         await audio.play();
       } catch (playError) {
         console.warn("[TTS] Audio play() failed (likely autoplay policy):", playError);
         clearTtsTimeout();
-        // Trigger fallback - products should still show
         triggerFallbackStart();
         setIsSpeaking(false);
         onEndRef.current?.();
@@ -159,7 +154,6 @@ export const useSpeechSynthesis = ({
     } catch (error) {
       clearTtsTimeout();
       console.error("[TTS] Speech synthesis error:", error);
-      // Always trigger onStart as fallback to reveal products
       triggerFallbackStart();
       setIsSpeaking(false);
       onEndRef.current?.();
