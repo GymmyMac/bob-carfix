@@ -29,19 +29,19 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
   const scaledMaxWidth = position === 'center' ? (450 * scale) / 100 : (320 * scale) / 100;
   
   // TRUE CENTERING: Use left: 50% with translateX(-50%) for perfect center
-  // When showing products (left position), shift Bob to the left side
+  // When showing products (left position), move Bob exactly 15px from left edge
   const getTransform = () => {
     if (position === 'center') {
       return 'translateX(-50%)'; // Perfect center
     }
-    return 'translateX(-30%)'; // Shifted left for product display
+    return 'translateX(0)'; // No transform when positioned left
   };
   
   const getLeftPosition = () => {
     if (position === 'center') {
       return '50%'; // Center anchor point
     }
-    return '0'; // Left edge anchor
+    return '15px'; // Exactly 15px from left edge as requested
   };
   
   // Calculate bottom position including vertical offset from database
