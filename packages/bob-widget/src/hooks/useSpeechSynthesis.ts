@@ -10,6 +10,14 @@ interface UseSpeechSynthesisProps {
 // Timeout for TTS requests - generous to allow longer responses
 const TTS_TIMEOUT_MS = 15000;
 
+// Sanitize text for TTS - fix pronunciation issues
+// Google TTS pronounces "ya" as "yah" instead of "yuh", so we replace with "you"
+const sanitizeForTTS = (text: string): string => {
+  // Replace "ya" with "you" at word boundaries to avoid false positives
+  // This handles: "ya", "Ya", "YA" but not words like "kayak", "royal"
+  return text.replace(/\bya\b/gi, 'you');
+};
+
 export const useSpeechSynthesis = ({
   onStart,
   onEnd,
@@ -97,6 +105,9 @@ export const useSpeechSynthesis = ({
     }, TTS_TIMEOUT_MS);
 
     try {
+      // Sanitize text for TTS pronunciation before sending
+      const sanitizedText = sanitizeForTTS(text);
+      
       const response = await fetch(
         `${bobConfig.supabaseUrl}/functions/v1/bob-tts`,
         {
@@ -105,7 +116,7 @@ export const useSpeechSynthesis = ({
             "Content-Type": "application/json",
             Authorization: `Bearer ${bobConfig.supabaseKey}`,
           },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify({ text: sanitizedText }),
         }
       );
 
