@@ -3,7 +3,13 @@ import { useBobAnimationData } from "./useBobAnimationData";
 
 export type AnimationState = string;
 
-export const useBobAnimation = () => {
+interface UseBobAnimationOptions {
+  isSpeaking?: boolean;
+}
+
+export const useBobAnimation = (options: UseBobAnimationOptions = {}) => {
+  const { isSpeaking = false } = options;
+  
   const [animationState, setAnimationState] = useState<AnimationState>("");
   const [sequenceIndex, setSequenceIndex] = useState(0);
   const [talkSpeed, setTalkSpeed] = useState(400);
@@ -80,6 +86,7 @@ export const useBobAnimation = () => {
 
   // Enhanced sequence animation for ALL states with multiple images
   // Supports loop_count, pause_duration, and per-state animation_speed
+  // KEY: If isSpeaking is true and in a "talk" state, keep looping continuously
   useEffect(() => {
     const alternates = alternateImages[animationState];
     
@@ -99,6 +106,9 @@ export const useBobAnimation = () => {
       const loopCount = stateInfo?.loop_count || 0; // 0 = infinite
       const pauseDuration = stateInfo?.pause_duration || 0;
       
+      // Detect if this is a "talk" state
+      const isTalkState = animationState.toLowerCase().includes('talk');
+      
       let currentLoop = 0;
       let isPaused = false;
       
@@ -112,6 +122,11 @@ export const useBobAnimation = () => {
             // Check if we completed a loop
             if (nextIndex === 0) {
               currentLoop++;
+              
+              // KEY CHANGE: If speaking and in talk state, keep looping indefinitely
+              if (isTalkState && isSpeaking) {
+                return nextIndex; // Continue looping, ignore loop_count
+              }
               
               // Stop if we've reached loop limit
               if (loopCount > 0 && currentLoop >= loopCount) {
@@ -148,7 +163,7 @@ export const useBobAnimation = () => {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [animationState, alternateImages]); // Removed imageUrlsMap - use ref instead
+  }, [animationState, alternateImages, isSpeaking]); // Added isSpeaking dependency
 
   const getCurrentImage = () => {
     const alternates = alternateImages[animationState];

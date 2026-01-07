@@ -463,6 +463,15 @@ SHOPPING CART & CHECKOUT:
 - When checkout URL is returned, present it naturally: "Choice! Here's your checkout link: [URL]. Click through to complete payment."
 - ALWAYS confirm what was added: "Added [product] to your cart. Anything else, or ready to checkout?"
 
+VEHICLE CONTEXT RULES:
+1. If a vehicle is already in session (PRE-CONFIRMED VEHICLE SESSION exists above), use that vehicle_id directly for retrieve_parts and retrieve_service_packages
+2. If NO vehicle is known (no session vehicle, no confirmed lookup):
+   - DO NOT call lookup_vehicle until customer provides REGO OR make/model/year
+   - DO NOT call retrieve_parts or retrieve_service_packages until vehicle_id is confirmed
+   - Keep response SHORT: ask for REGO in 1-2 sentences max
+   - Example: "Just need your rego first, mate - what's the plate number?"
+3. For GENERAL products (tire shine, windscreen wash, cleaning products), you CAN use search_general_products WITHOUT a vehicle
+
 TONE: Relaxed, efficient, knowledgeable. Match their energy.`;
 
 // ============= MULTI-TENANT API CONFIGURATION =============
@@ -856,6 +865,45 @@ async function executeToolCall(toolCall: { function: { name: string; arguments: 
   
   try {
     const args = JSON.parse(argsString);
+    
+    // VALIDATION: Enforce vehicle context rules
+    // lookup_vehicle: require plate OR (make + model)
+    if (name === "lookup_vehicle") {
+      const hasPlate = args.plate && args.plate.trim().length > 0;
+      const hasMakeModel = args.make && args.model && args.make.trim().length > 0 && args.model.trim().length > 0;
+      
+      if (!hasPlate && !hasMakeModel) {
+        console.log('[executeToolCall] Rejecting lookup_vehicle - no plate or make/model provided');
+        return { 
+          error: "NEED_VEHICLE_DETAILS", 
+          hint: "Ask the customer for their REGO (license plate) or make/model/year before looking up the vehicle." 
+        };
+      }
+    }
+    
+    // retrieve_parts: require valid vehicleid
+    if (name === "retrieve_parts") {
+      const vehicleId = Number(args.vehicleid);
+      if (!Number.isFinite(vehicleId) || vehicleId <= 0) {
+        console.log('[executeToolCall] Rejecting retrieve_parts - no valid vehicleid:', args.vehicleid);
+        return { 
+          error: "NEED_VEHICLE_DETAILS", 
+          hint: "No vehicle identified yet. Ask the customer for their REGO first." 
+        };
+      }
+    }
+    
+    // retrieve_service_packages: require valid vehicleid (no random package fetching)
+    if (name === "retrieve_service_packages") {
+      const vehicleId = Number(args.vehicleid);
+      if (!Number.isFinite(vehicleId) || vehicleId <= 0) {
+        console.log('[executeToolCall] Rejecting retrieve_service_packages - no valid vehicleid:', args.vehicleid);
+        return { 
+          error: "NEED_VEHICLE_DETAILS", 
+          hint: "No vehicle identified yet. Ask the customer for their REGO first before fetching service packages." 
+        };
+      }
+    }
     
     switch (name) {
       case "lookup_vehicle":
