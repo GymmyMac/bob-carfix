@@ -212,6 +212,7 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
             onMouseDown={handlePTTStart}
             onMouseUp={handlePTTEnd}
             onMouseLeave={handlePTTEnd}
+            onClick={isListening ? handlePTTEnd : undefined}
             disabled={isLoading}
             aria-label="Hold to talk to Bob"
             style={{
