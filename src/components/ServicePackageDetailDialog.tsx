@@ -236,7 +236,12 @@ const ProductCard = ({ product, tier, isCarfixValue }: ProductCardProps) => {
               </span>
             </>
           ) : (
-            <span className="font-bold">{formatPrice(product.price)}</span>
+            <span className="font-bold">
+              {product.price !== undefined && product.price > 0 
+                ? formatPrice(product.price) 
+                : 'POA'
+              }
+            </span>
           )}
         </div>
         <span className="text-[10px] text-muted-foreground">{product.sku}</span>

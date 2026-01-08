@@ -145,7 +145,11 @@ const Index = () => {
     },
     onServicePackagesFound: (packages: ServicePackage[]) => {
       // Store service packages but don't display yet - wait for Bob to speak (unless auto-fetch)
-      console.log("Service packages received from bob-chat:", packages.length);
+      console.log("[Index] Service packages received:", {
+        count: packages.length,
+        titles: packages.map(p => p.title),
+        fromPrices: packages.map(p => p.from_price)
+      });
       pendingPackagesRef.current = packages;
       // If this is from auto-fetch (no user message), display immediately
       if (sessionData?.vehicle) {
