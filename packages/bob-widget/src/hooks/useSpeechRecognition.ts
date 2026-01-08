@@ -48,6 +48,10 @@ export const useSpeechRecognition = ({
   const lastFinalTranscriptRef = useRef<string>('');
   const onTranscriptRef = useRef(onTranscript);
   const onSpeechEndRef = useRef(onSpeechEnd);
+  const safetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Safety timeout: max 15 seconds listening to prevent stuck state
+  const MAX_LISTENING_DURATION = 15000;
 
   useEffect(() => {
     onTranscriptRef.current = onTranscript;
@@ -113,6 +117,12 @@ export const useSpeechRecognition = ({
       };
 
       recognition.onend = () => {
+        // Clear safety timeout on natural end
+        if (safetyTimeoutRef.current) {
+          clearTimeout(safetyTimeoutRef.current);
+          safetyTimeoutRef.current = null;
+        }
+        
         setIsListening(false);
         setInterimTranscript('');
         
@@ -137,11 +147,28 @@ export const useSpeechRecognition = ({
       setTranscript('');
       setInterimTranscript('');
       setError(null);
+      
+      // Safety timeout - force stop after 15 seconds to prevent stuck state
+      safetyTimeoutRef.current = setTimeout(() => {
+        console.warn('[SpeechRecognition] Safety timeout - forcing stop after 15s');
+        if (recognitionRef.current) {
+          recognitionRef.current.abort();
+        }
+        setIsListening(false);
+        setInterimTranscript('');
+      }, MAX_LISTENING_DURATION);
+      
       recognitionRef.current.start();
     }
   };
 
   const stopListening = () => {
+    // Clear safety timeout
+    if (safetyTimeoutRef.current) {
+      clearTimeout(safetyTimeoutRef.current);
+      safetyTimeoutRef.current = null;
+    }
+    
     if (recognitionRef.current && isListening) {
       recognitionRef.current.stop();
     }

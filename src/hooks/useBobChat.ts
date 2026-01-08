@@ -387,7 +387,8 @@ export const useBobChat = ({
             
             // Check for parts_found event (user request, not auto-fetch)
             if (parsed.type === "parts_found" && parsed.parts) {
-              console.log("Parts found:", parsed.parts.length, "parts");
+              console.log("[useBobChat] Parts found:", parsed.parts.length, "parts");
+              console.log("[useBobChat] First few parts:", JSON.stringify(parsed.parts.slice(0, 2)));
               onPartsFound?.(parsed.parts, false); // isAutoFetch = false
               continue;
             }
