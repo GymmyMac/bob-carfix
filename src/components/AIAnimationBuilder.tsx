@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, Wand2, Loader2, Check, X, GripVertical, Trash2, ArrowRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/backend/client";
 import { useBobAnimationConfig, StateDefinition } from "@/hooks/useBobAnimationConfig";
 import {
   DndContext,

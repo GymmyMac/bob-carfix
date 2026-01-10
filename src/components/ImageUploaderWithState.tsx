@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { StateDefinition } from "@/hooks/useBobAnimationConfig";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/backend/client";
 
 interface ImageUploaderWithStateProps {
   onUpload: (file: File, stateData: StateDefinition) => Promise<string>;

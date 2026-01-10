@@ -3,7 +3,7 @@
  * This is a standalone hook for the demo app, NOT a re-export from widget
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/backend/client";
 import { toast } from "sonner";
 
 interface BobBackdrop {
