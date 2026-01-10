@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useBobSupabase } from "../BobProvider";
+import { useBobSupabaseSafe } from "../BobProvider";
 
 export interface BobAnimationConfig {
   id: string;
@@ -49,17 +49,29 @@ export interface BobAnimationData {
   activeLookId: string | null;
 }
 
+// Default empty data for when Supabase is unavailable
+const EMPTY_ANIMATION_DATA: BobAnimationData = {
+  states: [],
+  configs: [],
+  uploadedImages: [],
+  looks: [],
+  activeLookId: null,
+};
+
 /**
  * Centralized React Query hook for Bob's animation data.
  * Fetches once, caches for 30 seconds, deduplicates requests across components.
  * Includes realtime subscriptions for automatic updates.
+ * Gracefully degrades when used outside BobProvider.
  */
 export const useBobAnimationData = (lookId?: string | null) => {
   const queryClient = useQueryClient();
-  const supabase = useBobSupabase();
+  const supabase = useBobSupabaseSafe();
 
   // Set up realtime subscriptions for automatic cache invalidation
   useEffect(() => {
+    if (!supabase) return;
+
     const statesChannel = supabase
       .channel('animation-states-changes')
       .on('postgres_changes', {
@@ -91,6 +103,11 @@ export const useBobAnimationData = (lookId?: string | null) => {
   return useQuery<BobAnimationData>({
     queryKey: ['bob-animation-data', lookId],
     queryFn: async () => {
+      if (!supabase) {
+        console.log('[useBobAnimationData] No supabase client, returning empty data');
+        return EMPTY_ANIMATION_DATA;
+      }
+
       // Fetch all looks
       const { data: looks, error: looksError } = await supabase
         .from("bob_looks")
