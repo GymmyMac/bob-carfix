@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useMemo } from "react";
 import { useViewportSize, type ViewportSize } from "../../hooks/useViewportSize";
+import { ProductTile } from "../ProductTile";
 import type { Product, ServicePackage } from "../../types";
 import type { HighlightedProduct } from "../../types/message";
 
@@ -159,58 +160,14 @@ const ResponsiveProductCard: React.FC<{
     );
   }
 
-  // Mobile: Compact vertical layout - GUARANTEED VISIBLE
+  // Mobile: Use new ProductTile component for full-width translucent design
   return (
-    <div 
-      ref={isSpotlighted ? spotlightedRef : undefined}
-      onClick={() => onProductClick?.(product)}
-      style={{
-        // Inline styles GUARANTEE visibility - cannot be overridden by CSS
-        backgroundColor: '#ffffff',
-        borderRadius: '12px',
-        border: isSpotlighted ? '2px solid #3b82f6' : '1px solid #e5e7eb',
-        boxShadow: isSpotlighted 
-          ? '0 10px 15px -3px rgba(59, 130, 246, 0.3)' 
-          : '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-        minHeight: '140px',
-        display: 'block',
-        overflow: 'hidden',
-        cursor: 'pointer',
-        opacity: 1,
-        visibility: 'visible',
-        position: 'relative',
-      }}
-    >
-      {isSpotlighted && <SpotlightBadge />}
-      
-      <div className="aspect-[16/10] bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
-        {product.image_url ? (
-          <img src={product.image_url} alt={product.name} className="w-full h-full object-contain p-2" />
-        ) : (
-          <NoImagePlaceholder size="sm" />
-        )}
-      </div>
-      
-      <div className="p-2.5">
-        <p className="text-sm font-semibold text-gray-900 line-clamp-1 mb-0.5">{product.name}</p>
-        {product.brand && (
-          <p className="text-xs text-gray-500 mb-1.5">{product.brand}</p>
-        )}
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-base font-bold text-blue-600">
-            {product.price > 0 ? `$${product.price.toFixed(2)}` : 'POA'}
-          </span>
-          <button 
-            className="bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              onProductClick?.(product);
-            }}
-          >
-            View
-          </button>
-        </div>
-      </div>
+    <div ref={isSpotlighted ? spotlightedRef : undefined}>
+      <ProductTile
+        product={product}
+        isSpotlighted={isSpotlighted}
+        onProductClick={onProductClick}
+      />
     </div>
   );
 };
