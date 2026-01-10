@@ -54,6 +54,7 @@ export {
   MobileChatDrawer,
   MobileProductColumn,
   MobileBobLayout,
+  MobileBobLayoutCore,
   ContainedMobileBobLayout,
   ContainedChatDrawer
 } from './components/mobile';
