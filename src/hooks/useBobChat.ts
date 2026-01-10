@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useSpeechSynthesis } from "./useSpeechSynthesis";
 import type { Vehicle } from "@/types/vehicle";
 import type { ServicePackage } from "@/types/servicePackage";
