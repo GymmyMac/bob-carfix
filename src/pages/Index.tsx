@@ -19,6 +19,9 @@ import bobBgWall from "@/assets/bob-bg-wall.png";
 import bobCounter from "@/assets/bob-counter.png";
 
 const Index = () => {
+  // Debug logging
+  console.log('[Index] Component rendering');
+  
   // Shared isSpeaking state for animation sync
   const [isSpeakingForAnimation, setIsSpeakingForAnimation] = useState(false);
   
@@ -29,8 +32,17 @@ const Index = () => {
     getCurrentOffset,
     getCurrentScale,
     manualMode,
-    setManualMode
+    setManualMode,
+    isLoading: animationLoading
   } = useBobAnimation({ isSpeaking: isSpeakingForAnimation });
+  
+  // Debug: log animation state
+  const currentImage = getCurrentImage();
+  console.log('[Index] Animation state:', { 
+    animationState, 
+    currentImage: currentImage?.substring(0, 50) || 'EMPTY',
+    animationLoading 
+  });
   
   // Get backdrop data
   const { activeBackdrop } = useBobBackdrop();
@@ -253,6 +265,13 @@ const Index = () => {
       clearMessages
     };
   }, [animationState, getCurrentImage, manualMode, setAnimationState, setManualMode, clearMessages]);
+
+  console.log('[Index] Rendering UI with:', {
+    currentImage: getCurrentImage()?.substring(0, 50) || 'EMPTY',
+    messagesCount: messages.length,
+    displayedPartsCount: displayedParts.length,
+    displayedVehicle: displayedVehicle?.make || null
+  });
 
   return (
     <div className="min-h-screen bg-background">
