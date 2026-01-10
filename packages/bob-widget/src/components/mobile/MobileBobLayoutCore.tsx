@@ -108,9 +108,10 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 overflow-hidden"
+      className="absolute inset-0 overflow-hidden"
       style={{
-        height: '100dvh',
+        width: '100%',
+        height: '100%',
         touchAction: 'manipulation'
       }}
     >
