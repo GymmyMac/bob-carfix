@@ -108,11 +108,14 @@ export const SwipeableBob: React.FC<SwipeableBobProps> = ({
 
   return (
     <>
-      {/* Main Bob container - swipeable */}
+      {/* Main Bob container - swipeable, full-screen viewport layer */}
       <div
         ref={containerRef}
-        className="relative"
         style={{
+          position: 'fixed',
+          inset: 0,
+          width: '100vw',
+          height: '100dvh',
           transform: getTransform(),
           transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
           willChange: 'transform',

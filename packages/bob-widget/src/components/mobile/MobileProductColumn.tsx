@@ -45,14 +45,6 @@ const ResponsiveProductCard: React.FC<{
   onProductClick?: (product: Product) => void;
   viewportSize: ViewportSize;
 }> = ({ product, isSpotlighted, spotlightedRef, onProductClick, viewportSize }) => {
-  // Debug: Log each card render
-  console.log('[ProductCard] Rendering:', { 
-    id: product.id, 
-    name: product.name?.substring(0, 30), 
-    price: product.price,
-    hasImage: !!product.image_url,
-    viewportSize 
-  });
   // Desktop: Premium horizontal layout
   if (viewportSize === 'desktop') {
     return (
@@ -235,16 +227,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
     });
     
     const sortedGroupNames = Object.keys(groups).sort((a, b) => a.localeCompare(b));
-    const result = sortedGroupNames.map(name => ({ name, products: groups[name] }));
-    
-    // Debug: Log grouping results
-    console.log('[MobileProductColumn] Grouped products:', {
-      inputCount: products.length,
-      groupCount: result.length,
-      groups: result.map(g => ({ name: g.name, count: g.products.length }))
-    });
-    
-    return result;
+    return sortedGroupNames.map(name => ({ name, products: groups[name] }));
   }, [products]);
 
   useEffect(() => {
