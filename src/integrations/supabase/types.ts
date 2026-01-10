@@ -183,6 +183,50 @@ export type Database = {
           },
         ]
       }
+      bob_api_config: {
+        Row: {
+          api_key_secret_name: string | null
+          base_url: string
+          created_at: string | null
+          custom_headers: Json | null
+          endpoint_type: string
+          id: string
+          is_active: boolean | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          api_key_secret_name?: string | null
+          base_url: string
+          created_at?: string | null
+          custom_headers?: Json | null
+          endpoint_type: string
+          id?: string
+          is_active?: boolean | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          api_key_secret_name?: string | null
+          base_url?: string
+          created_at?: string | null
+          custom_headers?: Json | null
+          endpoint_type?: string
+          id?: string
+          is_active?: boolean | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bob_api_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "bob_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bob_backdrops: {
         Row: {
           counter_height_percent: number | null
@@ -218,6 +262,50 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      bob_llm_config: {
+        Row: {
+          api_key_secret_name: string | null
+          created_at: string | null
+          endpoint: string | null
+          id: string
+          is_active: boolean | null
+          model: string | null
+          provider: string
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          api_key_secret_name?: string | null
+          created_at?: string | null
+          endpoint?: string | null
+          id?: string
+          is_active?: boolean | null
+          model?: string | null
+          provider?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          api_key_secret_name?: string | null
+          created_at?: string | null
+          endpoint?: string | null
+          id?: string
+          is_active?: boolean | null
+          model?: string | null
+          provider?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bob_llm_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "bob_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bob_looks: {
         Row: {
@@ -312,6 +400,36 @@ export type Database = {
           setting_key?: string
           setting_value?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      bob_tenants: {
+        Row: {
+          code: string
+          created_at: string | null
+          domain: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          domain?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          domain?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
