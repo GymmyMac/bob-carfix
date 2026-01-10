@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useBobSupabase } from "../BobProvider";
+import { useBobSupabaseSafe } from "../BobProvider";
 
 interface BobBackdrop {
   id: string;
@@ -14,11 +14,16 @@ interface BobBackdrop {
 }
 
 export const useBobBackdrop = () => {
-  const supabase = useBobSupabase();
+  const supabase = useBobSupabaseSafe();
 
   const { data: backdrops = [], isLoading } = useQuery({
     queryKey: ["bob-backdrops"],
     queryFn: async () => {
+      if (!supabase) {
+        console.log('[useBobBackdrop] No supabase client, returning empty');
+        return [];
+      }
+
       const { data, error } = await supabase
         .from("bob_backdrops")
         .select("*")
