@@ -315,6 +315,36 @@ export type Database = {
         }
         Relationships: []
       }
+      bob_theme_settings: {
+        Row: {
+          color_value: string
+          created_at: string
+          description: string | null
+          hex_preview: string | null
+          id: string
+          setting_key: string
+          updated_at: string
+        }
+        Insert: {
+          color_value: string
+          created_at?: string
+          description?: string | null
+          hex_preview?: string | null
+          id?: string
+          setting_key: string
+          updated_at?: string
+        }
+        Update: {
+          color_value?: string
+          created_at?: string
+          description?: string | null
+          hex_preview?: string | null
+          id?: string
+          setting_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       oem_crossover: {
         Row: {
           barcode: string | null

@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.bob-analytics]
 verify_jwt = false
+
+[functions.spark-deals]
+verify_jwt = false
