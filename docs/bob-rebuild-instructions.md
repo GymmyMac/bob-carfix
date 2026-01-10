@@ -1885,6 +1885,353 @@ Phase 8 (Cleanup)   ─── Run last after all features verified
 
 ---
 
-*Document Version: 1.0*
-*Last Updated: 2026-01-08*
+## APPENDIX A: API Response Fixtures
+
+> **Reference document for pricing integrity.**
+> 
+> Bob MUST only quote prices from these data fields. Never fabricate prices.
+
+---
+
+### A.1 - retrieve_parts Response (Individual Parts)
+
+```json
+{
+  "success": true,
+  "parts": [
+    {
+      "SKU": "BP-TYT-CF001",
+      "Part Product Type": "BRAKE PAD KIT",
+      "Brand": "CARFIX",
+      "Part No": "CF-BP-1234",
+      "Part Number": "CF-BP-1234",
+      "Metro Retail Price": 89.99,
+      "partslot_description": "FRONT BRAKE PAD KIT",
+      "In Stock": "Yes"
+    },
+    {
+      "SKU": "BP-TYT-BC002",
+      "Part Product Type": "BRAKE PAD KIT", 
+      "Brand": "BOSCH",
+      "Part No": "0986AB1234",
+      "Part Number": "0986AB1234",
+      "Metro Retail Price": 129.99,
+      "partslot_description": "FRONT BRAKE PAD KIT",
+      "In Stock": "Yes"
+    }
+  ],
+  "total_found": 2,
+  "filter_applied": "BRAKE PAD"
+}
+```
+
+**Price Field Bob MUST Use:** `Metro Retail Price` (mapped to `price` in frontend)
+
+---
+
+### A.2 - retrieve_service_packages Response (Service Bundles)
+
+```json
+{
+  "success": true,
+  "data": {
+    "servicePackages": [
+      {
+        "id": "brake-service",
+        "title": "Complete Brake Service",
+        "description": "Front brake pads and rotors - everything you need",
+        "from_price": 249.99,
+        "bundle_discount_percentage": 0,
+        "estimated_time": "2-3 hours",
+        "difficulty_level": "intermediate",
+        "category_count": 2,
+        "partslots": [
+          {
+            "id": 101,
+            "name": "Front Brake Pads",
+            "description": "FRONT BRAKE PAD KIT",
+            "products": {
+              "quality_tiers": {
+                "Economy": [
+                  {
+                    "sku": "BP-ECO-001",
+                    "name": "Economy Brake Pads",
+                    "brand": "CARFIX",
+                    "price": 59.99,
+                    "part_number": "CF-BP-ECO",
+                    "is_on_sale": false
+                  }
+                ],
+                "Standard": [
+                  {
+                    "sku": "BP-STD-002",
+                    "name": "Standard Brake Pads",
+                    "brand": "REPCO",
+                    "price": 89.99,
+                    "part_number": "RBC-1234",
+                    "is_on_sale": false
+                  }
+                ],
+                "Premium": [
+                  {
+                    "sku": "BP-PRE-003",
+                    "name": "Premium Ceramic Pads",
+                    "brand": "BOSCH",
+                    "price": 149.99,
+                    "part_number": "0986AB5678",
+                    "is_on_sale": true,
+                    "sale_price": 129.99,
+                    "was_price": 149.99,
+                    "discount_percentage": 13
+                  }
+                ],
+                "Performance": []
+              }
+            }
+          },
+          {
+            "id": 102,
+            "name": "Front Brake Rotors",
+            "description": "FRONT BRAKE ROTOR",
+            "products": {
+              "quality_tiers": {
+                "Economy": [
+                  {
+                    "sku": "BR-ECO-001",
+                    "name": "Economy Rotors Pair",
+                    "brand": "CARFIX",
+                    "price": 119.99,
+                    "part_number": "CF-BR-ECO"
+                  }
+                ],
+                "Standard": [
+                  {
+                    "sku": "BR-STD-002",
+                    "name": "Standard Rotors Pair",
+                    "brand": "DBA",
+                    "price": 189.99,
+                    "part_number": "DBA-2345"
+                  }
+                ],
+                "Premium": [],
+                "Performance": []
+              }
+            }
+          }
+        ],
+        "valueTiers": [
+          {
+            "tier": "Economy",
+            "totalPrice": 179.98,
+            "isCarfixValue": true,
+            "isBestPrice": true,
+            "isPremiumChoice": false,
+            "valueScore": 85
+          },
+          {
+            "tier": "Standard", 
+            "totalPrice": 279.98,
+            "isCarfixValue": false,
+            "isBestPrice": false,
+            "isPremiumChoice": false,
+            "valueScore": 72
+          }
+        ],
+        "priceRange": {
+          "min": 179.98,
+          "max": 339.98
+        }
+      }
+    ],
+    "meta": {
+      "vehicleId": 12345,
+      "packageCount": 1,
+      "processedAt": "2025-01-10T12:00:00Z",
+      "version": "2.0",
+      "processingTimeMs": 145
+    }
+  }
+}
+```
+
+**Price Fields Bob Can Use:**
+
+| Field | Where | Usage |
+|-------|-------|-------|
+| `from_price` | Package level | "Service starts from $249.99" |
+| `price` | Part level | "BOSCH pads are $149.99" |
+| `sale_price` | Part level (when `is_on_sale: true`) | "On sale for $129.99" |
+| `was_price` | Part level (when `is_on_sale: true`) | "Was $149.99" |
+| `totalPrice` | valueTiers | "Economy tier total $179.98" |
+| `priceRange.min/max` | Package level | "Prices from $179 to $340" |
+
+**Fields Bob MUST NEVER Fabricate:**
+- Any dollar amount not in these fields
+- Savings calculations (unless `bundle_discount_percentage > 0`)
+- Comparisons to "online" or "other shop" prices
+
+---
+
+### A.3 - lookup_vehicle Response
+
+```json
+{
+  "success": true,
+  "vehicle": {
+    "id": 12345,
+    "rego": "ABC123",
+    "make": "Toyota",
+    "model": "Corolla",
+    "year": 2015,
+    "variant": "GX",
+    "vehicle_name_nz": "Toyota Corolla GX 1.8L",
+    "engine_size": "1.8L",
+    "fuel_type": "petrol",
+    "cc_rating": 1800,
+    "vin": "JTDBU4EE7E9123456",
+    "engine_no": "2ZR-FE"
+  }
+}
+```
+
+**Note:** No pricing data in vehicle response - this is for identification only.
+
+---
+
+### A.4 - search_general_products Response
+
+```json
+{
+  "success": true,
+  "products": [
+    {
+      "name": "Tire Shine Spray 500ml",
+      "sku": "TS-001",
+      "price": 12.99,
+      "in_stock": true
+    },
+    {
+      "name": "Windscreen Wash 2L Concentrate",
+      "sku": "WW-002", 
+      "price": 8.99,
+      "in_stock": true
+    }
+  ],
+  "total_found": 2
+}
+```
+
+**Price Field:** `price`
+
+---
+
+### A.5 - add_to_cart Request/Response
+
+**Request (what Bob sends):**
+```json
+{
+  "action": "add_to_cart",
+  "user_email": "customer@example.com",
+  "items": [
+    {
+      "product_id": "BP-STD-002",
+      "product_name": "Standard Brake Pads",
+      "quantity": 1,
+      "unit_price": 89.99,
+      "vehicle_id": "12345"
+    }
+  ]
+}
+```
+
+**Critical:** `unit_price` MUST match the `price` field from retrieve_parts/service_packages response.
+
+---
+
+### Pricing Quick Reference Table
+
+| API Call | Price Field | Example Value | Bob Says |
+|----------|-------------|---------------|----------|
+| retrieve_parts | `Metro Retail Price` | 89.99 | "$89.99" |
+| service_packages (package) | `from_price` | 249.99 | "starts from $249.99" |
+| service_packages (part) | `price` | 149.99 | "$149.99" |
+| service_packages (sale) | `sale_price` | 129.99 | "on sale for $129.99" |
+| service_packages (tier) | `totalPrice` | 179.98 | "Economy tier is $179.98" |
+| general_products | `price` | 12.99 | "$12.99" |
+
+---
+
+### What Bob CANNOT Say (No Data Source)
+
+| Phrase | Why Forbidden |
+|--------|---------------|
+| "You'll save $50 on the bundle" | `bundle_discount_percentage` is 0 |
+| "Normally costs $X online" | No external price data |
+| "I'll do you a deal at $X" | Bob doesn't set prices |
+| "Roughly about $X" | Must quote exact API price |
+| "That's around $X-ish" | Must quote exact API price |
+| "Usually these go for..." | Implies knowledge outside API |
+| "Cheaper than buying separately" | Unless API confirms discount |
+
+---
+
+## APPENDIX B: Pricing Integrity Rules for bob-chat
+
+> **System prompt additions to enforce pricing integrity.**
+
+Add to the bob-chat system prompt:
+
+```
+PRICING RULES (CRITICAL - NEVER VIOLATE):
+1. Every price you quote MUST come from the tool result data
+2. Service package prices: use `from_price` field or tier totals
+3. Part prices: use `price` field from retrieve_parts (mapped from Metro Retail Price)
+4. If no price or price is 0: say "POA" (Price On Application)
+5. NEVER claim bundle savings unless bundle_discount_percentage > 0
+6. NEVER reference online prices or other shop prices
+7. NEVER estimate or round prices
+
+VALUE SELLING APPROACH:
+When suggesting service packages over individual parts:
+- Focus on LABOUR convenience ("while you're in there")
+- Focus on PREVENTION ("before it starts grinding")  
+- Focus on COMPLETENESS ("sorts you out properly")
+- Do NOT focus on price savings (we don't discount bundles currently)
+- Respect customer choice if they just want the single part
+
+EXAMPLE SALES SCRIPTS (No Fake Savings):
+
+BRAKES:
+Customer: "I need new brake pads"
+Bob: "Sweet as, mate. While you've got the wheels off and brakes apart, 
+it's really easy to slap on new rotors at the same time - saves doing 
+the job twice, ya know? Got a brake service kit here starting from 
+$[from_price from API]. Want me to show you the options?"
+
+OIL CHANGE:
+Customer: "Need an oil filter"
+Bob: "No worries. While you're under there draining the sump anyway, 
+makes sense to do the air filter too - takes about 30 seconds to swap out. 
+Got a full service kit starting at $[from_price from API] that covers 
+oil filter, air filter, and cabin filter. Worth a look?"
+
+FILTERS:
+Customer: "Just need the air filter"
+Bob: "Easy done. Quick tip though - most people forget the cabin filter 
+until the aircon starts smelling funky. Since you're doing the air filter 
+anyway, the cabin filter's a piece of piss to change. Filter bundle 
+from $[from_price from API] sorts you out. What do you reckon?"
+
+TONE: Helpful mate at the shop, not a used car salesman.
+- Explain the logic (labour/prevention)
+- Give the option
+- Respect their choice
+- Use Kiwi expressions naturally
+- If they say "just the pads" → "Sweet as, no worries"
+```
+
+---
+
+*Document Version: 1.1*
+*Last Updated: 2026-01-10*
 *Author: Bob v3.0 Rebuild Team*
