@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { AnimationState } from "@/hooks/useBobAnimation";
+import type { AnimationState } from "@/hooks/useBobAnimation";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image, Database, Volume2, Wand2, ArrowLeft, FileText, Palette } from "lucide-react";
+import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image, Database, Volume2, Wand2, ArrowLeft, FileText, Palette, Building2 } from "lucide-react";
 import { PromptsManager } from "@/components/PromptsManager";
 import { ImageUploaderWithState } from "@/components/ImageUploaderWithState";
 import { StateAssignmentCard } from "@/components/StateAssignmentCard";
@@ -23,6 +23,7 @@ import { AIAnimationBuilder } from "@/components/AIAnimationBuilder";
 import { BobCharacter } from "@/components/BobCharacter";
 import { ThemeSettingsPanel } from "@/components/ThemeSettingsPanel";
 import { SparkDealsSettings } from "@/components/SparkDealsSettings";
+import { TenantManager } from "@/components/TenantManager";
 import { useBobAnimationConfig, AnimationState as AnimationStateType } from "@/hooks/useBobAnimationConfig";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobBackdrop } from "@/hooks/useBobBackdrop";
@@ -184,7 +185,7 @@ const Admin = () => {
           {/* Admin Tabs (Main Area) */}
           <div className="lg:col-span-3">
             <Tabs defaultValue="controls" className="w-full">
-              <TabsList className="grid w-full grid-cols-8">
+              <TabsList className="grid w-full grid-cols-9">
                 <TabsTrigger value="controls" className="gap-1 text-xs">
                   <Zap className="w-3 h-3" />
                   Controls
@@ -200,6 +201,10 @@ const Admin = () => {
                 <TabsTrigger value="theme" className="gap-1 text-xs">
                   <Palette className="w-3 h-3" />
                   Theme
+                </TabsTrigger>
+                <TabsTrigger value="tenants" className="gap-1 text-xs">
+                  <Building2 className="w-3 h-3" />
+                  Tenants
                 </TabsTrigger>
                 <TabsTrigger value="gallery" className="gap-1 text-xs">
                   <Image className="w-3 h-3" />
@@ -633,6 +638,11 @@ const Admin = () => {
               {/* BACKDROP TAB */}
               <TabsContent value="backdrop" className="space-y-6 mt-6">
                 <BackdropManager />
+              </TabsContent>
+
+              {/* TENANTS TAB */}
+              <TabsContent value="tenants" className="space-y-6 mt-6">
+                <TenantManager />
               </TabsContent>
             </Tabs>
           </div>

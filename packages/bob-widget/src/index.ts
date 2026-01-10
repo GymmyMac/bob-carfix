@@ -3,6 +3,7 @@
  * 
  * AI-powered automotive parts assistant widget - Full immersive experience
  * 
+ * v3.0.0 - Major rebuild with multi-tenant support, RAF animations, swipeable Bob
  * v1.4.0 - Redesigned PTT button: 3x larger, green "TALK" text, floating cartoon style
  * v1.3.1 - Bottom offset support for host navigation bars
  * v1.3.0 - GA4 Analytics integration
@@ -39,6 +40,13 @@ export type { BobVariant } from './components/Bob';
 export { BobCharacter } from './components/BobCharacter';
 export { ChatInterface } from './components/ChatInterface';
 
+// v3.0 New components
+export { SwipeableBob } from './components/SwipeableBob';
+export { ProductTile } from './components/ProductTile';
+export { MatrixProductLoader } from './components/MatrixProductLoader';
+export type { LoaderPhase } from './components/MatrixProductLoader';
+export { SparkDealBanner } from './components/SparkDealBanner';
+
 // Mobile components
 export {
   MobileBobCharacter,
@@ -57,6 +65,10 @@ export { useBobAnimationData } from './hooks/useBobAnimationData';
 export { useBobStateTransitions } from './hooks/useBobStateTransitions';
 export { useSpeechRecognition } from './hooks/useSpeechRecognition';
 export { useBobBackdrop } from './hooks/useBobBackdrop';
+
+// v3.0 New hooks
+export { useThemeSettings } from './hooks/useThemeSettings';
+export { useSparkDeals } from './hooks/useSparkDeals';
 
 // Types
 export type {

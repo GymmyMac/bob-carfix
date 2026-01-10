@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useBobAnimationData } from "./useBobAnimationData";
 
 export type AnimationState = string;
@@ -7,15 +7,30 @@ interface UseBobAnimationOptions {
   isSpeaking?: boolean;
 }
 
+/**
+ * Bob Animation Hook - v3.0 requestAnimationFrame Implementation
+ * 
+ * FIXES: Animation acceleration bug caused by setInterval stacking
+ * SOLUTION: Single RAF loop with refs for mutable state
+ */
 export const useBobAnimation = (options: UseBobAnimationOptions = {}) => {
   const { isSpeaking = false } = options;
   
-  const [animationState, setAnimationState] = useState<AnimationState>("");
+  const [animationState, setAnimationStateInternal] = useState<AnimationState>("");
   const [sequenceIndex, setSequenceIndex] = useState(0);
   const [talkSpeed, setTalkSpeed] = useState(400);
   const [manualMode, setManualMode] = useState(false);
   
-  const animationIntervalRef = useRef<ReturnType<typeof setInterval>>();
+  // RAF references - single animation frame ID
+  const rafIdRef = useRef<number | null>(null);
+  const lastFrameTimeRef = useRef(0);
+  
+  // Mutable refs for animation state (avoids effect restarts)
+  const isSpeakingRef = useRef(isSpeaking);
+  const sequenceIndexRef = useRef(0);
+  const currentLoopRef = useRef(0);
+  const isPausedRef = useRef(false);
+  const pauseStartRef = useRef(0);
 
   // Use centralized cached data
   const { data, isLoading } = useBobAnimationData();
@@ -72,95 +87,136 @@ export const useBobAnimation = (options: UseBobAnimationOptions = {}) => {
     };
   }, [data]);
 
-  // Keep ref updated with latest imageUrlsMap
+  // Keep refs updated
   useEffect(() => {
     imageUrlsMapRef.current = imageUrlsMap;
   }, [imageUrlsMap]);
 
+  useEffect(() => {
+    isSpeakingRef.current = isSpeaking;
+  }, [isSpeaking]);
+
+  // Debounced state setter to prevent rapid state changes
+  const setAnimationState = useCallback((newState: AnimationState) => {
+    setAnimationStateInternal(prev => {
+      if (prev === newState) return prev;
+      // Reset animation state when changing
+      sequenceIndexRef.current = 0;
+      currentLoopRef.current = 0;
+      isPausedRef.current = false;
+      setSequenceIndex(0);
+      return newState;
+    });
+  }, []);
+
   // Initialize animation state from database
   useEffect(() => {
     if (availableStates.length > 0 && !animationState) {
-      setAnimationState(availableStates[0]);
+      setAnimationStateInternal(availableStates[0]);
     }
   }, [availableStates, animationState]);
 
-  // Enhanced sequence animation for ALL states with multiple images
-  // KEY: When isSpeaking is true and animation is a "talk" state, keep looping
+  // PHASE 1: requestAnimationFrame animation loop
   useEffect(() => {
     const alternates = alternateImages[animationState];
     
-    // Clear any existing interval
-    if (animationIntervalRef.current) {
-      clearInterval(animationIntervalRef.current);
+    // Cancel any existing animation
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
     }
     
-    // If state has multiple images, cycle through them
-    if (alternates && alternates.length > 1) {
-      setSequenceIndex(0);
+    // Reset animation state
+    sequenceIndexRef.current = 0;
+    currentLoopRef.current = 0;
+    isPausedRef.current = false;
+    lastFrameTimeRef.current = 0;
+    setSequenceIndex(0);
+    
+    // If no alternates or single image, nothing to animate
+    if (!alternates || alternates.length <= 1) {
+      return;
+    }
+    
+    const stateInfo = imageUrlsMapRef.current[animationState] as any;
+    const speed = stateInfo?.animation_speed || talkSpeed || 400;
+    const loopCount = stateInfo?.loop_count || 0;
+    const pauseDuration = stateInfo?.pause_duration || 0;
+    const isTalkState = animationState.toLowerCase().includes('talk');
+    
+    // RAF animation loop
+    const animate = (timestamp: number) => {
+      // Initialize timing on first frame
+      if (lastFrameTimeRef.current === 0) {
+        lastFrameTimeRef.current = timestamp;
+      }
       
-      const stateInfo = imageUrlsMapRef.current[animationState] as any;
+      // Handle pause state
+      if (isPausedRef.current) {
+        const pauseElapsed = timestamp - pauseStartRef.current;
+        if (pauseElapsed >= pauseDuration) {
+          // Resume animation
+          isPausedRef.current = false;
+          currentLoopRef.current = 0;
+          lastFrameTimeRef.current = timestamp;
+        }
+        rafIdRef.current = requestAnimationFrame(animate);
+        return;
+      }
       
-      const speed = stateInfo?.animation_speed || talkSpeed || 400;
-      const loopCount = stateInfo?.loop_count || 0;
-      const pauseDuration = stateInfo?.pause_duration || 0;
+      const elapsed = timestamp - lastFrameTimeRef.current;
       
-      // Check if this is a "talk" animation state
-      const isTalkState = animationState.toLowerCase().includes('talk');
-      
-      let currentLoop = 0;
-      let isPaused = false;
-      
-      const animate = () => {
-        animationIntervalRef.current = setInterval(() => {
-          if (isPaused) return;
+      // Check if enough time has passed for next frame
+      if (elapsed >= speed) {
+        lastFrameTimeRef.current = timestamp;
+        
+        // Calculate next frame
+        const nextIndex = (sequenceIndexRef.current + 1) % alternates.length;
+        
+        // Check for loop completion
+        if (nextIndex === 0) {
+          currentLoopRef.current++;
           
-          setSequenceIndex(prev => {
-            const nextIndex = (prev + 1) % alternates.length;
-            
-            if (nextIndex === 0) {
-              currentLoop++;
-              
-              // KEY CHANGE: If speaking and in talk state, ignore loop_count - keep animating
-              if (isTalkState && isSpeaking) {
-                // Keep looping while speaking - don't stop
-                return nextIndex;
-              }
-              
-              if (loopCount > 0 && currentLoop >= loopCount) {
-                clearInterval(animationIntervalRef.current!);
-                
-                if (pauseDuration > 0) {
-                  isPaused = true;
-                  setTimeout(() => {
-                    currentLoop = 0;
-                    isPaused = false;
-                    animate();
-                  }, pauseDuration);
-                }
-                
-                return prev;
-              }
+          // If speaking and in talk state, keep looping indefinitely
+          if (isTalkState && isSpeakingRef.current) {
+            sequenceIndexRef.current = nextIndex;
+            setSequenceIndex(nextIndex);
+          } else if (loopCount > 0 && currentLoopRef.current >= loopCount) {
+            // Loop count reached - pause or stop
+            if (pauseDuration > 0) {
+              isPausedRef.current = true;
+              pauseStartRef.current = timestamp;
             }
-            
-            return nextIndex;
-          });
-        }, speed);
-      };
+            // Don't update index - stay on last frame
+          } else {
+            // Continue looping
+            sequenceIndexRef.current = nextIndex;
+            setSequenceIndex(nextIndex);
+          }
+        } else {
+          // Normal frame advance
+          sequenceIndexRef.current = nextIndex;
+          setSequenceIndex(nextIndex);
+        }
+      }
       
-      animate();
-    } else {
-      setSequenceIndex(0);
-    }
+      // Continue animation loop
+      rafIdRef.current = requestAnimationFrame(animate);
+    };
     
+    // Start animation
+    rafIdRef.current = requestAnimationFrame(animate);
+    
+    // Cleanup
     return () => {
-      if (animationIntervalRef.current) {
-        clearInterval(animationIntervalRef.current);
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [animationState, alternateImages, isSpeaking]);
+  }, [animationState, alternateImages, talkSpeed]);
 
-  const getCurrentImage = () => {
+  const getCurrentImage = useCallback(() => {
     const alternates = alternateImages[animationState];
     
     if (!alternates || alternates.length === 0) {
@@ -172,9 +228,9 @@ export const useBobAnimation = (options: UseBobAnimationOptions = {}) => {
     }
     
     return alternates[sequenceIndex] || alternates[0];
-  };
+  }, [alternateImages, animationState, availableStates, sequenceIndex]);
 
-  const getCurrentOffset = () => {
+  const getCurrentOffset = useCallback(() => {
     const offsets = offsetsMap[animationState];
     
     if (!offsets || offsets.length === 0) {
@@ -186,9 +242,9 @@ export const useBobAnimation = (options: UseBobAnimationOptions = {}) => {
     }
     
     return offsets[sequenceIndex] || offsets[0];
-  };
+  }, [offsetsMap, animationState, availableStates, sequenceIndex]);
 
-  const getCurrentScale = () => {
+  const getCurrentScale = useCallback(() => {
     const scales = scalesMap[animationState];
     
     if (!scales || scales.length === 0) {
@@ -200,7 +256,7 @@ export const useBobAnimation = (options: UseBobAnimationOptions = {}) => {
     }
     
     return scales[sequenceIndex] || scales[0];
-  };
+  }, [scalesMap, animationState, availableStates, sequenceIndex]);
 
   return {
     animationState,
