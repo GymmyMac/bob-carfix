@@ -82,6 +82,13 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
   bobOffset = 0,
   bobScale = 100
 }) => {
+  // Debug logging
+  console.log('[MobileBobLayout] Rendering with:', {
+    currentImage: currentImage?.substring(0, 50) || 'EMPTY',
+    backdropUrl: backdropUrl?.substring(0, 50) || 'NONE',
+    counterOverlayUrl: counterOverlayUrl?.substring(0, 50) || 'NONE'
+  });
+  
   const isEmbedded = typeof window !== 'undefined' && window.self !== window.top;
   const viewportSize = useViewportSize();
   
