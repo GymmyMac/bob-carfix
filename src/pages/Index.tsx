@@ -2,7 +2,8 @@ import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 import { ServicePackageDetailDialog } from "@/components/ServicePackageDetailDialog";
 import { ProductConfirmDialog } from "@/components/ProductConfirmDialog";
-import { MobileBobLayout } from "@bob-widget/components/mobile/MobileBobLayout";
+import { MobileBobLayoutCore } from "@bob-widget/components/mobile/MobileBobLayoutCore";
+import { MobileChatDrawer } from "@bob-widget/components/mobile/MobileChatDrawer";
 import { SwipeableBob } from "@bob-widget/components/SwipeableBob";
 import { MatrixProductLoader, LoaderPhase } from "@bob-widget/components/MatrixProductLoader";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
@@ -277,24 +278,12 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {/* SwipeableBob wrapper - allows users to swipe Bob off-screen */}
       <SwipeableBob isSpeaking={isSpeaking}>
-        {/* Immersive full-screen layout - ALL viewports */}
-        <MobileBobLayout
+        {/* Bob character, backdrop, products - NO chat drawer (avoids transform stacking context issue) */}
+        <MobileBobLayoutCore
           currentImage={getCurrentImage()}
           animationState={animationState}
           backdropUrl={bobBgWall}
           counterOverlayUrl={bobCounter}
-          messages={messages}
-          input={input}
-          setInput={setInput}
-          isLoading={isLoading}
-          onSend={handleSend}
-          onKeyPress={handleKeyPress}
-          onInputFocus={handleInputFocus}
-          onInputBlur={handleInputBlur}
-          chatEndRef={chatEndRef}
-          isMuted={isMuted}
-          onToggleMute={toggleMute}
-          isSpeaking={isSpeaking}
           products={displayedParts}
           servicePackages={displayedPackages}
           highlightedPartType={highlightedPartType}
@@ -312,6 +301,22 @@ const Index = () => {
           }}
         />
       </SwipeableBob>
+
+      {/* Chat Drawer - OUTSIDE SwipeableBob to avoid CSS transform breaking position: fixed */}
+      <MobileChatDrawer
+        messages={messages}
+        input={input}
+        setInput={setInput}
+        isLoading={isLoading}
+        onSend={handleSend}
+        onKeyPress={handleKeyPress}
+        onInputFocus={handleInputFocus}
+        onInputBlur={handleInputBlur}
+        chatEndRef={chatEndRef}
+        isMuted={isMuted}
+        onToggleMute={toggleMute}
+        isSpeaking={isSpeaking}
+      />
 
       {/* Matrix Product Loader - shown during research */}
       <MatrixProductLoader

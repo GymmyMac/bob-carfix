@@ -7,6 +7,16 @@ declare module "@bob-widget/components/mobile/MobileBobLayout" {
   export const MobileBobLayout: typeof _MobileBobLayout;
 }
 
+declare module "@bob-widget/components/mobile/MobileBobLayoutCore" {
+  import { MobileBobLayoutCore as _MobileBobLayoutCore } from "../packages/bob-widget/src/components/mobile/MobileBobLayoutCore";
+  export const MobileBobLayoutCore: typeof _MobileBobLayoutCore;
+}
+
+declare module "@bob-widget/components/mobile/MobileChatDrawer" {
+  import { MobileChatDrawer as _MobileChatDrawer } from "../packages/bob-widget/src/components/mobile/MobileChatDrawer";
+  export const MobileChatDrawer: typeof _MobileChatDrawer;
+}
+
 declare module "@bob-widget/components/SwipeableBob" {
   import { SwipeableBob as _SwipeableBob } from "../packages/bob-widget/src/components/SwipeableBob";
   export const SwipeableBob: typeof _SwipeableBob;
