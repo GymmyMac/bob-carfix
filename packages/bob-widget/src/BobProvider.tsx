@@ -197,6 +197,16 @@ export function useBobSupabase(): SupabaseClient {
 }
 
 /**
+ * Hook to safely access Bob's Supabase client
+ * Returns null instead of throwing when used outside BobProvider
+ * Use this in widget components that need to work without BobProvider
+ */
+export function useBobSupabaseSafe(): SupabaseClient | null {
+  const context = useContext(BobContext);
+  return context?.bobSupabase || null;
+}
+
+/**
  * Hook to access host context
  */
 export function useHostContext(): HostContext {

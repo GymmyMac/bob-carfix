@@ -22,6 +22,7 @@ export {
   BobProvider,
   useBobContext,
   useBobSupabase,
+  useBobSupabaseSafe,
   useHostContext,
   useHostApiConfig,
   useBobCallbacks,
