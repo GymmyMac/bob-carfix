@@ -105,9 +105,7 @@ const Index = () => {
     completeState: getCompleteState() || "complete",
     idleState: getIdleState() || "idle",
     listenState: getListenState() || "talk_pause",
-    // Session handoff - pass initial vehicle and customer email
-    initialVehicle: sessionData?.vehicle,
-    customerEmail: sessionData?.user_email,
+    // Note: initialVehicle and customerEmail are handled via sessionData effect below
     onStreamStart: stateTransitions.onStreamStart,
     onStreamComplete: stateTransitions.onStreamComplete,
     onVehicleIdentified: (vehicle) => {
