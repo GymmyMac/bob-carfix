@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useBobSupabase } from "../BobProvider";
+import { useBobSupabaseSafe } from "../BobProvider";
 
 export interface ThemeSetting {
   id: string;
@@ -65,7 +65,7 @@ function hslToHex(hsl: string): string {
 }
 
 export function useThemeSettings() {
-  const supabase = useBobSupabase();
+  const supabase = useBobSupabaseSafe();
 
   return useQuery<MatrixTheme>({
     queryKey: ['bob-theme-settings'],

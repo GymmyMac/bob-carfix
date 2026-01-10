@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useBobSupabase } from "../BobProvider";
+import { useBobSupabaseSafe } from "../BobProvider";
 
 export interface SparkDeal {
   id: string;
@@ -47,7 +47,7 @@ const DEFAULT_SETTINGS: SparkDealsSettings = {
 };
 
 export function useSparkDealsSettings() {
-  const supabase = useBobSupabase();
+  const supabase = useBobSupabaseSafe();
 
   return useQuery<SparkDealsSettings>({
     queryKey: ['spark-deals-settings'],
@@ -91,7 +91,7 @@ export function useSparkDealsSettings() {
 }
 
 export function useSparkDeals(enabled: boolean = true) {
-  const supabase = useBobSupabase();
+  const supabase = useBobSupabaseSafe();
 
   return useQuery<SparkDeal[]>({
     queryKey: ['spark-deals'],
