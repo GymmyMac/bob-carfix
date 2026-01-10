@@ -3,6 +3,8 @@ import { toast } from "sonner";
 import { ServicePackageDetailDialog } from "@/components/ServicePackageDetailDialog";
 import { ProductConfirmDialog } from "@/components/ProductConfirmDialog";
 import { MobileBobLayout } from "@bob-widget/components/mobile/MobileBobLayout";
+import { SwipeableBob } from "@bob-widget/components/SwipeableBob";
+import { MatrixProductLoader, LoaderPhase } from "@bob-widget/components/MatrixProductLoader";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 import { useBobChat, HighlightedProduct } from "@/hooks/useBobChat";
@@ -56,6 +58,9 @@ const Index = () => {
   // Synchronized product reveal state
   const [isResearching, setIsResearching] = useState(false);
   const pendingPartsRef = useRef<Product[]>([]);
+  
+  // Matrix loader phase control
+  const [loaderPhase, setLoaderPhase] = useState<LoaderPhase>('hidden');
   
   // Track request source to prevent auto-fetch from overwriting user requests
   const requestIdRef = useRef(0);
@@ -159,6 +164,7 @@ const Index = () => {
       requestIdRef.current += 1;
       productSourceRef.current = 'user';
       setIsResearching(true);
+      setLoaderPhase('researching');
       pendingPartsRef.current = [];
       // Clear highlight when user sends new message
       setHighlightedPartType(null);
@@ -168,6 +174,9 @@ const Index = () => {
       // Reveal products and service packages when Bob starts speaking
       if (pendingPartsRef.current.length > 0) {
         setDisplayedParts(pendingPartsRef.current);
+        setLoaderPhase('success');
+      } else {
+        setLoaderPhase('hidden');
       }
       if (pendingPackagesRef.current.length > 0) {
         setDisplayedPackages(pendingPackagesRef.current);
@@ -188,6 +197,7 @@ const Index = () => {
     onNoPartsFound: () => {
       console.log('No parts found - clearing research state');
       setIsResearching(false);
+      setLoaderPhase('hidden');
     },
     onCartUpdated: (items) => {
       const itemNames = items.map(i => i.productName).join(', ');
@@ -246,39 +256,49 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Immersive full-screen layout - ALL viewports */}
-      <MobileBobLayout
-        currentImage={getCurrentImage()}
-        animationState={animationState}
-        backdropUrl={bobBgWall}
-        counterOverlayUrl={bobCounter}
-        messages={messages}
-        input={input}
-        setInput={setInput}
-        isLoading={isLoading}
-        onSend={handleSend}
-        onKeyPress={handleKeyPress}
-        onInputFocus={handleInputFocus}
-        onInputBlur={handleInputBlur}
-        chatEndRef={chatEndRef}
-        isMuted={isMuted}
-        onToggleMute={toggleMute}
-        isSpeaking={isSpeaking}
-        products={displayedParts}
-        servicePackages={displayedPackages}
-        highlightedPartType={highlightedPartType}
-        highlightedProduct={highlightedProduct}
-        onProductClick={(product) => setConfirmProduct(product)}
-        onPackageSelect={(pkg) => setSelectedPackage(pkg)}
-        isResearching={isResearching}
-        vehicle={displayedVehicle}
-        onChangeVehicle={() => {
-          setDisplayedVehicle(null);
-          setDisplayedParts([]);
-          setDisplayedPackages([]);
-          pendingPackagesRef.current = [];
-          clearVehicle();
-        }}
+      {/* SwipeableBob wrapper - allows users to swipe Bob off-screen */}
+      <SwipeableBob isSpeaking={isSpeaking}>
+        {/* Immersive full-screen layout - ALL viewports */}
+        <MobileBobLayout
+          currentImage={getCurrentImage()}
+          animationState={animationState}
+          backdropUrl={bobBgWall}
+          counterOverlayUrl={bobCounter}
+          messages={messages}
+          input={input}
+          setInput={setInput}
+          isLoading={isLoading}
+          onSend={handleSend}
+          onKeyPress={handleKeyPress}
+          onInputFocus={handleInputFocus}
+          onInputBlur={handleInputBlur}
+          chatEndRef={chatEndRef}
+          isMuted={isMuted}
+          onToggleMute={toggleMute}
+          isSpeaking={isSpeaking}
+          products={displayedParts}
+          servicePackages={displayedPackages}
+          highlightedPartType={highlightedPartType}
+          highlightedProduct={highlightedProduct}
+          onProductClick={(product) => setConfirmProduct(product)}
+          onPackageSelect={(pkg) => setSelectedPackage(pkg)}
+          isResearching={isResearching}
+          vehicle={displayedVehicle}
+          onChangeVehicle={() => {
+            setDisplayedVehicle(null);
+            setDisplayedParts([]);
+            setDisplayedPackages([]);
+            pendingPackagesRef.current = [];
+            clearVehicle();
+          }}
+        />
+      </SwipeableBob>
+
+      {/* Matrix Product Loader - shown during research */}
+      <MatrixProductLoader
+        phase={loaderPhase}
+        message={loaderPhase === 'researching' ? "Bob's searching the shelves..." : undefined}
+        onComplete={() => setLoaderPhase('hidden')}
       />
 
       {/* Service Package Detail Dialog */}
