@@ -9,7 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image, Database, Volume2, Wand2, ArrowLeft, FileText } from "lucide-react";
+import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image, Database, Volume2, Wand2, ArrowLeft, FileText, Palette } from "lucide-react";
 import { PromptsManager } from "@/components/PromptsManager";
 import { ImageUploaderWithState } from "@/components/ImageUploaderWithState";
 import { StateAssignmentCard } from "@/components/StateAssignmentCard";
@@ -21,6 +21,8 @@ import { VoiceSettings } from "@/components/VoiceSettings";
 import { LooksManager } from "@/components/LooksManager";
 import { AIAnimationBuilder } from "@/components/AIAnimationBuilder";
 import { BobCharacter } from "@/components/BobCharacter";
+import { ThemeSettingsPanel } from "@/components/ThemeSettingsPanel";
+import { SparkDealsSettings } from "@/components/SparkDealsSettings";
 import { useBobAnimationConfig, AnimationState as AnimationStateType } from "@/hooks/useBobAnimationConfig";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobBackdrop } from "@/hooks/useBobBackdrop";
@@ -182,33 +184,37 @@ const Admin = () => {
           {/* Admin Tabs (Main Area) */}
           <div className="lg:col-span-3">
             <Tabs defaultValue="controls" className="w-full">
-              <TabsList className="grid w-full grid-cols-7">
-                <TabsTrigger value="controls" className="gap-2">
-                  <Zap className="w-4 h-4" />
+              <TabsList className="grid w-full grid-cols-8">
+                <TabsTrigger value="controls" className="gap-1 text-xs">
+                  <Zap className="w-3 h-3" />
                   Controls
                 </TabsTrigger>
-                <TabsTrigger value="prompts" className="gap-2">
-                  <FileText className="w-4 h-4" />
+                <TabsTrigger value="prompts" className="gap-1 text-xs">
+                  <FileText className="w-3 h-3" />
                   Prompts
                 </TabsTrigger>
-                <TabsTrigger value="settings" className="gap-2">
-                  <Settings className="w-4 h-4" />
+                <TabsTrigger value="settings" className="gap-1 text-xs">
+                  <Settings className="w-3 h-3" />
                   Settings
                 </TabsTrigger>
-                <TabsTrigger value="monitor" className="gap-2">
-                  <Activity className="w-4 h-4" />
-                  Monitor
+                <TabsTrigger value="theme" className="gap-1 text-xs">
+                  <Palette className="w-3 h-3" />
+                  Theme
                 </TabsTrigger>
-                <TabsTrigger value="gallery" className="gap-2">
-                  <Image className="w-4 h-4" />
+                <TabsTrigger value="gallery" className="gap-1 text-xs">
+                  <Image className="w-3 h-3" />
                   Gallery
                 </TabsTrigger>
-                <TabsTrigger value="backdrop" className="gap-2">
-                  <Image className="w-4 h-4" />
+                <TabsTrigger value="backdrop" className="gap-1 text-xs">
+                  <Image className="w-3 h-3" />
                   Backdrop
                 </TabsTrigger>
-                <TabsTrigger value="data" className="gap-2">
-                  <Database className="w-4 h-4" />
+                <TabsTrigger value="monitor" className="gap-1 text-xs">
+                  <Activity className="w-3 h-3" />
+                  Monitor
+                </TabsTrigger>
+                <TabsTrigger value="data" className="gap-1 text-xs">
+                  <Database className="w-3 h-3" />
                   Data
                 </TabsTrigger>
               </TabsList>
@@ -437,6 +443,12 @@ const Admin = () => {
                     <VoiceSettings />
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              {/* THEME TAB - NEW */}
+              <TabsContent value="theme" className="space-y-6 mt-6">
+                <ThemeSettingsPanel />
+                <SparkDealsSettings />
               </TabsContent>
 
               {/* MONITOR TAB */}
