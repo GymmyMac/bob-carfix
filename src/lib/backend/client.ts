@@ -11,14 +11,30 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 let supabaseInstance: SupabaseClient<Database> | null = null;
 
+// No-op lock function for iframe environments where navigator.locks may hang
+const noOpLock = async <R>(
+  _name: string,
+  _acquireTimeout: number,
+  fn: () => Promise<R>
+): Promise<R> => {
+  // Execute immediately without waiting for lock acquisition
+  return fn();
+};
+
 function createSafeClient(): SupabaseClient<Database> {
-  const { storage } = getSafeStorage();
+  const { storage, type } = getSafeStorage();
+  
+  console.log('[SafeClient] Creating client with storage type:', type);
   
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: {
       storage,
       persistSession: true,
       autoRefreshToken: true,
+      // Disable navigator.locks to prevent hanging in iframe contexts
+      lock: noOpLock,
+      // Faster detection of session state
+      detectSessionInUrl: true,
     }
   });
 }

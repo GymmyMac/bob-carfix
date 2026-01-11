@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Vehicle } from '@/types/vehicle';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/backend/client';
 
 interface SessionData {
   vehicle?: Vehicle;
