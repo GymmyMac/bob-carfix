@@ -2,58 +2,82 @@ export interface Product {
   id: string;
   sku: string;
   image: string;
+  image_url?: string; // Widget compatibility - same as image
   brandImage?: string;
   name: string;
   partNumber: string;
+  part_number?: string; // Snake_case alias for widget
   price: number;
   brand?: string;
   partslotDescription?: string;
+  productUrl?: string;
+  product_url?: string; // Snake_case alias for widget
 }
 
-// API response format from retrieve-parts
+// API response format from retrieve-parts - handles both snake_case and PascalCase
 export interface APIPart {
-  SKU: string;
-  "Part Product Type": string;
-  Brand: string;
+  SKU?: string;
+  sku?: string;
+  "Part Product Type"?: string;
+  partslot_description?: string;
+  Brand?: string;
+  brand?: string;
   "Part No"?: string;
   "Part Number"?: string;
+  part_number?: string;
   "In Stock"?: string;
   Price?: number;
+  price?: number;
   "Metro Retail Price"?: number;
   Image?: string;
-  partslot_description?: string;
+  image_url?: string;
 }
 
 // CARFIX storage base URLs (note: underscores in bucket names)
 const CARFIX_IMAGE_BASE_URL = "https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/product_images";
 const CARFIX_BRAND_IMAGE_BASE_URL = "https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/brand_images";
 
-// Convert API part to display format
+// Convert API part to display format - handles snake_case and PascalCase field names
 export function apiPartToProduct(part: APIPart): Product {
-  const sku = part.SKU || '';
-  const brand = part.Brand || '';
+  // Handle both snake_case and PascalCase field names
+  const sku = part.SKU || part.sku || '';
+  const brand = part.Brand || part.brand || '';
+  const partType = part["Part Product Type"] || part.partslot_description || '';
+  const partNumber = part["Part Number"] || part["Part No"] || part.part_number || sku || '';
+  const price = part["Metro Retail Price"] || part.Price || part.price || 0;
+  const partslotDesc = part.partslot_description || part["Part Product Type"] || '';
   
-  // Primary image: product image by SKU
-  const imageUrl = sku 
+  // Primary image: use provided image_url or construct from SKU
+  const imageUrl = part.image_url || part.Image || (sku 
     ? `${CARFIX_IMAGE_BASE_URL}/${sku}.jpg`
-    : "/placeholder.svg";
+    : "/placeholder.svg");
   
   // Fallback: brand image (remove spaces from brand name)
   const brandImageUrl = brand
     ? `${CARFIX_BRAND_IMAGE_BASE_URL}/${brand.replace(/\s+/g, '')}.jpg`
     : undefined;
 
-  return {
-    id: sku || part["Part Number"] || part["Part No"] || Math.random().toString(36),
+  const product: Product = {
+    id: sku || partNumber || Math.random().toString(36),
     sku,
     image: imageUrl,
+    image_url: imageUrl, // Widget compatibility
     brandImage: brandImageUrl,
-    name: part["Part Product Type"] || "Auto Part",
-    partNumber: part["Part Number"] || part["Part No"] || sku || "N/A",
-    price: part["Metro Retail Price"] || part.Price || 0,
+    name: partType || "Auto Part",
+    partNumber: partNumber || "N/A",
+    part_number: partNumber || "N/A", // Widget compatibility
+    price,
     brand,
-    partslotDescription: part.partslot_description
+    partslotDescription: partslotDesc
   };
+  
+  // Debug log for first product
+  if (typeof window !== 'undefined' && (window as any).__PRODUCT_DEBUG_LOGGED !== true) {
+    console.log('[apiPartToProduct] Sample transform:', { input: part, output: product });
+    (window as any).__PRODUCT_DEBUG_LOGGED = true;
+  }
+  
+  return product;
 }
 
 export const PLACEHOLDER_PRODUCTS: Product[] = [

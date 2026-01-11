@@ -134,8 +134,37 @@ const Index = () => {
         return;
       }
       
+      // DEBUG: Log raw API parts before transformation
+      console.log('[Index] Raw API parts received:', {
+        count: parts.length,
+        sample: parts[0] ? {
+          SKU: parts[0].SKU,
+          sku: parts[0].sku,
+          partslot_description: parts[0].partslot_description,
+          "Part Product Type": parts[0]["Part Product Type"],
+          Brand: parts[0].Brand,
+          brand: parts[0].brand,
+        } : 'empty'
+      });
+      
       const products = parts.map(apiPartToProduct);
-      console.log('[Index] Parts received:', { count: products.length, isAutoFetch, source: productSourceRef.current });
+      
+      // DEBUG: Log transformed products
+      console.log('[Index] Transformed products:', {
+        count: products.length,
+        sample: products[0] ? {
+          id: products[0].id,
+          sku: products[0].sku,
+          name: products[0].name,
+          partslotDescription: products[0].partslotDescription,
+          image: products[0].image,
+          image_url: products[0].image_url,
+          price: products[0].price,
+          brand: products[0].brand,
+        } : 'empty',
+        allPartslots: products.map(p => p.partslotDescription).filter((v, i, a) => a.indexOf(v) === i)
+      });
+      
       pendingPartsRef.current = products;
       
       // Mark source and display
