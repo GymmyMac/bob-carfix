@@ -72,10 +72,32 @@ export const useAdminAuth = () => {
       }
     };
 
-    // Initial session check
+    // Initial session check with timeout to prevent hanging
     const initAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      await checkAdminStatus(session?.user ?? null);
+      console.log('[AdminAuth] Initializing auth check...');
+      try {
+        // Add timeout to prevent infinite loading in iframe environments
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Session check timeout')), 5000)
+        );
+        
+        const sessionPromise = supabase.auth.getSession();
+        const result = await Promise.race([sessionPromise, timeoutPromise]);
+        
+        console.log('[AdminAuth] Session result:', result?.data?.session?.user?.email ?? 'no session');
+        await checkAdminStatus(result?.data?.session?.user ?? null);
+      } catch (error) {
+        console.error('[AdminAuth] Session check failed:', error);
+        // On timeout/error, treat as no session - will redirect to auth
+        if (mounted) {
+          setState({
+            user: null,
+            isAdmin: false,
+            isLoading: false,
+            error: null,
+          });
+        }
+      }
     };
 
     // Set up auth state listener BEFORE getting session
