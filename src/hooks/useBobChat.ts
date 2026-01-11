@@ -109,14 +109,16 @@ export const useBobChat = ({
   const initialGreetingSentRef = useRef(false);
   const latestAssistantMessageRef = useRef<string>("");
 
-  const { speak, stop: stopSpeech, isSpeaking } = useSpeechSynthesis({
+  const { speak, stop: stopSpeech, isSpeaking, retryPendingGreeting } = useSpeechSynthesis({
     onStart: () => {
+      console.log('[useBobChat] Speech STARTED - switching to talk state');
       onReadyToSpeak?.();
       if (!manualMode) {
         safeSetState(talkingState);
       }
     },
     onEnd: () => {
+      console.log('[useBobChat] Speech ENDED - transitioning state');
       const hasProductContent = PRODUCT_KEYWORDS.some(keyword => 
         latestAssistantMessageRef.current.toLowerCase().includes(keyword.toLowerCase())
       );
@@ -163,7 +165,8 @@ export const useBobChat = ({
       setMessages([{ role: "assistant", content: greetingMessage }]);
       
       if (!isMuted) {
-        setTimeout(() => speak(greetingMessage), 1000);
+        console.log('[useBobChat] Speaking initial greeting (priority)');
+        setTimeout(() => speak(greetingMessage, true), 1000); // true = isGreeting priority
       }
     }
   }, [initialVehicle, messages.length, isMuted, speak]);
@@ -383,6 +386,11 @@ export const useBobChat = ({
   const handleSend = useCallback(() => {
     if (!input.trim() || isLoading) return;
     
+    // Retry any pending greeting on user interaction
+    retryPendingGreeting();
+    stopSpeech();
+    
+    console.log('[useBobChat] User sent message - switching to RESEARCH state');
     onResearchStart?.();
     if (!manualMode) safeSetState(thinkingState);
     onStreamStart?.();
@@ -393,7 +401,7 @@ export const useBobChat = ({
     setIsLoading(true);
     
     streamChat(userMessage).finally(() => setIsLoading(false));
-  }, [input, isLoading, manualMode, thinkingState, onResearchStart, onStreamStart]);
+  }, [input, isLoading, manualMode, thinkingState, onResearchStart, onStreamStart, retryPendingGreeting, stopSpeech]);
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {

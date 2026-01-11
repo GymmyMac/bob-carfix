@@ -22,6 +22,11 @@ const sanitizeForTTS = (text: string): string => {
     .replace(/\bwith ya\b/gi, 'with you');
 };
 
+interface SpeechQueueItem {
+  text: string;
+  isGreeting: boolean;
+}
+
 export const useSpeechSynthesis = ({
   onStart,
   onEnd,
@@ -31,6 +36,11 @@ export const useSpeechSynthesis = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startTriggeredRef = useRef(false);
+  
+  // Queue management refs
+  const speechQueueRef = useRef<SpeechQueueItem[]>([]);
+  const pendingGreetingRef = useRef<string | null>(null);
+  const isProcessingRef = useRef(false);
   
   // Store callbacks in refs to avoid dependency issues
   const onStartRef = useRef(onStart);
@@ -60,8 +70,22 @@ export const useSpeechSynthesis = ({
     }
   }, []);
 
-  const speak = useCallback(async (text: string) => {
-    if (!text.trim()) return;
+  const processQueue = useCallback(async () => {
+    // Prevent concurrent processing
+    if (isProcessingRef.current || speechQueueRef.current.length === 0) {
+      return;
+    }
+
+    isProcessingRef.current = true;
+    const item = speechQueueRef.current.shift();
+    
+    if (!item || !item.text.trim()) {
+      isProcessingRef.current = false;
+      return;
+    }
+
+    const { text, isGreeting } = item;
+    console.log(`[TTS] Processing ${isGreeting ? 'GREETING' : 'speech'}: "${text.substring(0, 50)}..."`);
 
     // Set speaking state immediately for animation sync
     setIsSpeaking(true);
@@ -84,6 +108,9 @@ export const useSpeechSynthesis = ({
       onEndRef.current?.();
       onFailedRef.current?.();
       audioRef.current = null;
+      isProcessingRef.current = false;
+      // Process next item in queue
+      processQueue();
     }, TTS_TIMEOUT_MS);
 
     try {
@@ -127,6 +154,9 @@ export const useSpeechSynthesis = ({
         console.log("[TTS] Audio ended");
         onEndRef.current?.();
         audioRef.current = null;
+        isProcessingRef.current = false;
+        // Process next item in queue
+        processQueue();
       };
 
       audio.onerror = (e) => {
@@ -137,6 +167,9 @@ export const useSpeechSynthesis = ({
         onEndRef.current?.();
         onFailedRef.current?.();
         audioRef.current = null;
+        isProcessingRef.current = false;
+        // Process next item in queue
+        processQueue();
       };
 
       // Try to play
@@ -145,11 +178,21 @@ export const useSpeechSynthesis = ({
       } catch (playError) {
         console.warn("[TTS] Audio play() failed (likely autoplay policy):", playError);
         clearTtsTimeout();
+        
+        // Store greeting for retry on user interaction
+        if (isGreeting) {
+          console.log("[TTS] Storing greeting for retry on user interaction");
+          pendingGreetingRef.current = text;
+        }
+        
         triggerFallbackStart();
         setIsSpeaking(false);
         onEndRef.current?.();
         onFailedRef.current?.();
         audioRef.current = null;
+        isProcessingRef.current = false;
+        // Process next item in queue
+        processQueue();
       }
     } catch (error) {
       clearTtsTimeout();
@@ -158,11 +201,43 @@ export const useSpeechSynthesis = ({
       setIsSpeaking(false);
       onEndRef.current?.();
       onFailedRef.current?.();
+      isProcessingRef.current = false;
+      // Process next item in queue
+      processQueue();
     }
   }, [clearTtsTimeout, triggerFallbackStart]);
 
+  const speak = useCallback((text: string, isGreeting = false) => {
+    if (!text.trim()) return;
+
+    console.log(`[TTS] Queuing ${isGreeting ? 'GREETING' : 'speech'}: "${text.substring(0, 50)}..."`);
+
+    // Greetings go to front of queue with priority
+    if (isGreeting) {
+      speechQueueRef.current.unshift({ text, isGreeting });
+    } else {
+      speechQueueRef.current.push({ text, isGreeting });
+    }
+    
+    // Start processing if not already
+    processQueue();
+  }, [processQueue]);
+
+  const retryPendingGreeting = useCallback(() => {
+    if (pendingGreetingRef.current) {
+      console.log("[TTS] Retrying pending greeting on user interaction");
+      const greetingText = pendingGreetingRef.current;
+      pendingGreetingRef.current = null;
+      speak(greetingText, true);
+    }
+  }, [speak]);
+
   const stop = useCallback(() => {
     clearTtsTimeout();
+    // Clear the queue
+    speechQueueRef.current = [];
+    isProcessingRef.current = false;
+    
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
@@ -196,5 +271,6 @@ export const useSpeechSynthesis = ({
     resume,
     isSpeaking,
     isSupported: true, // Always supported since we use backend API
+    retryPendingGreeting,
   };
 };
