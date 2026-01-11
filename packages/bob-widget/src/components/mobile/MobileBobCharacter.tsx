@@ -55,7 +55,7 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
     <div className="absolute inset-0 pointer-events-none" style={{ overflow: 'visible' }}>
       {/* Bob Character - Centered properly */}
       <div 
-        className="absolute z-40"
+        className="absolute z-[60]"
         style={{
           bottom: `${bottomPercent}%`,
           left: getLeftPosition(),
@@ -78,7 +78,7 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
       {/* Counter Overlay */}
       {counterOverlayUrl && (
         <div 
-          className="absolute bottom-0 left-0 right-0 z-50"
+          className="absolute bottom-0 left-0 right-0 z-[70]"
           style={{ 
             height: `${counterHeightPercent}%`,
             pointerEvents: 'none' // Allow clicks through to chat drawer
