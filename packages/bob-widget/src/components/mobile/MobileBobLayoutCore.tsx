@@ -69,8 +69,8 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
   
   const getBaseUIScale = () => {
     switch (viewportSize) {
-      case 'desktop': return 100;
-      case 'tablet': return 140;
+      case 'desktop': return 130;  // Increased from 100 - Bob needs to be larger on desktop
+      case 'tablet': return 150;   // Slight increase
       case 'mobile': return 200;
       default: return 200;
     }
@@ -115,17 +115,13 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
         touchAction: 'manipulation'
       }}
     >
-      {/* Background - NO white overlay, clean backdrop */}
+      {/* Background - Clean backdrop, no scaling/tiling */}
       {backdropUrl && (
-        <div 
-          className="absolute inset-0 z-0"
-          style={{
-            backgroundImage: `url(${backdropUrl})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center bottom',
-            filter: 'blur(2px) brightness(0.95)',
-            transform: 'scale(1.02)'
-          }}
+        <img 
+          src={backdropUrl}
+          alt="Shop backdrop"
+          className="absolute inset-0 z-0 w-full h-full object-cover object-center"
+          style={{ pointerEvents: 'none' }}
         />
       )}
 
