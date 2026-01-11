@@ -27,8 +27,32 @@ export const useBobStateTransitions = ({
   const [isInitialized, setIsInitialized] = useState(false);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ============================================================================
+  // STATE LOOKUP HELPERS
+  // ============================================================================
+
   const getStateForTrigger = useCallback((trigger: string) => {
-    return states.find(s => s.chat_trigger === trigger && s.is_active);
+    const state = states.find(s => s.chat_trigger === trigger && s.is_active);
+    console.log(`[StateTransitions] Looking for trigger: "${trigger}" -> found:`, state?.state_key || 'none');
+    return state;
+  }, [states]);
+
+  const getResearchState = useCallback(() => {
+    return states.find(s => 
+      s.chat_trigger === 'processing_input' || 
+      s.state_key === 'research' ||
+      s.title.toLowerCase().includes('research') ||
+      s.title.toLowerCase().includes('thinking')
+    );
+  }, [states]);
+
+  const getTalkState = useCallback(() => {
+    return states.find(s => 
+      s.chat_trigger === 'streaming_response' || 
+      s.state_key === 'talk' ||
+      s.state_key === 'talking' ||
+      s.title.toLowerCase().includes('talk')
+    );
   }, [states]);
 
   const getListenState = useCallback(() => {
@@ -37,6 +61,14 @@ export const useBobStateTransitions = ({
       s.state_key === 'talk_pause' || 
       s.title.toLowerCase().includes('listen') ||
       s.title.toLowerCase().includes('pause')
+    );
+  }, [states]);
+
+  const getCompleteState = useCallback(() => {
+    return states.find(s => 
+      s.chat_trigger === 'response_complete' || 
+      s.state_key === 'complete' ||
+      s.title.toLowerCase().includes('complete')
     );
   }, [states]);
 
@@ -109,29 +141,91 @@ export const useBobStateTransitions = ({
     }, 3000);
   }, [isInitialized, manualMode, transitionTo, transitionToListen]);
 
+  // ============================================================================
+  // EXPLICIT STATE TRANSITION CALLBACKS
+  // ============================================================================
+
+  /**
+   * Called when user sends a message - transition to RESEARCH state
+   */
   const onUserInput = useCallback(() => {
+    if (manualMode) return;
     clearIdleTimer();
     setChatStage('processing_input');
-    transitionTo('processing_input');
-  }, [transitionTo, clearIdleTimer]);
+    
+    const researchState = getResearchState();
+    console.log('[StateTransitions] User input - switching to RESEARCH:', researchState?.state_key);
+    
+    if (researchState) {
+      setAnimationState(researchState.state_key);
+    } else {
+      transitionTo('processing_input');
+    }
+  }, [manualMode, clearIdleTimer, getResearchState, setAnimationState, transitionTo]);
+
+  /**
+   * Called when TTS speech STARTS - transition to TALK state
+   */
+  const onSpeechStart = useCallback(() => {
+    if (manualMode) return;
+    clearIdleTimer();
+    setChatStage('streaming_response');
+    
+    const talkState = getTalkState();
+    console.log('[StateTransitions] Speech started - switching to TALK:', talkState?.state_key);
+    
+    if (talkState) {
+      setAnimationState(talkState.state_key);
+    }
+  }, [manualMode, clearIdleTimer, getTalkState, setAnimationState]);
+
+  /**
+   * Called when TTS speech ENDS - transition to COMPLETE then LISTEN
+   */
+  const onSpeechEnd = useCallback(() => {
+    if (manualMode) return;
+    
+    const completeState = getCompleteState();
+    console.log('[StateTransitions] Speech ended - switching to COMPLETE:', completeState?.state_key);
+    
+    if (completeState) {
+      setAnimationState(completeState.state_key);
+    }
+    
+    // Transition to listen after brief pause
+    setTimeout(() => {
+      if (!manualMode) {
+        transitionToListen();
+      }
+    }, 2000);
+  }, [manualMode, getCompleteState, setAnimationState, transitionToListen]);
 
   const onStreamStart = useCallback(() => {
     clearIdleTimer();
     setChatStage('streaming_response');
-    transitionTo('streaming_response');
-  }, [transitionTo, clearIdleTimer]);
+    console.log('[StateTransitions] Stream started (API response)');
+    // Note: Don't change animation here - wait for actual TTS to start
+  }, [clearIdleTimer]);
 
   const onStreamComplete = useCallback(() => {
     setChatStage('response_complete');
-    transitionTo('response_complete');
+    console.log('[StateTransitions] Stream complete (API finished)');
+    
+    // Only transition if not speaking - speech handlers take priority
+    const completeState = getCompleteState();
+    if (completeState) {
+      setAnimationState(completeState.state_key);
+    }
 
     setTimeout(() => {
       transitionToListen();
-    }, 3000);
-  }, [transitionTo, transitionToListen]);
+    }, 2000);
+  }, [getCompleteState, setAnimationState, transitionToListen]);
 
   const onShowingProduct = useCallback(() => {
+    if (manualMode) return;
     setChatStage('showing_product');
+    console.log('[StateTransitions] Showing products');
     
     const showingState = states.find(s => 
       s.chat_trigger === 'showing_product' || 
@@ -144,8 +238,8 @@ export const useBobStateTransitions = ({
 
     setTimeout(() => {
       transitionToListen();
-    }, 4000);
-  }, [states, setAnimationState, transitionToListen]);
+    }, 3000);
+  }, [manualMode, states, setAnimationState, transitionToListen]);
 
   useEffect(() => {
     return () => clearIdleTimer();
@@ -155,6 +249,8 @@ export const useBobStateTransitions = ({
     chatStage,
     initialize,
     onUserInput,
+    onSpeechStart,
+    onSpeechEnd,
     onStreamStart,
     onStreamComplete,
     onShowingProduct,

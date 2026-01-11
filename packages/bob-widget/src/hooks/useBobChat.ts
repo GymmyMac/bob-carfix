@@ -192,27 +192,39 @@ export const useBobChat = ({
     onStart: () => {
       clearFallbackTimeout();
       speechStartedRef.current = true;
-      console.log('[BobWidget] Speech started - revealing products');
+      console.log('[BobWidget STATE] Speech STARTED - transitioning to TALK state');
       analytics.trackSpeechPlayed(latestAssistantMessageRef.current.length);
       onReadyToSpeak?.();
+      // EXPLICIT: Force talk animation when speech starts
       if (!manualMode) {
+        console.log('[BobWidget STATE] Setting state to:', talkingState);
         safeSetState(talkingState);
       }
     },
     onEnd: () => {
       clearFallbackTimeout();
+      console.log('[BobWidget STATE] Speech ENDED - transitioning out of TALK state');
+      
       const hasProductContent = PRODUCT_KEYWORDS.some(keyword => 
         latestAssistantMessageRef.current.toLowerCase().includes(keyword.toLowerCase())
       );
 
+      // EXPLICIT: Force OUT of talk state when speech ends
       if (!manualMode) {
         if (hasProductContent && onShowingProduct) {
+          console.log('[BobWidget STATE] Has products - calling onShowingProduct');
           onShowingProduct();
         } else if (onStreamComplete) {
+          console.log('[BobWidget STATE] Calling onStreamComplete');
           onStreamComplete();
         } else {
+          console.log('[BobWidget STATE] Setting state to:', completeState);
           safeSetState(completeState);
-          setTimeout(() => safeSetState(listenState), 3000);
+          // Transition to listen after delay - guard against re-speaking
+          setTimeout(() => {
+            console.log('[BobWidget STATE] Post-complete transition to:', listenState);
+            safeSetState(listenState);
+          }, 2000);
         }
       }
     },
@@ -615,6 +627,8 @@ export const useBobChat = ({
     
     setIsLoading(true);
     
+    // EXPLICIT: Trigger research animation BEFORE calling API
+    console.log('[BobWidget STATE] User sent message - switching to RESEARCH state:', thinkingState);
     onResearchStart?.();
     
     if (!manualMode) {
