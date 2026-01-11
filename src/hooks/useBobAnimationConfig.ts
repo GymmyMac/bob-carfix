@@ -334,19 +334,43 @@ export const useBobAnimationConfig = (lookId?: string | null) => {
     states.find(s => s.display_order === 1)?.state_key || states[0]?.state_key || 'idle';
   
   const getTalkingState = () => 
-    states.find(s => s.state_key === 'talk' || s.title.toLowerCase().includes('talk'))?.state_key;
+    states.find(s => 
+      s.state_key === 'talk' || 
+      s.state_key === 'talking' || 
+      s.title.toLowerCase().includes('talk')
+    )?.state_key;
   
   const getThinkingState = () => 
-    states.find(s => s.state_key === 'research' || s.title.toLowerCase().includes('research') || s.title.toLowerCase().includes('think'))?.state_key;
+    states.find(s => 
+      s.state_key === 'research' || 
+      s.state_key === 'researching' || 
+      s.title.toLowerCase().includes('research') || 
+      s.title.toLowerCase().includes('think')
+    )?.state_key;
   
   const getCompleteState = () => 
-    states.find(s => s.state_key === 'complete' || s.title.toLowerCase().includes('complete') || s.title.toLowerCase().includes('done'))?.state_key;
+    states.find(s => 
+      s.state_key === 'complete' || 
+      s.state_key === 'showing_product' || 
+      s.state_key === 'idle' ||  // Fallback to idle if no complete state
+      s.title.toLowerCase().includes('complete') || 
+      s.title.toLowerCase().includes('done')
+    )?.state_key;
   
   const getIdleState = () => 
-    states.find(s => s.state_key === 'idle' || s.title.toLowerCase().includes('idle'))?.state_key;
+    states.find(s => 
+      s.state_key === 'idle' || 
+      s.title.toLowerCase().includes('idle')
+    )?.state_key;
   
   const getListenState = () => 
-    states.find(s => s.chat_trigger === 'awaiting_input' || s.state_key === 'talk_pause' || s.title.toLowerCase().includes('listen') || s.title.toLowerCase().includes('pause'))?.state_key;
+    states.find(s => 
+      s.chat_trigger === 'awaiting_input' || 
+      s.state_key === 'talk_pause' || 
+      s.state_key === 'listening' || 
+      s.title.toLowerCase().includes('listen') || 
+      s.title.toLowerCase().includes('pause')
+    )?.state_key;
 
   const updateStateSettings = async (
     stateId: string,
