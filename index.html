@@ -3,22 +3,103 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>bfd7529a-583b-4b61-b606-7f9f7df6bde3</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
 
-    <meta property="og:title" content="bfd7529a-583b-4b61-b606-7f9f7df6bde3" />
-    <meta property="og:description" content="Lovable Generated Project" />
+    <!-- SEO -->
+    <title>CARFIX | Bobs Auto Chat</title>
+    <meta
+      name="description"
+      content="Chat with Bob from CARFIX to find the right car parts fast, with Kiwi-friendly help for DIY and workshops across NZ."
+    />
+
+    <!-- Open Graph / Twitter -->
+    <meta property="og:title" content="CARFIX | Bobs Auto Chat" />
+    <meta
+      property="og:description"
+      content="Chat with Bob from CARFIX to find the right car parts fast, with Kiwi-friendly help for DIY and workshops across NZ."
+    />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@Lovable" />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+
+    <!-- Fallback UI styles (shows even if the app JS fails to load in an iframe) -->
+    <style>
+      .app-fallback {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: hsl(0 0% 98%);
+        color: hsl(223 46% 13%);
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
+          "Segoe UI Emoji";
+      }
+      .app-fallback__card {
+        width: min(520px, 92vw);
+        border: 1px solid hsl(214 32% 91%);
+        background: hsl(0 0% 100%);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 10px 24px hsl(223 46% 13% / 0.12);
+      }
+      .app-fallback__row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .app-fallback__spinner {
+        width: 18px;
+        height: 18px;
+        border: 3px solid hsl(216 100% 40%);
+        border-top-color: transparent;
+        border-radius: 999px;
+        animation: app-fallback-spin 0.9s linear infinite;
+        flex: 0 0 auto;
+      }
+      @keyframes app-fallback-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .app-fallback__hint {
+        margin: 12px 0 0;
+        font-size: 13px;
+        line-height: 1.45;
+        color: hsl(215 16% 47%);
+      }
+      .app-fallback__mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+          monospace;
+      }
+    </style>
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- If you ever see ONLY this card in Preview, the iframe is blocking script execution. -->
+      <div class="app-fallback">
+        <div class="app-fallback__card">
+          <div class="app-fallback__row">
+            <div class="app-fallback__spinner" aria-hidden="true"></div>
+            <div>
+              <div><strong>Loading CARFIXs Bob</strong></div>
+              <div class="app-fallback__hint">
+                If this never loads in the Preview iframe, try an incognito window or disable extensions that block
+                iframes/scripts.
+              </div>
+              <div class="app-fallback__hint app-fallback__mono">Route: /</div>
+            </div>
+          </div>
+          <noscript>
+            <p class="app-fallback__hint">JavaScript is disabled, so the app cant run.</p>
+          </noscript>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+
