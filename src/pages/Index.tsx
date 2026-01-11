@@ -22,6 +22,7 @@ import bobCounter from "@/assets/bob-counter.png";
 const Index = () => {
   // Shared isSpeaking state for animation sync
   const [isSpeakingForAnimation, setIsSpeakingForAnimation] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   
   const { 
     animationState, 
@@ -33,6 +34,13 @@ const Index = () => {
     setManualMode,
     isLoading: animationLoading
   } = useBobAnimation({ isSpeaking: isSpeakingForAnimation });
+  
+  // Mark initialized once we have animation data
+  useEffect(() => {
+    if (!animationLoading && animationState && getCurrentImage()) {
+      setIsInitialized(true);
+    }
+  }, [animationLoading, animationState, getCurrentImage]);
   
   // Get backdrop data
   const { activeBackdrop } = useBobBackdrop();
@@ -292,6 +300,18 @@ const Index = () => {
       clearMessages
     };
   }, [animationState, getCurrentImage, manualMode, setAnimationState, setManualMode, clearMessages]);
+
+  // Show loading state while animation data initializes
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen min-w-full bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground">Loading Bob...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen min-w-full bg-background">
