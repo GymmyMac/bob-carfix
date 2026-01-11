@@ -112,9 +112,21 @@ const Index = () => {
     completeState: getCompleteState() || "complete",
     idleState: getIdleState() || "idle",
     listenState: getListenState() || "talk_pause",
-    // Note: initialVehicle and customerEmail are handled via sessionData effect below
+    // Wire state transitions through centralized hook
     onStreamStart: stateTransitions.onStreamStart,
     onStreamComplete: stateTransitions.onStreamComplete,
+    onResearchStart: () => {
+      console.log('[Index] Research started - triggering state transition');
+      // User is sending a message - mark as user source and increment request ID
+      requestIdRef.current += 1;
+      productSourceRef.current = 'user';
+      stateTransitions.onUserInput();
+      setIsResearching(true);
+      setLoaderPhase('researching');
+      pendingPartsRef.current = [];
+      setHighlightedPartType(null);
+      setHighlightedProduct(null);
+    },
     onVehicleIdentified: (vehicle) => {
       setDisplayedVehicle(vehicle);
       // Vehicle is now confirmed - clear placeholder state
@@ -189,17 +201,6 @@ const Index = () => {
       if (sessionData?.vehicle) {
         setDisplayedPackages(packages);
       }
-    },
-    onResearchStart: () => {
-      // User is sending a message - mark as user source and increment request ID
-      requestIdRef.current += 1;
-      productSourceRef.current = 'user';
-      setIsResearching(true);
-      setLoaderPhase('researching');
-      pendingPartsRef.current = [];
-      // Clear highlight when user sends new message
-      setHighlightedPartType(null);
-      setHighlightedProduct(null);
     },
     onReadyToSpeak: () => {
       // Reveal products and service packages when Bob starts speaking

@@ -92,9 +92,21 @@ export const useBobAnimation = (options: UseBobAnimationOptions = {}) => {
     imageUrlsMapRef.current = imageUrlsMap;
   }, [imageUrlsMap]);
 
+  // PHASE 3: Handle isSpeaking changes - force exit talk state when speech ends
   useEffect(() => {
+    const wasSpeak = isSpeakingRef.current;
     isSpeakingRef.current = isSpeaking;
-  }, [isSpeaking]);
+    
+    // If we JUST stopped speaking and we're in a talk state, force loop completion
+    if (wasSpeak && !isSpeaking) {
+      const currentState = animationState.toLowerCase();
+      if (currentState.includes('talk') || currentState === 'talking') {
+        console.log('[useBobAnimation] Speech ended while in talk state - forcing loop completion');
+        // Force loop count exceeded to allow natural exit from talk animation
+        currentLoopRef.current = 999;
+      }
+    }
+  }, [isSpeaking, animationState]);
 
   // Debounced state setter to prevent rapid state changes
   const setAnimationState = useCallback((newState: AnimationState) => {
