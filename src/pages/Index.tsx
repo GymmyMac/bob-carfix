@@ -317,6 +317,12 @@ const Index = () => {
     <div className="min-h-screen min-w-full bg-background">
       {/* SwipeableBob wrapper - allows users to swipe Bob off-screen */}
       <SwipeableBob isSpeaking={isSpeaking}>
+        {/* Matrix Product Loader - z-10 to stay BEHIND Bob (z-60) */}
+        <MatrixProductLoader
+          phase={loaderPhase}
+          onComplete={() => setLoaderPhase('hidden')}
+        />
+        
         {/* Bob character, backdrop, products - NO chat drawer (avoids transform stacking context issue) */}
         <MobileBobLayoutCore
           currentImage={getCurrentImage()}
@@ -355,13 +361,6 @@ const Index = () => {
         isMuted={isMuted}
         onToggleMute={toggleMute}
         isSpeaking={isSpeaking}
-      />
-
-      {/* Matrix Product Loader - shown during research */}
-      <MatrixProductLoader
-        phase={loaderPhase}
-        message={loaderPhase === 'researching' ? "Bob's searching the shelves..." : undefined}
-        onComplete={() => setLoaderPhase('hidden')}
       />
 
       {/* Service Package Detail Dialog */}

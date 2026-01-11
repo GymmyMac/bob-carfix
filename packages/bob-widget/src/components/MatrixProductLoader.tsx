@@ -262,7 +262,7 @@ export const MatrixProductLoader: React.FC<MatrixProductLoaderProps> = ({
 
   return (
     <div 
-      className="absolute inset-0 z-30 flex flex-col items-center justify-center overflow-hidden pointer-events-none"
+      className="absolute inset-0 z-10 flex flex-col items-center justify-center overflow-hidden pointer-events-none"
       style={{ background: 'transparent' }}
     >
       {/* Matrix Rain Canvas */}
@@ -271,25 +271,6 @@ export const MatrixProductLoader: React.FC<MatrixProductLoaderProps> = ({
         className="absolute inset-0 w-full h-full"
         style={{ opacity: 0.9 }}
       />
-
-      {/* Loading Message */}
-      {message && (
-        <div 
-          className="relative z-10 px-6 py-3 rounded-xl backdrop-blur-sm"
-          style={{
-            background: activeTheme.backgroundMode === 'dark' 
-              ? 'rgba(0, 0, 0, 0.5)' 
-              : 'rgba(255, 255, 255, 0.8)',
-          }}
-        >
-          <p 
-            className="text-lg font-semibold animate-pulse"
-            style={{ color: activeTheme.primaryHex }}
-          >
-            {message}
-          </p>
-        </div>
-      )}
 
       {/* Spark Deal Banner */}
       {showBanner && deals && deals.length > 0 && (
