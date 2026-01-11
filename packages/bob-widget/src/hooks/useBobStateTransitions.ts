@@ -41,6 +41,7 @@ export const useBobStateTransitions = ({
     return states.find(s => 
       s.chat_trigger === 'processing_input' || 
       s.state_key === 'research' ||
+      s.state_key === 'researching' ||
       s.title.toLowerCase().includes('research') ||
       s.title.toLowerCase().includes('thinking')
     );
@@ -59,17 +60,27 @@ export const useBobStateTransitions = ({
     return states.find(s => 
       s.chat_trigger === 'awaiting_input' || 
       s.state_key === 'talk_pause' || 
+      s.state_key === 'listening' ||
       s.title.toLowerCase().includes('listen') ||
       s.title.toLowerCase().includes('pause')
     );
   }, [states]);
 
   const getCompleteState = useCallback(() => {
-    return states.find(s => 
+    // Try to find explicit complete state first
+    const completeState = states.find(s => 
       s.chat_trigger === 'response_complete' || 
       s.state_key === 'complete' ||
       s.title.toLowerCase().includes('complete')
     );
+    // Fallback to idle if no complete state exists
+    if (!completeState) {
+      return states.find(s => 
+        s.state_key === 'idle' || 
+        s.title.toLowerCase().includes('idle')
+      );
+    }
+    return completeState;
   }, [states]);
 
   const getIdleState = useCallback(() => {

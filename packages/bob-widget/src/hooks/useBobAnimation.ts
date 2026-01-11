@@ -232,10 +232,13 @@ export const useBobAnimation = (options: UseBobAnimationOptions = {}) => {
     const alternates = alternateImages[animationState];
     
     if (!alternates || alternates.length === 0) {
+      // Find ANY state with valid images as fallback
       const fallbackState = availableStates.find((s) => alternateImages[s]?.length > 0);
       if (fallbackState) {
+        console.warn(`[useBobAnimation] No images for "${animationState}", using fallback: ${fallbackState}`);
         return alternateImages[fallbackState][0];
       }
+      console.error('[useBobAnimation] No valid images found for any state!');
       return "";
     }
     
