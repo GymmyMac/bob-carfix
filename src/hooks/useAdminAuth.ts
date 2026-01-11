@@ -19,8 +19,11 @@ export const useAdminAuth = () => {
 
   useEffect(() => {
     let mounted = true;
+    let authResolved = false;
 
-    const checkAdminStatus = async (user: User | null) => {
+    const checkAdminStatus = async (user: User | null, source: string) => {
+      console.log(`[AdminAuth] checkAdminStatus from ${source}:`, user?.email ?? 'no user');
+      
       if (!user) {
         if (mounted) {
           setState({
@@ -35,8 +38,11 @@ export const useAdminAuth = () => {
 
       try {
         // Use the has_role function to check admin status server-side
+        console.log('[AdminAuth] Calling has_role RPC...');
         const { data, error } = await supabase
           .rpc('has_role', { _user_id: user.id, _role: 'admin' });
+
+        console.log('[AdminAuth] has_role result:', { data, error: error?.message });
 
         if (error) {
           console.error('Error checking admin role:', error);
@@ -72,48 +78,49 @@ export const useAdminAuth = () => {
       }
     };
 
-    // Initial session check with timeout to prevent hanging
-    const initAuth = async () => {
-      console.log('[AdminAuth] Initializing auth check...');
+    // Set up auth state listener FIRST - this is the primary resolution method
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('[AdminAuth] onAuthStateChange:', event, session?.user?.email ?? 'no session');
+        
+        if (!mounted) return;
+        
+        // Mark auth as resolved on any definitive event
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+          authResolved = true;
+        }
+        
+        setState(prev => ({ ...prev, isLoading: true }));
+        await checkAdminStatus(session?.user ?? null, `onAuthStateChange:${event}`);
+      }
+    );
+
+    // Fallback: if no auth event fires within 3 seconds, try getSession directly
+    const fallbackTimeout = setTimeout(async () => {
+      if (authResolved || !mounted) return;
+      
+      console.log('[AdminAuth] Fallback: no auth event received, trying getSession...');
       try {
-        // Add timeout to prevent infinite loading in iframe environments
-        const timeoutPromise = new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('Session check timeout')), 5000)
-        );
-        
-        const sessionPromise = supabase.auth.getSession();
-        const result = await Promise.race([sessionPromise, timeoutPromise]);
-        
-        console.log('[AdminAuth] Session result:', result?.data?.session?.user?.email ?? 'no session');
-        await checkAdminStatus(result?.data?.session?.user ?? null);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (mounted && !authResolved) {
+          await checkAdminStatus(session?.user ?? null, 'fallback:getSession');
+        }
       } catch (error) {
-        console.error('[AdminAuth] Session check failed:', error);
-        // On timeout/error, treat as no session - will redirect to auth
-        if (mounted) {
+        console.error('[AdminAuth] Fallback getSession failed:', error);
+        if (mounted && !authResolved) {
           setState({
             user: null,
             isAdmin: false,
             isLoading: false,
-            error: null,
+            error: 'Session verification failed - try opening in a new tab',
           });
         }
       }
-    };
-
-    // Set up auth state listener BEFORE getting session
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (mounted) {
-          setState(prev => ({ ...prev, isLoading: true }));
-          await checkAdminStatus(session?.user ?? null);
-        }
-      }
-    );
-
-    initAuth();
+    }, 3000);
 
     return () => {
       mounted = false;
+      clearTimeout(fallbackTimeout);
       subscription.unsubscribe();
     };
   }, []);
