@@ -301,7 +301,7 @@ const Index = () => {
         <MobileBobLayoutCore
           currentImage={getCurrentImage()}
           animationState={animationState}
-          backdropUrl={bobBgWall}
+          backdropUrl={activeBackdrop?.image_url || bobBgWall}
           counterOverlayUrl={bobCounter}
           products={displayedParts}
           servicePackages={displayedPackages}
