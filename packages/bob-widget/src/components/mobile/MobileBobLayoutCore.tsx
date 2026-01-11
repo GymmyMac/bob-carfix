@@ -115,27 +115,18 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
         touchAction: 'manipulation'
       }}
     >
-      {/* Blurred Background */}
+      {/* Background - NO white overlay, clean backdrop */}
       {backdropUrl && (
-        <>
-          <div 
-            className="absolute inset-0 z-0"
-            style={{
-              backgroundImage: `url(${backdropUrl})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center bottom',
-              filter: 'blur(4px) brightness(0.85)',
-              transform: 'scale(1.05)'
-            }}
-          />
-          
-          <div 
-            className="absolute inset-0 z-[1]"
-            style={{
-              background: 'linear-gradient(to bottom, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.35) 100%)'
-            }}
-          />
-        </>
+        <div 
+          className="absolute inset-0 z-0"
+          style={{
+            backgroundImage: `url(${backdropUrl})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center bottom',
+            filter: 'blur(2px) brightness(0.95)',
+            transform: 'scale(1.02)'
+          }}
+        />
       )}
 
       {/* Bob Character */}
