@@ -3,6 +3,8 @@ import App from "./App.tsx";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import "./index.css";
 
+console.log('[CARFIX] React app mounting...');
+
 createRoot(document.getElementById("root")!).render(
   <AppErrorBoundary>
     <App />
