@@ -114,6 +114,7 @@ export const useBobAnimation = (options: UseBobAnimationOptions = {}) => {
   // Initialize animation state from database
   useEffect(() => {
     if (availableStates.length > 0 && !animationState) {
+      console.log('[useBobAnimation] Initializing to first available state:', availableStates[0]);
       setAnimationStateInternal(availableStates[0]);
     }
   }, [availableStates, animationState]);
