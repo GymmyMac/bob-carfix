@@ -108,8 +108,9 @@ export const useSpeechSynthesis = ({
       // Sanitize text for TTS pronunciation before sending
       const sanitizedText = sanitizeForTTS(text);
       
+      // Use ElevenLabs streaming endpoint for lower latency
       const response = await fetch(
-        `${bobConfig.supabaseUrl}/functions/v1/bob-tts`,
+        `${bobConfig.supabaseUrl}/functions/v1/bob-tts-elevenlabs`,
         {
           method: "POST",
           headers: {
@@ -126,9 +127,11 @@ export const useSpeechSynthesis = ({
         throw new Error("TTS request failed");
       }
 
-      const { audioContent } = await response.json();
+      // ElevenLabs returns audio blob directly (not base64)
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
       
-      const audio = new Audio(`data:audio/mp3;base64,${audioContent}`);
+      const audio = new Audio(audioUrl);
       audioRef.current = audio;
 
       audio.onplay = () => {

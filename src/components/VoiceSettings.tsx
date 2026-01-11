@@ -13,31 +13,29 @@ import {
 import { supabase } from "@/lib/backend/client";
 import { toast } from "sonner";
 
-const MALE_VOICE_OPTIONS = [
-  // Neural2 - Highest Quality
-  { value: "en-AU-Neural2-B", label: "Australian Neural2-B", accent: "🇦🇺", quality: "Neural2", isDefault: true },
-  { value: "en-AU-Neural2-D", label: "Australian Neural2-D", accent: "🇦🇺", quality: "Neural2" },
-  { value: "en-GB-Neural2-B", label: "British Neural2-B", accent: "🇬🇧", quality: "Neural2" },
-  { value: "en-GB-Neural2-D", label: "British Neural2-D", accent: "🇬🇧", quality: "Neural2" },
-  { value: "en-US-Neural2-A", label: "American Neural2-A", accent: "🇺🇸", quality: "Neural2" },
-  { value: "en-US-Neural2-D", label: "American Neural2-D", accent: "🇺🇸", quality: "Neural2" },
-  // Wavenet - High Quality
-  { value: "en-AU-Wavenet-B", label: "Australian Wavenet-B", accent: "🇦🇺", quality: "Wavenet" },
-  { value: "en-AU-Wavenet-D", label: "Australian Wavenet-D", accent: "🇦🇺", quality: "Wavenet" },
-  { value: "en-GB-Wavenet-B", label: "British Wavenet-B", accent: "🇬🇧", quality: "Wavenet" },
-  { value: "en-GB-Wavenet-D", label: "British Wavenet-D", accent: "🇬🇧", quality: "Wavenet" },
-  { value: "en-IN-Wavenet-B", label: "Indian Wavenet-B", accent: "🇮🇳", quality: "Wavenet" },
-  { value: "en-IN-Wavenet-C", label: "Indian Wavenet-C", accent: "🇮🇳", quality: "Wavenet" },
-  { value: "en-US-Wavenet-A", label: "American Wavenet-A", accent: "🇺🇸", quality: "Wavenet" },
-  { value: "en-US-Wavenet-B", label: "American Wavenet-B", accent: "🇺🇸", quality: "Wavenet" },
-  { value: "en-US-Wavenet-D", label: "American Wavenet-D", accent: "🇺🇸", quality: "Wavenet" },
+// ElevenLabs voice options - curated for Bob's friendly Kiwi character
+const ELEVENLABS_VOICES = [
+  // Recommended for Bob
+  { value: "JBFqnCBsd6RMkjVDRZzb", label: "George", description: "Warm & friendly", isDefault: true, category: "recommended" },
+  { value: "nPczCjzI2devNBz1zQrb", label: "Brian", description: "Deep & authoritative", category: "recommended" },
+  { value: "iP95p4xoKVk53GoZ742B", label: "Chris", description: "Casual & approachable", category: "recommended" },
+  { value: "onwK4e9ZLuTAKqWW03F9", label: "Daniel", description: "Clear & professional", category: "recommended" },
+  // Additional male voices
+  { value: "TX3LPaxmHKxFdv7VOQHJ", label: "Liam", description: "Young & energetic", category: "additional" },
+  { value: "bIHbv24MWmeRgasZH58o", label: "Will", description: "Confident & smooth", category: "additional" },
+  { value: "cjVigY5qzO86Huf0OWal", label: "Eric", description: "Friendly & conversational", category: "additional" },
+  { value: "pqHfZKP75CvOlQylNhV4", label: "Bill", description: "Mature & trustworthy", category: "additional" },
+  // Character voices (fun options)
+  { value: "N2lVS1w4EtoT3dr4eOWO", label: "Callum", description: "British charm", category: "character" },
+  { value: "CwhRBWXzGAHq8TQ4Fs17", label: "Roger", description: "Refined & eloquent", category: "character" },
 ];
 
-const neural2Voices = MALE_VOICE_OPTIONS.filter(v => v.quality === "Neural2");
-const wavenetVoices = MALE_VOICE_OPTIONS.filter(v => v.quality === "Wavenet");
+const recommendedVoices = ELEVENLABS_VOICES.filter(v => v.category === "recommended");
+const additionalVoices = ELEVENLABS_VOICES.filter(v => v.category === "additional");
+const characterVoices = ELEVENLABS_VOICES.filter(v => v.category === "character");
 
 export const VoiceSettings = () => {
-  const [selectedVoice, setSelectedVoice] = useState("en-AU-Neural2-B");
+  const [selectedVoice, setSelectedVoice] = useState("JBFqnCBsd6RMkjVDRZzb");
   const [isLoading, setIsLoading] = useState(true);
   const [isTesting, setIsTesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -78,7 +76,7 @@ export const VoiceSettings = () => {
 
       if (error) throw error;
       
-      const voiceOption = MALE_VOICE_OPTIONS.find(v => v.value === voice);
+      const voiceOption = ELEVENLABS_VOICES.find(v => v.value === voice);
       toast.success(`Voice changed to ${voiceOption?.label || voice}`);
     } catch (error) {
       console.error("Error saving voice setting:", error);
@@ -92,7 +90,7 @@ export const VoiceSettings = () => {
     setIsTesting(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bob-tts`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bob-tts-elevenlabs`,
         {
           method: "POST",
           headers: {
@@ -101,19 +99,25 @@ export const VoiceSettings = () => {
           },
           body: JSON.stringify({ 
             text: "G'day mate! Bob from CARFIX here. How can I help ya today?",
-            voice: selectedVoice 
+            voiceId: selectedVoice 
           }),
         }
       );
 
       if (!response.ok) throw new Error("TTS request failed");
 
-      const { audioContent } = await response.json();
-      const audio = new Audio(`data:audio/mp3;base64,${audioContent}`);
+      // ElevenLabs returns audio blob directly
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
       
-      audio.onended = () => setIsTesting(false);
+      audio.onended = () => {
+        setIsTesting(false);
+        URL.revokeObjectURL(audioUrl);
+      };
       audio.onerror = () => {
         setIsTesting(false);
+        URL.revokeObjectURL(audioUrl);
         toast.error("Audio playback failed");
       };
       
@@ -137,7 +141,7 @@ export const VoiceSettings = () => {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <label className="text-sm font-medium">Voice</label>
+        <label className="text-sm font-medium">Voice (ElevenLabs)</label>
         <Select value={selectedVoice} onValueChange={handleVoiceChange} disabled={isSaving}>
           <SelectTrigger className="w-full bg-background">
             <SelectValue placeholder="Select a voice" />
@@ -145,13 +149,13 @@ export const VoiceSettings = () => {
           <SelectContent className="bg-popover z-50">
             <SelectGroup>
               <SelectLabel className="text-xs text-muted-foreground font-semibold">
-                Neural2 (Highest Quality)
+                ⭐ Recommended for Bob
               </SelectLabel>
-              {neural2Voices.map((voice) => (
+              {recommendedVoices.map((voice) => (
                 <SelectItem key={voice.value} value={voice.value}>
                   <span className="flex items-center gap-2">
-                    <span>{voice.accent}</span>
-                    <span>{voice.label}</span>
+                    <span className="font-medium">{voice.label}</span>
+                    <span className="text-xs text-muted-foreground">- {voice.description}</span>
                     {voice.isDefault && (
                       <span className="text-xs text-primary font-medium">(Default)</span>
                     )}
@@ -161,19 +165,35 @@ export const VoiceSettings = () => {
             </SelectGroup>
             <SelectGroup>
               <SelectLabel className="text-xs text-muted-foreground font-semibold mt-2">
-                Wavenet (High Quality)
+                Additional Voices
               </SelectLabel>
-              {wavenetVoices.map((voice) => (
+              {additionalVoices.map((voice) => (
                 <SelectItem key={voice.value} value={voice.value}>
                   <span className="flex items-center gap-2">
-                    <span>{voice.accent}</span>
-                    <span>{voice.label}</span>
+                    <span className="font-medium">{voice.label}</span>
+                    <span className="text-xs text-muted-foreground">- {voice.description}</span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectGroup>
+            <SelectGroup>
+              <SelectLabel className="text-xs text-muted-foreground font-semibold mt-2">
+                Character Voices
+              </SelectLabel>
+              {characterVoices.map((voice) => (
+                <SelectItem key={voice.value} value={voice.value}>
+                  <span className="flex items-center gap-2">
+                    <span className="font-medium">{voice.label}</span>
+                    <span className="text-xs text-muted-foreground">- {voice.description}</span>
                   </span>
                 </SelectItem>
               ))}
             </SelectGroup>
           </SelectContent>
         </Select>
+        <p className="text-xs text-muted-foreground">
+          Powered by ElevenLabs • Ultra-low latency streaming
+        </p>
       </div>
 
       <Button 

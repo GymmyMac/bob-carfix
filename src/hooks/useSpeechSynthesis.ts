@@ -114,8 +114,9 @@ export const useSpeechSynthesis = ({
     }, TTS_TIMEOUT_MS);
 
     try {
+      // Use ElevenLabs streaming endpoint for lower latency
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bob-tts`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bob-tts-elevenlabs`,
         {
           method: "POST",
           headers: {
@@ -132,10 +133,12 @@ export const useSpeechSynthesis = ({
         throw new Error("TTS request failed");
       }
 
-      const { audioContent } = await response.json();
+      // ElevenLabs returns audio blob directly (not base64)
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
       
-      // Create audio element
-      const audio = new Audio(`data:audio/mp3;base64,${audioContent}`);
+      // Create audio element from blob URL
+      const audio = new Audio(audioUrl);
       audioRef.current = audio;
 
       // Trigger onStart when audio actually begins playing
