@@ -264,7 +264,7 @@ const Index = () => {
   }, [animationState, getCurrentImage, manualMode, setAnimationState, setManualMode, clearMessages]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen min-w-full bg-background">
       {/* SwipeableBob wrapper - allows users to swipe Bob off-screen */}
       <SwipeableBob isSpeaking={isSpeaking}>
         {/* Bob character, backdrop, products - NO chat drawer (avoids transform stacking context issue) */}
