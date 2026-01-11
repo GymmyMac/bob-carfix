@@ -262,7 +262,7 @@ export const MatrixProductLoader: React.FC<MatrixProductLoaderProps> = ({
 
   return (
     <div 
-      className="absolute inset-0 z-40 flex flex-col items-center justify-center overflow-hidden pointer-events-none"
+      className="absolute inset-0 z-30 flex flex-col items-center justify-center overflow-hidden pointer-events-none"
       style={{ background: 'transparent' }}
     >
       {/* Matrix Rain Canvas */}
