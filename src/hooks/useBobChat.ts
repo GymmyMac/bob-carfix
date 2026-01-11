@@ -166,10 +166,30 @@ export const useBobChat = ({
       
       if (!isMuted) {
         console.log('[useBobChat] Speaking initial greeting (priority)');
-        setTimeout(() => speak(greetingMessage, true), 1000); // true = isGreeting priority
+        // Small delay to let the page settle
+        setTimeout(() => speak(greetingMessage, true), 500);
       }
     }
   }, [initialVehicle, messages.length, isMuted, speak]);
+
+  // Retry pending greeting on first user interaction (click/touch)
+  useEffect(() => {
+    const handleFirstInteraction = () => {
+      console.log('[useBobChat] User interaction detected - retrying pending greeting');
+      retryPendingGreeting();
+      // Remove listeners after first interaction
+      document.removeEventListener('click', handleFirstInteraction);
+      document.removeEventListener('touchstart', handleFirstInteraction);
+    };
+
+    document.addEventListener('click', handleFirstInteraction, { once: true });
+    document.addEventListener('touchstart', handleFirstInteraction, { once: true });
+
+    return () => {
+      document.removeEventListener('click', handleFirstInteraction);
+      document.removeEventListener('touchstart', handleFirstInteraction);
+    };
+  }, [retryPendingGreeting]);
 
   // Auto-fetch parts when vehicle is provided
   useEffect(() => {
@@ -411,8 +431,10 @@ export const useBobChat = ({
   }, [handleSend]);
 
   const handleInputFocus = useCallback(() => {
+    // Retry any blocked greeting when user focuses input
+    retryPendingGreeting();
     stopSpeech();
-  }, [stopSpeech]);
+  }, [stopSpeech, retryPendingGreeting]);
 
   const handleInputBlur = useCallback(() => {
     // No-op
