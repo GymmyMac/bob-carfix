@@ -166,12 +166,8 @@ export const MatrixProductLoader: React.FC<MatrixProductLoaderProps> = ({
       const elapsedMs = Date.now() - phaseStartTimeRef.current;
       const phaseProgress = elapsedMs / 1000;
 
-      // Background with trail effect
-      const bgColor = activeTheme.backgroundMode === 'dark' 
-        ? 'rgba(17, 24, 39, 0.08)'  // Navy trail
-        : 'rgba(255, 255, 255, 0.1)'; // White trail
-      ctx.fillStyle = bgColor;
-      ctx.fillRect(0, 0, width, height);
+      // Clear canvas for transparent overlay (Bob shows through)
+      ctx.clearRect(0, 0, width, height);
 
       // Draw each drop
       dropsRef.current.forEach((drop, index) => {
@@ -264,14 +260,10 @@ export const MatrixProductLoader: React.FC<MatrixProductLoaderProps> = ({
     return null;
   }
 
-  const backgroundStyle = activeTheme.backgroundMode === 'dark'
-    ? { background: `linear-gradient(135deg, #0f172a 0%, ${activeTheme.backgroundHex} 100%)` }
-    : { background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)' };
-
   return (
     <div 
-      className="absolute inset-0 z-40 flex flex-col items-center justify-center overflow-hidden"
-      style={backgroundStyle}
+      className="absolute inset-0 z-40 flex flex-col items-center justify-center overflow-hidden pointer-events-none"
+      style={{ background: 'transparent' }}
     >
       {/* Matrix Rain Canvas */}
       <canvas
