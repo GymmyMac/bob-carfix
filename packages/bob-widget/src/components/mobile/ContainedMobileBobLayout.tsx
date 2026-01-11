@@ -169,29 +169,20 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
         touchAction: 'manipulation'
       }}
     >
-      {/* Blurred Background */}
+      {/* Background - NO overlay on Bob, only on backdrop */}
       {backdropUrl && (
-        <>
-          <div 
-            className="absolute inset-0 z-0 transition-all duration-500 ease-out"
-            style={{
-              backgroundImage: `url(${backdropUrl})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center bottom',
-              filter: shouldBlurBackground 
-                ? 'blur(12px) brightness(0.7)' 
-                : 'blur(0px) brightness(1)',
-              transform: 'scale(1.1)'
-            }}
-          />
-          
-          <div 
-            className="absolute inset-0 z-[1]"
-            style={{
-              background: 'linear-gradient(to bottom, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.6) 100%)'
-            }}
-          />
-        </>
+        <div 
+          className="absolute inset-0 z-0 transition-all duration-500 ease-out"
+          style={{
+            backgroundImage: `url(${backdropUrl})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center bottom',
+            filter: shouldBlurBackground 
+              ? 'blur(8px) brightness(0.9)' 
+              : 'blur(0px) brightness(1)',
+            transform: 'scale(1.05)'
+          }}
+        />
       )}
 
       {/* Bob Character - scales based on state */}
