@@ -5,6 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { AdminLoginForm } from './AdminLoginForm';
 import { getStorageType } from '@/lib/backend/safeStorage';
 
+// Build marker for debugging deployment issues
+const BUILD_MARKER = `v2.1.0-${new Date().toISOString().slice(0, 10)}`;
+
 interface ProtectedAdminRouteProps {
   children: React.ReactNode;
 }
@@ -24,15 +27,30 @@ export const ProtectedAdminRoute = ({ children }: ProtectedAdminRouteProps) => {
   } = useAdminAuth();
   const storageType = getStorageType();
 
-  // Show loading state while checking auth
+  // Show loading state while checking auth - PROMINENTLY show debug info
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Verifying access...</p>
-          <p className="text-xs text-muted-foreground/60">Step: {authStep}</p>
-          <p className="text-xs text-muted-foreground/60">Storage: {storageType}</p>
+        <div className="flex flex-col items-center gap-4 p-6 border border-border rounded-lg bg-card shadow-sm">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-lg font-medium text-foreground">Verifying access...</p>
+          <div className="flex flex-col items-center gap-1 bg-muted/50 px-4 py-2 rounded text-sm font-mono">
+            <p className="text-foreground">Step: <span className="text-primary font-bold">{authStep}</span></p>
+            <p className="text-muted-foreground">Storage: {storageType}</p>
+            <p className="text-muted-foreground/60 text-xs">Build: {BUILD_MARKER}</p>
+          </div>
+          <p className="text-xs text-muted-foreground text-center max-w-xs">
+            If this takes more than 10 seconds, click "Clear Auth Data" below
+          </p>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={clearAuthAndRetry}
+            className="mt-2"
+          >
+            <Trash2 className="h-3 w-3 mr-2" />
+            Clear Auth Data
+          </Button>
         </div>
       </div>
     );
