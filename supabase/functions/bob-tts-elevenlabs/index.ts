@@ -13,6 +13,13 @@ const sanitizeForTTS = (text: string): string => {
   return text
     // Fix CARFIX pronunciation
     .replace(/CARFIX/gi, "Car Fix")
+    
+    // Kiwi automotive terms
+    .replace(/\brego\b/gi, "rejo")           // Vehicle registration
+    .replace(/\bWOF\b/g, "woff")             // Warrant of Fitness
+    .replace(/\bWof\b/g, "woff")
+    .replace(/\bCOF\b/g, "coff")             // Certificate of Fitness
+    
     // Fix Kiwi slang - "ya" sounds wrong in TTS
     .replace(/\bya\b/gi, "you")
     .replace(/\bon ya\b/gi, "on you")
@@ -23,6 +30,7 @@ const sanitizeForTTS = (text: string): string => {
     .replace(/\bfor ya\b/gi, "for you")
     .replace(/\bto ya\b/gi, "to you")
     .replace(/\bwith ya\b/gi, "with you")
+    
     // Fix common abbreviations
     .replace(/\bG'day\b/gi, "G'day")
     .replace(/\bmate\b/gi, "mate");
