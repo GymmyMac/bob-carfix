@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/backend/client';
 import type { User } from '@supabase/supabase-js';
 
@@ -10,16 +10,30 @@ interface AdminAuthState {
   adminStatus: AdminStatus;
   isLoading: boolean;
   error: string | null;
+  authStep: string; // For debugging
 }
 
-// Helper to create a timeout promise
-const withTimeout = <T>(promise: Promise<T>, ms: number, errorMessage: string): Promise<T> => {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => 
-      setTimeout(() => reject(new Error(errorMessage)), ms)
-    )
-  ]);
+// Helper to create a timeout promise that properly races async operations
+const withTimeout = <T>(
+  asyncFn: () => Promise<T>,
+  ms: number,
+  errorMessage: string
+): Promise<T> => {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(errorMessage));
+    }, ms);
+
+    asyncFn()
+      .then((result) => {
+        clearTimeout(timer);
+        resolve(result);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
 };
 
 // Retry with exponential backoff
@@ -49,6 +63,7 @@ const withRetry = async <T>(
 
 const AUTH_TIMEOUT_MS = 5000;
 const ROLE_CHECK_TIMEOUT_MS = 8000;
+const HARD_WATCHDOG_MS = 15000; // Force error state after 15 seconds
 
 export const useAdminAuth = () => {
   const [state, setState] = useState<AdminAuthState>({
@@ -56,36 +71,97 @@ export const useAdminAuth = () => {
     adminStatus: 'unknown',
     isLoading: true,
     error: null,
+    authStep: 'initializing',
   });
 
+  // Concurrency guard - only the latest check should update state
+  const checkIdRef = useRef(0);
+  // Cache confirmed admin status for the current session
+  const confirmedAdminRef = useRef<{ userId: string; isAdmin: boolean } | null>(null);
+  // Watchdog timer ref
+  const watchdogRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Reset watchdog whenever we exit loading state
+  const clearWatchdog = useCallback(() => {
+    if (watchdogRef.current) {
+      clearTimeout(watchdogRef.current);
+      watchdogRef.current = null;
+    }
+  }, []);
+
+  // Start watchdog when entering loading state
+  const startWatchdog = useCallback(() => {
+    clearWatchdog();
+    watchdogRef.current = setTimeout(() => {
+      console.error('[AdminAuth] WATCHDOG: Auth verification exceeded 15s, forcing error state');
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        adminStatus: prev.user ? 'unknown' : prev.adminStatus,
+        error: 'Auth verification is taking too long. The backend may be unavailable.',
+        authStep: 'watchdog_timeout',
+      }));
+    }, HARD_WATCHDOG_MS);
+  }, [clearWatchdog]);
+
   const checkAdminStatus = useCallback(async (user: User | null, source: string) => {
-    console.log(`[AdminAuth] checkAdminStatus from ${source}:`, user?.email ?? 'no user');
+    // Increment check ID for concurrency guard
+    const thisCheckId = ++checkIdRef.current;
+    console.log(`[AdminAuth] checkAdminStatus #${thisCheckId} from ${source}:`, user?.email ?? 'no user');
+    
+    const updateState = (newState: Partial<AdminAuthState>) => {
+      // Only update if this is still the latest check
+      if (checkIdRef.current !== thisCheckId) {
+        console.log(`[AdminAuth] Check #${thisCheckId} superseded by #${checkIdRef.current}, skipping state update`);
+        return;
+      }
+      setState(prev => ({ ...prev, ...newState }));
+    };
     
     if (!user) {
-      setState({
+      confirmedAdminRef.current = null;
+      updateState({
         user: null,
         adminStatus: 'unknown',
         isLoading: false,
         error: null,
+        authStep: 'no_user',
       });
+      clearWatchdog();
+      return;
+    }
+
+    // Fast path: if we already confirmed admin status for this user, use cache
+    if (confirmedAdminRef.current?.userId === user.id) {
+      console.log('[AdminAuth] Using cached admin status:', confirmedAdminRef.current.isAdmin);
+      updateState({
+        user,
+        adminStatus: confirmedAdminRef.current.isAdmin ? 'admin' : 'not_admin',
+        isLoading: false,
+        error: null,
+        authStep: 'cached',
+      });
+      clearWatchdog();
       return;
     }
 
     try {
+      updateState({ authStep: 'checking_role' });
       console.log('[AdminAuth] Checking admin role with retries...');
       
       // Use direct query to user_roles table (faster, more reliable than RPC)
       const checkRole = async (): Promise<boolean> => {
-        // Build the query and execute it
-        const query = supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .eq('role', 'admin')
-          .limit(1);
-        
+        // Execute the query and await the actual network request
         const result = await withTimeout(
-          Promise.resolve(query),
+          async () => {
+            const { data, error } = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', user.id)
+              .eq('role', 'admin')
+              .limit(1);
+            return { data, error };
+          },
           ROLE_CHECK_TIMEOUT_MS,
           'Role check timed out'
         );
@@ -94,9 +170,14 @@ export const useAdminAuth = () => {
           console.error('[AdminAuth] Direct role query failed:', result.error.message);
           // Fallback to RPC if direct query fails
           console.log('[AdminAuth] Trying RPC fallback...');
-          const rpcQuery = supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' });
           const rpcResult = await withTimeout(
-            Promise.resolve(rpcQuery),
+            async () => {
+              const { data, error } = await supabase.rpc('has_role', { 
+                _user_id: user.id, 
+                _role: 'admin' 
+              });
+              return { data, error };
+            },
             ROLE_CHECK_TIMEOUT_MS,
             'RPC role check timed out'
           );
@@ -112,11 +193,15 @@ export const useAdminAuth = () => {
       
       console.log('[AdminAuth] Admin check result:', isAdmin);
 
-      setState({
+      // Cache the result
+      confirmedAdminRef.current = { userId: user.id, isAdmin };
+
+      updateState({
         user,
         adminStatus: isAdmin ? 'admin' : 'not_admin',
         isLoading: false,
         error: null,
+        authStep: isAdmin ? 'confirmed_admin' : 'confirmed_not_admin',
       });
     } catch (err) {
       console.error('[AdminAuth] Error in admin check after retries:', err);
@@ -124,23 +209,33 @@ export const useAdminAuth = () => {
       
       // On timeout/error, set status to 'unknown' (not 'not_admin')
       // User might still be admin, we just couldn't verify
-      setState({
+      updateState({
         user,
         adminStatus: 'unknown',
         isLoading: false,
         error: `${errorMessage}. Backend may be waking up - try again in a moment.`,
+        authStep: 'role_check_failed',
       });
+    } finally {
+      // Always clear watchdog when check completes
+      if (checkIdRef.current === thisCheckId) {
+        clearWatchdog();
+      }
     }
-  }, []);
+  }, [clearWatchdog]);
 
   const refreshAuth = useCallback(async () => {
     console.log('[AdminAuth] refreshAuth called - re-checking auth status');
-    setState(prev => ({ ...prev, isLoading: true, error: null }));
+    // Clear cache to force re-check
+    confirmedAdminRef.current = null;
+    setState(prev => ({ ...prev, isLoading: true, error: null, authStep: 'refreshing' }));
+    startWatchdog();
     
     try {
+      setState(prev => ({ ...prev, authStep: 'getting_session' }));
       // Try getSession with timeout first
       const { data: { session } } = await withTimeout(
-        supabase.auth.getSession(),
+        () => supabase.auth.getSession(),
         AUTH_TIMEOUT_MS,
         'Session fetch timed out'
       );
@@ -152,8 +247,9 @@ export const useAdminAuth = () => {
       
       // Fallback: try getUser if no session
       console.log('[AdminAuth] No session, trying getUser...');
+      setState(prev => ({ ...prev, authStep: 'getting_user' }));
       const { data: { user } } = await withTimeout(
-        supabase.auth.getUser(),
+        () => supabase.auth.getUser(),
         AUTH_TIMEOUT_MS,
         'User fetch timed out'
       );
@@ -167,13 +263,16 @@ export const useAdminAuth = () => {
         adminStatus: 'unknown',
         isLoading: false,
         error: errorMessage,
+        authStep: 'refresh_failed',
       });
+      clearWatchdog();
     }
-  }, [checkAdminStatus]);
+  }, [checkAdminStatus, startWatchdog, clearWatchdog]);
 
   // Function to clear auth storage and retry
   const clearAuthAndRetry = useCallback(() => {
     console.log('[AdminAuth] Clearing auth storage and retrying...');
+    confirmedAdminRef.current = null;
     
     // Clear all supabase auth keys from localStorage
     try {
@@ -215,6 +314,9 @@ export const useAdminAuth = () => {
     let mounted = true;
     let authResolved = false;
 
+    // Start watchdog timer
+    startWatchdog();
+
     const wrappedCheckAdminStatus = async (user: User | null, source: string) => {
       if (!mounted) return;
       await checkAdminStatus(user, source);
@@ -231,8 +333,25 @@ export const useAdminAuth = () => {
         if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
           authResolved = true;
         }
+
+        // For TOKEN_REFRESHED, only re-check if user changed
+        if (event === 'TOKEN_REFRESHED') {
+          const currentUserId = session?.user?.id;
+          const cachedUserId = confirmedAdminRef.current?.userId;
+          if (currentUserId && currentUserId === cachedUserId) {
+            console.log('[AdminAuth] TOKEN_REFRESHED for same user, skipping re-check');
+            // Just update user object without loading state
+            setState(prev => ({ 
+              ...prev, 
+              user: session?.user ?? null,
+              authStep: 'token_refreshed',
+            }));
+            return;
+          }
+        }
         
-        setState(prev => ({ ...prev, isLoading: true }));
+        setState(prev => ({ ...prev, isLoading: true, authStep: `auth_event:${event}` }));
+        startWatchdog();
         await wrappedCheckAdminStatus(session?.user ?? null, `onAuthStateChange:${event}`);
       }
     );
@@ -242,9 +361,11 @@ export const useAdminAuth = () => {
       if (authResolved || !mounted) return;
       
       console.log('[AdminAuth] Fallback: no auth event received, trying getSession with timeout...');
+      setState(prev => ({ ...prev, authStep: 'fallback_getSession' }));
+      
       try {
         const { data: { session } } = await withTimeout(
-          supabase.auth.getSession(),
+          () => supabase.auth.getSession(),
           AUTH_TIMEOUT_MS,
           'Session fetch timed out'
         );
@@ -255,8 +376,9 @@ export const useAdminAuth = () => {
           } else {
             // Try getUser as last resort
             console.log('[AdminAuth] Fallback: trying getUser...');
+            setState(prev => ({ ...prev, authStep: 'fallback_getUser' }));
             const { data: { user } } = await withTimeout(
-              supabase.auth.getUser(),
+              () => supabase.auth.getUser(),
               AUTH_TIMEOUT_MS,
               'User fetch timed out'
             );
@@ -272,7 +394,9 @@ export const useAdminAuth = () => {
             adminStatus: 'unknown',
             isLoading: false,
             error: `${errorMessage} - try clearing your browser data or opening in a new tab`,
+            authStep: 'fallback_failed',
           });
+          clearWatchdog();
         }
       }
     }, 3000);
@@ -280,11 +404,13 @@ export const useAdminAuth = () => {
     return () => {
       mounted = false;
       clearTimeout(fallbackTimeout);
+      clearWatchdog();
       subscription.unsubscribe();
     };
-  }, [checkAdminStatus]);
+  }, [checkAdminStatus, startWatchdog, clearWatchdog]);
 
   const signOut = async () => {
+    confirmedAdminRef.current = null;
     await supabase.auth.signOut();
   };
 
@@ -299,6 +425,7 @@ export const useAdminAuth = () => {
     isAdminStatusUnknown,
     isLoading: state.isLoading,
     error: state.error,
+    authStep: state.authStep,
     signOut,
     refreshAuth,
     clearAuthAndRetry,
