@@ -1,15 +1,17 @@
 import { useAdminAuth } from '@/hooks/useAdminAuth';
-import { Loader2, ShieldAlert, ExternalLink, RefreshCw } from 'lucide-react';
+import { Loader2, ShieldAlert, ExternalLink, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AdminLoginForm } from './AdminLoginForm';
+import { getStorageType } from '@/lib/backend/safeStorage';
 
 interface ProtectedAdminRouteProps {
   children: React.ReactNode;
 }
 
 export const ProtectedAdminRoute = ({ children }: ProtectedAdminRouteProps) => {
-  const { user, isAdmin, isLoading, error, signOut, refreshAuth } = useAdminAuth();
+  const { user, isAdmin, isLoading, error, signOut, refreshAuth, clearAuthAndRetry } = useAdminAuth();
+  const storageType = getStorageType();
 
   // Show loading state while checking auth
   if (isLoading) {
@@ -18,6 +20,7 @@ export const ProtectedAdminRoute = ({ children }: ProtectedAdminRouteProps) => {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">Verifying access...</p>
+          <p className="text-xs text-muted-foreground/60">Storage: {storageType}</p>
         </div>
       </div>
     );
@@ -50,6 +53,14 @@ export const ProtectedAdminRoute = ({ children }: ProtectedAdminRouteProps) => {
                 </Button>
                 <Button 
                   variant="outline" 
+                  onClick={clearAuthAndRetry}
+                  className="w-full"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear Auth Data & Retry
+                </Button>
+                <Button 
+                  variant="outline" 
                   onClick={() => window.open(window.location.href, '_blank')}
                   className="w-full"
                 >
@@ -60,6 +71,9 @@ export const ProtectedAdminRoute = ({ children }: ProtectedAdminRouteProps) => {
                   Try Login Again
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground/60 text-center">
+                Storage: {storageType}
+              </p>
             </CardContent>
           </Card>
         </div>

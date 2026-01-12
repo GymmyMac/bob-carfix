@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
+import { getStorageType } from "@/lib/backend/safeStorage";
 
 interface AdminLoginFormProps {
   onSuccess: () => void;
@@ -16,6 +17,7 @@ export const AdminLoginForm = ({ onSuccess }: AdminLoginFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const storageType = getStorageType();
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,6 +162,10 @@ export const AdminLoginForm = ({ onSuccess }: AdminLoginFormProps) => {
               </form>
             </TabsContent>
           </Tabs>
+          
+          <p className="text-xs text-muted-foreground/60 text-center mt-4">
+            Storage: {storageType}
+          </p>
         </CardContent>
       </Card>
     </div>

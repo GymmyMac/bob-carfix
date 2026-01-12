@@ -45,13 +45,13 @@ export const useBobBackdrop = () => {
       const filePath = `backdrops/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from("bob-assets")
+        .from("bob-images")
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from("bob-assets")
+        .from("bob-images")
         .getPublicUrl(filePath);
 
       const { error: insertError } = await supabase
