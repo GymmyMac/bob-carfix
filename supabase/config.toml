@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.bob-tts-elevenlabs]
 verify_jwt = false
+
+[functions.admin-auth-diagnostic]
+verify_jwt = false
