@@ -2,9 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/backend/client';
 import type { User } from '@supabase/supabase-js';
 
+// Admin status: 'unknown' means we haven't confirmed yet (timeout/error), not that user isn't admin
+type AdminStatus = 'unknown' | 'admin' | 'not_admin';
+
 interface AdminAuthState {
   user: User | null;
-  isAdmin: boolean;
+  adminStatus: AdminStatus;
   isLoading: boolean;
   error: string | null;
 }
@@ -19,13 +22,38 @@ const withTimeout = <T>(promise: Promise<T>, ms: number, errorMessage: string): 
   ]);
 };
 
+// Retry with exponential backoff
+const withRetry = async <T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 300
+): Promise<T> => {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.log(`[AdminAuth] Retry attempt ${attempt + 1}/${maxRetries} failed:`, lastError.message);
+      
+      if (attempt < maxRetries - 1) {
+        const delay = baseDelay * Math.pow(2, attempt); // 300ms, 600ms, 1200ms
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError;
+};
+
 const AUTH_TIMEOUT_MS = 5000;
-const ROLE_CHECK_TIMEOUT_MS = 5000;
+const ROLE_CHECK_TIMEOUT_MS = 8000;
 
 export const useAdminAuth = () => {
   const [state, setState] = useState<AdminAuthState>({
     user: null,
-    isAdmin: false,
+    adminStatus: 'unknown',
     isLoading: true,
     error: null,
   });
@@ -36,7 +64,7 @@ export const useAdminAuth = () => {
     if (!user) {
       setState({
         user: null,
-        isAdmin: false,
+        adminStatus: 'unknown',
         isLoading: false,
         error: null,
       });
@@ -44,46 +72,63 @@ export const useAdminAuth = () => {
     }
 
     try {
-      console.log('[AdminAuth] Calling has_role RPC with timeout...');
+      console.log('[AdminAuth] Checking admin role with retries...');
       
-      // Create the RPC call - wrap in Promise.resolve to ensure it's a proper Promise
-      const rpcPromise = Promise.resolve(
-        supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' })
-      );
+      // Use direct query to user_roles table (faster, more reliable than RPC)
+      const checkRole = async (): Promise<boolean> => {
+        // Build the query and execute it
+        const query = supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'admin')
+          .limit(1);
+        
+        const result = await withTimeout(
+          Promise.resolve(query),
+          ROLE_CHECK_TIMEOUT_MS,
+          'Role check timed out'
+        );
+
+        if (result.error) {
+          console.error('[AdminAuth] Direct role query failed:', result.error.message);
+          // Fallback to RPC if direct query fails
+          console.log('[AdminAuth] Trying RPC fallback...');
+          const rpcQuery = supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' });
+          const rpcResult = await withTimeout(
+            Promise.resolve(rpcQuery),
+            ROLE_CHECK_TIMEOUT_MS,
+            'RPC role check timed out'
+          );
+          
+          if (rpcResult.error) throw rpcResult.error;
+          return rpcResult.data === true;
+        }
+
+        return (result.data?.length ?? 0) > 0;
+      };
+
+      const isAdmin = await withRetry(checkRole, 3, 300);
       
-      const { data, error } = await withTimeout(
-        rpcPromise,
-        ROLE_CHECK_TIMEOUT_MS,
-        'Role check timed out'
-      );
-
-      console.log('[AdminAuth] has_role result:', { data, error: error?.message });
-
-      if (error) {
-        console.error('Error checking admin role:', error);
-        setState({
-          user,
-          isAdmin: false,
-          isLoading: false,
-          error: 'Failed to verify admin status',
-        });
-        return;
-      }
+      console.log('[AdminAuth] Admin check result:', isAdmin);
 
       setState({
         user,
-        isAdmin: data === true,
+        adminStatus: isAdmin ? 'admin' : 'not_admin',
         isLoading: false,
         error: null,
       });
     } catch (err) {
-      console.error('[AdminAuth] Error in admin check:', err);
+      console.error('[AdminAuth] Error in admin check after retries:', err);
       const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      
+      // On timeout/error, set status to 'unknown' (not 'not_admin')
+      // User might still be admin, we just couldn't verify
       setState({
         user,
-        isAdmin: false,
+        adminStatus: 'unknown',
         isLoading: false,
-        error: errorMessage,
+        error: `${errorMessage}. Backend may be waking up - try again in a moment.`,
       });
     }
   }, []);
@@ -119,7 +164,7 @@ export const useAdminAuth = () => {
       const errorMessage = error instanceof Error ? error.message : 'Failed to refresh authentication';
       setState({
         user: null,
-        isAdmin: false,
+        adminStatus: 'unknown',
         isLoading: false,
         error: errorMessage,
       });
@@ -224,7 +269,7 @@ export const useAdminAuth = () => {
           const errorMessage = error instanceof Error ? error.message : 'Session verification failed';
           setState({
             user: null,
-            isAdmin: false,
+            adminStatus: 'unknown',
             isLoading: false,
             error: `${errorMessage} - try clearing your browser data or opening in a new tab`,
           });
@@ -243,8 +288,17 @@ export const useAdminAuth = () => {
     await supabase.auth.signOut();
   };
 
+  // Derived values for backward compatibility
+  const isAdmin = state.adminStatus === 'admin';
+  const isAdminStatusUnknown = state.adminStatus === 'unknown' && state.user !== null;
+
   return {
-    ...state,
+    user: state.user,
+    isAdmin,
+    adminStatus: state.adminStatus,
+    isAdminStatusUnknown,
+    isLoading: state.isLoading,
+    error: state.error,
     signOut,
     refreshAuth,
     clearAuthAndRetry,

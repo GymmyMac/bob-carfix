@@ -126,16 +126,23 @@ export const ThemeSettingsPanel: React.FC = () => {
   const updateSetting = async (key: string, colorValue: string, hexPreview: string | null) => {
     setSaving(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('bob_theme_settings')
         .update({ 
           color_value: colorValue, 
           hex_preview: hexPreview,
           updated_at: new Date().toISOString()
         })
-        .eq('setting_key', key);
+        .eq('setting_key', key)
+        .select();
 
       if (error) throw error;
+      
+      // Check if any row was actually updated
+      if (!data || data.length === 0) {
+        toast.error(`Setting "${key}" not found or not permitted`);
+        return;
+      }
       
       // Update local state
       setSettings(prev => prev.map(s => 
@@ -147,7 +154,8 @@ export const ThemeSettingsPanel: React.FC = () => {
       toast.success(`${key.replace('matrix_', '').replace(/_/g, ' ')} updated`);
     } catch (error) {
       console.error('Error updating setting:', error);
-      toast.error('Failed to update setting');
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to update setting: ${errorMsg}`);
     } finally {
       setSaving(false);
     }
