@@ -1,9 +1,17 @@
-import React, { useRef, useEffect, useMemo } from "react";
+import React, { useRef, useEffect, useMemo, useState } from "react";
 import { useViewportSize, type ViewportSize } from "../../hooks/useViewportSize";
 import { usePositionFactors } from "../../hooks/usePositionFactors";
 import { ProductTile } from "../ProductTile";
 import type { Product, ServicePackage } from "../../types";
 import type { HighlightedProduct } from "../../types/message";
+import { 
+  glassCard, 
+  glassCardPremium,
+  glassPanel,
+  glassButtonPrimary,
+  glassText,
+  glassScrollDot 
+} from "../../styles/glass";
 
 interface MobileProductColumnProps {
   products: Product[];
@@ -270,111 +278,133 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
     }
   }, [highlightedProduct]);
 
-  const hasContent = products.length > 0 || servicePackages.length > 0;
-  // v2.2: Keep showing previous content while researching (don't blank out)
-  const showLoading = isResearching && !hasContent;
-  const showContent = hasContent;
-  const topOffset = hasVehicle ? '56px' : '8px';
-
-  // Calculate responsive width: 80% base adjusted by factor
-  const columnWidth = 80 * factors.productWidth;
-  const leftOffset = (100 - columnWidth) / 2;
+  // Scroll tracking for custom indicator
+  const [scrollProgress, setScrollProgress] = useState(0);
+  
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const scrollHeight = target.scrollHeight - target.clientHeight;
+    if (scrollHeight > 0) {
+      const progress = target.scrollTop / scrollHeight;
+      setScrollProgress(Math.max(0, Math.min(1, progress)));
+    }
+  };
 
   return (
-    <div 
-      ref={scrollRef}
-      className={`absolute overflow-y-auto overflow-x-hidden z-30 flex flex-col gap-4 md:gap-5 transition-all duration-400 ease-out ${
-        visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-12 pointer-events-none"
-      }`}
-      style={{
-        // v3.0: 80% width with responsive scaling
-        width: `${columnWidth}%`,
-        maxWidth: '440px',
-        left: `${leftOffset}%`,
-        right: `${leftOffset}%`,
-        top: topOffset,
-        bottom: 'calc(75px + env(safe-area-inset-bottom, 8px))',
-        paddingTop: 'env(safe-area-inset-top, 4px)',
-        paddingRight: '12px',
-        paddingLeft: '12px',
-      }}
-    >
+    <>
+      {/* Custom Scroll Indicator - Minimal glass dot on right edge */}
+      {hasContent && visible && (
+        <div 
+          style={{
+            position: 'fixed',
+            right: '2px',
+            top: `calc(${scrollProgress * 65 + 18}%)`,
+            ...glassScrollDot,
+            opacity: 0.8,
+            transition: 'top 0.1s ease-out',
+            zIndex: 100,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+      
+      <div 
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className={`absolute overflow-y-auto overflow-x-hidden z-30 flex flex-col gap-4 md:gap-5 transition-all duration-400 ease-out product-scroll ${
+          visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-12 pointer-events-none"
+        }`}
+        style={{
+          // Right-aligned, 80% width
+          width: `${columnWidth}%`,
+          maxWidth: '440px',
+          right: '0',
+          left: 'auto',
+          top: topOffset,
+          bottom: 'calc(75px + env(safe-area-inset-bottom, 8px))',
+          paddingTop: 'env(safe-area-inset-top, 4px)',
+          paddingRight: '8px',   // Tight to right edge
+          paddingLeft: '16px',   // Space for Bob
+          // Hide default scrollbar
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
+      >
       {/* ============================================================================
-          v3.0 SHELF HEADER - CARFIX Blue branding
+          v3.0 SHELF HEADER - Premium Glass Style
           ============================================================================ */}
       <div 
-        className="sticky top-0 z-10 -mx-1 px-3 py-2.5 rounded-xl"
+        className="sticky top-0 z-10 -mx-1 px-3 py-2.5"
         style={{
-          background: 'linear-gradient(135deg, rgba(0, 102, 204, 0.95) 0%, rgba(0, 73, 153, 0.95) 100%)',
-          backdropFilter: 'blur(12px)',
-          boxShadow: '0 4px 20px -4px rgba(0, 102, 204, 0.5)',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
+          background: 'linear-gradient(135deg, rgba(0, 102, 204, 0.85) 0%, rgba(0, 73, 153, 0.9) 100%)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          borderRadius: '24px',
+          boxShadow: '0 10px 40px rgba(0, 102, 204, 0.4)',
+          border: '1px solid rgba(255, 255, 255, 0.25)',
         }}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {isResearching && hasContent ? (
-              <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.2)' }}>
                 <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               </div>
             ) : (
-              <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.2)' }}>
                 <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
               </div>
             )}
-            <span className="text-white font-bold text-sm tracking-wide">
+            <span style={{ ...glassText.primary, fontWeight: 700, fontSize: '14px', letterSpacing: '0.025em' }}>
               {isResearching && hasContent ? 'Updating...' : "Bob's Shelf"}
             </span>
           </div>
-          <span className="text-white/80 text-xs font-medium">
+          <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px', fontWeight: 500 }}>
             {products.length + servicePackages.length} {(products.length + servicePackages.length) === 1 ? 'item' : 'items'}
           </span>
         </div>
       </div>
 
-      {/* Loading state - v2.0 enhanced */}
+      {/* Loading state - Glass style */}
       {showLoading && (
         <div 
-          className="rounded-2xl p-5 border"
+          className="p-5"
           style={{
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(249,250,251,0.95) 100%)',
-            borderColor: 'rgba(59, 130, 246, 0.2)',
-            boxShadow: '0 8px 25px -5px rgba(0, 0, 0, 0.1)',
+            ...glassCard,
           }}
         >
           <div className="flex flex-col items-center gap-3 text-center">
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-              <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(0, 102, 204, 0.2)' }}>
+              <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(255,255,255,0.8)', borderTopColor: 'transparent' }} />
             </div>
             <div>
-              <p className="font-semibold text-gray-800 text-sm">Searching shelves...</p>
-              <p className="text-xs text-gray-500 mt-0.5">Finding the best parts for you</p>
+              <p style={{ ...glassText.primary, fontWeight: 600, fontSize: '14px' }}>Searching shelves...</p>
+              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px', marginTop: '2px' }}>Finding the best parts for you</p>
             </div>
           </div>
         </div>
       )}
       
-      {/* DEBUG: Empty state with diagnostic info */}
+      {/* DEBUG: Empty state with glass style */}
       {!showLoading && !hasContent && (
         <div 
-          className="rounded-2xl p-5 border"
+          className="p-5"
           style={{
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(254,249,195,0.95) 100%)',
-            borderColor: 'rgba(234, 179, 8, 0.3)',
-            boxShadow: '0 8px 25px -5px rgba(0, 0, 0, 0.1)',
+            ...glassCard,
+            background: 'rgba(255, 149, 0, 0.15)',
           }}
         >
           <div className="flex flex-col items-center gap-3 text-center">
-            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-              <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(255, 149, 0, 0.3)' }}>
+              <svg className="w-5 h-5" style={{ color: '#FF9500' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <p className="font-semibold text-amber-800 text-sm">No products to display</p>
-              <p className="text-xs text-amber-600 mt-0.5">
+              <p style={{ ...glassText.primary, fontWeight: 600, fontSize: '14px' }}>No products to display</p>
+              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px', marginTop: '2px' }}>
                 Products: {products.length} | Packages: {servicePackages.length}
               </p>
             </div>
@@ -382,30 +412,42 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
         </div>
       )}
 
-      {/* Service Packages - CARFIX Blue branding (displayed FIRST for best value) */}
+      {/* Service Packages - Premium Glass Cards */}
       {showContent && servicePackages.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center gap-2 px-1">
             <div 
-              className="w-6 h-6 rounded-lg flex items-center justify-center shadow-md"
-              style={{ background: 'linear-gradient(135deg, #0066CC 0%, #004999 100%)' }}
+              className="w-6 h-6 rounded-lg flex items-center justify-center"
+              style={{ 
+                background: 'linear-gradient(135deg, rgba(0, 102, 204, 0.8) 0%, rgba(0, 73, 153, 0.9) 100%)',
+                boxShadow: '0 4px 12px rgba(0, 102, 204, 0.4)',
+              }}
             >
               <svg className="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <span className="text-sm font-bold uppercase tracking-wider" style={{ color: '#0066CC' }}>Service Packages</span>
+            <span style={{ ...glassText.primary, fontSize: '12px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              Service Packages
+            </span>
           </div>
           {servicePackages.map((pkg) => (
             <div
               key={pkg.id}
               onClick={() => onPackageSelect?.(pkg)}
-              className="cursor-pointer group transition-all duration-300 rounded-2xl overflow-hidden hover:scale-[1.02] hover:-translate-y-1"
+              className="cursor-pointer group transition-all duration-300 overflow-hidden glass-card"
               style={{
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(12px)',
-                boxShadow: '0 8px 30px -6px rgba(0, 102, 204, 0.2), 0 4px 12px -4px rgba(0, 0, 0, 0.08)',
-                border: '1px solid rgba(0, 102, 204, 0.15)',
+                ...glassCard,
+                transform: 'scale(1)',
+                transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease-out',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.02) translateY(-4px)';
+                e.currentTarget.style.boxShadow = '0 16px 56px rgba(0, 0, 0, 0.4), 0 0 24px rgba(255,255,255,0.08)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1) translateY(0)';
+                e.currentTarget.style.boxShadow = glassCard.boxShadow as string;
               }}
             >
               {/* Main content area */}
@@ -414,8 +456,9 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                 <div 
                   className="w-20 h-20 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
                   style={{
-                    background: 'linear-gradient(145deg, rgba(0, 102, 204, 0.12) 0%, rgba(0, 102, 204, 0.04) 100%)',
-                    border: '1px solid rgba(0, 102, 204, 0.1)',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    backdropFilter: 'blur(8px)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
                   }}
                 >
                   {pkg.icon_url ? (
@@ -425,7 +468,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                       className="w-full h-full object-contain p-2"
                     />
                   ) : (
-                    <svg className="h-10 w-10" style={{ color: '#0066CC' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-10 w-10" style={{ color: 'rgba(255,255,255,0.7)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
                   )}
@@ -434,28 +477,28 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                 {/* Text content */}
                 <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
                   <div>
-                    <p className="text-base font-bold text-gray-900 line-clamp-2 mb-1 transition-colors" style={{ '--hover-color': '#0066CC' } as React.CSSProperties}>{pkg.title}</p>
+                    <p style={{ ...glassText.primary, fontWeight: 700, fontSize: '16px' }} className="line-clamp-2 mb-1">{pkg.title}</p>
                     {pkg.description && (
-                      <p className="text-xs text-gray-500 line-clamp-2">{pkg.description}</p>
+                      <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px' }} className="line-clamp-2">{pkg.description}</p>
                     )}
                   </div>
                   <div className="flex items-baseline gap-1.5 mt-2">
-                    <span className="text-xs text-gray-400 font-medium">From</span>
-                    <span className="text-2xl font-extrabold" style={{ color: '#0066CC' }}>${pkg.from_price.toFixed(0)}</span>
+                    <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px', fontWeight: 500 }}>From</span>
+                    <span style={{ ...glassText.price, fontSize: '24px', fontWeight: 800 }}>${pkg.from_price.toFixed(0)}</span>
                   </div>
                 </div>
               </div>
               
-              {/* CTA Button - CARFIX Orange accent */}
+              {/* CTA Button - Glass with orange accent */}
               <div 
                 className="px-4 py-3 transition-colors"
                 style={{
-                  background: 'linear-gradient(90deg, rgba(255, 149, 0, 0.08) 0%, rgba(255, 149, 0, 0.02) 100%)',
-                  borderTop: '1px solid rgba(255, 149, 0, 0.15)',
+                  background: 'rgba(255, 149, 0, 0.15)',
+                  borderTop: '1px solid rgba(255, 255, 255, 0.15)',
                 }}
               >
                 <div className="flex items-center justify-center gap-2">
-                  <span className="text-sm font-semibold transition-colors" style={{ color: '#FF9500' }}>View Package Details</span>
+                  <span style={{ ...glassText.price, fontSize: '14px', fontWeight: 600 }}>View Package Details</span>
                   <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" style={{ color: '#FF9500' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
@@ -466,7 +509,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
         </div>
       )}
 
-      {/* Products - Grouped by part type with v2.0 shelf styling */}
+      {/* Products - Grouped by part type with glass styling */}
       {showContent && groupedProducts.map(({ name, products: groupProducts }) => {
         const isHighlighted = highlightedPartType && matchesPartType(name, highlightedPartType);
         
@@ -474,19 +517,12 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           <section 
             key={name}
             ref={(el) => { groupRefs.current[name] = el; }}
-            className={`rounded-2xl transition-all duration-300 overflow-hidden ${
-              isHighlighted 
-                ? "ring-2 ring-blue-500 shadow-xl" 
-                : ""
-            }`}
+            className="transition-all duration-300 overflow-hidden"
             style={{
+              ...(isHighlighted ? glassCardPremium : glassCard),
               background: isHighlighted 
-                ? 'linear-gradient(135deg, rgba(239, 246, 255, 0.98) 0%, rgba(219, 234, 254, 0.95) 100%)'
-                : 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(249,250,251,0.9) 100%)',
-              boxShadow: isHighlighted 
-                ? '0 10px 30px -5px rgba(59, 130, 246, 0.25)'
-                : '0 4px 15px -3px rgba(0, 0, 0, 0.08)',
-              border: isHighlighted ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(0,0,0,0.05)',
+                ? 'linear-gradient(135deg, rgba(0, 102, 204, 0.2) 0%, rgba(0, 102, 204, 0.08) 100%)'
+                : glassCard.background,
             }}
           >
             {/* Section Header */}
@@ -494,9 +530,9 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
               className="px-3 py-2.5 flex items-center justify-between"
               style={{
                 background: isHighlighted 
-                  ? 'linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%)'
-                  : 'rgba(0,0,0,0.02)',
-                borderBottom: '1px solid rgba(0,0,0,0.05)',
+                  ? 'rgba(0, 102, 204, 0.15)'
+                  : 'rgba(255,255,255,0.05)',
+                borderBottom: '1px solid rgba(255,255,255,0.1)',
               }}
             >
               <div className="flex items-center gap-2 min-w-0">
@@ -504,23 +540,26 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                   className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
                   style={{
                     background: isHighlighted 
-                      ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'
-                      : 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
+                      ? 'linear-gradient(135deg, rgba(0, 102, 204, 0.9) 0%, rgba(0, 73, 153, 1) 100%)'
+                      : 'rgba(255,255,255,0.2)',
                   }}
                 >
                   <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                   </svg>
                 </div>
-                <span className={`text-xs font-bold truncate uppercase tracking-wide ${isHighlighted ? 'text-blue-800' : 'text-gray-700'}`}>
+                <span 
+                  className="text-xs font-bold truncate uppercase tracking-wide"
+                  style={{ color: isHighlighted ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.8)' }}
+                >
                   {name}
                 </span>
               </div>
               <span 
                 className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
                 style={{
-                  background: isHighlighted ? 'rgba(59, 130, 246, 0.2)' : 'rgba(0,0,0,0.06)',
-                  color: isHighlighted ? '#1e40af' : '#6b7280',
+                  background: 'rgba(255,255,255,0.15)',
+                  color: 'rgba(255,255,255,0.9)',
                 }}
               >
                 {groupProducts.length}
@@ -551,5 +590,6 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
       {/* Bottom padding for scroll */}
       <div className="h-4" />
     </div>
+    </>
   );
 };

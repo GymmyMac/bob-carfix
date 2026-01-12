@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useSpeechRecognition } from "../../hooks/useSpeechRecognition";
 import { useBobLayoutConfig } from "../../BobProvider";
 import type { Message } from "../../types/message";
+import { glassPanel, glassButtonBlue, glassInput, glassText } from "../../styles/glass";
 
 interface MobileChatDrawerProps {
   messages: Message[];
@@ -89,25 +90,26 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
       : lastBobMessage.content
     : "Ask Bob about car parts...";
 
-  // Bob's TALK button - CARFIX Blue/Orange branding
+  // Premium Glass TALK button styles
   const talkButtonStyles = {
     idle: {
-      background: '#0066CC', // CARFIX Blue
-      border: '4px solid #1a1a1a',
-      boxShadow: '6px 6px 0 #1a1a1a',
-      transform: 'translate(0, 0)',
+      ...glassButtonBlue,
     },
     active: {
-      background: '#FF9500', // CARFIX Orange when talking
-      border: '4px solid #1a1a1a',
-      boxShadow: '2px 2px 0 #1a1a1a',
-      transform: 'translate(4px, 4px)',
+      background: 'linear-gradient(135deg, rgba(255, 149, 0, 0.95) 0%, rgba(230, 134, 0, 1) 100%)',
+      backdropFilter: 'blur(16px) saturate(180%)',
+      WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+      border: '1px solid rgba(255, 255, 255, 0.4)',
+      borderRadius: '32px',
+      boxShadow: '0 12px 48px rgba(255, 149, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.3)',
     },
     disabled: {
-      background: '#9ca3af',
-      border: '4px solid #6b7280',
-      boxShadow: '4px 4px 0 #6b7280',
-      transform: 'translate(0, 0)',
+      background: 'rgba(156, 163, 175, 0.5)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
+      border: '1px solid rgba(255, 255, 255, 0.2)',
+      borderRadius: '32px',
+      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
     }
   };
 
@@ -125,18 +127,17 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
         bottom: `${bottomOffset}px`,
         left: 0,
         right: 0,
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        borderTop: '1px solid #e5e7eb',
+        ...glassPanel,
+        borderRadius: '28px 28px 0 0',
+        borderBottom: 'none',
         transition: 'all 0.3s ease-out',
-        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.15)',
+        boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.3)',
         height: isExpanded ? '55vh' : 'auto',
         zIndex: zIndexBase + 60,
         paddingBottom: bottomOffset > 0 ? '8px' : 'env(safe-area-inset-bottom, 8px)'
       }}
     >
-      {/* Expand/Collapse Handle */}
+      {/* Expand/Collapse Handle - Glass style */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         style={{
@@ -144,11 +145,13 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
           top: '-20px',
           left: '50%',
           transform: 'translateX(-50%)',
-          backgroundColor: 'white',
-          border: '1px solid #e5e7eb',
+          background: 'rgba(255, 255, 255, 0.15)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255, 255, 255, 0.25)',
           borderRadius: '9999px',
           padding: '6px',
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
           zIndex: zIndexBase + 70,
           cursor: 'pointer',
           minHeight: 'unset',
@@ -157,11 +160,11 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
         aria-label={isExpanded ? "Collapse chat" : "Expand chat"}
       >
         {isExpanded ? (
-          <svg style={{ height: '16px', width: '16px', color: '#6b7280' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg style={{ height: '16px', width: '16px', color: 'rgba(255,255,255,0.8)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         ) : (
-          <svg style={{ height: '16px', width: '16px', color: '#6b7280' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg style={{ height: '16px', width: '16px', color: 'rgba(255,255,255,0.8)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
           </svg>
         )}
@@ -173,22 +176,27 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
           onClick={() => setIsExpanded(true)}
           style={{ padding: '8px 12px 2px 12px', cursor: 'pointer' }}
         >
-          <p style={{ fontSize: '12px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewText}</p>
+          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewText}</p>
         </div>
       )}
 
       {/* Expanded Chat History */}
       {isExpanded && (
-        <div style={{ height: 'calc(100% - 100px)', overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ height: 'calc(100% - 100px)', overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }} className="glass-scroll">
           {[...messages].reverse().map((msg, idx) => (
             <div key={idx} style={{ display: 'flex', justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
               <div style={{
                 maxWidth: '85%',
-                borderRadius: '8px',
-                padding: '8px 12px',
+                borderRadius: '16px',
+                padding: '10px 14px',
                 fontSize: '14px',
-                backgroundColor: msg.role === "user" ? '#2563eb' : '#f3f4f6',
-                color: msg.role === "user" ? 'white' : '#111827'
+                background: msg.role === "user" 
+                  ? 'linear-gradient(135deg, rgba(0, 102, 204, 0.9) 0%, rgba(0, 73, 153, 0.95) 100%)'
+                  : 'rgba(255, 255, 255, 0.12)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                color: 'rgba(255, 255, 255, 0.95)',
+                textShadow: '0 1px 2px rgba(0,0,0,0.2)',
               }}>
                 {msg.content}
               </div>
@@ -198,7 +206,7 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
         </div>
       )}
 
-      {/* Floating TALK Button - Bob's cartoon style */}
+      {/* Floating TALK Button - Premium glass style */}
       {isSupported && (
         <div style={{
           display: 'flex',
@@ -215,12 +223,12 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
             onClick={isListening ? handlePTTEnd : undefined}
             disabled={isLoading}
             aria-label="Hold to talk to Bob"
+            className="glass-button"
             style={{
               width: '200px',
               height: '64px',
               minHeight: 'unset',
               minWidth: 'unset',
-              borderRadius: '32px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -228,16 +236,17 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
               touchAction: 'none',
               cursor: isLoading ? 'not-allowed' : 'pointer',
               opacity: isLoading ? 0.6 : 1,
-              transition: 'transform 0.1s ease, box-shadow 0.1s ease, background 0.15s ease',
+              transform: isListening ? 'scale(1.04)' : 'scale(1)',
+              transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background 0.15s ease',
               ...currentTalkStyle
             }}
             title="Hold to talk"
           >
             <span style={{
-              fontSize: '24px',
+              fontSize: '22px',
               fontWeight: 800,
               letterSpacing: '0.15em',
-              color: '#1a1a1a',
+              ...glassText.primary,
               textTransform: 'uppercase',
               fontFamily: 'system-ui, -apple-system, sans-serif',
             }}>
@@ -247,13 +256,13 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
         </div>
       )}
 
-      {/* Input Area */}
+      {/* Input Area - Glass style */}
       <div style={{
         padding: '4px 12px 8px 12px',
-        borderTop: '1px solid #e5e7eb'
+        borderTop: '1px solid rgba(255, 255, 255, 0.15)'
       }}>
         {sttError && (
-          <div style={{ marginBottom: '8px', fontSize: '12px', color: '#ef4444' }}>{sttError}</div>
+          <div style={{ marginBottom: '8px', fontSize: '12px', color: '#FF9500' }}>{sttError}</div>
         )}
         
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -267,11 +276,12 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderRadius: '8px',
-                backgroundColor: 'transparent',
-                color: isSpeaking ? '#2563eb' : '#4b5563',
+                borderRadius: '12px',
+                background: 'rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(8px)',
+                color: isSpeaking ? '#0066CC' : 'rgba(255,255,255,0.7)',
                 cursor: 'pointer',
-                border: '2px solid #d1d5db',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
                 minHeight: 'unset',
                 minWidth: 'unset'
               }}
@@ -303,11 +313,9 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
               flex: 1,
               height: '40px',
               fontSize: '16px',
-              padding: '0 12px',
-              border: '2px solid #d1d5db',
-              borderRadius: '8px',
-              backgroundColor: 'white',
-              color: '#111827',
+              padding: '0 14px',
+              ...glassInput,
+              color: 'rgba(255, 255, 255, 0.95)',
               outline: 'none',
               opacity: isLoading ? 0.5 : 1
             }}
