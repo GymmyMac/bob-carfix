@@ -36,6 +36,11 @@ const Admin = () => {
   const [systemStatus, setSystemStatus] = useState<"online" | "offline">("online");
   const [galleryTab, setGalleryTab] = useState("upload");
   const [selectedLookId, setSelectedLookId] = useState<string | null>(null);
+  
+  // Global scale controls
+  const [globalScaleEnabled, setGlobalScaleEnabled] = useState(false);
+  const [globalScaleValue, setGlobalScaleValue] = useState(100);
+  const [applyingGlobalScale, setApplyingGlobalScale] = useState(false);
 
   // Animation controls
   const {
@@ -65,6 +70,7 @@ const Admin = () => {
     deleteState,
     updateStateSettings,
     batchReorder,
+    batchUpdateScale,
     refetch,
   } = useBobAnimationConfig(selectedLookId);
 
@@ -104,6 +110,19 @@ const Admin = () => {
   const handleBatchReorder = useCallback(async (items: Array<{ id: string; sequence_order: number }>) => {
     await batchReorder(items);
   }, [batchReorder]);
+
+  // Global scale apply handler
+  const handleApplyGlobalScale = useCallback(async () => {
+    setApplyingGlobalScale(true);
+    try {
+      const count = await batchUpdateScale(globalScaleValue, selectedLookId);
+      console.log(`Updated ${count} animations to ${globalScaleValue}%`);
+    } catch (error) {
+      console.error("Failed to update global scale:", error);
+    } finally {
+      setApplyingGlobalScale(false);
+    }
+  }, [batchUpdateScale, globalScaleValue, selectedLookId]);
 
   // Memoized state buttons
   const stateButtons = useMemo(() => {
@@ -588,6 +607,64 @@ const Admin = () => {
                     </TabsContent>
 
                     <TabsContent value="assign" className="space-y-6 mt-4">
+                      {/* Global Scale Control */}
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Switch
+                                id="global-scale-toggle"
+                                checked={globalScaleEnabled}
+                                onCheckedChange={setGlobalScaleEnabled}
+                              />
+                              <Label htmlFor="global-scale-toggle" className="font-semibold cursor-pointer">
+                                Enable Global Scale Adjustment
+                              </Label>
+                            </div>
+                            <Badge variant="secondary">
+                              {configs.length} animations
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        
+                        {globalScaleEnabled && (
+                          <CardContent className="space-y-4 pt-0">
+                            <div>
+                              <div className="flex justify-between mb-2">
+                                <Label>Global Scale</Label>
+                                <span className="font-medium">{globalScaleValue}%</span>
+                              </div>
+                              <Slider
+                                value={[globalScaleValue]}
+                                onValueChange={(v) => setGlobalScaleValue(v[0])}
+                                min={50}
+                                max={150}
+                                step={1}
+                              />
+                              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                                <span>50%</span>
+                                <span>100% (default)</span>
+                                <span>150%</span>
+                              </div>
+                            </div>
+                            
+                            <Button
+                              onClick={handleApplyGlobalScale}
+                              disabled={applyingGlobalScale}
+                              className="w-full"
+                            >
+                              {applyingGlobalScale 
+                                ? `Updating ${configs.length} animations...` 
+                                : `Apply ${globalScaleValue}% to All States`}
+                            </Button>
+                            
+                            <p className="text-xs text-muted-foreground text-center">
+                              This will update the scale for all {configs.length} animations in the current look
+                            </p>
+                          </CardContent>
+                        )}
+                      </Card>
+
                       {states.length === 0 ? (
                         <div className="text-center py-8 text-muted-foreground">
                           No states found for this look. Upload images to create states.
