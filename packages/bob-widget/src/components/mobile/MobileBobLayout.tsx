@@ -106,8 +106,8 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
     switch (viewportSize) {
       case 'desktop': return 70;
       case 'tablet': return 80;
-      case 'mobile': return 100;
-      default: return 100;
+      case 'mobile': return 140;  // 40% larger for mobile
+      default: return 140;
     }
   };
   const baseUIScale = getBaseUIScale();

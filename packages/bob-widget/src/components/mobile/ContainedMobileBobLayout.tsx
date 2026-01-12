@@ -102,9 +102,9 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
   // - Showing products (left position): 70% base
   // - Product detail view: 50% base
   const getBaseUIScale = () => {
-    if (currentView === 'productDetail') return 50;
-    if (bobPosition === 'center' && !hasProducts) return 100; // Welcome state
-    return 70; // Showing products - smaller
+    if (currentView === 'productDetail') return 70;  // 40% larger
+    if (bobPosition === 'center' && !hasProducts) return 140; // Welcome state - 40% larger
+    return 98; // Showing products - 40% larger
   };
   const baseUIScale = getBaseUIScale();
   const finalBobScale = (baseUIScale * bobScale) / 100;
