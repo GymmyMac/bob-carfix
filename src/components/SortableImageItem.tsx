@@ -1,10 +1,11 @@
 import React, { memo, useCallback, useState, useRef, useEffect } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Trash2, Move, ZoomIn } from "lucide-react";
+import { GripVertical, Trash2, Move, ZoomIn, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { BobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 
 interface SortableImageItemProps {
@@ -15,6 +16,7 @@ interface SortableImageItemProps {
   onToggleActive: (id: string, isActive: boolean) => void;
   onUpdateOffset: (id: string, offset: number) => void;
   onUpdateScale: (id: string, scale: number) => void;
+  onApplyGlobalScale?: (scale: number) => Promise<void>;
 }
 
 export const SortableImageItem = memo(({
@@ -25,11 +27,14 @@ export const SortableImageItem = memo(({
   onToggleActive,
   onUpdateOffset,
   onUpdateScale,
+  onApplyGlobalScale,
 }: SortableImageItemProps) => {
   const [editingOffset, setEditingOffset] = useState(false);
   const [editingScale, setEditingScale] = useState(false);
   const [localOffset, setLocalOffset] = useState(assignment.vertical_offset);
   const [localScale, setLocalScale] = useState(assignment.scale ?? 100);
+  const [applyGlobally, setApplyGlobally] = useState(false);
+  const [savingGlobal, setSavingGlobal] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const scaleDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const isEditingRef = useRef(false);
@@ -107,12 +112,27 @@ export const SortableImageItem = memo(({
     onUpdateScale(assignment.id, localScale);
     isEditingScaleRef.current = false;
     setEditingScale(false);
+    setApplyGlobally(false);
   }, [onUpdateScale, assignment.id, localScale]);
+
+  const handleSaveGlobalScale = useCallback(async () => {
+    if (!onApplyGlobalScale) return;
+    setSavingGlobal(true);
+    try {
+      await onApplyGlobalScale(localScale);
+      isEditingScaleRef.current = false;
+      setEditingScale(false);
+      setApplyGlobally(false);
+    } finally {
+      setSavingGlobal(false);
+    }
+  }, [onApplyGlobalScale, localScale]);
 
   const handleCancelScale = useCallback(() => {
     isEditingScaleRef.current = false;
     setLocalScale(assignment.scale ?? 100);
     setEditingScale(false);
+    setApplyGlobally(false);
   }, [assignment.scale]);
 
   // Cleanup timeouts on unmount
@@ -241,7 +261,7 @@ export const SortableImageItem = memo(({
           </div>
         </div>
       ) : editingScale ? (
-        <div className="space-y-2 pt-2 border-t">
+        <div className="space-y-3 pt-2 border-t">
           <div className="flex items-center justify-between">
             <Label className="text-xs flex items-center gap-1">
               <ZoomIn className="w-3 h-3" />
@@ -257,20 +277,54 @@ export const SortableImageItem = memo(({
             step={1}
             className="w-full"
           />
+          
+          {/* Apply Globally Toggle */}
+          {onApplyGlobalScale && (
+            <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50 border border-dashed">
+              <Switch
+                id={`apply-global-${assignment.id}`}
+                checked={applyGlobally}
+                onCheckedChange={setApplyGlobally}
+                disabled={savingGlobal}
+              />
+              <Label 
+                htmlFor={`apply-global-${assignment.id}`} 
+                className="text-xs cursor-pointer flex items-center gap-1"
+              >
+                <Globe className="w-3 h-3" />
+                Apply this scale to all animations
+              </Label>
+            </div>
+          )}
+          
           <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="default"
-              onClick={handleSaveScale}
-              className="flex-1"
-            >
-              Save
-            </Button>
+            {applyGlobally && onApplyGlobalScale ? (
+              <Button
+                size="sm"
+                variant="default"
+                onClick={handleSaveGlobalScale}
+                className="flex-1 gap-1"
+                disabled={savingGlobal}
+              >
+                <Globe className="w-3 h-3" />
+                {savingGlobal ? "Applying..." : "Save as Global"}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="default"
+                onClick={handleSaveScale}
+                className="flex-1"
+              >
+                Save
+              </Button>
+            )}
             <Button
               size="sm"
               variant="ghost"
               onClick={handleCancelScale}
               className="flex-1"
+              disabled={savingGlobal}
             >
               Cancel
             </Button>

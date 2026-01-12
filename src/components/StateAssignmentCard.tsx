@@ -49,6 +49,7 @@ interface StateAssignmentCardProps {
   }) => Promise<void>;
   onUpdateOffset: (id: string, offset: number) => Promise<void>;
   onUpdateScale: (id: string, scale: number) => Promise<void>;
+  onApplyGlobalScale?: (scale: number) => Promise<void>;
 }
 
 export const StateAssignmentCard = memo(({
@@ -68,6 +69,7 @@ export const StateAssignmentCard = memo(({
   onUpdateSettings,
   onUpdateOffset,
   onUpdateScale,
+  onApplyGlobalScale,
 }: StateAssignmentCardProps) => {
   const [loading, setLoading] = useState<string | null>(null);
   const [deletingState, setDeletingState] = useState(false);
@@ -403,6 +405,7 @@ export const StateAssignmentCard = memo(({
                     onToggleActive={handleToggleActive}
                     onUpdateOffset={handleUpdateOffset}
                     onUpdateScale={onUpdateScale}
+                    onApplyGlobalScale={onApplyGlobalScale}
                   />
                 ))}
               </div>
