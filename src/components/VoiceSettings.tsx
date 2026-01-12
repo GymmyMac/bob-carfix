@@ -15,6 +15,8 @@ import { toast } from "sonner";
 
 // ElevenLabs voice options - curated for Bob's friendly Kiwi character
 const ELEVENLABS_VOICES = [
+  // Custom Voices (your cloned/created voices)
+  { value: "BHhU6fTKdSX6bN7T1tpz", label: "Hemi", description: "True Kiwi Voice", category: "custom" },
   // Recommended for Bob
   { value: "JBFqnCBsd6RMkjVDRZzb", label: "George", description: "Warm & friendly", isDefault: true, category: "recommended" },
   { value: "nPczCjzI2devNBz1zQrb", label: "Brian", description: "Deep & authoritative", category: "recommended" },
@@ -30,6 +32,7 @@ const ELEVENLABS_VOICES = [
   { value: "CwhRBWXzGAHq8TQ4Fs17", label: "Roger", description: "Refined & eloquent", category: "character" },
 ];
 
+const customVoices = ELEVENLABS_VOICES.filter(v => v.category === "custom");
 const recommendedVoices = ELEVENLABS_VOICES.filter(v => v.category === "recommended");
 const additionalVoices = ELEVENLABS_VOICES.filter(v => v.category === "additional");
 const characterVoices = ELEVENLABS_VOICES.filter(v => v.category === "character");
@@ -155,6 +158,21 @@ export const VoiceSettings = () => {
             <SelectValue placeholder="Select a voice" />
           </SelectTrigger>
           <SelectContent className="bg-popover z-50">
+            {customVoices.length > 0 && (
+              <SelectGroup>
+                <SelectLabel className="text-xs text-muted-foreground font-semibold">
+                  🎤 Your Custom Voices
+                </SelectLabel>
+                {customVoices.map((voice) => (
+                  <SelectItem key={voice.value} value={voice.value}>
+                    <span className="flex items-center gap-2">
+                      <span className="font-medium">{voice.label}</span>
+                      <span className="text-xs text-muted-foreground">- {voice.description}</span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            )}
             <SelectGroup>
               <SelectLabel className="text-xs text-muted-foreground font-semibold">
                 ⭐ Recommended for Bob
