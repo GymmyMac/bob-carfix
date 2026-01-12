@@ -9,7 +9,8 @@ import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image, Database, Volume2, Wand2, ArrowLeft, FileText, Palette, Building2 } from "lucide-react";
+import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image, Database, Volume2, Wand2, ArrowLeft, FileText, Palette, Building2, Globe } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { PromptsManager } from "@/components/PromptsManager";
 import { ImageUploaderWithState } from "@/components/ImageUploaderWithState";
 import { StateAssignmentCard } from "@/components/StateAssignmentCard";
@@ -36,6 +37,7 @@ const Admin = () => {
   const [systemStatus, setSystemStatus] = useState<"online" | "offline">("online");
   const [galleryTab, setGalleryTab] = useState("upload");
   const [selectedLookId, setSelectedLookId] = useState<string | null>(null);
+  const { toast } = useToast();
   
   // Global scale controls
   const [globalScaleEnabled, setGlobalScaleEnabled] = useState(false);
@@ -116,13 +118,42 @@ const Admin = () => {
     setApplyingGlobalScale(true);
     try {
       const count = await batchUpdateScale(globalScaleValue, selectedLookId);
-      console.log(`Updated ${count} animations to ${globalScaleValue}%`);
+      toast({
+        title: "Global scale applied",
+        description: `Updated ${count} animations to ${globalScaleValue}%`,
+      });
     } catch (error) {
       console.error("Failed to update global scale:", error);
+      toast({
+        title: "Failed to apply global scale",
+        variant: "destructive",
+      });
     } finally {
       setApplyingGlobalScale(false);
     }
-  }, [batchUpdateScale, globalScaleValue, selectedLookId]);
+  }, [batchUpdateScale, globalScaleValue, selectedLookId, toast]);
+
+  // Handler for applying global scale from individual items
+  const handleApplyGlobalScaleValue = useCallback(async (scale: number) => {
+    setGlobalScaleValue(scale);
+    setApplyingGlobalScale(true);
+    try {
+      const count = await batchUpdateScale(scale, selectedLookId);
+      toast({
+        title: "Global scale applied",
+        description: `Updated ${count} animations to ${scale}%`,
+      });
+    } catch (error) {
+      console.error("Failed to apply global scale:", error);
+      toast({
+        title: "Failed to apply global scale",
+        variant: "destructive",
+      });
+      throw error;
+    } finally {
+      setApplyingGlobalScale(false);
+    }
+  }, [batchUpdateScale, selectedLookId, toast]);
 
   // Memoized state buttons
   const stateButtons = useMemo(() => {
@@ -607,63 +638,52 @@ const Admin = () => {
                     </TabsContent>
 
                     <TabsContent value="assign" className="space-y-6 mt-4">
-                      {/* Global Scale Control */}
-                      <Card>
-                        <CardHeader className="pb-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <Switch
-                                id="global-scale-toggle"
-                                checked={globalScaleEnabled}
-                                onCheckedChange={setGlobalScaleEnabled}
-                              />
-                              <Label htmlFor="global-scale-toggle" className="font-semibold cursor-pointer">
-                                Enable Global Scale Adjustment
-                              </Label>
-                            </div>
-                            <Badge variant="secondary">
-                              {configs.length} animations
-                            </Badge>
-                          </div>
-                        </CardHeader>
-                        
-                        {globalScaleEnabled && (
+                      {/* Global Scale Control - Sticky header */}
+                      <div className="sticky top-0 z-10 -mx-1 px-1 pt-1 pb-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                        <Card className="border-primary/20 shadow-md">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                              <Globe className="w-4 h-4" />
+                              Global Scale Control
+                            </CardTitle>
+                            <CardDescription>
+                              Apply a uniform scale to all {configs.length} animations in this look
+                            </CardDescription>
+                          </CardHeader>
                           <CardContent className="space-y-4 pt-0">
-                            <div>
-                              <div className="flex justify-between mb-2">
-                                <Label>Global Scale</Label>
-                                <span className="font-medium">{globalScaleValue}%</span>
+                            <div className="flex items-center gap-4">
+                              <div className="flex-1">
+                                <div className="flex justify-between mb-2">
+                                  <Label>Scale</Label>
+                                  <span className="font-medium">{globalScaleValue}%</span>
+                                </div>
+                                <Slider
+                                  value={[globalScaleValue]}
+                                  onValueChange={(v) => setGlobalScaleValue(v[0])}
+                                  min={50}
+                                  max={150}
+                                  step={1}
+                                />
+                                <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                                  <span>50%</span>
+                                  <span>100%</span>
+                                  <span>150%</span>
+                                </div>
                               </div>
-                              <Slider
-                                value={[globalScaleValue]}
-                                onValueChange={(v) => setGlobalScaleValue(v[0])}
-                                min={50}
-                                max={150}
-                                step={1}
-                              />
-                              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                                <span>50%</span>
-                                <span>100% (default)</span>
-                                <span>150%</span>
-                              </div>
+                              <Button
+                                onClick={handleApplyGlobalScale}
+                                disabled={applyingGlobalScale}
+                                className="gap-2"
+                              >
+                                <Globe className="w-4 h-4" />
+                                {applyingGlobalScale 
+                                  ? "Applying..." 
+                                  : "Apply to All"}
+                              </Button>
                             </div>
-                            
-                            <Button
-                              onClick={handleApplyGlobalScale}
-                              disabled={applyingGlobalScale}
-                              className="w-full"
-                            >
-                              {applyingGlobalScale 
-                                ? `Updating ${configs.length} animations...` 
-                                : `Apply ${globalScaleValue}% to All States`}
-                            </Button>
-                            
-                            <p className="text-xs text-muted-foreground text-center">
-                              This will update the scale for all {configs.length} animations in the current look
-                            </p>
                           </CardContent>
-                        )}
-                      </Card>
+                        </Card>
+                      </div>
 
                       {states.length === 0 ? (
                         <div className="text-center py-8 text-muted-foreground">
@@ -695,6 +715,7 @@ const Admin = () => {
                             onUpdateScale={(id, scale) =>
                               updateAnimation(id, { scale: scale })
                             }
+                            onApplyGlobalScale={handleApplyGlobalScaleValue}
                           />
                         ))
                       )}
