@@ -89,19 +89,19 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
       : lastBobMessage.content
     : "Ask Bob about car parts...";
 
-  // Bob's cartoon-style TALK button (big, bold, green!)
+  // Bob's TALK button - CARFIX Blue/Orange branding
   const talkButtonStyles = {
     idle: {
-      background: '#22c55e', // Green base
+      background: '#0066CC', // CARFIX Blue
       border: '4px solid #1a1a1a',
       boxShadow: '6px 6px 0 #1a1a1a',
       transform: 'translate(0, 0)',
     },
     active: {
-      background: '#f59e0b', // Amber when talking
+      background: '#FF9500', // CARFIX Orange when talking
       border: '4px solid #1a1a1a',
       boxShadow: '2px 2px 0 #1a1a1a',
-      transform: 'translate(4px, 4px)', // Pressed down
+      transform: 'translate(4px, 4px)',
     },
     disabled: {
       background: '#9ca3af',

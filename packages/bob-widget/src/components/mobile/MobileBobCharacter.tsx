@@ -1,4 +1,7 @@
 import React from "react";
+import { usePositionFactors } from "../../hooks/usePositionFactors";
+
+export type BobPosition = 'center' | 'partial-left' | 'hidden';
 
 interface MobileBobCharacterProps {
   currentImage: string;
@@ -6,10 +9,18 @@ interface MobileBobCharacterProps {
   counterOverlayUrl?: string;
   counterHeightPercent?: number;
   scale?: number;
-  position?: 'center' | 'left';
+  position?: BobPosition;
   verticalOffset?: number;
 }
 
+/**
+ * MobileBobCharacter - Bob with 3-position system
+ * 
+ * Positions:
+ * - center: Bob centered on screen (welcome/idle state)
+ * - partial-left: Bob slides left, ~30% visible (products displayed)
+ * - hidden: Bob fully off-screen left (user swiped, full product view)
+ */
 export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
   currentImage,
   animationState,
@@ -19,52 +30,72 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
   position = 'center',
   verticalOffset = 0
 }) => {
+  const factors = usePositionFactors();
+  
   // ============================================================================
-  // BOB v2.0 - CONSISTENT SIZE, ONLY POSITION CHANGES
+  // BOB v3.0 - 3-POSITION SYSTEM WITH RESPONSIVE SCALING
   // ============================================================================
   
-  // FIXED: Bob maintains the SAME size regardless of position
-  // He only moves left when products appear - no shrinking!
-  const baseWidth = 95; // Increased from 75% - Bob should fill more vertical space
+  // Bob maintains consistent size - only position changes
+  const baseWidth = 95;
   const scaledWidth = (baseWidth * scale) / 100;
-  const scaledMaxWidth = (550 * scale) / 100; // Increased from 450px max
+  const scaledMaxWidth = (550 * scale) / 100;
   
-  // TRUE CENTERING: Use left: 50% with translateX(-50%) for perfect center
-  // When showing products, move Bob further left - allow right arm off-screen
-  const getTransform = () => {
-    if (position === 'center') {
-      return 'translateX(-50%)'; // Perfect center
+  /**
+   * Get Bob's left position based on current state.
+   * Uses position factors for responsive behavior across devices.
+   */
+  const getLeftPosition = (): string => {
+    switch (position) {
+      case 'center':
+        return '50%';
+      case 'partial-left':
+        // Apply factor to partial position
+        return `${factors.partialLeftPosition}%`;
+      case 'hidden':
+        // Apply factor to hidden position
+        return `${factors.hiddenPosition}%`;
+      default:
+        return '50%';
     }
-    return 'translateX(0)'; // No transform when positioned left
   };
   
-  const getLeftPosition = () => {
+  /**
+   * Get CSS transform based on position.
+   * Center uses translateX(-50%) for true centering.
+   */
+  const getTransform = (): string => {
     if (position === 'center') {
-      return '50%'; // Center anchor point
+      return 'translateX(-50%)';
     }
-    // Move Bob further left - hair should touch screen edge
-    // This makes maximum room for products on the right
-    return '-48%';
+    return 'translateX(0)';
   };
   
   // Calculate bottom position including vertical offset from database
-  // Bob sits above the counter
   const bottomPercent = counterHeightPercent - 2 + verticalOffset;
+  
+  // Transition timing - faster for hidden/show, smoother for positioning
+  const getTransition = (): string => {
+    if (position === 'hidden') {
+      return 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
+    }
+    return 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'; // Spring effect
+  };
   
   return (
     <div className="absolute inset-0 pointer-events-none" style={{ overflow: 'visible' }}>
-      {/* Bob Character - Centered properly */}
+      {/* Bob Character - 3-position system */}
       <div 
         className="absolute z-[60]"
         style={{
           bottom: `${bottomPercent}%`,
           left: getLeftPosition(),
-          // Prevent clipping at top while allowing Bob to be large
           maxHeight: `${100 - counterHeightPercent - 2}%`,
           transform: getTransform(),
           width: `${scaledWidth}%`,
           maxWidth: `${scaledMaxWidth}px`,
-          transition: 'all 0.4s ease-out', // Smooth transitions for position changes
+          transition: getTransition(),
+          willChange: 'transform, left',
         }}
       >
         <img 
@@ -81,7 +112,7 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
           className="absolute bottom-0 left-0 right-0 z-[70]"
           style={{ 
             height: `${counterHeightPercent}%`,
-            pointerEvents: 'none' // Allow clicks through to chat drawer
+            pointerEvents: 'none'
           }}
         >
           <img 
