@@ -1,15 +1,15 @@
-import { Navigate } from 'react-router-dom';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { Loader2, ShieldAlert, ExternalLink, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AdminLoginForm } from './AdminLoginForm';
 
 interface ProtectedAdminRouteProps {
   children: React.ReactNode;
 }
 
 export const ProtectedAdminRoute = ({ children }: ProtectedAdminRouteProps) => {
-  const { user, isAdmin, isLoading, error, signOut } = useAdminAuth();
+  const { user, isAdmin, isLoading, error, signOut, refreshAuth } = useAdminAuth();
 
   // Show loading state while checking auth
   if (isLoading) {
@@ -23,9 +23,9 @@ export const ProtectedAdminRoute = ({ children }: ProtectedAdminRouteProps) => {
     );
   }
 
-  // Not logged in - show error with recovery options if there was an error, otherwise redirect
+  // Not logged in - show inline login form
   if (!user) {
-    // If there's an error (like session verification failed), show recovery UI
+    // If there was an error (like session verification failed), show recovery UI with login option
     if (error) {
       return (
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -56,8 +56,8 @@ export const ProtectedAdminRoute = ({ children }: ProtectedAdminRouteProps) => {
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Open in New Tab
                 </Button>
-                <Button variant="ghost" onClick={() => window.location.href = '/auth'} className="w-full">
-                  Go to Login
+                <Button variant="ghost" onClick={refreshAuth} className="w-full">
+                  Try Login Again
                 </Button>
               </div>
             </CardContent>
@@ -66,7 +66,8 @@ export const ProtectedAdminRoute = ({ children }: ProtectedAdminRouteProps) => {
       );
     }
     
-    return <Navigate to="/auth" replace />;
+    // No error, just not logged in - show inline login form
+    return <AdminLoginForm onSuccess={refreshAuth} />;
   }
 
   // Logged in but not admin - show access denied
