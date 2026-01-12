@@ -69,18 +69,26 @@ export const VoiceSettings = () => {
     setIsSaving(true);
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("bob_settings")
         .update({ setting_value: voice, updated_at: new Date().toISOString() })
-        .eq("setting_key", "tts_voice");
+        .eq("setting_key", "tts_voice")
+        .select();
 
       if (error) throw error;
+      
+      // Check if any row was actually updated
+      if (!data || data.length === 0) {
+        toast.error('Voice setting not found or not permitted');
+        return;
+      }
       
       const voiceOption = ELEVENLABS_VOICES.find(v => v.value === voice);
       toast.success(`Voice changed to ${voiceOption?.label || voice}`);
     } catch (error) {
       console.error("Error saving voice setting:", error);
-      toast.error("Failed to save voice setting");
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to save voice setting: ${errorMsg}`);
     } finally {
       setIsSaving(false);
     }

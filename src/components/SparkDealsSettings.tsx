@@ -92,18 +92,26 @@ export const SparkDealsSettings: React.FC = () => {
 
     setSaving(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('bob_settings')
         .update({ setting_value: dbValue, updated_at: new Date().toISOString() })
-        .eq('setting_key', dbKey);
+        .eq('setting_key', dbKey)
+        .select();
 
       if (error) throw error;
+
+      // Check if any row was actually updated
+      if (!data || data.length === 0) {
+        toast.error(`Setting "${dbKey}" not found or not permitted`);
+        return;
+      }
 
       setSettings(prev => ({ ...prev, [key]: value }));
       toast.success('Setting updated');
     } catch (error) {
       console.error('Error updating setting:', error);
-      toast.error('Failed to update setting');
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to update setting: ${errorMsg}`);
     } finally {
       setSaving(false);
     }
