@@ -290,6 +290,15 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
     }
   };
 
+  // Computed display states
+  const hasContent = products.length > 0 || servicePackages.length > 0;
+  const showLoading = isResearching && !hasContent;
+  const showContent = hasContent && !showLoading;
+  
+  // Layout calculations
+  const columnWidth = viewportSize === 'mobile' ? 80 : viewportSize === 'tablet' ? 50 : 35;
+  const topOffset = `calc(${counterHeightPercent}vh + env(safe-area-inset-top, 8px))`;
+
   return (
     <>
       {/* Custom Scroll Indicator - Minimal glass dot on right edge */}
