@@ -98,20 +98,16 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
   const hasProducts = products.length > 0 || servicePackages.length > 0;
   
   // ============================================================================
-  // BOB v2.1 - VIEWPORT-AWARE SCALING (WAIST-UP ON ALL DEVICES)
+  // BOB v2.2 - REDUCED BASE SCALE (database scale has direct effect)
   // ============================================================================
-  // Bob's scale is based on viewport size for consistent waist-up presentation:
-  // - Desktop: 100% - smaller to fit properly on large screens
-  // - Tablet: 140% - medium scale
-  // - Mobile: 200% - larger for close-up welcome feel
-  // 
-  // IMPORTANT: Scale does NOT change when products appear - Bob only moves left
+  // Base scale reduced so database scale of 100% = reasonable default size
+  // Admin can now adjust scale meaningfully (e.g., 80% = smaller, 120% = larger)
   const getBaseUIScale = () => {
     switch (viewportSize) {
-      case 'desktop': return 100;
-      case 'tablet': return 140;
-      case 'mobile': return 200;
-      default: return 200;
+      case 'desktop': return 70;
+      case 'tablet': return 80;
+      case 'mobile': return 100;
+      default: return 100;
     }
   };
   const baseUIScale = getBaseUIScale();

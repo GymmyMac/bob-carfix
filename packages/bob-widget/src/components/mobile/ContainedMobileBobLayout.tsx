@@ -97,14 +97,14 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
   
   const hasProducts = products.length > 0 || servicePackages.length > 0;
   
-  // Dynamic Bob scale based on state:
-  // - Welcome state (center, no products): larger scale (130%)
-  // - Showing products (left position): smaller scale (85%)
-  // - Product detail view: even smaller (65%)
+  // Dynamic Bob scale based on state (reduced base values for direct database control):
+  // - Welcome state (center, no products): 100% base
+  // - Showing products (left position): 70% base
+  // - Product detail view: 50% base
   const getBaseUIScale = () => {
-    if (currentView === 'productDetail') return 65;
-    if (bobPosition === 'center' && !hasProducts) return 130; // Welcome state - larger
-    return 85; // Showing products - smaller
+    if (currentView === 'productDetail') return 50;
+    if (bobPosition === 'center' && !hasProducts) return 100; // Welcome state
+    return 70; // Showing products - smaller
   };
   const baseUIScale = getBaseUIScale();
   const finalBobScale = (baseUIScale * bobScale) / 100;

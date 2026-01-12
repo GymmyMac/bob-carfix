@@ -87,12 +87,13 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
   const hasProducts = products.length > 0 || servicePackages.length > 0;
   
   // Responsive Bob scale
+  // Base scale reduced so database scale of 100% = reasonable size
   const getBaseUIScale = () => {
     switch (viewportSize) {
-      case 'desktop': return 130 * factors.uiScale;
-      case 'tablet': return 150 * factors.uiScale;
-      case 'mobile': return 200;
-      default: return 200;
+      case 'desktop': return 80 * factors.uiScale;
+      case 'tablet': return 90 * factors.uiScale;
+      case 'mobile': return 100;
+      default: return 100;
     }
   };
   const baseUIScale = getBaseUIScale();
