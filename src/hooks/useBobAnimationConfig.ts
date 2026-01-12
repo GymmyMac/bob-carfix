@@ -141,6 +141,45 @@ export const useBobAnimationConfig = (lookId?: string | null) => {
     }
   };
 
+  // Batch update scale for all animations in the current look
+  const batchUpdateScale = async (scale: number, targetLookId?: string | null) => {
+    try {
+      const lookToUse = targetLookId ?? activeLookId;
+      
+      // Filter configs for this look
+      const targetConfigs = lookToUse 
+        ? configs.filter(c => c.look_id === lookToUse)
+        : configs;
+
+      if (targetConfigs.length === 0) {
+        return 0;
+      }
+
+      const updates = targetConfigs.map(config => 
+        supabase
+          .from("bob_animations")
+          .update({ scale })
+          .eq("id", config.id)
+      );
+
+      const results = await Promise.all(updates);
+      
+      // Check for any errors
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) {
+        throw errors[0].error;
+      }
+
+      // Single cache invalidation after all updates
+      invalidateCache();
+      
+      return targetConfigs.length;
+    } catch (error) {
+      console.error("Batch scale update error:", error);
+      throw error;
+    }
+  };
+
   const deleteAnimation = async (id: string) => {
     try {
       // Get the animation config to check if we should delete the storage file
@@ -446,6 +485,7 @@ export const useBobAnimationConfig = (lookId?: string | null) => {
     assignImageToState,
     updateAnimation,
     batchReorder,
+    batchUpdateScale,
     deleteAnimation,
     deleteUnassignedImage,
     deleteState,
