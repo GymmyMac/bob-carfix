@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useMemo } from "react";
 import { useViewportSize, type ViewportSize } from "../../hooks/useViewportSize";
+import { usePositionFactors } from "../../hooks/usePositionFactors";
 import { ProductTile } from "../ProductTile";
 import type { Product, ServicePackage } from "../../types";
 import type { HighlightedProduct } from "../../types/message";
@@ -15,6 +16,7 @@ interface MobileProductColumnProps {
   visible?: boolean;
   counterHeightPercent?: number;
   hasVehicle?: boolean;
+  onAddToCart?: (product: Product) => void;
 }
 
 const matchesPartType = (description: string, partType: string): boolean => {
@@ -210,9 +212,11 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
   isResearching,
   visible = true,
   counterHeightPercent = 22,
-  hasVehicle = false
+  hasVehicle = false,
+  onAddToCart
 }) => {
   const viewportSize = useViewportSize();
+  const factors = usePositionFactors();
   const scrollRef = useRef<HTMLDivElement>(null);
   const groupRefs = useRef<Record<string, HTMLElement | null>>({});
   const spotlightedRef = useRef<HTMLDivElement>(null);
@@ -272,38 +276,44 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
   const showContent = hasContent;
   const topOffset = hasVehicle ? '56px' : '8px';
 
+  // Calculate responsive width: 80% base adjusted by factor
+  const columnWidth = 80 * factors.productWidth;
+  const leftOffset = (100 - columnWidth) / 2;
+
   return (
     <div 
       ref={scrollRef}
-      className={`absolute right-0 md:right-2 lg:right-3 overflow-y-auto overflow-x-hidden z-30 flex flex-col gap-4 md:gap-5 transition-all duration-400 ease-out ${
+      className={`absolute overflow-y-auto overflow-x-hidden z-30 flex flex-col gap-4 md:gap-5 transition-all duration-400 ease-out ${
         visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-12 pointer-events-none"
       }`}
       style={{
-        // v2.1: WIDER product column - more screen space for products
-        width: 'calc(62% - 12px)',
-        maxWidth: '400px',
+        // v3.0: 80% width with responsive scaling
+        width: `${columnWidth}%`,
+        maxWidth: '440px',
+        left: `${leftOffset}%`,
+        right: `${leftOffset}%`,
         top: topOffset,
         bottom: 'calc(75px + env(safe-area-inset-bottom, 8px))',
         paddingTop: 'env(safe-area-inset-top, 4px)',
         paddingRight: '12px',
-        paddingLeft: '8px',
+        paddingLeft: '12px',
       }}
     >
       {/* ============================================================================
-          v2.2 SHELF HEADER - "Bob's Shelf" with search indicator
+          v3.0 SHELF HEADER - CARFIX Blue branding
           ============================================================================ */}
       <div 
-        className="sticky top-0 z-10 -mx-1 px-2 py-2 rounded-lg"
+        className="sticky top-0 z-10 -mx-1 px-3 py-2.5 rounded-xl"
         style={{
-          background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.95) 0%, rgba(59, 130, 246, 0.9) 100%)',
-          backdropFilter: 'blur(8px)',
-          boxShadow: '0 4px 15px -3px rgba(37, 99, 235, 0.4)',
+          background: 'linear-gradient(135deg, rgba(0, 102, 204, 0.95) 0%, rgba(0, 73, 153, 0.95) 100%)',
+          backdropFilter: 'blur(12px)',
+          boxShadow: '0 4px 20px -4px rgba(0, 102, 204, 0.5)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
         }}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {isResearching && hasContent ? (
-              // Show spinner when researching with existing content
               <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
                 <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               </div>
@@ -372,16 +382,19 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
         </div>
       )}
 
-      {/* Service Packages - v2.1 Premium E-commerce Style */}
+      {/* Service Packages - CARFIX Blue branding (displayed FIRST for best value) */}
       {showContent && servicePackages.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center gap-2 px-1">
-            <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-md">
+            <div 
+              className="w-6 h-6 rounded-lg flex items-center justify-center shadow-md"
+              style={{ background: 'linear-gradient(135deg, #0066CC 0%, #004999 100%)' }}
+            >
               <svg className="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <span className="text-sm font-bold text-emerald-700 uppercase tracking-wider">Service Packages</span>
+            <span className="text-sm font-bold uppercase tracking-wider" style={{ color: '#0066CC' }}>Service Packages</span>
           </div>
           {servicePackages.map((pkg) => (
             <div
@@ -389,19 +402,20 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
               onClick={() => onPackageSelect?.(pkg)}
               className="cursor-pointer group transition-all duration-300 rounded-2xl overflow-hidden hover:scale-[1.02] hover:-translate-y-1"
               style={{
-                background: '#ffffff',
-                boxShadow: '0 8px 30px -6px rgba(16, 185, 129, 0.2), 0 4px 12px -4px rgba(0, 0, 0, 0.08)',
-                border: '1px solid rgba(16, 185, 129, 0.15)',
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(12px)',
+                boxShadow: '0 8px 30px -6px rgba(0, 102, 204, 0.2), 0 4px 12px -4px rgba(0, 0, 0, 0.08)',
+                border: '1px solid rgba(0, 102, 204, 0.15)',
               }}
             >
               {/* Main content area */}
               <div className="p-4 flex gap-4">
-                {/* Large icon/image container - 80x80px */}
+                {/* Large icon/image container */}
                 <div 
                   className="w-20 h-20 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
                   style={{
-                    background: 'linear-gradient(145deg, rgba(16, 185, 129, 0.12) 0%, rgba(16, 185, 129, 0.04) 100%)',
-                    border: '1px solid rgba(16, 185, 129, 0.1)',
+                    background: 'linear-gradient(145deg, rgba(0, 102, 204, 0.12) 0%, rgba(0, 102, 204, 0.04) 100%)',
+                    border: '1px solid rgba(0, 102, 204, 0.1)',
                   }}
                 >
                   {pkg.icon_url ? (
@@ -411,7 +425,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                       className="w-full h-full object-contain p-2"
                     />
                   ) : (
-                    <svg className="h-10 w-10 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-10 w-10" style={{ color: '#0066CC' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
                   )}
@@ -420,29 +434,29 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                 {/* Text content */}
                 <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
                   <div>
-                    <p className="text-base font-bold text-gray-900 line-clamp-2 mb-1 group-hover:text-emerald-700 transition-colors">{pkg.title}</p>
+                    <p className="text-base font-bold text-gray-900 line-clamp-2 mb-1 transition-colors" style={{ '--hover-color': '#0066CC' } as React.CSSProperties}>{pkg.title}</p>
                     {pkg.description && (
                       <p className="text-xs text-gray-500 line-clamp-2">{pkg.description}</p>
                     )}
                   </div>
                   <div className="flex items-baseline gap-1.5 mt-2">
                     <span className="text-xs text-gray-400 font-medium">From</span>
-                    <span className="text-2xl font-extrabold text-emerald-600">${pkg.from_price.toFixed(0)}</span>
+                    <span className="text-2xl font-extrabold" style={{ color: '#0066CC' }}>${pkg.from_price.toFixed(0)}</span>
                   </div>
                 </div>
               </div>
               
-              {/* CTA Button */}
+              {/* CTA Button - CARFIX Orange accent */}
               <div 
-                className="px-4 py-3 group-hover:bg-emerald-50 transition-colors"
+                className="px-4 py-3 transition-colors"
                 style={{
-                  background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.06) 0%, rgba(16, 185, 129, 0.02) 100%)',
-                  borderTop: '1px solid rgba(16, 185, 129, 0.1)',
+                  background: 'linear-gradient(90deg, rgba(255, 149, 0, 0.08) 0%, rgba(255, 149, 0, 0.02) 100%)',
+                  borderTop: '1px solid rgba(255, 149, 0, 0.15)',
                 }}
               >
                 <div className="flex items-center justify-center gap-2">
-                  <span className="text-sm font-semibold text-emerald-600 group-hover:text-emerald-700 transition-colors">View Package Details</span>
-                  <svg className="w-4 h-4 text-emerald-500 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span className="text-sm font-semibold transition-colors" style={{ color: '#FF9500' }}>View Package Details</span>
+                  <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" style={{ color: '#FF9500' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </div>

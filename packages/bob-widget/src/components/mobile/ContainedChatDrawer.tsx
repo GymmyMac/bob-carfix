@@ -93,15 +93,15 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
       : lastBobMessage.content
     : "Ask Bob about car parts...";
 
-  // PTT button styles - mechanic's radio button
+  // PTT button styles - CARFIX Blue/Orange branding
   const pttButtonStyles = {
     idle: {
-      background: 'linear-gradient(145deg, #22c55e 0%, #16a34a 100%)',
-      boxShadow: '0 6px 20px rgba(34, 197, 94, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.2), 0 0 0 4px #15803d',
+      background: 'linear-gradient(145deg, #0066CC 0%, #004999 100%)',
+      boxShadow: '0 6px 20px rgba(0, 102, 204, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.2), 0 0 0 4px #003d7a',
     },
     active: {
-      background: 'linear-gradient(145deg, #f59e0b 0%, #d97706 100%)',
-      boxShadow: '0 2px 8px rgba(245, 158, 11, 0.5), inset 0 2px 8px rgba(0, 0, 0, 0.2), 0 0 0 4px #b45309',
+      background: 'linear-gradient(145deg, #FF9500 0%, #E68600 100%)',
+      boxShadow: '0 2px 8px rgba(255, 149, 0, 0.5), inset 0 2px 8px rgba(0, 0, 0, 0.2), 0 0 0 4px #cc7700',
     },
     disabled: {
       background: 'linear-gradient(145deg, #9ca3af 0%, #6b7280 100%)',

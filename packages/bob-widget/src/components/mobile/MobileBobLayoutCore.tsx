@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { MobileBobCharacter } from "./MobileBobCharacter";
+import React, { useState, useEffect, useCallback } from "react";
+import { MobileBobCharacter, type BobPosition } from "./MobileBobCharacter";
 import { MobileProductColumn } from "./MobileProductColumn";
 import { useViewportSize } from "../../hooks/useViewportSize";
+import { usePositionFactors } from "../../hooks/usePositionFactors";
 import type { Product, ServicePackage } from "../../types";
 import type { HighlightedProduct } from "../../types/message";
 import type { Vehicle } from "../../types/vehicle";
@@ -34,12 +35,19 @@ interface MobileBobLayoutCoreProps {
   // Bob positioning from database
   bobOffset?: number;
   bobScale?: number;
+  
+  // External position control (from SwipeableBob)
+  externalBobPosition?: BobPosition;
+  onBobPositionChange?: (position: BobPosition) => void;
 }
 
 /**
- * MobileBobLayoutCore - Bob character, backdrop, and products WITHOUT the chat drawer.
- * The chat drawer is rendered separately outside SwipeableBob to avoid CSS transform
- * stacking context issues with position: fixed.
+ * MobileBobLayoutCore - Bob character, backdrop, and products with 3-position system.
+ * 
+ * Bob Positions:
+ * - center: Welcome/idle state, no products
+ * - partial-left: Products visible, Bob partially off-screen
+ * - hidden: User swiped, full product view
  */
 export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
   currentImage,
@@ -57,20 +65,32 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
   vehicle,
   onChangeVehicle,
   bobOffset = 0,
-  bobScale = 100
+  bobScale = 100,
+  externalBobPosition,
+  onBobPositionChange
 }) => {
   const isEmbedded = typeof window !== 'undefined' && window.self !== window.top;
   const viewportSize = useViewportSize();
+  const factors = usePositionFactors();
   
-  const [bobPosition, setBobPosition] = useState<'center' | 'left'>('center');
+  // 3-position state: center, partial-left, hidden
+  const [internalBobPosition, setInternalBobPosition] = useState<BobPosition>('center');
   const [panelState, setPanelState] = useState<PanelState>('hidden');
+  
+  // Use external position if provided, otherwise internal
+  const bobPosition = externalBobPosition ?? internalBobPosition;
+  const setBobPosition = useCallback((pos: BobPosition) => {
+    setInternalBobPosition(pos);
+    onBobPositionChange?.(pos);
+  }, [onBobPositionChange]);
   
   const hasProducts = products.length > 0 || servicePackages.length > 0;
   
+  // Responsive Bob scale
   const getBaseUIScale = () => {
     switch (viewportSize) {
-      case 'desktop': return 130;  // Increased from 100 - Bob needs to be larger on desktop
-      case 'tablet': return 150;   // Slight increase
+      case 'desktop': return 130 * factors.uiScale;
+      case 'tablet': return 150 * factors.uiScale;
       case 'mobile': return 200;
       default: return 200;
     }
@@ -78,16 +98,18 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
   const baseUIScale = getBaseUIScale();
   const finalBobScale = (baseUIScale * bobScale) / 100;
   
+  // Automatic position transitions based on state
   useEffect(() => {
     if (isResearching && panelState !== 'loading' && panelState !== 'visible') {
       setPanelState('loading');
       
+      // Move to partial-left when researching starts
       if (bobPosition === 'center') {
-        setBobPosition('left');
+        setBobPosition('partial-left');
       }
     } else if (hasProducts && panelState !== 'visible') {
       if (bobPosition === 'center') {
-        setBobPosition('left');
+        setBobPosition('partial-left');
         setPanelState('transitioning');
         
         const timer = setTimeout(() => {
@@ -102,9 +124,12 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
       setPanelState('hidden');
       setBobPosition('center');
     }
-  }, [hasProducts, isResearching, panelState, bobPosition]);
+  }, [hasProducts, isResearching, panelState, bobPosition, setBobPosition]);
 
   const showProductColumn = panelState !== 'hidden';
+  
+  // Calculate blur intensity based on product visibility
+  const shouldBlur = showProductColumn && hasProducts;
 
   return (
     <div 
@@ -115,17 +140,31 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
         touchAction: 'manipulation'
       }}
     >
-      {/* Background - Clean backdrop, no scaling/tiling */}
+      {/* Background with conditional blur when products shown */}
       {backdropUrl && (
-        <img 
-          src={backdropUrl}
-          alt="Shop backdrop"
-          className="absolute inset-0 z-0 w-full h-full object-cover object-center"
-          style={{ pointerEvents: 'none' }}
-        />
+        <>
+          <img 
+            src={backdropUrl}
+            alt="Shop backdrop"
+            className="absolute inset-0 z-0 w-full h-full object-cover object-center transition-all duration-500"
+            style={{ 
+              pointerEvents: 'none',
+              filter: shouldBlur ? 'blur(8px)' : 'none',
+              transform: shouldBlur ? 'scale(1.02)' : 'scale(1)', // Prevent blur edge artifacts
+            }}
+          />
+          {/* Dark overlay when products shown for better contrast */}
+          <div 
+            className="absolute inset-0 z-[1] transition-opacity duration-500 pointer-events-none"
+            style={{ 
+              background: 'rgba(0, 0, 0, 0.15)',
+              opacity: shouldBlur ? 1 : 0,
+            }}
+          />
+        </>
       )}
 
-      {/* Bob Character */}
+      {/* Bob Character with 3-position system */}
       <MobileBobCharacter
         currentImage={currentImage}
         animationState={animationState}
@@ -184,7 +223,7 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
         </div>
       )}
 
-      {/* Product Column */}
+      {/* Product Column - 80% width with responsive scaling */}
       <MobileProductColumn
         products={products}
         servicePackages={servicePackages}

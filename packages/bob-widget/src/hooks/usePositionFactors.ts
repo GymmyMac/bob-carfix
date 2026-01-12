@@ -1,0 +1,69 @@
+import { useViewportSize, type ViewportSize } from './useViewportSize';
+
+/**
+ * Position factors for responsive Bob positioning and UI scaling.
+ * These factors allow fine-tuned control across mobile, tablet, and desktop.
+ */
+export interface PositionFactors {
+  /** Multiplier for Bob's position offsets (1.0 = full offset, 0.5 = half) */
+  bobOffset: number;
+  /** Multiplier for product column width (1.0 = 80%, 0.6 = 48%) */
+  productWidth: number;
+  /** General UI element scaling factor */
+  uiScale: number;
+  /** Bob's partial-left position (percentage from left edge) */
+  partialLeftPosition: number;
+  /** Bob's hidden position (percentage from left edge) */
+  hiddenPosition: number;
+}
+
+/**
+ * Returns device-specific position factors for consistent Bob positioning
+ * across mobile, tablet, and desktop viewports.
+ */
+export function usePositionFactors(): PositionFactors {
+  const viewport = useViewportSize();
+  
+  return getPositionFactors(viewport);
+}
+
+/**
+ * Get position factors for a specific viewport size.
+ * Can be used directly if viewport is known.
+ */
+export function getPositionFactors(viewport: ViewportSize): PositionFactors {
+  switch (viewport) {
+    case 'mobile':
+      return {
+        bobOffset: 1.0,
+        productWidth: 1.0,
+        uiScale: 1.0,
+        partialLeftPosition: -20,  // Bob 20% off-screen left (right portion visible)
+        hiddenPosition: -100,      // Fully off-screen
+      };
+    case 'tablet':
+      return {
+        bobOffset: 0.7,
+        productWidth: 0.85,
+        uiScale: 1.1,
+        partialLeftPosition: -10,  // Less offset on tablet
+        hiddenPosition: -80,       // Slightly visible edge
+      };
+    case 'desktop':
+      return {
+        bobOffset: 0.5,
+        productWidth: 0.6,
+        uiScale: 1.2,
+        partialLeftPosition: 5,    // Stays more visible on desktop
+        hiddenPosition: -60,       // Can still see some of Bob
+      };
+    default:
+      return {
+        bobOffset: 1.0,
+        productWidth: 1.0,
+        uiScale: 1.0,
+        partialLeftPosition: -20,
+        hiddenPosition: -100,
+      };
+  }
+}
