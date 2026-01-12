@@ -1,5 +1,13 @@
-import React from "react";
+import React, { useState } from "react";
 import type { Product } from "../types";
+import { 
+  glassCard, 
+  glassCardPremium, 
+  glassButtonPrimary, 
+  glassImageContainer,
+  glassBadge,
+  glassText 
+} from "../styles/glass";
 
 interface ProductTileProps {
   product: Product;
@@ -9,14 +17,13 @@ interface ProductTileProps {
 }
 
 /**
- * ProductTile - Phase 4: Full-Width Glass Product Tiles
+ * ProductTile - Premium Glassmorphism Product Cards
  * 
- * Design specs:
- * - Full viewport width (80% of mobile screen)
- * - Glass-morphism with backdrop blur
- * - Layout: Image left, details middle, "Add" button right
- * - "Bob's Pick" spotlight badge for recommended products
- * - CARFIX brand colours (blue primary, orange accents)
+ * iOS 26-inspired liquid glass design:
+ * - Frosted translucent glass with backdrop blur
+ * - Sharp white text with high contrast
+ * - CARFIX orange price highlights
+ * - Hover: scale(1.04), translateY(-4px), enhanced glow
  */
 export const ProductTile: React.FC<ProductTileProps> = ({
   product,
@@ -24,6 +31,8 @@ export const ProductTile: React.FC<ProductTileProps> = ({
   onProductClick,
   onAddToCart
 }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  
   const handleClick = () => {
     onProductClick?.(product);
   };
@@ -33,34 +42,38 @@ export const ProductTile: React.FC<ProductTileProps> = ({
     onAddToCart?.(product);
   };
 
+  // Base glass style or premium variant
+  const baseGlass = isSpotlighted ? glassCardPremium : glassCard;
+
   return (
     <div
       onClick={handleClick}
-      className="relative w-full cursor-pointer transition-all duration-200 active:scale-[0.98]"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="relative w-full cursor-pointer glass-card"
       style={{
-        // Enhanced glass-morphism styling
-        background: isSpotlighted 
-          ? 'linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(239,246,255,0.92) 100%)'
-          : 'rgba(255, 255, 255, 0.75)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        borderRadius: '20px',
-        border: isSpotlighted 
-          ? '2px solid rgba(0, 102, 204, 0.5)' 
-          : '1px solid rgba(255, 255, 255, 0.4)',
-        boxShadow: isSpotlighted
-          ? '0 8px 32px -4px rgba(0, 102, 204, 0.25), 0 4px 12px -2px rgba(0, 0, 0, 0.08), inset 0 0 0 1px rgba(255,255,255,0.3)'
-          : '0 8px 32px rgba(0, 0, 0, 0.12), inset 0 0 0 1px rgba(255,255,255,0.2)',
-        padding: '14px',
+        ...baseGlass,
+        padding: '16px',
+        // Hover transform
+        transform: isHovered ? 'scale(1.04) translateY(-4px)' : 'scale(1) translateY(0)',
+        boxShadow: isHovered 
+          ? '0 16px 56px rgba(0, 0, 0, 0.4), 0 0 24px rgba(255,255,255,0.08)'
+          : baseGlass.boxShadow,
+        transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease-out',
       }}
     >
-      {/* Bob's Pick Badge - CARFIX Blue */}
+      {/* Bob's Pick Badge - Premium glass badge */}
       {isSpotlighted && (
         <div 
-          className="absolute -top-2.5 -right-2.5 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-white"
+          className="absolute -top-2.5 -right-2.5 z-10 flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold"
           style={{
-            background: 'linear-gradient(135deg, #0066CC 0%, #004999 100%)',
-            boxShadow: '0 4px 12px -2px rgba(0, 102, 204, 0.4)',
+            background: 'linear-gradient(135deg, rgba(0, 102, 204, 0.95) 0%, rgba(0, 73, 153, 1) 100%)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            borderRadius: '20px',
+            boxShadow: '0 8px 24px rgba(0, 102, 204, 0.5)',
+            color: 'white',
           }}
         >
           <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
@@ -71,14 +84,13 @@ export const ProductTile: React.FC<ProductTileProps> = ({
       )}
 
       <div className="flex items-center gap-4">
-        {/* Product Image */}
+        {/* Product Image - Inner glass container */}
         <div 
-          className="flex-shrink-0 flex items-center justify-center rounded-2xl overflow-hidden"
+          className="flex-shrink-0 flex items-center justify-center overflow-hidden"
           style={{
-            width: '88px',
-            height: '88px',
-            background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-            border: '1px solid rgba(0, 102, 204, 0.1)',
+            ...glassImageContainer,
+            width: '92px',
+            height: '92px',
           }}
         >
           {product.image_url ? (
@@ -89,7 +101,7 @@ export const ProductTile: React.FC<ProductTileProps> = ({
               loading="lazy"
             />
           ) : (
-            <div className="flex flex-col items-center justify-center text-gray-400">
+            <div className="flex flex-col items-center justify-center" style={{ color: 'rgba(255,255,255,0.4)' }}>
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
@@ -99,25 +111,26 @@ export const ProductTile: React.FC<ProductTileProps> = ({
 
         {/* Product Details */}
         <div className="flex-1 min-w-0">
-          {/* Product Name - Bold typography */}
+          {/* Product Name - Sharp white text */}
           <p 
-            className="font-bold text-gray-900 line-clamp-2 leading-tight"
+            className="font-bold line-clamp-2 leading-tight"
             style={{ 
-              fontSize: '15px',
+              fontSize: '16px',
               letterSpacing: '-0.01em',
+              ...glassText.primary,
             }}
           >
             {product.name}
           </p>
           
-          {/* Brand Badge - CARFIX Blue */}
+          {/* Brand Badge - Glass style */}
           {product.brand && (
             <div className="flex items-center gap-1.5 mt-1.5">
               <span 
-                className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md"
+                className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5"
                 style={{
-                  background: 'rgba(0, 102, 204, 0.1)',
-                  color: '#0066CC',
+                  ...glassBadge,
+                  color: 'rgba(255, 255, 255, 0.9)',
                 }}
               >
                 <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
@@ -128,29 +141,36 @@ export const ProductTile: React.FC<ProductTileProps> = ({
             </div>
           )}
           
-          {/* Price - Bold, CARFIX Blue */}
+          {/* Price - CARFIX Orange with glow */}
           <p 
             className="font-extrabold mt-2"
             style={{ 
-              fontSize: '20px',
-              color: '#0066CC',
+              fontSize: '22px',
               letterSpacing: '-0.02em',
+              ...glassText.price,
             }}
           >
             {product.price > 0 ? `$${product.price.toFixed(2)}` : 'POA'}
           </p>
         </div>
 
-        {/* Add Button - CARFIX Orange */}
+        {/* Add Button - Premium glass with orange glow */}
         <button
           onClick={handleAddClick}
-          className="flex-shrink-0 flex items-center justify-center rounded-2xl transition-all duration-200 active:scale-95"
+          className="flex-shrink-0 flex items-center justify-center glass-button"
           style={{
-            width: '52px',
-            height: '52px',
-            background: 'linear-gradient(135deg, #FF9500 0%, #E68600 100%)',
-            boxShadow: '0 4px 14px -2px rgba(255, 149, 0, 0.4)',
-            border: 'none',
+            ...glassButtonPrimary,
+            width: '56px',
+            height: '56px',
+            transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease-out',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'scale(1.08) translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 14px 48px rgba(255, 149, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1) translateY(0)';
+            e.currentTarget.style.boxShadow = glassButtonPrimary.boxShadow as string;
           }}
         >
           <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -159,15 +179,15 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         </button>
       </div>
 
-      {/* Part Type Tag */}
+      {/* Part Type Tag - Subtle glass divider */}
       {product.partslotDescription && (
         <div 
           className="mt-3 pt-3"
-          style={{ borderTop: '1px solid rgba(0, 102, 204, 0.1)' }}
+          style={{ borderTop: '1px solid rgba(255, 255, 255, 0.15)' }}
         >
           <span 
             className="text-xs font-medium"
-            style={{ color: '#0066CC', opacity: 0.7 }}
+            style={{ color: 'rgba(255, 255, 255, 0.6)' }}
           >
             {product.partslotDescription}
           </span>

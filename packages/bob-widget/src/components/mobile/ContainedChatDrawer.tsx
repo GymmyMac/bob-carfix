@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useSpeechRecognition } from "../../hooks/useSpeechRecognition";
 import { useBobLayoutConfig } from "../../BobProvider";
 import type { Message } from "../../types/message";
+import { glassPanel, glassButtonBlue, glassInput, glassText } from "../../styles/glass";
 
 interface ContainedChatDrawerProps {
   messages: Message[];
@@ -19,8 +20,8 @@ interface ContainedChatDrawerProps {
 }
 
 /**
- * ContainedChatDrawer - Chat drawer using absolute positioning
- * Stays within parent container bounds instead of viewport.
+ * ContainedChatDrawer - Premium Glassmorphism Chat Drawer
+ * iOS 26 liquid glass design with CARFIX branding
  */
 export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
   messages,
@@ -65,7 +66,6 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
   const handlePTTStart = useCallback(() => {
     if (isLoading || pttActiveRef.current) return;
     pttActiveRef.current = true;
-    // Stronger haptic for mechanic feel
     if (navigator.vibrate) {
       navigator.vibrate(30);
     }
@@ -75,7 +75,6 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
   const handlePTTEnd = useCallback(() => {
     if (!pttActiveRef.current) return;
     pttActiveRef.current = false;
-    // Double pulse on release
     if (navigator.vibrate) {
       navigator.vibrate([20, 50, 20]);
     }
@@ -93,19 +92,26 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
       : lastBobMessage.content
     : "Ask Bob about car parts...";
 
-  // PTT button styles - CARFIX Blue/Orange branding
+  // Premium Glass PTT button styles
   const pttButtonStyles = {
     idle: {
-      background: 'linear-gradient(145deg, #0066CC 0%, #004999 100%)',
-      boxShadow: '0 6px 20px rgba(0, 102, 204, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.2), 0 0 0 4px #003d7a',
+      ...glassButtonBlue,
     },
     active: {
-      background: 'linear-gradient(145deg, #FF9500 0%, #E68600 100%)',
-      boxShadow: '0 2px 8px rgba(255, 149, 0, 0.5), inset 0 2px 8px rgba(0, 0, 0, 0.2), 0 0 0 4px #cc7700',
+      background: 'linear-gradient(135deg, rgba(255, 149, 0, 0.95) 0%, rgba(230, 134, 0, 1) 100%)',
+      backdropFilter: 'blur(16px) saturate(180%)',
+      WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+      border: '1px solid rgba(255, 255, 255, 0.4)',
+      borderRadius: '50%',
+      boxShadow: '0 12px 48px rgba(255, 149, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.3)',
     },
     disabled: {
-      background: 'linear-gradient(145deg, #9ca3af 0%, #6b7280 100%)',
-      boxShadow: '0 2px 8px rgba(156, 163, 175, 0.3), 0 0 0 4px #4b5563',
+      background: 'rgba(156, 163, 175, 0.5)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
+      border: '1px solid rgba(255, 255, 255, 0.2)',
+      borderRadius: '50%',
+      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
     }
   };
 
@@ -123,19 +129,18 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
         bottom: `${bottomOffset}px`,
         left: 0,
         right: 0,
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        borderTop: '1px solid #e5e7eb',
+        ...glassPanel,
+        borderRadius: '28px 28px 0 0',
+        borderBottom: 'none',
         transition: 'all 0.3s ease-out',
-        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.15)',
+        boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.3)',
         height: isExpanded ? '55%' : '70px',
         overflow: isExpanded ? 'visible' : 'hidden',
         zIndex: zIndexBase + 10,
         paddingBottom: bottomOffset > 0 ? '8px' : 'env(safe-area-inset-bottom, 8px)'
       }}
     >
-      {/* Expand/Collapse Handle */}
+      {/* Expand/Collapse Handle - Glass style */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         style={{
@@ -143,11 +148,13 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
           top: '-20px',
           left: '50%',
           transform: 'translateX(-50%)',
-          backgroundColor: 'white',
-          border: '1px solid #e5e7eb',
+          background: 'rgba(255, 255, 255, 0.15)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255, 255, 255, 0.25)',
           borderRadius: '9999px',
           padding: '6px',
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
           zIndex: zIndexBase + 20,
           cursor: 'pointer',
           minHeight: 'unset',
@@ -156,11 +163,11 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
         aria-label={isExpanded ? "Collapse chat" : "Expand chat"}
       >
         {isExpanded ? (
-          <svg style={{ height: '16px', width: '16px', color: '#6b7280' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg style={{ height: '16px', width: '16px', color: 'rgba(255,255,255,0.8)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         ) : (
-          <svg style={{ height: '16px', width: '16px', color: '#6b7280' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg style={{ height: '16px', width: '16px', color: 'rgba(255,255,255,0.8)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
           </svg>
         )}
@@ -172,22 +179,27 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
           onClick={() => setIsExpanded(true)}
           style={{ padding: '6px 12px 4px 12px', height: '26px', overflow: 'hidden', cursor: 'pointer' }}
         >
-          <p style={{ fontSize: '12px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewText}</p>
+          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewText}</p>
         </div>
       )}
 
       {/* Expanded Chat History */}
       {isExpanded && (
-        <div style={{ height: 'calc(100% - 100px)', overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ height: 'calc(100% - 100px)', overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }} className="glass-scroll">
           {[...messages].reverse().map((msg, idx) => (
             <div key={idx} style={{ display: 'flex', justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
               <div style={{
                 maxWidth: '85%',
-                borderRadius: '8px',
-                padding: '8px 12px',
+                borderRadius: '16px',
+                padding: '10px 14px',
                 fontSize: '14px',
-                backgroundColor: msg.role === "user" ? '#2563eb' : '#f3f4f6',
-                color: msg.role === "user" ? 'white' : '#111827'
+                background: msg.role === "user" 
+                  ? 'linear-gradient(135deg, rgba(0, 102, 204, 0.9) 0%, rgba(0, 73, 153, 0.95) 100%)'
+                  : 'rgba(255, 255, 255, 0.12)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                color: 'rgba(255, 255, 255, 0.95)',
+                textShadow: '0 1px 2px rgba(0,0,0,0.2)',
               }}>
                 {msg.content}
               </div>
@@ -197,20 +209,20 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
         </div>
       )}
 
-      {/* Input Area */}
+      {/* Input Area - Glass style */}
       <div style={{
         padding: isExpanded ? '8px 12px 4px 12px' : '4px 12px 4px 12px',
-        borderTop: isExpanded ? '1px solid #e5e7eb' : 'none'
+        borderTop: isExpanded ? '1px solid rgba(255, 255, 255, 0.15)' : 'none'
       }}>
         {isListening && (
-          <div style={{ marginBottom: '8px', fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ display: 'inline-block', width: '8px', height: '8px', backgroundColor: '#ef4444', borderRadius: '50%', animation: 'pulse 2s infinite' }} />
+          <div style={{ marginBottom: '8px', fontSize: '12px', color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ display: 'inline-block', width: '8px', height: '8px', backgroundColor: '#FF9500', borderRadius: '50%', animation: 'pulse 2s infinite' }} />
             Listening...
           </div>
         )}
         
         {sttError && (
-          <div style={{ marginBottom: '8px', fontSize: '12px', color: '#ef4444' }}>{sttError}</div>
+          <div style={{ marginBottom: '8px', fontSize: '12px', color: '#FF9500' }}>{sttError}</div>
         )}
         
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -224,11 +236,12 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderRadius: '6px',
-                backgroundColor: 'transparent',
-                color: isSpeaking ? '#2563eb' : '#4b5563',
+                borderRadius: '10px',
+                background: 'rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(8px)',
+                color: isSpeaking ? '#0066CC' : 'rgba(255,255,255,0.7)',
                 cursor: 'pointer',
-                border: 'none',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
                 minHeight: 'unset',
                 minWidth: 'unset'
               }}
@@ -260,17 +273,15 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
               flex: 1,
               height: '40px',
               fontSize: '16px',
-              padding: '0 12px',
-              border: '1px solid #d1d5db',
-              borderRadius: '6px',
-              backgroundColor: 'white',
-              color: '#111827',
+              padding: '0 14px',
+              ...glassInput,
+              color: 'rgba(255, 255, 255, 0.95)',
               outline: 'none',
               opacity: isLoading ? 0.5 : 1
             }}
           />
           
-          {/* Mechanic's Radio PTT Button - Large and prominent */}
+          {/* Mechanic's Radio PTT Button - Premium glass */}
           {isSupported && (
             <div style={{ position: 'relative', marginLeft: '4px' }}>
               {/* Radio wave animations when active */}
@@ -283,7 +294,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
                     width: '72px',
                     height: '72px',
                     borderRadius: '50%',
-                    border: '2px solid #f59e0b',
+                    border: '2px solid #FF9500',
                     transform: 'translate(-50%, -50%)',
                     animation: 'ptt-wave 1.5s ease-out infinite',
                     opacity: 0,
@@ -296,7 +307,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
                     width: '72px',
                     height: '72px',
                     borderRadius: '50%',
-                    border: '2px solid #f59e0b',
+                    border: '2px solid #FF9500',
                     transform: 'translate(-50%, -50%)',
                     animation: 'ptt-wave 1.5s ease-out infinite 0.5s',
                     opacity: 0,
@@ -329,6 +340,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
                 onMouseLeave={handlePTTEnd}
                 disabled={isLoading}
                 aria-label="Hold to talk to Bob"
+                className="glass-button"
                 style={{
                   position: 'relative',
                   flexShrink: 0,
@@ -346,14 +358,14 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
                   border: 'none',
                   cursor: isLoading ? 'not-allowed' : 'pointer',
                   opacity: isLoading ? 0.6 : 1,
-                  transform: isListening ? 'scale(1.15)' : 'scale(1)',
+                  transform: isListening ? 'scale(1.08)' : 'scale(1)',
                   transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease',
                   zIndex: zIndexBase + 25,
                   ...currentPttStyle
                 }}
                 title="Hold to talk"
               >
-                {/* Microphone icon - chunky style */}
+                {/* Microphone icon */}
                 <svg 
                   style={{ 
                     height: '28px', 
@@ -372,7 +384,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
                   />
                 </svg>
                 
-                {/* Active indicator waves on icon */}
+                {/* Active indicator */}
                 {isListening && (
                   <div style={{
                     position: 'absolute',
