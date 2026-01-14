@@ -278,6 +278,14 @@ CRITICAL RULES:
 - Know the difference between VEHICLE-SPECIFIC parts and GENERAL products
 - NEVER mention stock status - all parts shown are IN STOCK and available. Never say "out of stock", "limited stock", "checking availability" etc.
 
+ANTI-HALLUCINATION RULES (MANDATORY):
+- ONLY mention products, brands, SKUs, and prices that appear in tool responses with success: true
+- If a tool returns success: false or error, DO NOT invent alternatives or make up products
+- NEVER guess or hallucinate product names, prices, or brand names from your general knowledge
+- If you don't have real product data, say: "I don't have that in my system right now - check carfix.co.nz"
+- For general products (tire shine, car wash, etc.), if search fails, direct customer to browse the website
+- ALL product recommendations MUST come from retrieve_parts, search_products, or search_general_products results
+
 GENERAL PRODUCTS vs VEHICLE-SPECIFIC PARTS:
 GENERAL PRODUCTS (NO vehicle needed):
 - Cleaning products: tire shine, windscreen wash, car wash, polish, wax, interior cleaner
@@ -581,28 +589,60 @@ async function lookupVehicle(args: Record<string, unknown>, apiConfig: ApiConfig
     const data = await response.json();
     console.log('Vehicle lookup result (full):', JSON.stringify(data));
     
-    // Check if the API returned multiple vehicle candidates (variants)
-    if (data.vehicles && Array.isArray(data.vehicles) && data.vehicles.length > 0) {
-      console.log(`Found ${data.vehicles.length} vehicle candidates`);
-      // Return the full list for AI to present options to customer
+    // PRIORITY ORDER: Check for confirmed single match BEFORE checking multiple matches
+    // The CARFIX API returns BOTH data.vehicle (plate info) AND data.vehicles (TecDoc variants)
+    // For REGO lookups: if there's exactly 1 variant, auto-confirm it
+    
+    // Case 1: Single vehicle variant - AUTO-CONFIRM (most common for REGO lookups)
+    if (data.vehicles && Array.isArray(data.vehicles) && data.vehicles.length === 1) {
+      const confirmedVehicle = data.vehicles[0];
+      console.log('Single vehicle variant match - AUTO-CONFIRMING:', confirmedVehicle.vehicle_id || confirmedVehicle.id);
+      return { 
+        success: true, 
+        vehicle: { ...data.vehicle, ...confirmedVehicle },
+        vehicle_id: confirmedVehicle.vehicle_id || confirmedVehicle.id,
+        auto_confirmed: true,
+        message: "Single match found - vehicle auto-confirmed for parts lookup."
+      };
+    }
+    
+    // Case 2: Multiple vehicle variants - need customer selection
+    if (data.vehicles && Array.isArray(data.vehicles) && data.vehicles.length > 1) {
+      console.log(`Found ${data.vehicles.length} vehicle candidates - needs customer selection`);
       return { 
         success: true, 
         multiple_matches: true,
         vehicles: data.vehicles,
-        message: `Found ${data.vehicles.length} potential vehicle matches. Present these options to the customer to confirm which one is theirs.`
+        plate_info: data.vehicle,
+        message: `Found ${data.vehicles.length} variants for this ${data.vehicle?.make || ''} ${data.vehicle?.model || ''}. Ask customer which one matches.`
       };
     }
     
-    // Single match or direct vehicle object
-    if (data.vehicle) {
-      console.log('Single vehicle match:', data.vehicle.id || data.vehicle.vehicle_id || 'NO ID');
-      return data;
+    // Case 3: Direct vehicle object with ID (legacy format or direct match)
+    if (data.vehicle && (data.vehicle.id || data.vehicle.vehicle_id)) {
+      console.log('Direct vehicle match with ID:', data.vehicle.id || data.vehicle.vehicle_id);
+      return { 
+        success: true, 
+        vehicle: data.vehicle,
+        vehicle_id: data.vehicle.id || data.vehicle.vehicle_id
+      };
     }
     
-    // Direct vehicle data (has id field)
+    // Case 4: Top-level vehicle data
     if (data.id || data.vehicle_id) {
-      console.log('Direct vehicle with ID:', data.id || data.vehicle_id);
-      return { success: true, vehicle: data };
+      console.log('Top-level vehicle with ID:', data.id || data.vehicle_id);
+      return { success: true, vehicle: data, vehicle_id: data.id || data.vehicle_id };
+    }
+    
+    // Case 5: Vehicle info without usable ID - need more details
+    if (data.vehicle) {
+      console.log('Vehicle info found but no usable ID - may need more details');
+      return { 
+        success: true, 
+        vehicle: data.vehicle,
+        needs_clarification: true,
+        message: "Found vehicle info but couldn't match to specific variant. Ask for more details (engine size, year, etc)."
+      };
     }
     
     return data;
@@ -728,6 +768,19 @@ async function retrieveServicePackages(vehicleId: number | undefined, apiConfig:
     if (!response.ok) {
       const errorBody = await response.text();
       console.error('Service bundles lookup failed:', response.status, errorBody);
+      
+      // Handle 500 errors gracefully - CARFIX API may be temporarily unavailable
+      if (response.status === 500) {
+        console.error('Service bundles API returned 500 - may be temporary outage');
+        return { 
+          success: false, 
+          error: "Service packages temporarily unavailable. Individual parts are still available - ask about specific parts you need.",
+          packages: [],
+          retryable: true,
+          api_status: 500
+        };
+      }
+      
       return { success: false, error: `Service bundles lookup failed with status ${response.status}` };
     }
     
@@ -749,16 +802,41 @@ async function retrieveServicePackages(vehicleId: number | undefined, apiConfig:
   }
 }
 
-async function searchGeneralProducts(query: string): Promise<{ success: boolean; products?: unknown[]; total_found?: number; error?: string }> {
+async function searchGeneralProducts(query: string): Promise<{ success: boolean; products?: unknown[]; total_found?: number; error?: string; ai_instruction?: string }> {
   console.log('Searching general products for:', query);
   
-  // General products search is not yet connected to real inventory
-  // Return clear message so AI doesn't hallucinate fake products
+  // Try Partner API search_products for general (non-vehicle) products
+  const partnerApiKey = Deno.env.get("CARFIX_PARTNER_API_KEY");
+  
+  if (partnerApiKey) {
+    try {
+      console.log('Attempting Partner API search for general products:', query);
+      const result = await callPartnerAPI("search_products", { 
+        query,
+        filter: "general"
+      }) as { success?: boolean; products?: unknown[]; total?: number };
+      
+      if (result && result.success && result.products && Array.isArray(result.products) && result.products.length > 0) {
+        console.log(`Partner API returned ${result.products.length} general products`);
+        return {
+          success: true,
+          products: result.products,
+          total_found: result.products.length
+        };
+      }
+      console.log('Partner API search returned no results for general products');
+    } catch (err) {
+      console.error('Partner API general products search failed:', err);
+    }
+  }
+  
+  // General products search not available - return clear anti-hallucination message
   return {
     success: false,
-    error: "General products search is not yet connected to inventory. Please ask about vehicle-specific parts instead, or recommend the customer browse the website directly for accessories and care products.",
+    error: "General products search is not currently available through Bob.",
     products: [],
-    total_found: 0
+    total_found: 0,
+    ai_instruction: "CRITICAL: DO NOT invent or guess products. Tell the customer: 'For accessories, cleaning products, and car care items, check out carfix.co.nz directly - heaps of good stuff there.' Do NOT mention any specific product names, brands, or prices."
   };
 }
 
