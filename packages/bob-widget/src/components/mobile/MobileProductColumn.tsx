@@ -295,14 +295,16 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
   const showLoading = isResearching && !hasContent;
   const showContent = hasContent && !showLoading;
   
-  // Layout calculations - Optimized for screen utilization
-  const columnWidth = viewportSize === 'mobile' ? 85 : viewportSize === 'tablet' ? 55 : 45;
-  const maxWidth = viewportSize === 'desktop' ? '560px' : viewportSize === 'tablet' ? '480px' : '100%';
-  const topOffset = viewportSize === 'desktop' 
-    ? '12px' 
-    : viewportSize === 'tablet' 
-      ? `calc(${counterHeightPercent * 0.5}vh + 8px)` 
-      : `calc(${counterHeightPercent}vh + env(safe-area-inset-top, 8px))`;
+  // Force visibility when products exist (prevents animation state blocking display)
+  const shouldBeVisible = visible || hasContent;
+  
+  // Layout calculations - MAXIMIZED for full screen utilization
+  const columnWidth = viewportSize === 'mobile' ? 88 : viewportSize === 'tablet' ? 58 : 48;
+  const maxWidth = viewportSize === 'desktop' ? '580px' : viewportSize === 'tablet' ? '500px' : '100%';
+  // Minimal top offset - start products as high as possible
+  const topOffset = viewportSize === 'mobile' 
+    ? `calc(${counterHeightPercent}vh + env(safe-area-inset-top, 4px))`
+    : '6px';
 
   return (
     <>
@@ -325,8 +327,8 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
       <div 
         ref={scrollRef}
         onScroll={handleScroll}
-        className={`absolute overflow-y-auto overflow-x-hidden z-30 flex flex-col gap-4 md:gap-5 transition-all duration-400 ease-out product-scroll ${
-          visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-12 pointer-events-none"
+        className={`absolute overflow-y-auto overflow-x-hidden z-30 flex flex-col gap-3 md:gap-4 transition-all duration-400 ease-out product-scroll ${
+          shouldBeVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-12 pointer-events-none"
         }`}
         style={{
           // Right-aligned, responsive width
@@ -335,10 +337,13 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           right: '0',
           left: 'auto',
           top: topOffset,
-          bottom: 'calc(70px + env(safe-area-inset-bottom, 4px))',
-          paddingTop: 'env(safe-area-inset-top, 4px)',
-          paddingRight: '8px',
-          paddingLeft: '16px',
+          bottom: viewportSize === 'mobile' 
+            ? 'calc(58px + env(safe-area-inset-bottom, 0px))' 
+            : '52px',
+          paddingTop: '4px',
+          paddingRight: '6px',
+          paddingLeft: '12px',
+          paddingBottom: '8px',
           // Hide default scrollbar
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
