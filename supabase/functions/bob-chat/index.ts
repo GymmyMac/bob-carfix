@@ -1579,10 +1579,29 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
                   const markerMatch = accumulatedContent.match(markerRegex);
                   if (markerMatch) {
                     try {
-                      const vehicleData = JSON.parse(markerMatch[1]);
+                      let vehicleData = JSON.parse(markerMatch[1]);
+                      
+                      // CRITICAL: Validate against actual lookup data to prevent hallucination (same as in-stream)
+                      const storedVehicleId = (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId;
+                      const storedVehicleData = (conversationMessages as unknown as { _lookupVehicleData?: Record<string, unknown> })._lookupVehicleData;
+                      const preProcessedVehicle = (conversationMessages as unknown as { _confirmedVehicle?: Record<string, unknown> })._confirmedVehicle;
+                      
+                      if (preProcessedVehicle) {
+                        vehicleData = preProcessedVehicle;
+                      } else if (storedVehicleId) {
+                        vehicleData.vehicle_id = storedVehicleId;
+                        vehicleData.id = storedVehicleId;
+                        if (storedVehicleData) {
+                          vehicleData.make = storedVehicleData.make || vehicleData.make;
+                          vehicleData.model = storedVehicleData.model || vehicleData.model;
+                          vehicleData.year = storedVehicleData.year || vehicleData.year;
+                          vehicleData.rego = storedVehicleData.plate || storedVehicleData.rego || vehicleData.rego;
+                        }
+                      }
+                      
                       const vehicleEvent = `data: ${JSON.stringify({ type: "vehicle_identified", vehicle: vehicleData })}\n\n`;
                       controller.enqueue(encoder.encode(vehicleEvent));
-                      console.log("Emitted vehicle_identified event (end of stream):", vehicleData);
+                      console.log("Emitted vehicle_identified event (end of stream, validated):", vehicleData);
                       vehicleEmitted = true;
                     } catch (e) {
                       console.error("Failed to parse vehicle marker at stream end:", e);
@@ -1631,11 +1650,44 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
                     
                     if (!vehicleEmitted && markerMatch) {
                       try {
-                        const vehicleData = JSON.parse(markerMatch[1]);
-                        // Emit vehicle_identified event
+                        let vehicleData = JSON.parse(markerMatch[1]);
+                        
+                        // CRITICAL: Validate against actual lookup data to prevent hallucination
+                        const storedVehicleId = (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId;
+                        const storedVehicleData = (conversationMessages as unknown as { _lookupVehicleData?: Record<string, unknown> })._lookupVehicleData;
+                        const preProcessedVehicle = (conversationMessages as unknown as { _confirmedVehicle?: Record<string, unknown> })._confirmedVehicle;
+                        
+                        // Priority: Use pre-processed vehicle (already validated) > stored lookup data > AI's data
+                        if (preProcessedVehicle) {
+                          console.log("Using pre-processed (validated) vehicle data instead of streaming marker");
+                          vehicleData = preProcessedVehicle;
+                        } else if (storedVehicleId) {
+                          const aiVehicleId = vehicleData.vehicle_id || vehicleData.id;
+                          if (aiVehicleId !== storedVehicleId) {
+                            console.warn(`STREAM HALLUCINATION BLOCKED: AI emitted vehicle_id ${aiVehicleId}, actual is ${storedVehicleId}`);
+                          }
+                          // Override with actual lookup data
+                          vehicleData.vehicle_id = storedVehicleId;
+                          vehicleData.id = storedVehicleId;
+                          if (storedVehicleData) {
+                            // Merge verified fields from actual API response
+                            vehicleData.make = storedVehicleData.make || vehicleData.make;
+                            vehicleData.model = storedVehicleData.model || vehicleData.model;
+                            vehicleData.year = storedVehicleData.year || vehicleData.year;
+                            vehicleData.variant = storedVehicleData.variant || vehicleData.variant;
+                            vehicleData.rego = storedVehicleData.plate || storedVehicleData.rego || vehicleData.rego;
+                            vehicleData.engine_size = storedVehicleData.engine_size || storedVehicleData.cc_rating || vehicleData.engine_size;
+                            vehicleData.fuel_type = storedVehicleData.fuel_type || vehicleData.fuel_type;
+                            vehicleData.vin = storedVehicleData.vin || vehicleData.vin;
+                            vehicleData.engine_no = storedVehicleData.engine_no || vehicleData.engine_no;
+                          }
+                          console.log("Stream vehicle data corrected with lookup data:", vehicleData);
+                        }
+                        
+                        // Emit vehicle_identified event with validated data
                         const vehicleEvent = `data: ${JSON.stringify({ type: "vehicle_identified", vehicle: vehicleData })}\n\n`;
                         controller.enqueue(encoder.encode(vehicleEvent));
-                        console.log("Emitted vehicle_identified event:", vehicleData);
+                        console.log("Emitted vehicle_identified event (validated):", vehicleData);
                         vehicleEmitted = true;
                         
                         // Remove marker from accumulated content
