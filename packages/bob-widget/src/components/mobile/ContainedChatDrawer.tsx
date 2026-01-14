@@ -173,13 +173,21 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
         )}
       </button>
 
-      {/* Collapsed Preview */}
+      {/* Collapsed Preview - High contrast */}
       {!isExpanded && (
         <div 
           onClick={() => setIsExpanded(true)}
           style={{ padding: '6px 12px 4px 12px', height: '26px', overflow: 'hidden', cursor: 'pointer' }}
         >
-          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewText}</p>
+          <p style={{ 
+            fontSize: '12px', 
+            color: 'white', 
+            textShadow: '0 1px 3px rgba(0,0,0,0.6)',
+            fontWeight: 500,
+            overflow: 'hidden', 
+            textOverflow: 'ellipsis', 
+            whiteSpace: 'nowrap' 
+          }}>{previewText}</p>
         </div>
       )}
 
@@ -269,13 +277,18 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
             onBlur={onInputBlur}
             placeholder="Message Bob..."
             disabled={isLoading}
+            className="high-contrast-input"
             style={{
               flex: 1,
               height: '40px',
               fontSize: '16px',
               padding: '0 14px',
-              ...glassInput,
-              color: 'rgba(255, 255, 255, 0.95)',
+              background: 'rgba(0, 51, 102, 0.85)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              border: '2px solid rgba(255, 255, 255, 0.35)',
+              borderRadius: '20px',
+              color: 'white',
               outline: 'none',
               opacity: isLoading ? 0.5 : 1
             }}

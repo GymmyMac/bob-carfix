@@ -295,9 +295,14 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
   const showLoading = isResearching && !hasContent;
   const showContent = hasContent && !showLoading;
   
-  // Layout calculations
-  const columnWidth = viewportSize === 'mobile' ? 80 : viewportSize === 'tablet' ? 50 : 35;
-  const topOffset = `calc(${counterHeightPercent}vh + env(safe-area-inset-top, 8px))`;
+  // Layout calculations - Optimized for screen utilization
+  const columnWidth = viewportSize === 'mobile' ? 85 : viewportSize === 'tablet' ? 55 : 45;
+  const maxWidth = viewportSize === 'desktop' ? '560px' : viewportSize === 'tablet' ? '480px' : '100%';
+  const topOffset = viewportSize === 'desktop' 
+    ? '12px' 
+    : viewportSize === 'tablet' 
+      ? `calc(${counterHeightPercent * 0.5}vh + 8px)` 
+      : `calc(${counterHeightPercent}vh + env(safe-area-inset-top, 8px))`;
 
   return (
     <>
@@ -324,16 +329,16 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-12 pointer-events-none"
         }`}
         style={{
-          // Right-aligned, 80% width
+          // Right-aligned, responsive width
           width: `${columnWidth}%`,
-          maxWidth: '440px',
+          maxWidth: maxWidth,
           right: '0',
           left: 'auto',
           top: topOffset,
-          bottom: 'calc(75px + env(safe-area-inset-bottom, 8px))',
+          bottom: 'calc(70px + env(safe-area-inset-bottom, 4px))',
           paddingTop: 'env(safe-area-inset-top, 4px)',
-          paddingRight: '8px',   // Tight to right edge
-          paddingLeft: '16px',   // Space for Bob
+          paddingRight: '8px',
+          paddingLeft: '16px',
           // Hide default scrollbar
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
@@ -530,17 +535,17 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
             style={{
               ...(isHighlighted ? glassCardPremium : glassCard),
               background: isHighlighted 
-                ? 'linear-gradient(135deg, rgba(0, 102, 204, 0.2) 0%, rgba(0, 102, 204, 0.08) 100%)'
-                : glassCard.background,
+                ? 'linear-gradient(135deg, rgba(0, 82, 164, 0.85) 0%, rgba(0, 51, 102, 0.9) 100%)'
+                : 'rgba(20, 30, 50, 0.75)',
             }}
           >
-            {/* Section Header */}
+            {/* Section Header - High contrast with solid colors */}
             <div 
               className="px-3 py-2.5 flex items-center justify-between"
               style={{
                 background: isHighlighted 
-                  ? 'rgba(0, 102, 204, 0.15)'
-                  : 'rgba(255,255,255,0.05)',
+                  ? 'rgba(0, 102, 204, 0.8)'
+                  : 'rgba(0, 51, 102, 0.7)',
                 borderBottom: '1px solid rgba(255,255,255,0.1)',
               }}
             >
@@ -559,16 +564,20 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                 </div>
                 <span 
                   className="text-xs font-bold truncate uppercase tracking-wide"
-                  style={{ color: isHighlighted ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.8)' }}
+                  style={{ 
+                    color: 'white',
+                    textShadow: '0 1px 3px rgba(0,0,0,0.6)',
+                  }}
                 >
                   {name}
                 </span>
               </div>
               <span 
-                className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                className="text-[10px] font-bold px-2.5 py-1 rounded-full flex-shrink-0"
                 style={{
-                  background: 'rgba(255,255,255,0.15)',
-                  color: 'rgba(255,255,255,0.9)',
+                  background: 'rgba(255, 149, 0, 0.9)',
+                  color: 'white',
+                  boxShadow: '0 2px 8px rgba(255, 149, 0, 0.4)',
                 }}
               >
                 {groupProducts.length}
