@@ -109,6 +109,7 @@ export const Bob: React.FC<BobProps> = ({
         partslotDescription: p["Part Product Type"] || p.partslot_description,
         image_url: p.image_url
       }));
+      console.log('[Bob] Products mapped and setting state:', mappedProducts.length, 'products');
       setProducts(mappedProducts);
       originalOnPartsFound?.(parts);
     };

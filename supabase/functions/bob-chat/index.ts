@@ -751,36 +751,15 @@ async function retrieveServicePackages(vehicleId: number | undefined, apiConfig:
 
 async function searchGeneralProducts(query: string): Promise<{ success: boolean; products?: unknown[]; total_found?: number; error?: string }> {
   console.log('Searching general products for:', query);
-  const carfixServiceRoleKey = Deno.env.get("CARFIX_SERVICE_ROLE_KEY");
   
-  // For now, return a placeholder response since we don't have a general products API yet
-  // This can be connected to a real endpoint when available
-  try {
-    // TODO: Connect to real general products API when available
-    // For now, return helpful response indicating these products exist
-    const generalProducts = [
-      { name: "Tire Shine Spray", sku: "TS-001", price: 12.99, in_stock: true },
-      { name: "Windscreen Wash 2L", sku: "WW-002", price: 8.99, in_stock: true },
-      { name: "Car Wash Concentrate", sku: "CW-003", price: 15.99, in_stock: true },
-      { name: "Interior Polish", sku: "IP-004", price: 14.99, in_stock: true },
-      { name: "Microfiber Cloth Pack", sku: "MC-005", price: 9.99, in_stock: true },
-    ];
-    
-    // Filter based on query
-    const searchTerms = query.toLowerCase().split(' ');
-    const matchedProducts = generalProducts.filter(p => 
-      searchTerms.some(term => p.name.toLowerCase().includes(term))
-    );
-    
-    return {
-      success: true,
-      products: matchedProducts.length > 0 ? matchedProducts : generalProducts.slice(0, 3),
-      total_found: matchedProducts.length > 0 ? matchedProducts.length : 3
-    };
-  } catch (error) {
-    console.error('General products search error:', error);
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
-  }
+  // General products search is not yet connected to real inventory
+  // Return clear message so AI doesn't hallucinate fake products
+  return {
+    success: false,
+    error: "General products search is not yet connected to inventory. Please ask about vehicle-specific parts instead, or recommend the customer browse the website directly for accessories and care products.",
+    products: [],
+    total_found: 0
+  };
 }
 
 // CARFIX Partner API integration for cart, checkout, and customer context
@@ -1538,11 +1517,24 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
             console.log("Emitted multiple_vehicles_found event");
           }
           
+          // Deduplicate service packages by ID and filter out invalid prices ($0.00)
+          let packagesToSend = servicePackagesToEmit;
+          if (packagesToSend && packagesToSend.length > 0) {
+            const validPackages = packagesToSend.filter((pkg: any) => 
+              pkg && pkg.from_price && pkg.from_price > 0
+            );
+            const uniquePackages = Array.from(
+              new Map(validPackages.map((p: any) => [p.id, p])).values()
+            );
+            console.log(`Deduplicated packages: ${packagesToSend.length} -> ${uniquePackages.length} valid (filtered $0.00 prices)`);
+            packagesToSend = uniquePackages;
+          }
+          
           // Emit service_packages_found event FIRST (before parts) for synchronized display
-          if (servicePackagesToEmit && servicePackagesToEmit.length > 0) {
-            const packagesEvent = `data: ${JSON.stringify({ type: "service_packages_found", packages: servicePackagesToEmit })}\n\n`;
+          if (packagesToSend && packagesToSend.length > 0) {
+            const packagesEvent = `data: ${JSON.stringify({ type: "service_packages_found", packages: packagesToSend })}\n\n`;
             controller.enqueue(encoder.encode(packagesEvent));
-            console.log("Emitted service_packages_found event:", servicePackagesToEmit.length, "packages");
+            console.log("Emitted service_packages_found event:", packagesToSend.length, "packages");
           }
           
           // Check if we have cart items to emit from add_to_cart tool call
