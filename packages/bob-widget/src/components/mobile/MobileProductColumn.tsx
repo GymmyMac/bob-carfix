@@ -229,39 +229,49 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
   const groupRefs = useRef<Record<string, HTMLElement | null>>({});
   const spotlightedRef = useRef<HTMLDivElement>(null);
 
+  // Lazy loading state - initially show first batch, load more on scroll
+  const INITIAL_BATCH_SIZE = 30;
+  const LOAD_MORE_SIZE = 20;
+  const [visibleCount, setVisibleCount] = useState(INITIAL_BATCH_SIZE);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  
+  // Reset visible count when products change
+  useEffect(() => {
+    setVisibleCount(INITIAL_BATCH_SIZE);
+  }, [products.length]);
+  
+  // Intersection observer for lazy loading
+  useEffect(() => {
+    if (!loadMoreRef.current) return;
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && visibleCount < products.length) {
+          setVisibleCount(prev => Math.min(prev + LOAD_MORE_SIZE, products.length));
+        }
+      },
+      { threshold: 0.1 }
+    );
+    
+    observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [visibleCount, products.length]);
+  
+  // Get visible products for current scroll position
+  const visibleProducts = useMemo(() => products.slice(0, visibleCount), [products, visibleCount]);
+  
   const groupedProducts = useMemo(() => {
     const groups: Record<string, Product[]> = {};
     
-    // DEBUG: Log incoming products for grouping
-    console.log('[MobileProductColumn] Grouping products:', {
-      count: products.length,
-      sample: products[0] ? {
-        id: products[0].id,
-        name: products[0].name,
-        partslotDescription: products[0].partslotDescription,
-        brand: products[0].brand,
-        price: products[0].price,
-      } : 'empty',
-      allPartslots: products.map(p => p.partslotDescription || 'undefined').slice(0, 10)
-    });
-    
-    products.forEach(product => {
+    visibleProducts.forEach(product => {
       const key = product.partslotDescription || 'Other Parts';
       if (!groups[key]) groups[key] = [];
       groups[key].push(product);
     });
     
     const sortedGroupNames = Object.keys(groups).sort((a, b) => a.localeCompare(b));
-    const result = sortedGroupNames.map(name => ({ name, products: groups[name] }));
-    
-    // DEBUG: Log grouping result
-    console.log('[MobileProductColumn] Grouped result:', {
-      groupCount: result.length,
-      groups: result.map(g => ({ name: g.name, count: g.products.length }))
-    });
-    
-    return result;
-  }, [products]);
+    return sortedGroupNames.map(name => ({ name, products: groups[name] }));
+  }, [visibleProducts]);
 
   useEffect(() => {
     if (highlightedPartType) {
@@ -609,6 +619,19 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           </section>
         );
       })}
+      
+      {/* Lazy loading sentinel - triggers loading more products when visible */}
+      {visibleCount < products.length && (
+        <div 
+          ref={loadMoreRef}
+          className="flex items-center justify-center py-4"
+        >
+          <div className="flex items-center gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
+            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            <span>Loading more ({visibleCount} of {products.length})...</span>
+          </div>
+        </div>
+      )}
       
       {/* Bottom padding for scroll */}
       <div className="h-4" />

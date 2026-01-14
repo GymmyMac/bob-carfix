@@ -17,24 +17,37 @@ export interface Product {
   quantity?: number;
 }
 
+/**
+ * API response format from CARFIX retrieve-parts endpoint
+ * 
+ * CANONICAL FIELDS (preferred):
+ * - sku, brand, partslot_description, part_number, price, image_url
+ * 
+ * LEGACY FIELDS (backward compatibility):
+ * - SKU, Brand, Price, Image, "Part Product Type", "Part Number", "Metro Retail Price"
+ */
 export interface APIPart {
-  SKU?: string;
+  // Canonical fields
   sku?: string;
-  "Part Product Type"?: string;
-  partslot_description?: string;
-  Brand?: string;
   brand?: string;
-  "Part Number"?: string;
+  partslot_description?: string;
   part_number?: string;
-  "Metro Retail Price"?: number;
   price?: number;
-  "Per Car Qty"?: number;
+  image_url?: string;
   per_car_qty?: number;
   vehicle_id?: number;
   volume?: string | null;
   viscosity?: string | null;
-  image_url?: string;
   web_description?: string | null;
+  
+  // Legacy PascalCase variants
+  SKU?: string;
+  Brand?: string;
+  Price?: number;
+  "Part Product Type"?: string;
+  "Part Number"?: string;
+  "Metro Retail Price"?: number;
+  "Per Car Qty"?: number;
 }
 
 export interface CartItem {
