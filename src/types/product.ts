@@ -14,70 +14,84 @@ export interface Product {
   product_url?: string; // Snake_case alias for widget
 }
 
-// API response format from retrieve-parts - handles both snake_case and PascalCase
+/**
+ * API response format from CARFIX retrieve-parts endpoint
+ * 
+ * CANONICAL FIELDS (preferred - from CARFIX API):
+ * - sku: Product SKU (e.g., "A1303588")
+ * - brand: Brand name (e.g., "RYCO")
+ * - partslot_description: Part category (e.g., "OIL FILTER")
+ * - part_number: Manufacturer part number
+ * - price: Retail price (number)
+ * - image_url: Product image URL
+ * 
+ * LEGACY FIELDS (for backward compatibility):
+ * - SKU, Brand, Price, Image: PascalCase variants
+ * - "Part Product Type", "Part Number", "Part No": Legacy naming
+ * - "Metro Retail Price": Alternative price field
+ */
 export interface APIPart {
-  SKU?: string;
+  // Canonical fields (preferred)
   sku?: string;
-  "Part Product Type"?: string;
-  partslot_description?: string;
-  Brand?: string;
   brand?: string;
+  partslot_description?: string;
+  part_number?: string;
+  price?: number;
+  image_url?: string;
+  
+  // Legacy PascalCase variants
+  SKU?: string;
+  Brand?: string;
+  Price?: number;
+  Image?: string;
+  
+  // Legacy alternative field names
+  "Part Product Type"?: string;
   "Part No"?: string;
   "Part Number"?: string;
-  part_number?: string;
-  "In Stock"?: string;
-  Price?: number;
-  price?: number;
   "Metro Retail Price"?: number;
-  Image?: string;
-  image_url?: string;
+  "In Stock"?: string;
 }
 
 // CARFIX storage base URLs (note: underscores in bucket names)
 const CARFIX_IMAGE_BASE_URL = "https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/product_images";
 const CARFIX_BRAND_IMAGE_BASE_URL = "https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/brand_images";
 
-// Convert API part to display format - handles snake_case and PascalCase field names
+/**
+ * Convert CARFIX API part to display Product format
+ * Prioritizes canonical field names, falls back to legacy variants
+ */
 export function apiPartToProduct(part: APIPart): Product {
-  // Handle both snake_case and PascalCase field names
-  const sku = part.SKU || part.sku || '';
-  const brand = part.Brand || part.brand || '';
-  const partType = part["Part Product Type"] || part.partslot_description || '';
-  const partNumber = part["Part Number"] || part["Part No"] || part.part_number || sku || '';
-  const price = part["Metro Retail Price"] || part.Price || part.price || 0;
+  // Extract fields - prefer canonical names, fallback to legacy
+  const sku = part.sku || part.SKU || '';
+  const brand = part.brand || part.Brand || '';
   const partslotDesc = part.partslot_description || part["Part Product Type"] || '';
+  const partNumber = part.part_number || part["Part Number"] || part["Part No"] || sku || '';
+  const price = part.price || part["Metro Retail Price"] || part.Price || 0;
   
-  // Primary image: use provided image_url or construct from SKU
+  // Image URL: prefer provided, construct from SKU as fallback
   const imageUrl = part.image_url || part.Image || (sku 
     ? `${CARFIX_IMAGE_BASE_URL}/${sku}.jpg`
     : "/placeholder.svg");
   
-  // Fallback: brand image (remove spaces from brand name)
+  // Brand image fallback
   const brandImageUrl = brand
     ? `${CARFIX_BRAND_IMAGE_BASE_URL}/${brand.replace(/\s+/g, '')}.jpg`
     : undefined;
 
-  const product: Product = {
+  return {
     id: sku || partNumber || Math.random().toString(36),
     sku,
     image: imageUrl,
-    image_url: imageUrl, // Widget compatibility
+    image_url: imageUrl,
     brandImage: brandImageUrl,
-    name: partType || "Auto Part",
+    name: partslotDesc || "Auto Part",
     partNumber: partNumber || "N/A",
-    part_number: partNumber || "N/A", // Widget compatibility
+    part_number: partNumber || "N/A",
     price,
     brand,
     partslotDescription: partslotDesc
   };
-  
-  // Debug log for first product
-  if (typeof window !== 'undefined' && (window as any).__PRODUCT_DEBUG_LOGGED !== true) {
-    console.log('[apiPartToProduct] Sample transform:', { input: part, output: product });
-    (window as any).__PRODUCT_DEBUG_LOGGED = true;
-  }
-  
-  return product;
 }
 
 export const PLACEHOLDER_PRODUCTS: Product[] = [

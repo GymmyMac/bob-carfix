@@ -702,7 +702,7 @@ async function searchWeb(query: string): Promise<unknown> {
 }
 
 async function retrieveParts(vehicleId: number, apiConfig: ApiConfig, partType?: string): Promise<{ success: boolean; parts?: unknown[]; total_found?: number; filter_applied?: string; error?: string }> {
-  console.log('Retrieving parts for vehicle:', vehicleId, 'part_type:', partType);
+  if (DEBUG) console.log('[DEBUG] Retrieving parts for vehicle:', vehicleId, 'part_type:', partType);
   
   try {
     const headers: Record<string, string> = {
@@ -718,7 +718,7 @@ async function retrieveParts(vehicleId: number, apiConfig: ApiConfig, partType?:
         headers,
         body: JSON.stringify({ 
           vehicleid: String(vehicleId),
-          page_size: 200,
+          page_size: 500,  // Increased from 200 to get more parts
           ...(partType && { part_type: partType })
         })
       }
@@ -730,7 +730,7 @@ async function retrieveParts(vehicleId: number, apiConfig: ApiConfig, partType?:
     }
     
     const data = await response.json();
-    console.log('Parts lookup result:', JSON.stringify(data).substring(0, 500));
+    if (DEBUG) console.log('[DEBUG] Parts lookup result:', JSON.stringify(data).substring(0, 500));
     
     return { 
       success: true, 
@@ -744,11 +744,15 @@ async function retrieveParts(vehicleId: number, apiConfig: ApiConfig, partType?:
   }
 }
 
+// Debug flag - controlled by environment variable
+const DEBUG = Deno.env.get("BOB_DEBUG") === "true";
+
 async function retrieveServicePackages(vehicleId: number | undefined, apiConfig: ApiConfig): Promise<unknown> {
-  console.log('Calling calculate-service-bundles for vehicle:', vehicleId);
+  if (DEBUG) console.log('[DEBUG] Calling calculate-service-bundles for vehicle:', vehicleId);
   
   try {
-    const body = vehicleId ? { vehicleId: vehicleId } : {};
+    // Fix 2: Align parameter name with retrieve-parts - use 'vehicleid' as string
+    const body = vehicleId ? { vehicleid: String(vehicleId) } : {};
     
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
