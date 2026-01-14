@@ -141,13 +141,14 @@ export const ProductTile: React.FC<ProductTileProps> = ({
             </div>
           )}
           
-          {/* Price - CARFIX Orange with glow */}
+          {/* Price - Gold for high contrast on dark glass */}
           <p 
             className="font-extrabold mt-2"
             style={{ 
               fontSize: '22px',
               letterSpacing: '-0.02em',
-              ...glassText.price,
+              color: '#FFD700',
+              textShadow: '0 2px 6px rgba(0, 0, 0, 0.5), 0 0 12px rgba(255, 215, 0, 0.3)',
             }}
           >
             {product.price > 0 ? `$${product.price.toFixed(2)}` : 'POA'}

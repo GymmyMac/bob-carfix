@@ -209,3 +209,14 @@
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
+
+/* ============================================
+   High Contrast Input Placeholder Styling
+   ============================================ */
+.bob-widget-root .high-contrast-input::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.bob-widget-root .high-contrast-input:focus::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}

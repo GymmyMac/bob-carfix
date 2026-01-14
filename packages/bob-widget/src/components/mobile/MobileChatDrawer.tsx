@@ -170,13 +170,21 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
         )}
       </button>
 
-      {/* Collapsed Preview */}
+      {/* Collapsed Preview - High contrast */}
       {!isExpanded && (
         <div 
           onClick={() => setIsExpanded(true)}
           style={{ padding: '8px 12px 2px 12px', cursor: 'pointer' }}
         >
-          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewText}</p>
+          <p style={{ 
+            fontSize: '12px', 
+            color: 'white', 
+            textShadow: '0 1px 3px rgba(0,0,0,0.6)',
+            fontWeight: 500,
+            overflow: 'hidden', 
+            textOverflow: 'ellipsis', 
+            whiteSpace: 'nowrap' 
+          }}>{previewText}</p>
         </div>
       )}
 
@@ -309,13 +317,18 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
             onBlur={onInputBlur}
             placeholder="Or type here..."
             disabled={isLoading}
+            className="high-contrast-input"
             style={{
               flex: 1,
               height: '40px',
               fontSize: '16px',
               padding: '0 14px',
-              ...glassInput,
-              color: 'rgba(255, 255, 255, 0.95)',
+              background: 'rgba(0, 51, 102, 0.85)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              border: '2px solid rgba(255, 255, 255, 0.35)',
+              borderRadius: '20px',
+              color: 'white',
               outline: 'none',
               opacity: isLoading ? 0.5 : 1
             }}

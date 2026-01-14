@@ -12,14 +12,14 @@
 
 import type { CSSProperties } from 'react';
 
-/** Base glass panel (cards, tiles) */
+/** Base glass panel (cards, tiles) - Dark variant for text visibility */
 export const glassCard: CSSProperties = {
-  background: 'rgba(255, 255, 255, 0.12)',
-  backdropFilter: 'blur(20px) saturate(180%)',
-  WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-  border: '1px solid rgba(255, 255, 255, 0.25)',
+  background: 'rgba(20, 30, 50, 0.75)',
+  backdropFilter: 'blur(24px) saturate(180%)',
+  WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+  border: '1px solid rgba(255, 255, 255, 0.2)',
   borderRadius: '28px',
-  boxShadow: '0 10px 40px rgba(0, 0, 0, 0.25), inset 0 0 0 1px rgba(255,255,255,0.1)',
+  boxShadow: '0 10px 40px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(255,255,255,0.1)',
 };
 
 /** Premium/Spotlighted card variant */
@@ -71,6 +71,16 @@ export const glassInput: CSSProperties = {
   borderRadius: '20px',
 };
 
+/** High-contrast glass input - CARFIX blue for readability */
+export const glassInputHighContrast: CSSProperties = {
+  background: 'rgba(0, 51, 102, 0.85)',
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)',
+  border: '2px solid rgba(255, 255, 255, 0.4)',
+  borderRadius: '20px',
+  boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)',
+};
+
 /** Glass panel/container */
 export const glassPanel: CSSProperties = {
   background: 'rgba(255, 255, 255, 0.08)',
@@ -88,19 +98,19 @@ export const glassHoverTransform = {
   boxShadow: '0 16px 56px rgba(0, 0, 0, 0.4), 0 0 24px rgba(255,255,255,0.08)',
 };
 
-/** Text styles for glass surfaces */
+/** Text styles for glass surfaces - High contrast for readability */
 export const glassText = {
   primary: {
-    color: 'rgba(255, 255, 255, 0.95)',
-    textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+    color: 'rgba(255, 255, 255, 1)',
+    textShadow: '0 1px 3px rgba(0,0,0,0.5)',
   },
   secondary: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+    color: 'rgba(255, 255, 255, 0.85)',
+    textShadow: '0 1px 2px rgba(0,0,0,0.4)',
   },
   price: {
-    color: '#FF9500',
-    textShadow: '0 2px 8px rgba(255, 149, 0, 0.4)',
+    color: '#FFD700',
+    textShadow: '0 2px 6px rgba(0, 0, 0, 0.5), 0 0 12px rgba(255, 215, 0, 0.3)',
   },
 };
 
