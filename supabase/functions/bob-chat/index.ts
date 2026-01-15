@@ -13,18 +13,21 @@ interface BobPrompt {
   content: string;
   is_active: boolean;
   display_order: number;
+  tenant_id: string | null;
 }
 
-// Cache for prompts (refreshed every 5 minutes)
-let cachedPrompts: BobPrompt[] | null = null;
-let cacheTimestamp = 0;
+// Cache for prompts (refreshed every 5 minutes) - keyed by tenant
+const promptCache: Map<string, { prompts: BobPrompt[]; timestamp: number }> = new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-async function fetchPromptsFromDB(): Promise<BobPrompt[]> {
+async function fetchPromptsFromDB(tenantId: string | null = null): Promise<BobPrompt[]> {
+  const cacheKey = tenantId || 'default';
+  const cached = promptCache.get(cacheKey);
   const now = Date.now();
-  if (cachedPrompts && (now - cacheTimestamp) < CACHE_TTL_MS) {
-    console.log('Using cached prompts');
-    return cachedPrompts;
+  
+  if (cached && (now - cached.timestamp) < CACHE_TTL_MS) {
+    console.log(`Using cached prompts for tenant: ${cacheKey}`);
+    return cached.prompts;
   }
 
   try {
@@ -37,24 +40,47 @@ async function fetchPromptsFromDB(): Promise<BobPrompt[]> {
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const { data, error } = await supabase
-      .from('bob_prompts')
-      .select('prompt_key, content, is_active, display_order')
-      .eq('is_active', true)
-      .order('display_order', { ascending: true });
-
-    if (error) {
-      console.error('Error fetching prompts:', error);
-      return cachedPrompts || [];
+    
+    // First try tenant-specific prompts
+    let prompts: BobPrompt[] = [];
+    
+    if (tenantId) {
+      const { data: tenantPrompts, error: tenantError } = await supabase
+        .from('bob_prompts')
+        .select('prompt_key, content, is_active, display_order, tenant_id')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+      
+      if (!tenantError && tenantPrompts && tenantPrompts.length > 0) {
+        prompts = tenantPrompts;
+        console.log(`Loaded ${prompts.length} tenant-specific prompts for: ${tenantId}`);
+      }
+    }
+    
+    // Fall back to default prompts (tenant_id IS NULL)
+    if (prompts.length === 0) {
+      const { data: defaultPrompts, error: defaultError } = await supabase
+        .from('bob_prompts')
+        .select('prompt_key, content, is_active, display_order, tenant_id')
+        .is('tenant_id', null)
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+      
+      if (defaultError) {
+        console.error('Error fetching default prompts:', defaultError);
+        return cached?.prompts || [];
+      }
+      
+      prompts = defaultPrompts || [];
+      console.log(`Loaded ${prompts.length} default prompts (fallback)`);
     }
 
-    cachedPrompts = data || [];
-    cacheTimestamp = now;
-    console.log(`Loaded ${cachedPrompts.length} prompts from database`);
-    return cachedPrompts;
+    promptCache.set(cacheKey, { prompts, timestamp: now });
+    return prompts;
   } catch (err) {
     console.error('Failed to fetch prompts:', err);
-    return cachedPrompts || [];
+    return cached?.prompts || [];
   }
 }
 
@@ -260,11 +286,9 @@ const tools = [
   }
 ];
 
-// Parts that don't require exact vehicle variant disambiguation - same across most variants
+// Parts that truly don't require vehicle - very limited list (washer fluid, number plate lights)
+// NOTE: Wipers, cabin filters, and bulbs are NOW vehicle-specific (removed from this list)
 const UNIVERSAL_PART_TYPES = [
-  'WIPER BLADE', 'WIPER', 'WINDSCREEN WIPER',
-  'CABIN FILTER', 'CABIN AIR FILTER', 'POLLEN FILTER',
-  'INTERIOR LIGHT', 'GLOBE', 'BULB',
   'WASHER FLUID', 'WINDSCREEN WASH',
   'NUMBER PLATE', 'LICENSE PLATE',
 ];

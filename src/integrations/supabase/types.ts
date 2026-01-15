@@ -347,6 +347,7 @@ export type Database = {
           id: string
           is_active: boolean
           prompt_key: string
+          tenant_id: string | null
           title: string
           updated_at: string
         }
@@ -359,6 +360,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           prompt_key: string
+          tenant_id?: string | null
           title: string
           updated_at?: string
         }
@@ -371,10 +373,19 @@ export type Database = {
           id?: string
           is_active?: boolean
           prompt_key?: string
+          tenant_id?: string | null
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "bob_prompts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "bob_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bob_settings: {
         Row: {

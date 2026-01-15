@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Save, RefreshCw, FileText, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Save, RefreshCw, FileText, AlertCircle, ChevronDown, ChevronUp, Download, Upload, Copy } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface BobPrompt {
@@ -23,6 +24,14 @@ interface BobPrompt {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  tenant_id: string | null;
+}
+
+interface Tenant {
+  id: string;
+  name: string;
+  code: string;
+  is_active: boolean;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -35,18 +44,43 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export const PromptsManager: React.FC = () => {
   const [prompts, setPrompts] = useState<BobPrompt[]>([]);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState<string>("default");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [editedPrompts, setEditedPrompts] = useState<Record<string, Partial<BobPrompt>>>({});
   const [expandedPrompts, setExpandedPrompts] = useState<Set<string>>(new Set());
 
+  const fetchTenants = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("bob_tenants")
+        .select("id, name, code, is_active")
+        .order("name");
+      
+      if (error) throw error;
+      setTenants(data || []);
+    } catch (error) {
+      console.error("Error fetching tenants:", error);
+    }
+  };
+
   const fetchPrompts = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("bob_prompts")
         .select("*")
         .order("display_order", { ascending: true });
+      
+      // Filter by tenant
+      if (selectedTenantId === "default") {
+        query = query.is("tenant_id", null);
+      } else {
+        query = query.eq("tenant_id", selectedTenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setPrompts(data || []);
@@ -60,8 +94,12 @@ export const PromptsManager: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchPrompts();
+    fetchTenants();
   }, []);
+
+  useEffect(() => {
+    fetchPrompts();
+  }, [selectedTenantId]);
 
   const handleEdit = (id: string, field: keyof BobPrompt, value: string | boolean) => {
     setEditedPrompts((prev) => ({
@@ -91,7 +129,6 @@ export const PromptsManager: React.FC = () => {
 
       if (error) throw error;
 
-      // Update local state
       setPrompts((prev) =>
         prev.map((p) => (p.id === prompt.id ? { ...p, ...updates } : p))
       );
@@ -137,6 +174,100 @@ export const PromptsManager: React.FC = () => {
     setExpandedPrompts(new Set());
   };
 
+  // Export prompts as JSON
+  const exportPrompts = () => {
+    const exportData = prompts.map(({ id, created_at, updated_at, tenant_id, ...rest }) => rest);
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bob-prompts-${selectedTenantId === "default" ? "defaults" : tenants.find(t => t.id === selectedTenantId)?.code || selectedTenantId}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Prompts exported");
+  };
+
+  // Import prompts from JSON
+  const importPrompts = async (file: File) => {
+    try {
+      const text = await file.text();
+      const importedPrompts = JSON.parse(text) as Array<{
+        prompt_key: string;
+        title: string;
+        description?: string;
+        content: string;
+        category: string;
+        display_order: number;
+        is_active: boolean;
+      }>;
+      
+      const tenantIdToUse = selectedTenantId === "default" ? null : selectedTenantId;
+      
+      for (const prompt of importedPrompts) {
+        // Check if exists first
+        const { data: existing } = await supabase
+          .from("bob_prompts")
+          .select("id")
+          .eq("prompt_key", prompt.prompt_key)
+          .eq("tenant_id", tenantIdToUse as string)
+          .maybeSingle();
+        
+        if (existing) {
+          // Update existing
+          await supabase.from("bob_prompts").update({
+            ...prompt,
+            updated_at: new Date().toISOString(),
+          }).eq("id", existing.id);
+        } else {
+          // Insert new
+          await supabase.from("bob_prompts").insert({
+            ...prompt,
+            tenant_id: tenantIdToUse,
+          });
+        }
+      }
+      
+      toast.success(`Imported ${importedPrompts.length} prompts`);
+      fetchPrompts();
+    } catch (error) {
+      console.error("Import error:", error);
+      toast.error("Failed to import prompts");
+    }
+  };
+
+  // Copy defaults to current tenant
+  const copyFromDefaults = async () => {
+    if (selectedTenantId === "default") {
+      toast.error("Already viewing defaults");
+      return;
+    }
+    
+    try {
+      // Fetch default prompts
+      const { data: defaults, error: fetchError } = await supabase
+        .from("bob_prompts")
+        .select("*")
+        .is("tenant_id", null);
+      
+      if (fetchError) throw fetchError;
+      
+      // Insert as tenant-specific
+      for (const prompt of defaults || []) {
+        const { id, created_at, updated_at, tenant_id, ...rest } = prompt;
+        await supabase.from("bob_prompts").insert({
+          ...rest,
+          tenant_id: selectedTenantId,
+        });
+      }
+      
+      toast.success(`Copied ${defaults?.length || 0} prompts from defaults`);
+      fetchPrompts();
+    } catch (error) {
+      console.error("Copy error:", error);
+      toast.error("Failed to copy prompts");
+    }
+  };
+
   const totalChanges = Object.keys(editedPrompts).filter(
     (id) => Object.keys(editedPrompts[id]).length > 0
   ).length;
@@ -150,6 +281,10 @@ export const PromptsManager: React.FC = () => {
   }, {} as Record<string, BobPrompt[]>);
 
   const categoryOrder = ["personality", "rules", "workflow", "sales", "general"];
+
+  const selectedTenantName = selectedTenantId === "default" 
+    ? "Default Templates" 
+    : tenants.find(t => t.id === selectedTenantId)?.name || "Unknown";
 
   if (loading) {
     return (
@@ -177,6 +312,36 @@ export const PromptsManager: React.FC = () => {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
+              {/* Tenant Selector */}
+              <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select tenant" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">
+                    <span className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">Template</Badge>
+                      Default Templates
+                    </span>
+                  </SelectItem>
+                  {tenants.map((tenant) => (
+                    <SelectItem key={tenant.id} value={tenant.id}>
+                      <span className="flex items-center gap-2">
+                        <Badge variant={tenant.is_active ? "default" : "secondary"} className="text-xs">
+                          {tenant.code}
+                        </Badge>
+                        {tenant.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={expandAll}>
                 Expand All
               </Button>
@@ -187,6 +352,30 @@ export const PromptsManager: React.FC = () => {
                 <RefreshCw className="w-4 h-4 mr-1" />
                 Refresh
               </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={exportPrompts}>
+                <Download className="w-4 h-4 mr-1" />
+                Export
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <label className="cursor-pointer">
+                  <Upload className="w-4 h-4 mr-1" />
+                  Import
+                  <input
+                    type="file"
+                    accept=".json"
+                    className="hidden"
+                    onChange={(e) => e.target.files?.[0] && importPrompts(e.target.files[0])}
+                  />
+                </label>
+              </Button>
+              {selectedTenantId !== "default" && (
+                <Button variant="outline" size="sm" onClick={copyFromDefaults}>
+                  <Copy className="w-4 h-4 mr-1" />
+                  Copy Defaults
+                </Button>
+              )}
               {totalChanges > 0 && (
                 <Button onClick={saveAllChanges} size="sm">
                   <Save className="w-4 h-4 mr-1" />
@@ -195,8 +384,24 @@ export const PromptsManager: React.FC = () => {
               )}
             </div>
           </div>
-        </CardHeader>
+        </CardContent>
       </Card>
+
+      {/* Tenant Info Banner */}
+      {selectedTenantId !== "default" && prompts.length === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="py-8 text-center">
+            <p className="text-muted-foreground mb-4">
+              No custom prompts for <strong>{selectedTenantName}</strong>. 
+              This tenant will use the default templates.
+            </p>
+            <Button onClick={copyFromDefaults}>
+              <Copy className="w-4 h-4 mr-2" />
+              Copy Defaults to Create Custom Prompts
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Prompts by Category */}
       {categoryOrder.map((category) => {
@@ -355,11 +560,12 @@ export const PromptsManager: React.FC = () => {
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-muted-foreground mt-0.5" />
             <div className="text-sm text-muted-foreground">
-              <p className="font-medium mb-1">How prompts work:</p>
+              <p className="font-medium mb-1">How multi-tenant prompts work:</p>
               <ul className="list-disc list-inside space-y-1">
-                <li>All active prompts are combined into Bob's system instructions</li>
-                <li>The order is determined by display_order (lower = first)</li>
-                <li>Disable a prompt to temporarily remove it without deleting</li>
+                <li><strong>Default Templates</strong> (tenant_id = NULL) apply to all tenants without custom prompts</li>
+                <li>Tenant-specific prompts override defaults for that tenant only</li>
+                <li>Use <strong>Export/Import</strong> to sync prompts between Lovable instances</li>
+                <li>Use <strong>Copy Defaults</strong> to create tenant-specific copies you can customize</li>
                 <li>Changes take effect on the next conversation (no page refresh needed)</li>
               </ul>
             </div>
