@@ -132,12 +132,12 @@ const tools = [
     type: "function",
     function: {
       name: "retrieve_parts",
-      description: "Look up available parts for a confirmed vehicle. Use AFTER vehicle is identified to find parts that match the customer's needs. Can filter by part type.",
+      description: "Look up ALL available parts for a confirmed vehicle. IMPORTANT: Call this ONCE without any filter when vehicle is first confirmed - all parts will be loaded and displayed on the customer's shelf. DO NOT call again with a part_type filter - the customer already sees all parts. Instead, just mention the category name to guide them to the right section.",
       parameters: {
         type: "object",
         properties: {
           vehicleid: { type: "number", description: "The vehicle ID from a previous lookup_vehicle result (found in the 'id' field)" },
-          part_type: { type: "string", description: "Optional filter by part type (e.g., 'AIR FILTER', 'BRAKE PADS', 'OIL FILTER', 'CABIN FILTER', 'SPARK PLUGS')" }
+          part_type: { type: "string", description: "DEPRECATED - Do not use. All parts are loaded on first call. Filtering replaces the full display with a subset which is undesirable." }
         },
         required: ["vehicleid"]
       }
@@ -462,10 +462,14 @@ STEP 3 - CHECK SERVICE PACKAGES for better value:
 - Use retrieve_service_packages to see if a bundle covers their needs
 - Proactively recommend relevant packages
 
-IMPORTANT - DO NOT RE-FETCH PARTS:
-- After initial load, NEVER call retrieve_parts with a filter (e.g., part_type parameter)
-- The customer already has all parts visible - just guide them to the right section
-- Re-fetching with a filter would replace their full product view with a subset
+CRITICAL - NEVER RE-FETCH PARTS WITH FILTER:
+- After vehicle confirmation, ALL parts are ALREADY loaded and visible on the shelf
+- NEVER call retrieve_parts with a part_type filter - it will return empty or partial results
+- The customer already sees everything - just SAY THE CATEGORY NAME to guide them
+- If you call retrieve_parts with a filter and get 0 results, you're doing it WRONG
+- Example: Customer asks for "brake pads" → Say "Looking at BRAKE PAD KIT FRONT on your shelf there, mate..."
+- DO NOT DO THIS: retrieve_parts(vehicleid: 123, part_type: "brake pads") ❌
+- CORRECT: Just mention the category name in your response to scroll them there ✓
 
 KIWI EXPRESSIONS (use naturally):
 - "mate", "sweet as", "no worries", "choice", "chur"
@@ -1397,11 +1401,86 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
         
         // Capture parts results for later emission (from explicit retrieve_parts calls)
         if (toolCall.function.name === "retrieve_parts") {
-          const partsResult = result as { success?: boolean; parts?: unknown[] };
+          const partsResult = result as { success?: boolean; parts?: unknown[]; filter_applied?: string };
+          
+          // Parse args to check if filter was applied
+          let filterApplied: string | undefined;
+          try {
+            const args = JSON.parse(toolCall.function.arguments) as { part_type?: string };
+            filterApplied = args.part_type;
+          } catch { /* ignore */ }
+          
           if (partsResult.success && partsResult.parts && partsResult.parts.length > 0) {
             // Merge parts (don't replace - might have service package parts already)
             partsFoundResult = partsFoundResult ? [...partsFoundResult, ...partsResult.parts] : partsResult.parts;
             console.log(`Added ${partsResult.parts.length} parts from retrieve_parts call`);
+          } else if (filterApplied) {
+            // FALLBACK: API returned empty with filter - search already-loaded parts
+            console.log(`retrieve_parts returned 0 results for filter: "${filterApplied}"`);
+            
+            // Search already-loaded parts from _partsToEmit
+            const existingParts = (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit || [];
+            const servicePackages = (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit || [];
+            
+            // Fuzzy keyword matching
+            const filterLower = filterApplied.toLowerCase();
+            const keywords = filterLower.split(/\s+/).filter(k => k.length > 2);
+            
+            const matchingParts: unknown[] = [];
+            
+            // Search existing parts
+            if (existingParts.length > 0) {
+              for (const p of existingParts) {
+                const part = p as Record<string, unknown>;
+                const category = (part.partslot_description || part['Part Product Type'] || '').toString().toLowerCase();
+                const name = (part.web_description || part.name || '').toString().toLowerCase();
+                
+                // Match if ALL keywords appear in category or name
+                if (keywords.every(kw => category.includes(kw) || name.includes(kw))) {
+                  matchingParts.push(part);
+                }
+              }
+            }
+            
+            // Also search parts within service packages
+            if (servicePackages.length > 0) {
+              for (const pkg of servicePackages) {
+                const pkgData = pkg as { title?: string; partslots?: Array<{ partslot_description?: string; products?: { quality_tiers?: Record<string, unknown[]> } }> };
+                const pkgTitle = (pkgData.title || '').toLowerCase();
+                
+                // Check if package title matches keywords (e.g., "Front Brake Service" for "brake pads")
+                const titleMatches = keywords.every(kw => pkgTitle.includes(kw));
+                
+                for (const slot of (pkgData.partslots || [])) {
+                  const slotDesc = (slot.partslot_description || '').toLowerCase();
+                  const slotMatches = keywords.every(kw => slotDesc.includes(kw));
+                  
+                  if (titleMatches || slotMatches) {
+                    // Extract products from this slot
+                    const tiers = slot.products?.quality_tiers;
+                    if (tiers) {
+                      for (const tier of Object.values(tiers)) {
+                        if (Array.isArray(tier)) {
+                          matchingParts.push(...tier);
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            
+            if (matchingParts.length > 0) {
+              console.log(`Fallback search found ${matchingParts.length} matching parts from already-loaded inventory`);
+              partsFoundResult = partsFoundResult ? [...partsFoundResult, ...matchingParts] : matchingParts;
+              
+              // Update tool result so AI knows parts were found
+              (result as Record<string, unknown>).parts = matchingParts;
+              (result as Record<string, unknown>).success = true;
+              (result as Record<string, unknown>).note = `Found ${matchingParts.length} matching parts from pre-loaded inventory (filter "${filterApplied}" matched)`;
+            } else {
+              console.log(`Fallback search found no matching parts for filter: "${filterApplied}"`);
+            }
           }
         }
         
