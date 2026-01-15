@@ -1829,6 +1829,118 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
                     }
                   }
                 }
+                
+                // NEW: Parse products from Bob's response text for inline display
+                // This enables inline products when Bob recalls from memory without re-fetching
+                if (!partsEmitted && accumulatedContent.length > 0) {
+                  try {
+                    // Pattern 1: **BRAND Product Name** (SKU: ABC123) - for $XX.XX
+                    const pattern1 = /\*\*([A-Z][A-Za-z0-9\s&'-]+?)\s+([^*]+?)\*\*\s*\(SKU:\s*([A-Z0-9-]+)\)\s*[-–—]\s*(?:for\s*)?\$(\d+(?:\.\d{2})?)/gi;
+                    
+                    // Pattern 2: BRAND Product Name (SKU: ABC123) - $XX.XX (without bold)
+                    const pattern2 = /(?:^|\n)\s*[-•*]?\s*([A-Z][A-Za-z0-9\s&'-]+?)\s+([A-Za-z0-9\s]+?)\s*\(SKU:\s*([A-Z0-9-]+)\)\s*[-–—]\s*\$(\d+(?:\.\d{2})?)/gi;
+                    
+                    // Pattern 3: SKU: ABC123 - BRAND Product - $XX.XX
+                    const pattern3 = /SKU:\s*([A-Z0-9-]+)\s*[-–—]\s*([A-Z][A-Za-z0-9\s&'-]+?)\s+([A-Za-z0-9\s]+?)\s*[-–—]\s*\$(\d+(?:\.\d{2})?)/gi;
+                    
+                    const parsedProducts: Array<{
+                      id: string;
+                      sku: string;
+                      name: string;
+                      brand: string;
+                      price: number;
+                      part_number: string;
+                      partslotDescription: string;
+                      image_url: string;
+                      per_car_qty: number;
+                      quantity: number;
+                    }> = [];
+                    const seenSkus = new Set<string>();
+                    
+                    // Try pattern 1 first (most common format with bold)
+                    let matches = [...accumulatedContent.matchAll(pattern1)];
+                    for (const match of matches) {
+                      const [, brand, name, sku, priceStr] = match;
+                      if (seenSkus.has(sku)) continue;
+                      seenSkus.add(sku);
+                      
+                      parsedProducts.push({
+                        id: sku,
+                        sku: sku,
+                        name: `${brand.trim()} ${name.trim()}`,
+                        brand: brand.trim(),
+                        price: parseFloat(priceStr),
+                        part_number: sku,
+                        partslotDescription: '',
+                        image_url: `https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/product_images/${sku}.jpg`,
+                        per_car_qty: 1,
+                        quantity: 1,
+                      });
+                    }
+                    
+                    // Try pattern 2 if no matches yet
+                    if (parsedProducts.length === 0) {
+                      matches = [...accumulatedContent.matchAll(pattern2)];
+                      for (const match of matches) {
+                        const [, brand, name, sku, priceStr] = match;
+                        if (seenSkus.has(sku)) continue;
+                        seenSkus.add(sku);
+                        
+                        parsedProducts.push({
+                          id: sku,
+                          sku: sku,
+                          name: `${brand.trim()} ${name.trim()}`,
+                          brand: brand.trim(),
+                          price: parseFloat(priceStr),
+                          part_number: sku,
+                          partslotDescription: '',
+                          image_url: `https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/product_images/${sku}.jpg`,
+                          per_car_qty: 1,
+                          quantity: 1,
+                        });
+                      }
+                    }
+                    
+                    // Try pattern 3 if still no matches
+                    if (parsedProducts.length === 0) {
+                      matches = [...accumulatedContent.matchAll(pattern3)];
+                      for (const match of matches) {
+                        const [, sku, brand, name, priceStr] = match;
+                        if (seenSkus.has(sku)) continue;
+                        seenSkus.add(sku);
+                        
+                        parsedProducts.push({
+                          id: sku,
+                          sku: sku,
+                          name: `${brand.trim()} ${name.trim()}`,
+                          brand: brand.trim(),
+                          price: parseFloat(priceStr),
+                          part_number: sku,
+                          partslotDescription: '',
+                          image_url: `https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/product_images/${sku}.jpg`,
+                          per_car_qty: 1,
+                          quantity: 1,
+                        });
+                      }
+                    }
+                    
+                    if (parsedProducts.length > 0) {
+                      console.log(`[Product Parse] Found ${parsedProducts.length} products in Bob's response text`);
+                      
+                      const suggestionsEvent = `data: ${JSON.stringify({ 
+                        type: "bob_suggestions", 
+                        products: parsedProducts.slice(0, 6),
+                        title: "Products",
+                        partType: "Parts"
+                      })}\n\n`;
+                      controller.enqueue(encoder.encode(suggestionsEvent));
+                      console.log("[Product Parse] Emitted bob_suggestions from parsed text:", parsedProducts.length, "products");
+                    }
+                  } catch (parseError) {
+                    console.warn('[Product Parse] Failed to parse products from response:', parseError);
+                  }
+                }
+                
                 // Flush any remaining buffer
                 if (buffer.trim()) {
                   controller.enqueue(encoder.encode(buffer));
