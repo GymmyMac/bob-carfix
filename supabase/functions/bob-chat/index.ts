@@ -1405,15 +1405,21 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
           }
         }
         
-        // Also capture parts from service packages
+        // Also capture service packages AND extract parts from them
         if (toolCall.function.name === "retrieve_service_packages") {
-          const extractedParts = extractPartsFromPackages(result);
+          const packagesResult = result as { success?: boolean; packages?: unknown[] };
           
+          // Store full service packages for emission to frontend
+          if (packagesResult.success && packagesResult.packages && packagesResult.packages.length > 0) {
+            (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = packagesResult.packages;
+            console.log(`Stored ${packagesResult.packages.length} service packages for emission`);
+          }
+          
+          // Also extract parts from packages for parts display
+          const extractedParts = extractPartsFromPackages(result);
           if (extractedParts.length > 0) {
             console.log(`Adding ${extractedParts.length} parts from service packages to results`);
             partsFoundResult = partsFoundResult ? [...partsFoundResult, ...extractedParts] : extractedParts;
-          } else if (!partsFoundResult || partsFoundResult.length === 0) {
-            console.log('Service packages empty and no parts loaded - customer may need guidance');
           }
         }
         
