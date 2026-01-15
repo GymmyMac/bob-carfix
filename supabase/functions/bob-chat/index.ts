@@ -396,6 +396,14 @@ CRITICAL - INVENTORY-ONLY RECOMMENDATIONS:
 - All product names, SKUs, prices MUST come from retrieve_parts - never invent them
 - If customer asks about a brand not in results: "Let me check what we've got in stock for that..."
 
+ACCURACY GUARDRAIL - CRITICAL:
+- ONLY quote prices that were returned in tool results
+- ONLY mention products/packages that exist in your tool results
+- If a tool returned empty/no results, say "I couldn't find [item] for your vehicle" - don't make up alternatives
+- If you're unsure about a price, say "prices start from around $X" with a real number from results
+- NEVER invent SKUs, part numbers, or exact prices
+- Service packages displayed to customer are provided in [CUSTOMER DISPLAY STATE] context - ONLY reference those packages
+
 SMART SALES SPEECH - PRODUCT RECOMMENDATIONS:
 When presenting products, follow these rules:
 
@@ -774,6 +782,78 @@ async function retrieveParts(vehicleId: number, apiConfig: ApiConfig, partType?:
 
 // Debug flag - controlled by environment variable
 const DEBUG = Deno.env.get("BOB_DEBUG") === "true";
+
+// ============= SINGLE SOURCE OF TRUTH: Package Validation =============
+// These helpers ensure AI only sees packages that will actually display to the customer
+
+function calculatePackageMinPriceEarly(partslots: any[]): number {
+  if (!partslots || !Array.isArray(partslots) || partslots.length === 0) {
+    return 0;
+  }
+  
+  let total = 0;
+  const tierOrder = ['Standard', 'Economy', 'Premium', 'Performance'];
+  
+  for (const slot of partslots) {
+    const tiers = slot?.products?.quality_tiers;
+    if (!tiers) continue;
+    
+    for (const tier of tierOrder) {
+      const products = tiers[tier];
+      if (products && Array.isArray(products) && products.length > 0) {
+        const validPrices = products.map((p: any) => p.price || 0).filter((price: number) => price > 0);
+        if (validPrices.length > 0) {
+          total += Math.min(...validPrices);
+          break;
+        }
+      }
+    }
+  }
+  
+  return total;
+}
+
+// Validate a single package - returns true if displayable
+function isPackageDisplayable(pkg: any): boolean {
+  if (!pkg || !pkg.id) return false;
+  
+  // If from_price is set and > 0, also verify partslots have valid products
+  if (pkg.from_price && pkg.from_price > 0) {
+    if (pkg.partslots && Array.isArray(pkg.partslots)) {
+      const hasValidProducts = pkg.partslots.some((slot: any) => {
+        const tiers = slot?.products?.quality_tiers;
+        if (!tiers) return false;
+        return Object.values(tiers).some((products: any) => 
+          Array.isArray(products) && products.some((p: any) => p.price > 0)
+        );
+      });
+      return hasValidProducts;
+    }
+    return true; // Has from_price, no partslots to validate
+  }
+  
+  // No from_price - calculate from partslots
+  const calculatedPrice = calculatePackageMinPriceEarly(pkg.partslots);
+  return calculatedPrice > 0;
+}
+
+// Filter packages to only displayable ones - CRITICAL for AI/Display sync
+function filterDisplayablePackages(packages: any[]): any[] {
+  if (!packages || !Array.isArray(packages)) return [];
+  
+  return packages.filter((pkg) => {
+    const displayable = isPackageDisplayable(pkg);
+    if (!displayable) {
+      console.log(`[Package Filter] Removing "${pkg?.title}" - not displayable (no valid price/products)`);
+    } else {
+      // Ensure from_price is set for displayable packages
+      if (!pkg.from_price || pkg.from_price === 0) {
+        pkg.from_price = calculatePackageMinPriceEarly(pkg.partslots);
+      }
+    }
+    return displayable;
+  });
+}
 
 async function retrieveServicePackages(vehicleId: number | undefined, apiConfig: ApiConfig): Promise<unknown> {
   if (DEBUG) console.log('[DEBUG] Calling calculate-service-bundles for vehicle:', vehicleId);
@@ -1385,9 +1465,13 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
             const servicePackagesData = servicePackagesResult as { success?: boolean; packages?: unknown[] };
             
             if (servicePackagesData.success && servicePackagesData.packages && servicePackagesData.packages.length > 0) {
-              // Store full service packages for emission to frontend
-              (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = servicePackagesData.packages;
-              console.log(`Auto-loaded ${servicePackagesData.packages.length} service packages for vehicle`);
+              // CRITICAL: Filter packages BEFORE AI sees them - Single Source of Truth
+              const displayablePackages = filterDisplayablePackages(servicePackagesData.packages);
+              console.log(`[Service Packages] Filtered: ${servicePackagesData.packages.length} -> ${displayablePackages.length} displayable`);
+              
+              // Store FILTERED packages for emission to frontend AND AI awareness
+              (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = displayablePackages;
+              console.log(`Auto-loaded ${displayablePackages.length} displayable service packages for vehicle`);
             }
             
             // Also extract parts from packages for parts display
@@ -1488,10 +1572,22 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
         if (toolCall.function.name === "retrieve_service_packages") {
           const packagesResult = result as { success?: boolean; packages?: unknown[] };
           
-          // Store full service packages for emission to frontend
+          // CRITICAL: Filter packages BEFORE storing - Single Source of Truth
           if (packagesResult.success && packagesResult.packages && packagesResult.packages.length > 0) {
-            (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = packagesResult.packages;
-            console.log(`Stored ${packagesResult.packages.length} service packages for emission`);
+            const displayablePackages = filterDisplayablePackages(packagesResult.packages);
+            console.log(`[Service Packages] Filtered: ${packagesResult.packages.length} -> ${displayablePackages.length} displayable`);
+            
+            // Store FILTERED packages - AI and display see the same data
+            (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = displayablePackages;
+            
+            // Also update the tool result so AI knows the filtered count
+            (result as Record<string, unknown>).packages = displayablePackages;
+            (result as Record<string, unknown>).filtered_count = packagesResult.packages.length - displayablePackages.length;
+            (result as Record<string, unknown>).note = displayablePackages.length > 0 
+              ? `${displayablePackages.length} service packages available for customer`
+              : "No service packages with valid pricing available for this vehicle";
+            
+            console.log(`Stored ${displayablePackages.length} displayable service packages for emission`);
           }
           
           // Also extract parts from packages for parts display
@@ -1627,14 +1723,46 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
               const servicePackagesData = servicePackagesResult as { success?: boolean; packages?: unknown[] };
               
               if (servicePackagesData.success && servicePackagesData.packages && servicePackagesData.packages.length > 0) {
-                console.log(`Fetched ${servicePackagesData.packages.length} service packages for confirmed vehicle`);
-                (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = servicePackagesData.packages;
+                // CRITICAL: Filter packages BEFORE storing - Single Source of Truth
+                const displayablePackages = filterDisplayablePackages(servicePackagesData.packages);
+                console.log(`[Service Packages] Filtered: ${servicePackagesData.packages.length} -> ${displayablePackages.length} displayable`);
+                (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = displayablePackages;
               }
             }
           }
         } catch (e) {
           console.error('Failed to parse VEHICLE_CONFIRMED marker in AI response:', e);
         }
+      }
+      
+      // ============= SINGLE SOURCE OF TRUTH: Inject Display Context into AI =============
+      // This ensures AI only references products/packages that the customer can actually see
+      const displayedPackages = (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit || [];
+      const displayedParts = (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit || [];
+      
+      if (displayedPackages.length > 0 || displayedParts.length > 0) {
+        const packageSummary = displayedPackages.length > 0 
+          ? `SERVICE PACKAGES (${displayedPackages.length}):\n${(displayedPackages as any[]).map(p => `- ${p.title}: $${p.from_price}`).join('\n')}`
+          : 'No service packages displayed.';
+        
+        const partsSummary = displayedParts.length > 0 
+          ? `PARTS: ${displayedParts.length} individual parts available` 
+          : '';
+        
+        const displayContext = `[CUSTOMER DISPLAY STATE - WHAT THE CUSTOMER SEES RIGHT NOW]
+The customer's shelf currently shows:
+
+${packageSummary}
+${partsSummary}
+
+IMPORTANT: Only reference products/packages from this list with these EXACT prices. If the customer asks about something not shown above, explain it's not available for their vehicle and suggest alternatives from what IS displayed.`;
+        
+        // Add as system context message right before streaming
+        conversationMessages.push({
+          role: "system",
+          content: displayContext
+        });
+        console.log(`[Display Context] Injected context: ${displayedPackages.length} packages, ${displayedParts.length} parts`);
       }
       
       console.log('Streaming final response');
