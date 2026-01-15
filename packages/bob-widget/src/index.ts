@@ -40,6 +40,7 @@ export { Bob } from './components/Bob';
 export type { BobVariant } from './components/Bob';
 export { BobCharacter } from './components/BobCharacter';
 export { ChatInterface } from './components/ChatInterface';
+export { BobSuggestions } from './components/BobSuggestions';
 
 // v3.0 New components
 export { SwipeableBob } from './components/SwipeableBob';

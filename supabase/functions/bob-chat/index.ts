@@ -1665,6 +1665,26 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
             controller.enqueue(encoder.encode(partsEvent));
             console.log("Emitted parts_found event:", partsToEmit.length, "parts");
             partsEmitted = true;
+            
+            // NEW: Also emit bob_suggestions for inline display in chat
+            // This provides the same parts in a format for conversational display
+            const confirmedVehicle = (conversationMessages as unknown as { _confirmedVehicle?: Record<string, unknown> })._confirmedVehicle;
+            const vehicleName = confirmedVehicle 
+              ? `${confirmedVehicle.year || ''} ${confirmedVehicle.make || ''} ${confirmedVehicle.model || ''}`.trim()
+              : 'your vehicle';
+            
+            // Determine part type from loaded parts for contextual title
+            const firstPart = partsToEmit[0] as Record<string, unknown>;
+            const partType = (firstPart?.partslot_description || firstPart?.['Part Product Type'] || 'Parts') as string;
+            
+            const suggestionsEvent = `data: ${JSON.stringify({ 
+              type: "bob_suggestions", 
+              products: partsToEmit.slice(0, 6), // Limit to 6 for inline display
+              title: `${partType} for ${vehicleName}`,
+              partType: partType
+            })}\n\n`;
+            controller.enqueue(encoder.encode(suggestionsEvent));
+            console.log("Emitted bob_suggestions event:", Math.min(6, partsToEmit.length), "products for inline display");
           } else {
             // No parts found - emit event so frontend can clear loading state
             const noPartsEvent = `data: ${JSON.stringify({ type: "no_parts_found" })}\n\n`;
