@@ -311,9 +311,9 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
   // Layout calculations - MAXIMIZED for full screen utilization
   const columnWidth = viewportSize === 'mobile' ? 88 : viewportSize === 'tablet' ? 58 : 48;
   const maxWidth = viewportSize === 'desktop' ? '580px' : viewportSize === 'tablet' ? '500px' : '100%';
-  // Minimal top offset - start products as high as possible
+  // Mobile: Position shelf near top, below vehicle bar if present (not wasting 22vh)
   const topOffset = viewportSize === 'mobile' 
-    ? `calc(${counterHeightPercent}vh + env(safe-area-inset-top, 4px))`
+    ? `calc(${hasVehicle ? '56px' : '8px'} + env(safe-area-inset-top, 4px))`
     : '6px';
 
   return (

@@ -2,7 +2,9 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useSpeechRecognition } from "../../hooks/useSpeechRecognition";
 import { useBobLayoutConfig } from "../../BobProvider";
 import type { Message } from "../../types/message";
+import type { Product } from "../../types/product";
 import { glassPanel, glassButtonBlue, glassInput, glassText } from "../../styles/glass";
+import { BobSuggestions } from "../BobSuggestions";
 
 interface MobileChatDrawerProps {
   messages: Message[];
@@ -17,6 +19,8 @@ interface MobileChatDrawerProps {
   isMuted?: boolean;
   onToggleMute?: () => void;
   isSpeaking?: boolean;
+  onAddToCart?: (product: Product) => void;
+  onProductClick?: (product: Product) => void;
 }
 
 export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
@@ -31,7 +35,9 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
   chatEndRef,
   isMuted = false,
   onToggleMute,
-  isSpeaking = false
+  isSpeaking = false,
+  onAddToCart,
+  onProductClick
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
@@ -84,11 +90,16 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
 
   const lastBobMessage = [...messages].reverse().find(m => m.role === 'assistant');
   
+  // Count products in last message for preview indicator
+  const productCount = lastBobMessage?.suggestedProducts?.length || 0;
+  
   const previewText = lastBobMessage?.content 
     ? lastBobMessage.content.length > 50 
       ? lastBobMessage.content.slice(0, 50) + '...'
       : lastBobMessage.content
     : "Ask Bob about car parts...";
+  
+  const previewSuffix = productCount > 0 ? ` (${productCount} products)` : '';
 
   // Premium Glass TALK button styles
   const talkButtonStyles = {
@@ -170,7 +181,7 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
         )}
       </button>
 
-      {/* Collapsed Preview - High contrast */}
+      {/* Collapsed Preview - High contrast with product count */}
       {!isExpanded && (
         <div 
           onClick={() => setIsExpanded(true)}
@@ -184,17 +195,20 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
             overflow: 'hidden', 
             textOverflow: 'ellipsis', 
             whiteSpace: 'nowrap' 
-          }}>{previewText}</p>
+          }}>
+            {previewText}
+            {previewSuffix && <span style={{ color: 'rgba(255,200,0,0.9)', fontWeight: 600 }}>{previewSuffix}</span>}
+          </p>
         </div>
       )}
 
-      {/* Expanded Chat History */}
+      {/* Expanded Chat History with Inline Products */}
       {isExpanded && (
         <div style={{ height: 'calc(100% - 100px)', overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }} className="glass-scroll">
           {[...messages].reverse().map((msg, idx) => (
-            <div key={idx} style={{ display: 'flex', justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
+            <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.role === "user" ? "flex-end" : "flex-start" }}>
               <div style={{
-                maxWidth: '85%',
+                maxWidth: msg.suggestedProducts?.length ? '100%' : '85%',
                 borderRadius: '16px',
                 padding: '10px 14px',
                 fontSize: '14px',
@@ -207,6 +221,16 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
                 textShadow: '0 1px 2px rgba(0,0,0,0.2)',
               }}>
                 {msg.content}
+                
+                {/* Inline Product Suggestions */}
+                {msg.role === "assistant" && msg.suggestedProducts && msg.suggestedProducts.length > 0 && (
+                  <BobSuggestions
+                    products={msg.suggestedProducts}
+                    title={msg.suggestionsTitle}
+                    onAddToCart={onAddToCart}
+                    onProductClick={onProductClick}
+                  />
+                )}
               </div>
             </div>
           ))}
