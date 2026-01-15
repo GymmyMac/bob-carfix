@@ -22,13 +22,8 @@ interface ServicePackagesSectionProps {
   vehicleUnconfirmed?: boolean;
 }
 
-// Placeholder packages shown when vehicle is not yet confirmed
-const PLACEHOLDER_PACKAGES = [
-  { id: 'placeholder-oil', title: 'Oil Service', icon_name: 'wrench', description: 'Regular oil & filter change to keep your engine running smooth' },
-  { id: 'placeholder-brake', title: 'Brake Service', icon_name: 'zap', description: 'Brake pads & rotors for safe stopping power' },
-  { id: 'placeholder-filter', title: 'Filter Package', icon_name: 'package', description: 'Air, cabin & fuel filters for clean performance' },
-  { id: 'placeholder-tune', title: 'Tune Up Package', icon_name: 'star', description: 'Spark plugs & ignition components for peak performance' },
-];
+// NOTE: Placeholder packages removed - real packages come from CARFIX API
+// Service packages now display only when real data is available from retrieve_service_packages
 
 // Get icon based on package icon_name or fallback to Package
 const getPackageIcon = (iconName?: string) => {
@@ -99,44 +94,14 @@ export const ServicePackagesSection = ({
     );
   }
 
-  // Show placeholder packages when vehicle unconfirmed
+  // Show prompt to confirm vehicle when unconfirmed (no mock placeholders)
   if (showPlaceholders || vehicleUnconfirmed) {
     return (
       <div className="space-y-4">
         <h2 className="text-xl font-extrabold text-primary">Service Packages</h2>
-        <p className="text-sm text-muted-foreground">Confirm your vehicle to see exact pricing</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {PLACEHOLDER_PACKAGES.map((pkg) => {
-            const IconComponent = getPackageIcon(pkg.icon_name);
-            return (
-              <Card 
-                key={pkg.id} 
-                className="border-2 border-dashed border-slate-300 overflow-hidden opacity-75"
-              >
-                <div className="bg-gradient-to-br from-slate-100 via-slate-50 to-white px-4 py-4 border-t-4 border-slate-400">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-3 bg-gradient-to-br from-slate-400 to-slate-500 rounded-xl shadow-lg">
-                      <IconComponent className="h-6 w-6 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-bold text-slate-600 truncate">
-                        {pkg.title}
-                      </h3>
-                    </div>
-                  </div>
-                </div>
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-sm text-muted-foreground italic">Price varies by vehicle</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {pkg.description}
-                  </p>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+        <p className="text-sm text-muted-foreground">
+          Tell Bob your rego to see service packages with exact pricing for your vehicle.
+        </p>
       </div>
     );
   }
