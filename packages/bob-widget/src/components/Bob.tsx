@@ -99,9 +99,18 @@ export const Bob: React.FC<BobProps> = ({
 
     callbacks.onPartsFound = (parts: unknown[]) => {
       setIsResearching(false);
+      
+      // If empty array, clear products
+      if (!parts || parts.length === 0) {
+        console.log('[Bob] Clearing products (empty array received)');
+        setProducts([]);
+        originalOnPartsFound?.(parts);
+        return;
+      }
+      
       const mappedProducts: Product[] = (parts as any[]).map((p, idx) => ({
         id: p.SKU || p.sku || `part-${idx}`,
-        name: p["Part Product Type"] || p.partslot_description || 'Unknown Part',
+        name: p["Part Product Type"] || p.partslot_description || p.name || 'Unknown Part',
         brand: p.Brand || p.brand,
         price: p["Metro Retail Price"] || p.price || 0,
         sku: p.SKU || p.sku,
@@ -115,6 +124,14 @@ export const Bob: React.FC<BobProps> = ({
     };
 
     callbacks.onServicePackagesFound = (packages: unknown[]) => {
+      // If empty array, clear packages
+      if (!packages || packages.length === 0) {
+        console.log('[Bob] Clearing service packages (empty array received)');
+        setServicePackages([]);
+        originalOnPackagesFound?.(packages);
+        return;
+      }
+      
       setServicePackages(packages as ServicePackage[]);
       originalOnPackagesFound?.(packages);
     };
