@@ -531,6 +531,9 @@ export const useBobChat = ({
             }
             
             if (parsed.type === "no_parts_found") {
+              // Clear products and service packages when no results found
+              callbacks.onPartsFound?.([]);
+              callbacks.onServicePackagesFound?.([]);
               onNoPartsFound?.();
               continue;
             }

@@ -1629,60 +1629,94 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
             console.log("Emitted multiple_vehicles_found event");
           }
           
+          // Track emitted package IDs to prevent duplicates across emissions
+          const emittedPackageIds = new Set<string>();
+          
           // Helper to calculate minimum package price from partslots
           const calculatePackageMinPrice = (partslots: any[]): number => {
-            if (!partslots || !Array.isArray(partslots)) return 0;
+            if (!partslots || !Array.isArray(partslots) || partslots.length === 0) {
+              console.log('[Price Calc] Empty or invalid partslots array');
+              return 0;
+            }
             
             let total = 0;
+            let slotsWithProducts = 0;
+            
             for (const slot of partslots) {
               const tiers = slot?.products?.quality_tiers;
-              if (!tiers) continue;
+              if (!tiers) {
+                console.log('[Price Calc] Slot has no quality_tiers:', slot?.partslot_description || slot?.name);
+                continue;
+              }
               
               // Get cheapest product from any tier (prefer Standard)
               const tierOrder = ['Standard', 'Economy', 'Premium', 'Performance'];
+              let slotMinPrice = 0;
+              
               for (const tier of tierOrder) {
                 const products = tiers[tier];
-                if (products && products.length > 0) {
+                if (products && Array.isArray(products) && products.length > 0) {
                   const validPrices = products
                     .map((p: any) => p.price || 0)
                     .filter((price: number) => price > 0);
+                  
                   if (validPrices.length > 0) {
-                    total += Math.min(...validPrices);
-                    break;
+                    slotMinPrice = Math.min(...validPrices);
+                    total += slotMinPrice;
+                    slotsWithProducts++;
+                    break; // Found price for this slot, move to next
                   }
                 }
               }
+              
+              if (slotMinPrice === 0) {
+                console.warn(`[Price Calc] Slot "${slot?.partslot_description || slot?.name}" has no valid products in any tier`);
+              }
             }
+            
+            console.log(`[Price Calc] Total: $${total.toFixed(2)} from ${slotsWithProducts}/${partslots.length} slots`);
             return total;
           };
 
-          // Process service packages: calculate prices if missing, deduplicate
+          // Process service packages: calculate prices if missing, deduplicate, filter $0
           let packagesToSend = servicePackagesToEmit;
           if (packagesToSend && packagesToSend.length > 0) {
-            // First, calculate from_price for any packages that have $0 or missing
             const packagesWithPrices = packagesToSend.map((pkg: any) => {
-              if (!pkg) return null;
+              if (!pkg || !pkg.id) {
+                console.warn('[Packages] Skipping package without ID');
+                return null;
+              }
+              
+              // Skip if already emitted (global deduplication)
+              if (emittedPackageIds.has(pkg.id)) {
+                console.log(`[Packages] Skipping duplicate package: ${pkg.id}`);
+                return null;
+              }
               
               // If from_price is 0 or missing, calculate from partslots
               if (!pkg.from_price || pkg.from_price === 0) {
                 const calculatedPrice = calculatePackageMinPrice(pkg.partslots);
+                
                 if (calculatedPrice > 0) {
-                  console.log(`Calculated price for package ${pkg.id}: $${calculatedPrice.toFixed(2)}`);
+                  console.log(`[Packages] Calculated price for "${pkg.title}": $${calculatedPrice.toFixed(2)}`);
                   return { ...pkg, from_price: calculatedPrice };
                 }
-                // Still include package even with $0 - user can see products inside
-                console.log(`Package ${pkg.id} has $0 price, including anyway for display`);
-                return pkg;
+                
+                // If we can't calculate a price AND there's no existing price, skip this package
+                console.warn(`[Packages] Skipping package "${pkg.title}" - no price available`);
+                return null;
               }
+              
               return pkg;
             }).filter(Boolean);
             
-            // Deduplicate by ID
-            const uniquePackages = Array.from(
-              new Map(packagesWithPrices.map((p: any) => [p.id, p])).values()
-            );
-            console.log(`Processed packages: ${packagesToSend.length} -> ${uniquePackages.length} (calculated missing prices)`);
-            packagesToSend = uniquePackages;
+            // Mark all packages as emitted
+            packagesWithPrices.forEach((pkg: any) => {
+              if (pkg?.id) emittedPackageIds.add(pkg.id);
+            });
+            
+            console.log(`[Packages] Processed: ${packagesToSend.length} -> ${packagesWithPrices.length} (after dedup & price validation)`);
+            packagesToSend = packagesWithPrices;
           }
           
           // Emit service_packages_found event FIRST (before parts) for synchronized display
