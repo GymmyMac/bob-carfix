@@ -775,8 +775,8 @@ async function retrieveServicePackages(vehicleId: number | undefined, apiConfig:
   if (DEBUG) console.log('[DEBUG] Calling calculate-service-bundles for vehicle:', vehicleId);
   
   try {
-    // Fix 2: Align parameter name with retrieve-parts - use 'vehicleid' as string
-    const body = vehicleId ? { vehicleid: String(vehicleId) } : {};
+    // Use 'vehicleId' (camelCase) as required by calculate-service-bundles API
+    const body = vehicleId ? { vehicleId: String(vehicleId) } : {};
     
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
