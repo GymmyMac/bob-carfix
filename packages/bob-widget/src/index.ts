@@ -41,6 +41,19 @@ export type { BobVariant } from './components/Bob';
 export { BobCharacter } from './components/BobCharacter';
 export { ChatInterface } from './components/ChatInterface';
 export { BobSuggestions } from './components/BobSuggestions';
+export { ProductBadge } from './components/ProductBadge';
+
+// CARFIX Design Tokens
+export {
+  CARFIX_COLORS,
+  QUALITY_TIER_CONFIG,
+  IMAGE_URLS,
+  BADGE_CONFIG,
+  TYPOGRAPHY,
+  isRotorProduct,
+  getDisplayPrice,
+  formatNZD,
+} from './styles/carfix-tokens';
 
 // v3.0 New components
 export { SwipeableBob } from './components/SwipeableBob';

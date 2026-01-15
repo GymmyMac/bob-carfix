@@ -1,6 +1,14 @@
 import React from "react";
 import type { Product } from "../types/product";
-import { glassCard, glassButtonPrimary, glassText, glassImageContainer } from "../styles/glass";
+import { ProductBadge } from "./ProductBadge";
+import {
+  CARFIX_COLORS,
+  IMAGE_URLS,
+  TYPOGRAPHY,
+  isRotorProduct,
+  getDisplayPrice,
+  formatNZD,
+} from "../styles/carfix-tokens";
 
 interface BobSuggestionsProps {
   products: Product[];
@@ -10,7 +18,7 @@ interface BobSuggestionsProps {
 }
 
 /**
- * Displays products Bob is actively recommending - styled like Service Packages.
+ * Displays products Bob is actively recommending - styled to match CARFIX website.
  * Rendered inline within chat messages when Bob presents specific products.
  */
 export const BobSuggestions: React.FC<BobSuggestionsProps> = ({
@@ -28,20 +36,24 @@ export const BobSuggestions: React.FC<BobSuggestionsProps> = ({
         <div
           style={{
             marginBottom: "12px",
-            fontSize: "15px",
-            fontWeight: 600,
-            ...glassText.primary,
+            fontSize: TYPOGRAPHY.partslotName.fontSize,
+            fontWeight: TYPOGRAPHY.partslotName.fontWeight,
+            color: CARFIX_COLORS.foreground,
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
           }}
         >
-          🚗 {title}
+          <span style={{ fontSize: "18px" }}>🚗</span>
+          {title}
         </div>
       )}
 
       {/* Product Grid */}
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+          display: "flex",
+          flexDirection: "column",
           gap: "12px",
         }}
       >
@@ -56,13 +68,13 @@ export const BobSuggestions: React.FC<BobSuggestionsProps> = ({
         ))}
       </div>
 
-      {/* Show more indicator if more than 6 products */}
+      {/* Show more indicator */}
       {products.length > 6 && (
         <div
           style={{
-            marginTop: "8px",
+            marginTop: "12px",
             fontSize: "13px",
-            color: "rgba(255,255,255,0.6)",
+            color: CARFIX_COLORS.mutedForeground,
             textAlign: "center",
           }}
         >
@@ -86,139 +98,238 @@ const ProductSuggestionCard: React.FC<ProductSuggestionCardProps> = ({
   onAddToCart,
   isRecommended = false,
 }) => {
-  const imageUrl = product.image_url || product.image;
+  const [imageError, setImageError] = React.useState(false);
+  const [brandImageError, setBrandImageError] = React.useState(false);
+
+  // Determine image URL with fallbacks
+  const imageUrl = product.image_url || product.image || 
+    (product.sku ? IMAGE_URLS.productImage(product.sku) : null);
+  
+  const brandImageUrl = product.brand 
+    ? IMAGE_URLS.brandLogo(product.brand)
+    : null;
+
   const brandName = product.brand || "Quality Part";
   const productName = product.name || "Product";
-  const price = product.price ?? 0;
+  const unitPrice = product.price ?? 0;
+  const partNumber = product.partNumber || product.part_number;
+  
+  // Check if this is a rotor product (sold in pairs)
+  const isRotor = isRotorProduct({
+    name: product.name,
+    partslotDescription: product.partslotDescription,
+    per_car_qty: product.quantity,
+  });
+  
+  const { displayPrice, unitPriceLabel } = getDisplayPrice(unitPrice, isRotor);
 
   return (
     <div
       style={{
-        ...glassCard,
-        padding: "12px",
-        display: "flex",
-        gap: "12px",
+        background: CARFIX_COLORS.card,
+        borderRadius: "12px",
+        border: `2px solid ${CARFIX_COLORS.border}`,
+        overflow: "hidden",
         cursor: onProductClick ? "pointer" : "default",
-        transition: "transform 0.2s ease, box-shadow 0.2s ease",
+        transition: "all 0.2s ease",
       }}
       onClick={() => onProductClick?.(product)}
       onMouseEnter={(e) => {
-        e.currentTarget.style.transform = "translateY(-2px) scale(1.02)";
+        e.currentTarget.style.borderColor = `${CARFIX_COLORS.primary}80`;
+        e.currentTarget.style.boxShadow = "0 10px 25px rgba(0,0,0,0.1)";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "translateY(0) scale(1)";
+        e.currentTarget.style.borderColor = CARFIX_COLORS.border;
+        e.currentTarget.style.boxShadow = "none";
       }}
     >
-      {/* Product Image */}
-      <div
-        style={{
-          ...glassImageContainer,
-          width: "72px",
-          height: "72px",
-          minWidth: "72px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          overflow: "hidden",
-        }}
-      >
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={productName}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              padding: "4px",
-            }}
-            onError={(e) => {
-              e.currentTarget.style.display = "none";
-              e.currentTarget.parentElement!.innerHTML =
-                '<span style="font-size:28px">🔧</span>';
-            }}
-          />
-        ) : (
-          <span style={{ fontSize: "28px" }}>🔧</span>
-        )}
-      </div>
-
-      {/* Product Info */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {/* Brand + Recommended Badge */}
+      {/* Partslot Header */}
+      {product.partslotDescription && (
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            marginBottom: "4px",
-          }}
-        >
-          <span
-            style={{
-              fontSize: "11px",
-              fontWeight: 600,
-              textTransform: "uppercase",
-              color: "rgba(255,255,255,0.7)",
-              letterSpacing: "0.5px",
-            }}
-          >
-            {brandName}
-          </span>
-          {isRecommended && (
-            <span
-              style={{
-                fontSize: "10px",
-                fontWeight: 600,
-                padding: "2px 6px",
-                borderRadius: "6px",
-                background: "rgba(255, 149, 0, 0.3)",
-                color: "#FFD700",
-                border: "1px solid rgba(255, 149, 0, 0.4)",
-              }}
-            >
-              ⭐ Bob's Pick
-            </span>
-          )}
-        </div>
-
-        {/* Product Name */}
-        <div
-          style={{
-            fontSize: "13px",
-            fontWeight: 500,
-            ...glassText.primary,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            lineHeight: "1.3",
-            marginBottom: "8px",
-          }}
-        >
-          {productName}
-        </div>
-
-        {/* Price + Add to Cart */}
-        <div
-          style={{
+            background: "rgba(0,0,0,0.03)",
+            borderBottom: `1px solid ${CARFIX_COLORS.border}`,
+            padding: "10px 16px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            gap: "8px",
           }}
         >
           <span
             style={{
-              fontSize: "16px",
-              fontWeight: 700,
-              ...glassText.price,
+              fontSize: TYPOGRAPHY.partslotName.fontSize,
+              fontWeight: TYPOGRAPHY.partslotName.fontWeight,
+              color: CARFIX_COLORS.foreground,
             }}
           >
-            ${price.toFixed(2)}
+            {product.partslotDescription}
           </span>
+          {isRecommended && <ProductBadge type="carfixValue" />}
+        </div>
+      )}
 
+      {/* Product Content */}
+      <div
+        style={{
+          padding: "16px",
+          display: "flex",
+          gap: "16px",
+        }}
+      >
+        {/* Product Image */}
+        <div
+          style={{
+            width: "96px",
+            minWidth: "96px",
+            height: "96px",
+            borderRadius: "8px",
+            background: "#FFFFFF",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "hidden",
+            border: `1px solid ${CARFIX_COLORS.border}`,
+          }}
+        >
+          {imageUrl && !imageError ? (
+            <img
+              src={imageUrl}
+              alt={productName}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                padding: "4px",
+              }}
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <span style={{ fontSize: "32px", opacity: 0.5 }}>🔧</span>
+          )}
+        </div>
+
+        {/* Product Info */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Brand with logo */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginBottom: "4px",
+            }}
+          >
+            {brandImageUrl && !brandImageError && (
+              <img
+                src={brandImageUrl}
+                alt={brandName}
+                style={{
+                  height: "16px",
+                  width: "auto",
+                  objectFit: "contain",
+                }}
+                onError={() => setBrandImageError(true)}
+              />
+            )}
+            <span
+              style={{
+                fontSize: "12px",
+                fontWeight: 600,
+                color: CARFIX_COLORS.foreground,
+                textTransform: "uppercase",
+              }}
+            >
+              {brandName}
+            </span>
+          </div>
+
+          {/* Product Name */}
+          <div
+            style={{
+              fontSize: TYPOGRAPHY.productName.fontSize,
+              fontWeight: TYPOGRAPHY.productName.fontWeight,
+              color: CARFIX_COLORS.foreground,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              lineHeight: "1.4",
+              marginBottom: "8px",
+            }}
+          >
+            {productName}
+          </div>
+
+          {/* Badges Row */}
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "6px",
+              marginBottom: "12px",
+            }}
+          >
+            <ProductBadge type="fitsVehicle" />
+            {isRotor && <ProductBadge type="rotorPair" />}
+            {product.quantity && product.quantity > 1 && !isRotor && (
+              <ProductBadge type="quantity" value={`Qty: ${product.quantity}`} />
+            )}
+            {partNumber && (
+              <span
+                style={{
+                  fontSize: "12px",
+                  color: CARFIX_COLORS.mutedForeground,
+                }}
+              >
+                #{partNumber}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Price + Action */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-end",
+            justifyContent: "space-between",
+            minWidth: "100px",
+          }}
+        >
+          {/* Price Block */}
+          <div style={{ textAlign: "right" }}>
+            <div
+              style={{
+                fontSize: TYPOGRAPHY.priceMain.fontSize,
+                fontWeight: TYPOGRAPHY.priceMain.fontWeight,
+                color: CARFIX_COLORS.foreground,
+              }}
+            >
+              {formatNZD(displayPrice)}
+            </div>
+            {unitPriceLabel && (
+              <div
+                style={{
+                  fontSize: TYPOGRAPHY.priceSecondary.fontSize,
+                  color: CARFIX_COLORS.mutedForeground,
+                }}
+              >
+                {unitPriceLabel}
+              </div>
+            )}
+            <div
+              style={{
+                fontSize: TYPOGRAPHY.priceSecondary.fontSize,
+                color: CARFIX_COLORS.mutedForeground,
+              }}
+            >
+              inc GST
+            </div>
+          </div>
+
+          {/* Add to Cart Button */}
           {onAddToCart && (
             <button
               onClick={(e) => {
@@ -226,15 +337,28 @@ const ProductSuggestionCard: React.FC<ProductSuggestionCardProps> = ({
                 onAddToCart(product);
               }}
               style={{
-                ...glassButtonPrimary,
-                padding: "6px 12px",
-                fontSize: "12px",
-                fontWeight: 600,
-                color: "white",
-                cursor: "pointer",
+                background: CARFIX_COLORS.primary,
+                color: "#FFFFFF",
                 border: "none",
-                minHeight: "unset",
-                minWidth: "unset",
+                borderRadius: "8px",
+                padding: "8px 16px",
+                fontSize: "13px",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                whiteSpace: "nowrap",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = CARFIX_COLORS.primaryHover;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = CARFIX_COLORS.primary;
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = "scale(0.98)";
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = "scale(1)";
               }}
             >
               Add to Cart
