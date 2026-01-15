@@ -6,3 +6,4 @@ export { MobileBobLayout } from './MobileBobLayout';
 export { ContainedMobileBobLayout } from './ContainedMobileBobLayout';
 export { ContainedChatDrawer } from './ContainedChatDrawer';
 export { ProductDetailView } from './ProductDetailView';
+export { ServicePackageDetailView } from './ServicePackageDetailView';

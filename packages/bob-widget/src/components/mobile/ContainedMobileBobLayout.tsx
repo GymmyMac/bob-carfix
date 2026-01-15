@@ -3,13 +3,14 @@ import { MobileBobCharacter } from "./MobileBobCharacter";
 import { MobileProductColumn } from "./MobileProductColumn";
 import { ContainedChatDrawer } from "./ContainedChatDrawer";
 import { ProductDetailView } from "./ProductDetailView";
+import { ServicePackageDetailView } from "./ServicePackageDetailView";
 import type { Message } from "../../types/message";
 import type { Product, ServicePackage } from "../../types";
 import type { HighlightedProduct } from "../../types/message";
 import type { Vehicle } from "../../types/vehicle";
 
 type PanelState = 'hidden' | 'loading' | 'transitioning' | 'visible';
-type ViewState = 'products' | 'productDetail';
+type ViewState = 'products' | 'productDetail' | 'packageDetail';
 
 interface ContainedMobileBobLayoutProps {
   // Bob animation
@@ -94,6 +95,7 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
   const [panelState, setPanelState] = useState<PanelState>('hidden');
   const [currentView, setCurrentView] = useState<ViewState>('products');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState<ServicePackage | null>(null);
   
   const hasProducts = products.length > 0 || servicePackages.length > 0;
   
@@ -154,7 +156,16 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
   // Handle back to products
   const handleBackToProducts = () => {
     setSelectedProduct(null);
+    setSelectedPackage(null);
     setCurrentView('products');
+  };
+
+  // Handle package click - navigate to package detail view
+  const handlePackageClick = (pkg: ServicePackage) => {
+    console.log('[ContainedMobileBobLayout] Package selected:', pkg.title);
+    setSelectedPackage(pkg);
+    setCurrentView('packageDetail');
+    onPackageSelect?.(pkg);
   };
 
   const showProductColumn = panelState !== 'hidden' && currentView === 'products';
@@ -250,7 +261,7 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
         highlightedPartType={highlightedPartType}
         highlightedProduct={highlightedProduct}
         onProductClick={handleProductClick}
-        onPackageSelect={onPackageSelect}
+        onPackageSelect={handlePackageClick}
         isResearching={isResearching}
         visible={showProductColumn}
         counterHeightPercent={counterHeightPercent}
@@ -264,6 +275,21 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
           onBack={handleBackToProducts}
           onAddToCart={onAddToCart}
           onNavigateToProductPage={onNavigateToProductPage}
+        />
+      )}
+
+      {/* Service Package Detail View - shown when customer clicks a package */}
+      {currentView === 'packageDetail' && selectedPackage && (
+        <ServicePackageDetailView
+          package={selectedPackage}
+          onBack={handleBackToProducts}
+          onNavigateToProductPage={(sku) => {
+            // Navigate to product page using SKU
+            const product = products.find(p => p.sku === sku);
+            if (product && onNavigateToProductPage) {
+              onNavigateToProductPage(product);
+            }
+          }}
         />
       )}
 

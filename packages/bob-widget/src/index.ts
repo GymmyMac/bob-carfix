@@ -70,7 +70,8 @@ export {
   MobileBobLayout,
   MobileBobLayoutCore,
   ContainedMobileBobLayout,
-  ContainedChatDrawer
+  ContainedChatDrawer,
+  ServicePackageDetailView
 } from './components/mobile';
 
 // Core hooks
@@ -107,6 +108,9 @@ export type {
   APIPart,
   CartItem,
   ServicePackage,
+  Partslot,
+  QualityTiers,
+  Part,
 } from './types/product';
 
 export type {
