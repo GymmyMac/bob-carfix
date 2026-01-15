@@ -498,6 +498,34 @@ export const useBobChat = ({
               continue;
             }
             
+            // NEW: Handle bob_suggestions event - attach products to current assistant message
+            if (parsed.type === "bob_suggestions" && parsed.products) {
+              setMessages(prev => {
+                const updated = [...prev];
+                const lastMsg = updated[updated.length - 1];
+                if (lastMsg?.role === "assistant") {
+                  return updated.map((m, i) => 
+                    i === updated.length - 1 
+                      ? { 
+                          ...m, 
+                          suggestedProducts: parsed.products,
+                          suggestionsTitle: parsed.title 
+                        } 
+                      : m
+                  );
+                }
+                return updated;
+              });
+              
+              // Also notify host for backwards compatibility
+              callbacks.onPartsFound?.(parsed.products);
+              analytics.trackPartsViewed(
+                Array.isArray(parsed.products) ? parsed.products.length : 0,
+                identifiedVehicle?.vehicle_id?.toString()
+              );
+              continue;
+            }
+            
             if (parsed.type === "no_parts_found") {
               onNoPartsFound?.();
               continue;

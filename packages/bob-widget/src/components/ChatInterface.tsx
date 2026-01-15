@@ -1,5 +1,7 @@
 import React from "react";
 import type { Message } from "../types/message";
+import type { Product } from "../types/product";
+import { BobSuggestions } from "./BobSuggestions";
 
 interface ChatInterfaceProps {
   messages: Message[];
@@ -15,6 +17,8 @@ interface ChatInterfaceProps {
   onToggleMute?: () => void;
   isSpeaking?: boolean;
   className?: string;
+  onAddToCart?: (product: Product) => void;
+  onProductClick?: (product: Product) => void;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -30,22 +34,24 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   isMuted = false,
   onToggleMute,
   isSpeaking = false,
-  className = ""
+  className = "",
+  onAddToCart,
+  onProductClick,
 }) => {
   return (
     <div className={className} style={{ width: '100%', maxWidth: '72rem', margin: '0 auto', padding: '0 16px 32px 16px' }}>
       <div style={{
-        backgroundColor: 'white',
-        border: '1px solid #e5e7eb',
-        borderRadius: '8px',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        backgroundColor: 'rgba(20, 30, 50, 0.85)',
+        border: '1px solid rgba(255,255,255,0.15)',
+        borderRadius: '16px',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
         overflow: 'hidden'
       }}>
         {/* Input Area */}
         <div style={{
           padding: '16px',
-          borderBottom: '1px solid #e5e7eb',
-          backgroundColor: '#f9fafb'
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          backgroundColor: 'rgba(0,0,0,0.2)'
         }}>
           <div style={{ display: 'flex', gap: '8px' }}>
             <input
@@ -58,11 +64,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               disabled={isLoading}
               style={{
                 flex: 1,
-                padding: '8px 16px',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                backgroundColor: 'white',
-                color: '#111827',
+                padding: '12px 16px',
+                border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: '12px',
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                color: 'white',
                 fontSize: '16px',
                 outline: 'none'
               }}
@@ -72,10 +78,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 onClick={onToggleMute}
                 style={{
                   flexShrink: 0,
-                  padding: '8px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  backgroundColor: 'white',
+                  padding: '12px',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: '12px',
+                  backgroundColor: 'rgba(255,255,255,0.1)',
                   cursor: 'pointer',
                   minHeight: 'unset',
                   minWidth: 'unset'
@@ -90,15 +96,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               disabled={isLoading || !input.trim()}
               style={{
                 flexShrink: 0,
-                padding: '8px 16px',
-                backgroundColor: isLoading || !input.trim() ? '#93c5fd' : '#2563eb',
+                padding: '12px 20px',
+                background: isLoading || !input.trim() 
+                  ? 'rgba(0, 102, 204, 0.3)' 
+                  : 'linear-gradient(135deg, rgba(0, 102, 204, 0.95), rgba(0, 73, 153, 1))',
                 color: 'white',
-                borderRadius: '6px',
-                border: 'none',
+                borderRadius: '12px',
+                border: '1px solid rgba(255,255,255,0.2)',
                 cursor: isLoading || !input.trim() ? 'not-allowed' : 'pointer',
                 opacity: isLoading || !input.trim() ? 0.5 : 1,
                 minHeight: 'unset',
-                minWidth: 'unset'
+                minWidth: 'unset',
+                fontWeight: 600
               }}
             >
               Send
@@ -107,23 +116,49 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         </div>
 
         {/* Chat History */}
-        <div style={{ overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', height: '400px' }}>
+        <div style={{ 
+          overflowY: 'auto', 
+          padding: '16px', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '12px', 
+          height: '400px',
+          background: 'rgba(0,0,0,0.1)'
+        }}>
           {[...messages].reverse().map((msg, idx) => (
             <div
               key={idx}
-              style={{ display: 'flex', justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: msg.role === "user" ? "flex-end" : "flex-start" }}
             >
+              {/* Message Bubble */}
               <div
                 style={{
-                  maxWidth: '80%',
-                  borderRadius: '8px',
-                  padding: '8px 16px',
+                  maxWidth: msg.suggestedProducts?.length ? '100%' : '80%',
+                  borderRadius: '16px',
+                  padding: '12px 16px',
                   fontSize: '14px',
-                  backgroundColor: msg.role === "user" ? '#2563eb' : '#f3f4f6',
-                  color: msg.role === "user" ? 'white' : '#111827'
+                  backgroundColor: msg.role === "user" 
+                    ? 'linear-gradient(135deg, rgba(0, 102, 204, 0.9), rgba(0, 73, 153, 1))'
+                    : 'rgba(255,255,255,0.1)',
+                  background: msg.role === "user" 
+                    ? 'linear-gradient(135deg, rgba(0, 102, 204, 0.9), rgba(0, 73, 153, 1))'
+                    : 'rgba(255,255,255,0.08)',
+                  color: 'white',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
                 }}
               >
                 {msg.content}
+                
+                {/* Inline Product Suggestions for Assistant Messages */}
+                {msg.role === "assistant" && msg.suggestedProducts && msg.suggestedProducts.length > 0 && (
+                  <BobSuggestions
+                    products={msg.suggestedProducts}
+                    title={msg.suggestionsTitle}
+                    onAddToCart={onAddToCart}
+                    onProductClick={onProductClick}
+                  />
+                )}
               </div>
             </div>
           ))}
