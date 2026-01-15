@@ -498,11 +498,15 @@ export const useBobChat = ({
               continue;
             }
             
-            // NEW: Handle bob_suggestions event - attach products to current assistant message
+            // Handle bob_suggestions event - attach products to current assistant message for inline display
             if (parsed.type === "bob_suggestions" && parsed.products) {
+              console.log('[useBobChat] Received bob_suggestions:', parsed.products.length, 'products', parsed.title);
+              
               setMessages(prev => {
                 const updated = [...prev];
                 const lastMsg = updated[updated.length - 1];
+                console.log('[useBobChat] Attaching to message:', lastMsg?.role, lastMsg?.content?.slice(0, 40));
+                
                 if (lastMsg?.role === "assistant") {
                   return updated.map((m, i) => 
                     i === updated.length - 1 

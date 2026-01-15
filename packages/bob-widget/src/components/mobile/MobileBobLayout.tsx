@@ -263,6 +263,8 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
         isMuted={isMuted}
         onToggleMute={onToggleMute}
         isSpeaking={isSpeaking}
+        onAddToCart={onProductClick}
+        onProductClick={onProductClick}
       />
     </div>
   );
