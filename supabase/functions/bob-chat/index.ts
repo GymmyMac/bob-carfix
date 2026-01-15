@@ -1629,16 +1629,59 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
             console.log("Emitted multiple_vehicles_found event");
           }
           
-          // Deduplicate service packages by ID and filter out invalid prices ($0.00)
+          // Helper to calculate minimum package price from partslots
+          const calculatePackageMinPrice = (partslots: any[]): number => {
+            if (!partslots || !Array.isArray(partslots)) return 0;
+            
+            let total = 0;
+            for (const slot of partslots) {
+              const tiers = slot?.products?.quality_tiers;
+              if (!tiers) continue;
+              
+              // Get cheapest product from any tier (prefer Standard)
+              const tierOrder = ['Standard', 'Economy', 'Premium', 'Performance'];
+              for (const tier of tierOrder) {
+                const products = tiers[tier];
+                if (products && products.length > 0) {
+                  const validPrices = products
+                    .map((p: any) => p.price || 0)
+                    .filter((price: number) => price > 0);
+                  if (validPrices.length > 0) {
+                    total += Math.min(...validPrices);
+                    break;
+                  }
+                }
+              }
+            }
+            return total;
+          };
+
+          // Process service packages: calculate prices if missing, deduplicate
           let packagesToSend = servicePackagesToEmit;
           if (packagesToSend && packagesToSend.length > 0) {
-            const validPackages = packagesToSend.filter((pkg: any) => 
-              pkg && pkg.from_price && pkg.from_price > 0
-            );
+            // First, calculate from_price for any packages that have $0 or missing
+            const packagesWithPrices = packagesToSend.map((pkg: any) => {
+              if (!pkg) return null;
+              
+              // If from_price is 0 or missing, calculate from partslots
+              if (!pkg.from_price || pkg.from_price === 0) {
+                const calculatedPrice = calculatePackageMinPrice(pkg.partslots);
+                if (calculatedPrice > 0) {
+                  console.log(`Calculated price for package ${pkg.id}: $${calculatedPrice.toFixed(2)}`);
+                  return { ...pkg, from_price: calculatedPrice };
+                }
+                // Still include package even with $0 - user can see products inside
+                console.log(`Package ${pkg.id} has $0 price, including anyway for display`);
+                return pkg;
+              }
+              return pkg;
+            }).filter(Boolean);
+            
+            // Deduplicate by ID
             const uniquePackages = Array.from(
-              new Map(validPackages.map((p: any) => [p.id, p])).values()
+              new Map(packagesWithPrices.map((p: any) => [p.id, p])).values()
             );
-            console.log(`Deduplicated packages: ${packagesToSend.length} -> ${uniquePackages.length} valid (filtered $0.00 prices)`);
+            console.log(`Processed packages: ${packagesToSend.length} -> ${uniquePackages.length} (calculated missing prices)`);
             packagesToSend = uniquePackages;
           }
           
@@ -1667,7 +1710,24 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
             partsEmitted = true;
             
             // NEW: Also emit bob_suggestions for inline display in chat
-            // This provides the same parts in a format for conversational display
+            // Transform parts to Product format for frontend BobSuggestions component
+            const transformPartToProduct = (part: Record<string, unknown>) => ({
+              id: (part.sku || part.SKU || `part-${Math.random()}`) as string,
+              sku: (part.sku || part.SKU) as string,
+              name: (part.name || part.web_description || 'Product') as string,
+              brand: (part.brand || part.Brand) as string,
+              price: (part.price || part.Price || part['Metro Retail Price'] || 0) as number,
+              part_number: (part.part_number || part['Part Number']) as string,
+              partNumber: (part.part_number || part['Part Number']) as string,
+              partslotDescription: (part.partslot_description || part['Part Product Type']) as string,
+              partslot_description: (part.partslot_description || part['Part Product Type']) as string,
+              image_url: `https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/product_images/${part.sku || part.SKU}.jpg`,
+              per_car_qty: (part.per_car_qty || part['Per Car Qty'] || 1) as number,
+              quantity: (part.per_car_qty || part['Per Car Qty'] || 1) as number,
+              ic3_code: (part.ic3_code || part['IC3 Code']) as string,
+              web_description: (part.web_description || part['Web Description']) as string,
+            });
+            
             const confirmedVehicle = (conversationMessages as unknown as { _confirmedVehicle?: Record<string, unknown> })._confirmedVehicle;
             const vehicleName = confirmedVehicle 
               ? `${confirmedVehicle.year || ''} ${confirmedVehicle.make || ''} ${confirmedVehicle.model || ''}`.trim()
@@ -1677,14 +1737,17 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
             const firstPart = partsToEmit[0] as Record<string, unknown>;
             const partType = (firstPart?.partslot_description || firstPart?.['Part Product Type'] || 'Parts') as string;
             
+            // Transform to Product format for BobSuggestions component
+            const transformedProducts = partsToEmit.slice(0, 6).map((p: unknown) => transformPartToProduct(p as Record<string, unknown>));
+            
             const suggestionsEvent = `data: ${JSON.stringify({ 
               type: "bob_suggestions", 
-              products: partsToEmit.slice(0, 6), // Limit to 6 for inline display
+              products: transformedProducts,
               title: `${partType} for ${vehicleName}`,
               partType: partType
             })}\n\n`;
             controller.enqueue(encoder.encode(suggestionsEvent));
-            console.log("Emitted bob_suggestions event:", Math.min(6, partsToEmit.length), "products for inline display");
+            console.log("Emitted bob_suggestions event:", transformedProducts.length, "products (transformed to Product format)");
           } else {
             // No parts found - emit event so frontend can clear loading state
             const noPartsEvent = `data: ${JSON.stringify({ type: "no_parts_found" })}\n\n`;
