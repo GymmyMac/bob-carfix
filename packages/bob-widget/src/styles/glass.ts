@@ -12,21 +12,21 @@
 
 import type { CSSProperties } from 'react';
 
-/** Base glass panel (cards, tiles) - Dark variant for text visibility */
+/** Base glass panel (cards, tiles) - Dark variant for text visibility
+ * NOTE: Removed backdrop-filter to prevent GPU rendering artifacts on scroll with many items
+ */
 export const glassCard: CSSProperties = {
-  background: 'rgba(20, 30, 50, 0.75)',
-  backdropFilter: 'blur(24px) saturate(180%)',
-  WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+  background: 'rgba(20, 30, 50, 0.92)',
   border: '1px solid rgba(255, 255, 255, 0.2)',
   borderRadius: '28px',
   boxShadow: '0 10px 40px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(255,255,255,0.1)',
 };
 
-/** Premium/Spotlighted card variant */
+/** Premium/Spotlighted card variant 
+ * NOTE: Using solid gradient instead of backdrop-filter for scroll performance
+ */
 export const glassCardPremium: CSSProperties = {
-  background: 'linear-gradient(135deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.10) 100%)',
-  backdropFilter: 'blur(24px) saturate(200%)',
-  WebkitBackdropFilter: 'blur(24px) saturate(200%)',
+  background: 'linear-gradient(135deg, rgba(40, 60, 100, 0.95) 0%, rgba(20, 40, 80, 0.98) 100%)',
   border: '1px solid rgba(255, 255, 255, 0.4)',
   borderRadius: '32px',
   boxShadow: '0 12px 48px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255,255,255,0.15), inset 0 1px 0 rgba(255,255,255,0.2)',
@@ -114,11 +114,9 @@ export const glassText = {
   },
 };
 
-/** Image container on glass surface */
+/** Image container on glass surface - Solid background for performance */
 export const glassImageContainer: CSSProperties = {
-  background: 'rgba(255, 255, 255, 0.08)',
-  backdropFilter: 'blur(8px)',
-  WebkitBackdropFilter: 'blur(8px)',
+  background: 'rgba(255, 255, 255, 0.12)',
   borderRadius: '20px',
   border: '1px solid rgba(255, 255, 255, 0.15)',
 };
