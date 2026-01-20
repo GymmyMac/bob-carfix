@@ -8,8 +8,9 @@ import {
   getDisplayPrice,
   getServicePackageDescription
 } from "../../styles/carfix-tokens";
+import type { PreparedTier, PreparedTierProduct, PreparedTierBrand } from "../../types/product";
 
-// Extended types for service package detail
+// Extended types for service package detail (legacy fallback)
 interface Part {
   sku: string;
   name: string;
@@ -59,13 +60,14 @@ interface ServicePackageDetail {
   carfixValueTier?: string;
   carfixValueProducts?: string[];
   partslots?: Partslot[];
+  preparedTiers?: PreparedTier[]; // Server-prepared tier data
   icon_url?: string;
 }
 
 interface ServicePackageDetailViewProps {
   package: ServicePackageDetail;
   onBack: () => void;
-  onAddToCart?: (parts: Part[]) => void;
+  onAddToCart?: (parts: Part[] | PreparedTierProduct[]) => void;
   onNavigateToProductPage?: (sku: string) => void;
 }
 
@@ -75,7 +77,7 @@ const TIER_ORDER: TierName[] = ['Economy', 'Standard', 'Premium', 'Performance']
 
 /**
  * ServicePackageDetailView - CARFIX Website Specification
- * Horizontal tier grid, hero brand logos, solid CTAs, collapsible products
+ * Uses preparedTiers when available, falls back to client-side processing
  */
 export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> = ({
   package: pkg,
@@ -85,15 +87,32 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
 }) => {
   const [showDetails, setShowDetails] = useState(false);
   
+  // Check if we have server-prepared tier data
+  const hasPreparedTiers = pkg.preparedTiers && pkg.preparedTiers.length > 0;
+  
+  // Filter visible tiers (not hidden)
+  const visiblePreparedTiers = useMemo(() => {
+    if (!hasPreparedTiers) return [];
+    return pkg.preparedTiers!.filter(tier => !tier.isHidden);
+  }, [pkg.preparedTiers, hasPreparedTiers]);
+  
   // Debug logging
   useEffect(() => {
     console.log('[ServicePackageDetailView] Package:', pkg.title);
-    console.log('[ServicePackageDetailView] Partslots:', pkg.partslots?.length || 0);
-  }, [pkg]);
+    console.log('[ServicePackageDetailView] Has preparedTiers:', hasPreparedTiers);
+    console.log('[ServicePackageDetailView] Visible tiers:', visiblePreparedTiers.length);
+    if (!hasPreparedTiers) {
+      console.log('[ServicePackageDetailView] Falling back to partslots:', pkg.partslots?.length || 0);
+    }
+  }, [pkg, hasPreparedTiers, visiblePreparedTiers]);
 
+  // ============================================================================
+  // FALLBACK: Legacy client-side tier processing (when preparedTiers not available)
+  // ============================================================================
+  
   // Normalize partslots to handle API structure variations
   const normalizedPartslots = useMemo((): Partslot[] => {
-    if (!pkg.partslots) return [];
+    if (hasPreparedTiers || !pkg.partslots) return [];
     
     return pkg.partslots.map(slot => {
       const tiers = slot.products?.quality_tiers || 
@@ -106,7 +125,7 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
         products: { quality_tiers: tiers as QualityTiers }
       };
     });
-  }, [pkg.partslots]);
+  }, [pkg.partslots, hasPreparedTiers]);
   
   // Get the CARFIX Value (recommended) product for each partslot in a tier
   const getRecommendedPartsForTier = (tier: TierName): Part[] => {
@@ -185,15 +204,19 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
     console.log('[ServicePackageDetailView] Unique price tiers:', uniquePriceTiers);
   }, [availableTiers, uniquePriceTiers]);
 
-  // Handle add to cart for a specific tier
+  // Handle add to cart for a specific tier (legacy)
   const handleAddTierToCart = (tier: TierName) => {
     const parts = getRecommendedPartsForTier(tier);
     onAddToCart?.(parts);
   };
+  
+  // Handle add to cart using preparedTiers
+  const handleAddPreparedTierToCart = (tier: PreparedTier) => {
+    onAddToCart?.(tier.products);
+  };
 
   // Get grid columns class based on tier count
-  const getGridClass = () => {
-    const count = uniquePriceTiers.length;
+  const getGridClass = (count: number) => {
     if (count === 2) return 'grid-cols-2';
     if (count === 3) return 'grid-cols-3';
     return 'grid-cols-2';
@@ -201,7 +224,11 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
 
   // Get service package description
   const packageDescription = getServicePackageDescription(pkg.title);
-  const totalPartslots = normalizedPartslots.length;
+  
+  // Total parts count - use preparedTiers if available
+  const totalPartsCount = hasPreparedTiers 
+    ? (visiblePreparedTiers[0]?.productCount || 0)
+    : normalizedPartslots.length;
 
   return (
     <div className="absolute inset-0 z-35 flex flex-col bg-[#FAFAFA] overflow-hidden">
@@ -280,36 +307,107 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
         
         {/* Tier Selection Cards - Horizontal Grid */}
         <div className="p-4">
-          {uniquePriceTiers.length === 0 ? (
-            /* Fallback UI when no tier data available */
-            <div className="rounded-2xl p-5 bg-white border-2 border-[#0052CC] shadow-md">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-[#0052CC]">
-                  {pkg.from_price > 0 ? formatNZD(pkg.from_price) : 'Price on request'}
-                </p>
-                <p className="text-xs text-[#64748B] mt-1">
-                  {pkg.from_price > 0 ? 'Starting price inc GST' : 'Contact us for pricing'}
-                </p>
-              </div>
-              
-              {totalPartslots > 0 && (
-                <div className="mt-4 pt-3 border-t border-[#E2E8F0]">
-                  <p className="text-xs text-[#64748B] text-center">
-                    Includes {totalPartslots} part{totalPartslots !== 1 ? 's' : ''}
-                  </p>
-                </div>
-              )}
-              
-              <button
-                onClick={() => onAddToCart?.([])}
-                className="w-full mt-4 px-4 py-3 rounded-xl text-sm font-semibold bg-[#0052CC] text-white hover:bg-[#0047B3] active:scale-95 transition-all shadow-md"
-              >
-                Contact for Details
-              </button>
+          {/* Use preparedTiers when available */}
+          {hasPreparedTiers && visiblePreparedTiers.length > 0 ? (
+            <div className={`grid ${getGridClass(visiblePreparedTiers.length)} gap-3`}>
+              {visiblePreparedTiers.map(tier => {
+                const tierConfig = QUALITY_TIER_CONFIG[tier.tierName as keyof typeof QUALITY_TIER_CONFIG];
+                
+                return (
+                  <div
+                    key={tier.tierName}
+                    className="relative rounded-2xl overflow-hidden bg-white shadow-md flex flex-col"
+                    style={{
+                      border: tier.isRecommended ? '2px solid #0052CC' : '1px solid #E2E8F0',
+                    }}
+                  >
+                    {/* RECOMMENDED badge */}
+                    {tier.isRecommended && (
+                      <div 
+                        className="absolute top-0 left-0 right-0 px-2 py-1 text-[9px] font-bold text-white text-center"
+                        style={{ background: 'linear-gradient(135deg, #0052CC 0%, #38BDF8 100%)' }}
+                      >
+                        ★ RECOMMENDED
+                      </div>
+                    )}
+                    
+                    <div className={`p-3 flex-1 flex flex-col ${tier.isRecommended ? 'pt-7' : ''}`}>
+                      {/* Tier name with icon */}
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <span className="text-lg">{tierConfig?.emoji}</span>
+                        <div>
+                          <span 
+                            className="font-bold text-sm block"
+                            style={{ color: tierConfig?.textColor || CARFIX_COLORS.foreground }}
+                          >
+                            {tier.displayName}
+                          </span>
+                          <span className="text-[10px] text-[#64748B] hidden md:block">
+                            {tier.description || tierConfig?.description}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Brand logos - Use server-provided URLs directly */}
+                      <div className="flex items-center gap-1.5 mb-3 min-h-[42px] flex-wrap">
+                        {tier.brands.slice(0, 3).map((brand) => (
+                          <div 
+                            key={brand.name}
+                            className="h-10 px-2 bg-white rounded-xl flex items-center justify-center shadow-md border border-[#F1F5F9]"
+                          >
+                            <img 
+                              src={brand.imageUrl}
+                              alt={brand.fullName}
+                              className="h-6 w-auto object-contain"
+                              onError={(e) => {
+                                const parent = (e.target as HTMLImageElement).parentElement;
+                                if (parent) {
+                                  parent.innerHTML = `<span class="text-[10px] font-medium text-slate-700 px-1 truncate max-w-[60px]">${brand.name}</span>`;
+                                }
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Parts count - Use server-provided productCount */}
+                      <p className="text-xs text-[#64748B] hidden md:block mb-2">
+                        {tier.productCount} part{tier.productCount !== 1 ? 's' : ''} included
+                      </p>
+                      
+                      {/* Price - Use server-provided totalPrice (includes rotor pair pricing) */}
+                      <div className="mt-auto">
+                        <p 
+                          className="text-xl font-bold"
+                          style={{ color: tier.isRecommended ? '#0052CC' : '#0F172A' }}
+                        >
+                          {formatNZD(tier.totalPrice)}
+                        </p>
+                        <p className="text-[10px] text-[#64748B] hidden md:block">inc GST</p>
+                      </div>
+                      
+                      {/* Add to Cart button - SOLID, no glass */}
+                      <button
+                        onClick={() => handleAddPreparedTierToCart(tier)}
+                        className={`mt-3 w-full px-3 py-2.5 rounded-xl text-xs font-semibold transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-1.5 ${
+                          tier.isRecommended 
+                            ? 'bg-[#0052CC] text-white shadow-md hover:bg-[#0047B3]' 
+                            : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200'
+                        }`}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        Add to Cart
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          ) : (
-            /* Tier cards - Horizontal Grid */
-            <div className={`grid ${getGridClass()} gap-3`}>
+          ) : uniquePriceTiers.length > 0 ? (
+            /* FALLBACK: Legacy tier cards using client-side processing */
+            <div className={`grid ${getGridClass(uniquePriceTiers.length)} gap-3`}>
               {uniquePriceTiers.map(tier => {
                 const tierConfig = QUALITY_TIER_CONFIG[tier];
                 const tierPrice = getTierTotal(tier);
@@ -352,7 +450,7 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
                         </div>
                       </div>
                       
-                      {/* Brand logos - Hero section */}
+                      {/* Brand logos - Fallback uses IMAGE_URLS */}
                       <div className="flex items-center gap-1.5 mb-3 min-h-[42px] flex-wrap">
                         {tierBrands.map((brand) => (
                           <div 
@@ -408,6 +506,33 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
                   </div>
                 );
               })}
+            </div>
+          ) : (
+            /* Fallback UI when no tier data available */
+            <div className="rounded-2xl p-5 bg-white border-2 border-[#0052CC] shadow-md">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-[#0052CC]">
+                  {pkg.from_price > 0 ? formatNZD(pkg.from_price) : 'Price on request'}
+                </p>
+                <p className="text-xs text-[#64748B] mt-1">
+                  {pkg.from_price > 0 ? 'Starting price inc GST' : 'Contact us for pricing'}
+                </p>
+              </div>
+              
+              {totalPartsCount > 0 && (
+                <div className="mt-4 pt-3 border-t border-[#E2E8F0]">
+                  <p className="text-xs text-[#64748B] text-center">
+                    Includes {totalPartsCount} part{totalPartsCount !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              )}
+              
+              <button
+                onClick={() => onAddToCart?.([])}
+                className="w-full mt-4 px-4 py-3 rounded-xl text-sm font-semibold bg-[#0052CC] text-white hover:bg-[#0047B3] active:scale-95 transition-all shadow-md"
+              >
+                Contact for Details
+              </button>
             </div>
           )}
         </div>

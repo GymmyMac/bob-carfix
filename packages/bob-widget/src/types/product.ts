@@ -73,6 +73,46 @@ export interface ServicePackage {
   carfixValueProducts?: string[];
   partslots?: Partslot[];
   icon_url?: string; // Custom icon image URL for premium display
+  preparedTiers?: PreparedTier[]; // ✅ Server-processed tier data
+}
+
+/** Server-prepared tier data - ready to render */
+export interface PreparedTier {
+  tierName: string;           // "Economy" | "Standard" | "Premium" | "Performance"
+  displayName: string;        // Same as tierName (future: localization)
+  description: string;        // "Smart savings without compromise", etc.
+  isRecommended: boolean;     // true for CARFIX Value tier (highlight this!)
+  isHidden: boolean;          // true if duplicate price - FILTER THESE OUT
+  totalPrice: number;         // Bundle total WITH rotor pair pricing applied
+  productCount: number;       // Number of partslots (NOT alternatives)
+  dominantBrand: string | null;
+  brands: PreparedTierBrand[];
+  products: PreparedTierProduct[];
+}
+
+export interface PreparedTierBrand {
+  name: string;               // e.g., "BENDIX"
+  fullName: string;           // e.g., "BENDIX"
+  imageUrl: string;           // Full Supabase storage URL
+}
+
+export interface PreparedTierProduct {
+  partslotId: number;
+  partslotName: string;       // e.g., "BRAKE PADS FRONT"
+  sku: string;
+  name: string;
+  brand: string;
+  brandFullName: string;
+  brandImageUrl: string;      // Full URL - use directly in <img src>
+  productImageUrl: string;    // Full URL - use directly in <img src>
+  price: number;              // Database unit price
+  displayPrice: number;       // With rotor pair adjustment (use this for display!)
+  isRotor: boolean;           // If true, show "[Pair]" badge
+  perCarQty: number;
+  partNumber: string | null;
+  webDescription: string | null;
+  viscosity: string | null;   // For oils
+  volume: number | null;      // For oils (liters)
 }
 
 export interface Partslot {
