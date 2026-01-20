@@ -467,56 +467,8 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
             </span>
           </div>
           {servicePackages.map((pkg) => {
-            // Use preparedTiers if available, otherwise fall back to client-side calculation
-            const hasPreparedTiers = pkg.preparedTiers && pkg.preparedTiers.length > 0;
-            console.log(`[MobileProductColumn] Package "${pkg.title}" preparedTiers:`, hasPreparedTiers, 
-              'count:', pkg.preparedTiers?.length || 0);
-            
-            // Filter hidden tiers and get visible ones
-            const visibleTiers = hasPreparedTiers 
-              ? pkg.preparedTiers!.filter(tier => !tier.isHidden)
-              : [];
-            
-            // Fallback: Extract tiers client-side if preparedTiers not available
-            let fallbackTiers: string[] = [];
-            let fallbackPrices: Record<string, number> = {};
-            let fallbackBrands: Record<string, string[]> = {};
-            let fallbackPartslotCount = 0;
-            
-            if (!hasPreparedTiers && pkg.partslots && Array.isArray(pkg.partslots)) {
-              fallbackPartslotCount = pkg.partslots.length;
-              pkg.partslots.forEach((slot) => {
-                const qualityTiers = slot.products?.quality_tiers;
-                if (qualityTiers) {
-                  Object.entries(qualityTiers).forEach(([tierName, parts]) => {
-                    if (!Array.isArray(parts) || parts.length === 0) return;
-                    
-                    if (!fallbackTiers.includes(tierName)) {
-                      fallbackTiers.push(tierName);
-                    }
-                    
-                    const sortedParts = [...parts].sort((a, b) => 
-                      ((a as { price?: number }).price || 0) - ((b as { price?: number }).price || 0)
-                    );
-                    const selectedPart = sortedParts[0] as { brand?: string; price?: number };
-                    
-                    if (selectedPart?.price) {
-                      fallbackPrices[tierName] = (fallbackPrices[tierName] || 0) + selectedPart.price;
-                    }
-                    
-                    (parts as Array<{ brand?: string }>).forEach((part) => {
-                      if (part.brand && !fallbackBrands[tierName]?.includes(part.brand)) {
-                        fallbackBrands[tierName] = [...(fallbackBrands[tierName] || []), part.brand];
-                      }
-                    });
-                  });
-                }
-              });
-            }
-            
-            // Sort fallback tiers in display order
-            const tierOrder = ['Economy', 'Standard', 'Premium', 'Performance'];
-            const sortedFallbackTiers = tierOrder.filter(t => fallbackTiers.includes(t));
+            // Use preparedTiers from server (no fallback needed - API always provides them)
+            const visibleTiers = (pkg.preparedTiers || []).filter(tier => !tier.isHidden);
             
             // Get description
             const description = getServicePackageDescription(pkg.title);
@@ -572,8 +524,8 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                   </p>
                 </div>
                 
-                {/* Tier Preview Grid - Using preparedTiers when available */}
-                {hasPreparedTiers && visibleTiers.length > 0 && (
+                {/* Tier Preview Grid - Using preparedTiers from server */}
+                {visibleTiers.length > 0 && (
                   <div className="p-3">
                     <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1" style={{ color: CARFIX_COLORS.mutedForeground }}>
                       Choose Your Value Level
@@ -643,77 +595,6 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                     </div>
                   </div>
                 )}
-                
-                {/* Fallback: Client-side tier rendering when preparedTiers not available */}
-                {!hasPreparedTiers && sortedFallbackTiers.length > 0 && (
-                  <div className="p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1" style={{ color: CARFIX_COLORS.mutedForeground }}>
-                      Choose Your Value Level
-                    </p>
-                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(sortedFallbackTiers.length, 4)}, 1fr)` }}>
-                      {sortedFallbackTiers.map((tierName) => {
-                        const tierConfig = QUALITY_TIER_CONFIG[tierName as keyof typeof QUALITY_TIER_CONFIG];
-                        const isRecommended = tierName === 'Standard';
-                        const price = fallbackPrices[tierName] || pkg.from_price;
-                        const brands = fallbackBrands[tierName] || [];
-                        
-                        return (
-                          <div
-                            key={tierName}
-                            className="relative p-2 rounded-xl text-center transition-all"
-                            style={{
-                              background: isRecommended ? `${CARFIX_COLORS.primary}10` : CARFIX_COLORS.background,
-                              border: `2px solid ${isRecommended ? CARFIX_COLORS.primary : CARFIX_COLORS.border}`,
-                            }}
-                          >
-                            {/* Recommended Badge */}
-                            {isRecommended && (
-                              <div 
-                                className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide whitespace-nowrap"
-                                style={{ background: '#22C55E', color: 'white' }}
-                              >
-                                Recommended
-                              </div>
-                            )}
-                            
-                            {/* Tier Name */}
-                            <p className="text-xs font-semibold mt-1" style={{ color: tierConfig?.textColor || CARFIX_COLORS.foreground }}>
-                              {tierConfig?.emoji} {tierName}
-                            </p>
-                            
-                            {/* Brand Logos - Fallback uses IMAGE_URLS */}
-                            <div className="flex items-center justify-center gap-1 mt-1.5 min-h-[24px]">
-                              {brands.slice(0, 3).map((brand, idx) => (
-                                <div 
-                                  key={idx}
-                                  className="h-5 w-10 bg-white rounded flex items-center justify-center overflow-hidden"
-                                  style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
-                                >
-                                  <img 
-                                    src={IMAGE_URLS.brandLogo(brand)}
-                                    alt={brand}
-                                    className="h-full w-full object-contain p-0.5"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).style.display = 'none';
-                                      (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-[8px] font-medium text-gray-600 truncate px-1">${brand}</span>`;
-                                    }}
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                            
-                            {/* Parts Count */}
-                            <p className="text-[9px] mt-1" style={{ color: CARFIX_COLORS.mutedForeground }}>
-                              {fallbackPartslotCount} {fallbackPartslotCount === 1 ? 'part' : 'parts'} included
-                            </p>
-                            
-                            {/* Price */}
-                            <p className="text-sm font-bold mt-1" style={{ color: CARFIX_COLORS.foreground }}>
-                              ${price.toFixed(0)}
-                            </p>
-                            <p className="text-[9px]" style={{ color: CARFIX_COLORS.mutedForeground }}>inc GST</p>
-                          </div>
-                        );
                       })}
                     </div>
                   </div>

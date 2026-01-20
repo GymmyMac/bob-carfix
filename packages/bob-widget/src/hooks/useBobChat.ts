@@ -368,12 +368,6 @@ export const useBobChat = ({
               const parsed = JSON.parse(jsonStr);
 
               if (parsed.type === "service_packages_found" && parsed.packages) {
-                // Debug: Confirm preparedTiers received in widget
-                const hasPreparedTiers = parsed.packages[0]?.preparedTiers?.length > 0;
-                console.log('[BobWidget] Service packages received:', 
-                  parsed.packages.length, 
-                  'preparedTiers:', hasPreparedTiers,
-                  'count:', parsed.packages[0]?.preparedTiers?.length || 0);
                 callbacks.onServicePackagesFound?.(parsed.packages);
               }
 
