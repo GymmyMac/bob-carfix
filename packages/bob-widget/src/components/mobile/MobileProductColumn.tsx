@@ -468,37 +468,44 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           </div>
           {servicePackages.map((pkg) => {
             // Extract available tiers from package
+            // CRITICAL: Product count = partslots.length (unique part categories)
+            // NOT the total number of product alternatives
             const availableTiers: string[] = [];
             const tierPrices: Record<string, number> = {};
             const tierBrands: Record<string, string[]> = {};
             
-            const tierPartCounts: Record<string, number> = {};
+            // Product count is the same across all tiers - it's the number of partslots
+            const partslotCount = pkg.partslots?.length || 0;
             
             if (pkg.partslots && Array.isArray(pkg.partslots)) {
               pkg.partslots.forEach((slot) => {
-                // FIXED: Access slot.products.quality_tiers (not slot.quality_tiers)
                 const qualityTiers = slot.products?.quality_tiers;
                 if (qualityTiers) {
                   Object.entries(qualityTiers).forEach(([tierName, parts]) => {
-                    // FIXED: parts is Part[] directly, not { recommended_parts: Part[] }
                     if (!Array.isArray(parts) || parts.length === 0) return;
                     
                     if (!availableTiers.includes(tierName)) {
                       availableTiers.push(tierName);
                     }
                     
-                    // Sum prices and collect brands for this tier
-                    (parts as Array<{ brand?: string; price?: number }>).forEach((part) => {
-                      if (part.price) {
-                        tierPrices[tierName] = (tierPrices[tierName] || 0) + part.price;
-                      }
+                    // Select ONE product per partslot for this tier (best price)
+                    // Sort by price and take the first (cheapest) as representative
+                    const sortedParts = [...parts].sort((a, b) => 
+                      ((a as { price?: number }).price || 0) - ((b as { price?: number }).price || 0)
+                    );
+                    const selectedPart = sortedParts[0] as { brand?: string; price?: number };
+                    
+                    // Add this partslot's selected product price to tier total
+                    if (selectedPart?.price) {
+                      tierPrices[tierName] = (tierPrices[tierName] || 0) + selectedPart.price;
+                    }
+                    
+                    // Collect brands from available products in this tier
+                    (parts as Array<{ brand?: string }>).forEach((part) => {
                       if (part.brand && !tierBrands[tierName]?.includes(part.brand)) {
                         tierBrands[tierName] = [...(tierBrands[tierName] || []), part.brand];
                       }
                     });
-                    
-                    // Count parts per tier
-                    tierPartCounts[tierName] = (tierPartCounts[tierName] || 0) + (parts as unknown[]).length;
                   });
                 }
               });
@@ -574,7 +581,6 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                         const isRecommended = tierName === 'Standard';
                         const price = tierPrices[tierName] || pkg.from_price;
                         const brands = tierBrands[tierName] || [];
-                        const partsCount = tierPartCounts[tierName] || 0;
                         
                         return (
                           <div
@@ -621,9 +627,9 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                               ))}
                             </div>
                             
-                            {/* Parts Count */}
+                            {/* Parts Count - Use partslotCount (same for all tiers) */}
                             <p className="text-[9px] mt-1" style={{ color: CARFIX_COLORS.mutedForeground }}>
-                              {partsCount} {partsCount === 1 ? 'part' : 'parts'} included
+                              {partslotCount} {partslotCount === 1 ? 'part' : 'parts'} included
                             </p>
                             
                             {/* Price */}
