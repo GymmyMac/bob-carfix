@@ -595,10 +595,6 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                     </div>
                   </div>
                 )}
-                      })}
-                    </div>
-                  </div>
-                )}
                 
                 {/* CTA Button */}
                 <div className="px-3 pb-3">
