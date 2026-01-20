@@ -467,43 +467,44 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
             </span>
           </div>
           {servicePackages.map((pkg) => {
-            // Extract available tiers from package
-            // CRITICAL: Product count = partslots.length (unique part categories)
-            // NOT the total number of product alternatives
-            const availableTiers: string[] = [];
-            const tierPrices: Record<string, number> = {};
-            const tierBrands: Record<string, string[]> = {};
+            // Use preparedTiers if available, otherwise fall back to client-side calculation
+            const hasPreparedTiers = pkg.preparedTiers && pkg.preparedTiers.length > 0;
             
-            // Product count is the same across all tiers - it's the number of partslots
-            const partslotCount = pkg.partslots?.length || 0;
+            // Filter hidden tiers and get visible ones
+            const visibleTiers = hasPreparedTiers 
+              ? pkg.preparedTiers!.filter(tier => !tier.isHidden)
+              : [];
             
-            if (pkg.partslots && Array.isArray(pkg.partslots)) {
+            // Fallback: Extract tiers client-side if preparedTiers not available
+            let fallbackTiers: string[] = [];
+            let fallbackPrices: Record<string, number> = {};
+            let fallbackBrands: Record<string, string[]> = {};
+            let fallbackPartslotCount = 0;
+            
+            if (!hasPreparedTiers && pkg.partslots && Array.isArray(pkg.partslots)) {
+              fallbackPartslotCount = pkg.partslots.length;
               pkg.partslots.forEach((slot) => {
                 const qualityTiers = slot.products?.quality_tiers;
                 if (qualityTiers) {
                   Object.entries(qualityTiers).forEach(([tierName, parts]) => {
                     if (!Array.isArray(parts) || parts.length === 0) return;
                     
-                    if (!availableTiers.includes(tierName)) {
-                      availableTiers.push(tierName);
+                    if (!fallbackTiers.includes(tierName)) {
+                      fallbackTiers.push(tierName);
                     }
                     
-                    // Select ONE product per partslot for this tier (best price)
-                    // Sort by price and take the first (cheapest) as representative
                     const sortedParts = [...parts].sort((a, b) => 
                       ((a as { price?: number }).price || 0) - ((b as { price?: number }).price || 0)
                     );
                     const selectedPart = sortedParts[0] as { brand?: string; price?: number };
                     
-                    // Add this partslot's selected product price to tier total
                     if (selectedPart?.price) {
-                      tierPrices[tierName] = (tierPrices[tierName] || 0) + selectedPart.price;
+                      fallbackPrices[tierName] = (fallbackPrices[tierName] || 0) + selectedPart.price;
                     }
                     
-                    // Collect brands from available products in this tier
                     (parts as Array<{ brand?: string }>).forEach((part) => {
-                      if (part.brand && !tierBrands[tierName]?.includes(part.brand)) {
-                        tierBrands[tierName] = [...(tierBrands[tierName] || []), part.brand];
+                      if (part.brand && !fallbackBrands[tierName]?.includes(part.brand)) {
+                        fallbackBrands[tierName] = [...(fallbackBrands[tierName] || []), part.brand];
                       }
                     });
                   });
@@ -511,9 +512,9 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
               });
             }
             
-            // Sort tiers in display order
+            // Sort fallback tiers in display order
             const tierOrder = ['Economy', 'Standard', 'Premium', 'Performance'];
-            const sortedTiers = tierOrder.filter(t => availableTiers.includes(t));
+            const sortedFallbackTiers = tierOrder.filter(t => fallbackTiers.includes(t));
             
             // Get description
             const description = getServicePackageDescription(pkg.title);
@@ -569,18 +570,90 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                   </p>
                 </div>
                 
-                {/* Tier Preview Grid */}
-                {sortedTiers.length > 0 && (
+                {/* Tier Preview Grid - Using preparedTiers when available */}
+                {hasPreparedTiers && visibleTiers.length > 0 && (
                   <div className="p-3">
                     <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1" style={{ color: CARFIX_COLORS.mutedForeground }}>
                       Choose Your Value Level
                     </p>
-                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(sortedTiers.length, 4)}, 1fr)` }}>
-                      {sortedTiers.map((tierName) => {
+                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(visibleTiers.length, 4)}, 1fr)` }}>
+                      {visibleTiers.map((tier) => {
+                        const tierConfig = QUALITY_TIER_CONFIG[tier.tierName as keyof typeof QUALITY_TIER_CONFIG];
+                        
+                        return (
+                          <div
+                            key={tier.tierName}
+                            className="relative p-2 rounded-xl text-center transition-all"
+                            style={{
+                              background: tier.isRecommended ? `${CARFIX_COLORS.primary}10` : CARFIX_COLORS.background,
+                              border: `2px solid ${tier.isRecommended ? CARFIX_COLORS.primary : CARFIX_COLORS.border}`,
+                            }}
+                          >
+                            {/* Recommended Badge */}
+                            {tier.isRecommended && (
+                              <div 
+                                className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide whitespace-nowrap"
+                                style={{ background: '#22C55E', color: 'white' }}
+                              >
+                                Recommended
+                              </div>
+                            )}
+                            
+                            {/* Tier Name */}
+                            <p className="text-xs font-semibold mt-1" style={{ color: tierConfig?.textColor || CARFIX_COLORS.foreground }}>
+                              {tierConfig?.emoji} {tier.displayName}
+                            </p>
+                            
+                            {/* Brand Logos - Use server-provided URLs directly */}
+                            <div className="flex items-center justify-center gap-1 mt-1.5 min-h-[24px]">
+                              {tier.brands.slice(0, 3).map((brand, idx) => (
+                                <div 
+                                  key={idx}
+                                  className="h-5 w-10 bg-white rounded flex items-center justify-center overflow-hidden"
+                                  style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+                                >
+                                  <img 
+                                    src={brand.imageUrl}
+                                    alt={brand.fullName}
+                                    className="h-full w-full object-contain p-0.5"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                      (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-[8px] font-medium text-gray-600 truncate px-1">${brand.name}</span>`;
+                                    }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                            
+                            {/* Parts Count - Use server-provided productCount */}
+                            <p className="text-[9px] mt-1" style={{ color: CARFIX_COLORS.mutedForeground }}>
+                              {tier.productCount} {tier.productCount === 1 ? 'part' : 'parts'} included
+                            </p>
+                            
+                            {/* Price - Use server-provided totalPrice (includes rotor pair pricing) */}
+                            <p className="text-sm font-bold mt-1" style={{ color: CARFIX_COLORS.foreground }}>
+                              ${tier.totalPrice.toFixed(0)}
+                            </p>
+                            <p className="text-[9px]" style={{ color: CARFIX_COLORS.mutedForeground }}>inc GST</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Fallback: Client-side tier rendering when preparedTiers not available */}
+                {!hasPreparedTiers && sortedFallbackTiers.length > 0 && (
+                  <div className="p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1" style={{ color: CARFIX_COLORS.mutedForeground }}>
+                      Choose Your Value Level
+                    </p>
+                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(sortedFallbackTiers.length, 4)}, 1fr)` }}>
+                      {sortedFallbackTiers.map((tierName) => {
                         const tierConfig = QUALITY_TIER_CONFIG[tierName as keyof typeof QUALITY_TIER_CONFIG];
                         const isRecommended = tierName === 'Standard';
-                        const price = tierPrices[tierName] || pkg.from_price;
-                        const brands = tierBrands[tierName] || [];
+                        const price = fallbackPrices[tierName] || pkg.from_price;
+                        const brands = fallbackBrands[tierName] || [];
                         
                         return (
                           <div
@@ -606,7 +679,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                               {tierConfig?.emoji} {tierName}
                             </p>
                             
-                            {/* Brand Logos - Show first 3 */}
+                            {/* Brand Logos - Fallback uses IMAGE_URLS */}
                             <div className="flex items-center justify-center gap-1 mt-1.5 min-h-[24px]">
                               {brands.slice(0, 3).map((brand, idx) => (
                                 <div 
@@ -627,9 +700,9 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                               ))}
                             </div>
                             
-                            {/* Parts Count - Use partslotCount (same for all tiers) */}
+                            {/* Parts Count */}
                             <p className="text-[9px] mt-1" style={{ color: CARFIX_COLORS.mutedForeground }}>
-                              {partslotCount} {partslotCount === 1 ? 'part' : 'parts'} included
+                              {fallbackPartslotCount} {fallbackPartslotCount === 1 ? 'part' : 'parts'} included
                             </p>
                             
                             {/* Price */}
