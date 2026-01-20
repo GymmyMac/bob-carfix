@@ -469,6 +469,8 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           {servicePackages.map((pkg) => {
             // Use preparedTiers if available, otherwise fall back to client-side calculation
             const hasPreparedTiers = pkg.preparedTiers && pkg.preparedTiers.length > 0;
+            console.log(`[MobileProductColumn] Package "${pkg.title}" preparedTiers:`, hasPreparedTiers, 
+              'count:', pkg.preparedTiers?.length || 0);
             
             // Filter hidden tiers and get visible ones
             const visibleTiers = hasPreparedTiers 
