@@ -903,6 +903,14 @@ async function retrieveServicePackages(vehicleId: number | undefined, apiConfig:
     const packages = data.servicePackages || data.data?.servicePackages || data.packages || data;
     console.log('Extracted packages:', Array.isArray(packages) ? packages.length : 'not array');
     
+    // Debug: Check for preparedTiers in API response
+    if (Array.isArray(packages) && packages.length > 0) {
+      const firstPkg = packages[0];
+      console.log('[preparedTiers Check] First package has preparedTiers:', 
+        Array.isArray(firstPkg.preparedTiers), 
+        'count:', firstPkg.preparedTiers?.length || 0);
+    }
+    
     return { 
       success: true, 
       packages: packages,
@@ -1928,6 +1936,12 @@ IMPORTANT: Only reference products/packages from this list with these EXACT pric
           
           // Emit service_packages_found event FIRST (before parts) for synchronized display
           if (packagesToSend && packagesToSend.length > 0) {
+            // Debug: Verify preparedTiers survives processing before emit
+            const firstPkg = packagesToSend[0] as { preparedTiers?: unknown[] };
+            const hasPreparedTiers = Array.isArray(firstPkg?.preparedTiers) && firstPkg.preparedTiers.length > 0;
+            console.log('[Emit Check] First package preparedTiers:', hasPreparedTiers, 
+              'count:', firstPkg?.preparedTiers?.length || 0);
+            
             const packagesEvent = `data: ${JSON.stringify({ type: "service_packages_found", packages: packagesToSend })}\n\n`;
             controller.enqueue(encoder.encode(packagesEvent));
             console.log("Emitted service_packages_found event:", packagesToSend.length, "packages");
