@@ -472,24 +472,33 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
             const tierPrices: Record<string, number> = {};
             const tierBrands: Record<string, string[]> = {};
             
+            const tierPartCounts: Record<string, number> = {};
+            
             if (pkg.partslots && Array.isArray(pkg.partslots)) {
-              pkg.partslots.forEach((slot: { quality_tiers?: Record<string, { recommended_parts?: Array<{ brand?: string; price?: number }> }> }) => {
-                if (slot.quality_tiers) {
-                  Object.entries(slot.quality_tiers).forEach(([tierName, tierData]) => {
+              pkg.partslots.forEach((slot) => {
+                // FIXED: Access slot.products.quality_tiers (not slot.quality_tiers)
+                const qualityTiers = slot.products?.quality_tiers;
+                if (qualityTiers) {
+                  Object.entries(qualityTiers).forEach(([tierName, parts]) => {
+                    // FIXED: parts is Part[] directly, not { recommended_parts: Part[] }
+                    if (!Array.isArray(parts) || parts.length === 0) return;
+                    
                     if (!availableTiers.includes(tierName)) {
                       availableTiers.push(tierName);
                     }
-                    // Sum prices for this tier
-                    if (tierData.recommended_parts && Array.isArray(tierData.recommended_parts)) {
-                      tierData.recommended_parts.forEach((part) => {
-                        if (part.price) {
-                          tierPrices[tierName] = (tierPrices[tierName] || 0) + part.price;
-                        }
-                        if (part.brand && !tierBrands[tierName]?.includes(part.brand)) {
-                          tierBrands[tierName] = [...(tierBrands[tierName] || []), part.brand];
-                        }
-                      });
-                    }
+                    
+                    // Sum prices and collect brands for this tier
+                    (parts as Array<{ brand?: string; price?: number }>).forEach((part) => {
+                      if (part.price) {
+                        tierPrices[tierName] = (tierPrices[tierName] || 0) + part.price;
+                      }
+                      if (part.brand && !tierBrands[tierName]?.includes(part.brand)) {
+                        tierBrands[tierName] = [...(tierBrands[tierName] || []), part.brand];
+                      }
+                    });
+                    
+                    // Count parts per tier
+                    tierPartCounts[tierName] = (tierPartCounts[tierName] || 0) + (parts as unknown[]).length;
                   });
                 }
               });
@@ -559,12 +568,13 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                     <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1" style={{ color: CARFIX_COLORS.mutedForeground }}>
                       Choose Your Value Level
                     </p>
-                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(sortedTiers.length, 3)}, 1fr)` }}>
-                      {sortedTiers.slice(0, 3).map((tierName) => {
+                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(sortedTiers.length, 4)}, 1fr)` }}>
+                      {sortedTiers.map((tierName) => {
                         const tierConfig = QUALITY_TIER_CONFIG[tierName as keyof typeof QUALITY_TIER_CONFIG];
                         const isRecommended = tierName === 'Standard';
                         const price = tierPrices[tierName] || pkg.from_price;
                         const brands = tierBrands[tierName] || [];
+                        const partsCount = tierPartCounts[tierName] || 0;
                         
                         return (
                           <div
@@ -590,31 +600,34 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                               {tierConfig?.emoji} {tierName}
                             </p>
                             
-                            {/* Brand Logos - Show first 2 */}
-                            {brands.length > 0 && (
-                              <div className="flex items-center justify-center gap-1 mt-1.5 h-6">
-                                {brands.slice(0, 2).map((brand, idx) => (
-                                  <div 
-                                    key={idx}
-                                    className="h-5 w-10 bg-white rounded flex items-center justify-center overflow-hidden"
-                                    style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
-                                  >
-                                    <img 
-                                      src={IMAGE_URLS.brandLogo(brand)}
-                                      alt={brand}
-                                      className="h-full w-full object-contain p-0.5"
-                                      onError={(e) => {
-                                        (e.target as HTMLImageElement).style.display = 'none';
-                                        (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-[8px] font-medium text-gray-600 truncate px-1">${brand}</span>`;
-                                      }}
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                            {/* Brand Logos - Show first 3 */}
+                            <div className="flex items-center justify-center gap-1 mt-1.5 min-h-[24px]">
+                              {brands.slice(0, 3).map((brand, idx) => (
+                                <div 
+                                  key={idx}
+                                  className="h-5 w-10 bg-white rounded flex items-center justify-center overflow-hidden"
+                                  style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+                                >
+                                  <img 
+                                    src={IMAGE_URLS.brandLogo(brand)}
+                                    alt={brand}
+                                    className="h-full w-full object-contain p-0.5"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                      (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-[8px] font-medium text-gray-600 truncate px-1">${brand}</span>`;
+                                    }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                            
+                            {/* Parts Count */}
+                            <p className="text-[9px] mt-1" style={{ color: CARFIX_COLORS.mutedForeground }}>
+                              {partsCount} {partsCount === 1 ? 'part' : 'parts'} included
+                            </p>
                             
                             {/* Price */}
-                            <p className="text-sm font-bold mt-1.5" style={{ color: CARFIX_COLORS.foreground }}>
+                            <p className="text-sm font-bold mt-1" style={{ color: CARFIX_COLORS.foreground }}>
                               ${price.toFixed(0)}
                             </p>
                             <p className="text-[9px]" style={{ color: CARFIX_COLORS.mutedForeground }}>inc GST</p>
