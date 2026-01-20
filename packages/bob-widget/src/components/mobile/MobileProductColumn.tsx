@@ -12,6 +12,12 @@ import {
   glassText,
   glassScrollDot 
 } from "../../styles/glass";
+import {
+  CARFIX_COLORS,
+  QUALITY_TIER_CONFIG,
+  getServicePackageDescription,
+  IMAGE_URLS,
+} from "../../styles/carfix-tokens";
 
 interface MobileProductColumnProps {
   products: Product[];
@@ -441,100 +447,200 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
         </div>
       )}
 
-      {/* Service Packages - Premium Glass Cards */}
+      {/* Service Packages - CARFIX Tier Preview Cards */}
       {showContent && servicePackages.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center gap-2 px-1">
             <div 
               className="w-6 h-6 rounded-lg flex items-center justify-center"
               style={{ 
-                background: 'linear-gradient(135deg, rgba(0, 102, 204, 0.8) 0%, rgba(0, 73, 153, 0.9) 100%)',
-                boxShadow: '0 4px 12px rgba(0, 102, 204, 0.4)',
+                background: `linear-gradient(135deg, ${CARFIX_COLORS.primary} 0%, ${CARFIX_COLORS.primaryHover} 100%)`,
+                boxShadow: `0 4px 12px ${CARFIX_COLORS.primary}66`,
               }}
             >
               <svg className="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
             </div>
-            <span style={{ ...glassText.primary, fontSize: '12px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-              Service Packages
+            <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.4)' }}>
+              CFX Service Packs
             </span>
           </div>
-          {servicePackages.map((pkg) => (
-            <div
-              key={pkg.id}
-              onClick={() => onPackageSelect?.(pkg)}
-              className="cursor-pointer group transition-all duration-300 overflow-hidden glass-card"
-              style={{
-                ...glassCard,
-                transform: 'scale(1)',
-                transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease-out',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'scale(1.02) translateY(-4px)';
-                e.currentTarget.style.boxShadow = '0 16px 56px rgba(0, 0, 0, 0.4), 0 0 24px rgba(255,255,255,0.08)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'scale(1) translateY(0)';
-                e.currentTarget.style.boxShadow = glassCard.boxShadow as string;
-              }}
-            >
-              {/* Main content area */}
-              <div className="p-4 flex gap-4">
-                {/* Large icon/image container */}
-                <div 
-                  className="w-20 h-20 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    backdropFilter: 'blur(8px)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                  }}
-                >
-                  {pkg.icon_url ? (
-                    <img 
-                      src={pkg.icon_url} 
-                      alt={pkg.title} 
-                      className="w-full h-full object-contain p-2"
-                    />
-                  ) : (
-                    <svg className="h-10 w-10" style={{ color: 'rgba(255,255,255,0.7)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                  )}
-                </div>
-                
-                {/* Text content */}
-                <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
-                  <div>
-                    <p style={{ ...glassText.primary, fontWeight: 700, fontSize: '16px' }} className="line-clamp-2 mb-1">{pkg.title}</p>
-                    {pkg.description && (
-                      <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px' }} className="line-clamp-2">{pkg.description}</p>
-                    )}
-                  </div>
-                  <div className="flex items-baseline gap-1.5 mt-2">
-                    <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px', fontWeight: 500 }}>From</span>
-                    <span style={{ ...glassText.price, fontSize: '24px', fontWeight: 800 }}>${pkg.from_price.toFixed(0)}</span>
-                  </div>
-                </div>
-              </div>
-              
-              {/* CTA Button - Glass with orange accent */}
-              <div 
-                className="px-4 py-3 transition-colors"
+          {servicePackages.map((pkg) => {
+            // Extract available tiers from package
+            const availableTiers: string[] = [];
+            const tierPrices: Record<string, number> = {};
+            const tierBrands: Record<string, string[]> = {};
+            
+            if (pkg.partslots && Array.isArray(pkg.partslots)) {
+              pkg.partslots.forEach((slot: { quality_tiers?: Record<string, { recommended_parts?: Array<{ brand?: string; price?: number }> }> }) => {
+                if (slot.quality_tiers) {
+                  Object.entries(slot.quality_tiers).forEach(([tierName, tierData]) => {
+                    if (!availableTiers.includes(tierName)) {
+                      availableTiers.push(tierName);
+                    }
+                    // Sum prices for this tier
+                    if (tierData.recommended_parts && Array.isArray(tierData.recommended_parts)) {
+                      tierData.recommended_parts.forEach((part) => {
+                        if (part.price) {
+                          tierPrices[tierName] = (tierPrices[tierName] || 0) + part.price;
+                        }
+                        if (part.brand && !tierBrands[tierName]?.includes(part.brand)) {
+                          tierBrands[tierName] = [...(tierBrands[tierName] || []), part.brand];
+                        }
+                      });
+                    }
+                  });
+                }
+              });
+            }
+            
+            // Sort tiers in display order
+            const tierOrder = ['Economy', 'Standard', 'Premium', 'Performance'];
+            const sortedTiers = tierOrder.filter(t => availableTiers.includes(t));
+            
+            // Get description
+            const description = getServicePackageDescription(pkg.title);
+            const shortDescription = description.split('.')[0] + '.';
+            
+            return (
+              <div
+                key={pkg.id}
+                className="overflow-hidden transition-all duration-300"
                 style={{
-                  background: 'rgba(255, 149, 0, 0.15)',
-                  borderTop: '1px solid rgba(255, 255, 255, 0.15)',
+                  background: CARFIX_COLORS.card,
+                  borderRadius: '16px',
+                  border: `1px solid ${CARFIX_COLORS.border}`,
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
                 }}
               >
-                <div className="flex items-center justify-center gap-2">
-                  <span style={{ ...glassText.price, fontSize: '14px', fontWeight: 600 }}>View Package Details</span>
-                  <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" style={{ color: '#FF9500' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
+                {/* Package Header */}
+                <div 
+                  className="px-4 py-3"
+                  style={{
+                    background: `linear-gradient(135deg, ${CARFIX_COLORS.primary} 0%, ${CARFIX_COLORS.primaryHover} 100%)`,
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                      <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-white font-bold text-base leading-tight truncate">{pkg.title}</h3>
+                      {pkg.estimated_time && (
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="text-white/70 text-xs flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            {pkg.estimated_time}
+                          </span>
+                          {pkg.difficulty && (
+                            <span className="text-white/70 text-xs capitalize">{pkg.difficulty}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Description */}
+                <div className="px-4 py-3 border-b" style={{ borderColor: CARFIX_COLORS.border }}>
+                  <p className="text-sm leading-relaxed" style={{ color: CARFIX_COLORS.mutedForeground }}>
+                    {shortDescription}
+                  </p>
+                </div>
+                
+                {/* Tier Preview Grid */}
+                {sortedTiers.length > 0 && (
+                  <div className="p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1" style={{ color: CARFIX_COLORS.mutedForeground }}>
+                      Choose Your Value Level
+                    </p>
+                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(sortedTiers.length, 3)}, 1fr)` }}>
+                      {sortedTiers.slice(0, 3).map((tierName) => {
+                        const tierConfig = QUALITY_TIER_CONFIG[tierName as keyof typeof QUALITY_TIER_CONFIG];
+                        const isRecommended = tierName === 'Standard';
+                        const price = tierPrices[tierName] || pkg.from_price;
+                        const brands = tierBrands[tierName] || [];
+                        
+                        return (
+                          <div
+                            key={tierName}
+                            className="relative p-2 rounded-xl text-center transition-all"
+                            style={{
+                              background: isRecommended ? `${CARFIX_COLORS.primary}10` : CARFIX_COLORS.background,
+                              border: `2px solid ${isRecommended ? CARFIX_COLORS.primary : CARFIX_COLORS.border}`,
+                            }}
+                          >
+                            {/* Recommended Badge */}
+                            {isRecommended && (
+                              <div 
+                                className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide whitespace-nowrap"
+                                style={{ background: '#22C55E', color: 'white' }}
+                              >
+                                Recommended
+                              </div>
+                            )}
+                            
+                            {/* Tier Name */}
+                            <p className="text-xs font-semibold mt-1" style={{ color: tierConfig?.textColor || CARFIX_COLORS.foreground }}>
+                              {tierConfig?.emoji} {tierName}
+                            </p>
+                            
+                            {/* Brand Logos - Show first 2 */}
+                            {brands.length > 0 && (
+                              <div className="flex items-center justify-center gap-1 mt-1.5 h-6">
+                                {brands.slice(0, 2).map((brand, idx) => (
+                                  <div 
+                                    key={idx}
+                                    className="h-5 w-10 bg-white rounded flex items-center justify-center overflow-hidden"
+                                    style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+                                  >
+                                    <img 
+                                      src={IMAGE_URLS.brandLogo(brand)}
+                                      alt={brand}
+                                      className="h-full w-full object-contain p-0.5"
+                                      onError={(e) => {
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                        (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-[8px] font-medium text-gray-600 truncate px-1">${brand}</span>`;
+                                      }}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {/* Price */}
+                            <p className="text-sm font-bold mt-1.5" style={{ color: CARFIX_COLORS.foreground }}>
+                              ${price.toFixed(0)}
+                            </p>
+                            <p className="text-[9px]" style={{ color: CARFIX_COLORS.mutedForeground }}>inc GST</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                
+                {/* CTA Button */}
+                <div className="px-3 pb-3">
+                  <button
+                    onClick={() => onPackageSelect?.(pkg)}
+                    className="w-full py-2.5 rounded-xl font-semibold text-sm transition-all"
+                    style={{
+                      background: CARFIX_COLORS.primary,
+                      color: 'white',
+                    }}
+                  >
+                    View Package Details
+                  </button>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
