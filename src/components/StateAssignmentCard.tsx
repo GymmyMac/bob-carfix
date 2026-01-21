@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, memo } from "react";
-import { Trash2, Settings2, Plus } from "lucide-react";
+import { Trash2, Settings2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AnimationState, BobAnimationConfig } from "@/hooks/useBobAnimationConfig";
@@ -79,7 +79,7 @@ export const StateAssignmentCard = memo(({
   const [loading, setLoading] = useState<string | null>(null);
   const [deletingState, setDeletingState] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
-  const [addImageOpen, setAddImageOpen] = useState(false);
+  
   const [localSpeed, setLocalSpeed] = useState(animationSpeed);
   const [localPause, setLocalPause] = useState(pauseDuration);
   const [localLoops, setLocalLoops] = useState(loopCount);
@@ -386,37 +386,8 @@ export const StateAssignmentCard = memo(({
           </CollapsibleContent>
         </Collapsible>
 
-        {/* Quick Add Image */}
-        <Collapsible open={addImageOpen} onOpenChange={setAddImageOpen}>
-          <CollapsibleTrigger asChild>
-            <Button variant="outline" className="w-full justify-between">
-              <span className="flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                Add Image to State
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {addImageOpen ? "Hide" : "Show"}
-              </span>
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <QuickImageUploader
-              stateKey={state}
-              lookId={lookId || null}
-              nextSequence={assignments.length + 1}
-              onComplete={() => {
-                setAddImageOpen(false);
-                onRefresh?.();
-              }}
-            />
-          </CollapsibleContent>
-        </Collapsible>
-        
-        {assignments.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            No images assigned to this state
-          </p>
-        ) : (
+        {/* Image List */}
+        {assignments.length > 0 && (
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -444,6 +415,14 @@ export const StateAssignmentCard = memo(({
             </SortableContext>
           </DndContext>
         )}
+
+        {/* Always show uploader at bottom */}
+        <QuickImageUploader
+          stateKey={state}
+          lookId={lookId || null}
+          nextSequence={assignments.length + 1}
+          onComplete={() => onRefresh?.()}
+        />
       </CardContent>
     </Card>
   );
