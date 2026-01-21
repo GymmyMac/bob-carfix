@@ -32,6 +32,49 @@ export interface ServicePackage {
   carfixValueTier?: string;
   carfixValueProducts?: string[];
   priceRange?: { min: number; max: number };
+  preparedTiers?: PreparedTier[];
+  icon_url?: string;
+}
+
+/** Server-prepared tier data - ready to render */
+export interface PreparedTier {
+  tierName: string;
+  displayName: string;
+  description: string;
+  isRecommended: boolean;
+  isHidden: boolean;
+  totalPrice: number;
+  productCount: number;
+  dominantBrand: string | null;
+  brands: PreparedTierBrand[];
+  products: PreparedTierProduct[];
+}
+
+export interface PreparedTierBrand {
+  name: string;
+  fullName: string;
+  imageUrl: string;
+}
+
+export interface PreparedTierProduct {
+  partslotId: number;
+  partslotName: string;
+  sku: string;
+  name: string;
+  brand: string;
+  brandFullName: string;
+  brandImageUrl: string;
+  productImageUrl: string;
+  price: number;
+  unitPrice: number;
+  displayPrice: number;
+  isRotor: boolean;
+  isMultiQty: boolean;
+  perCarQty: number;
+  partNumber: string | null;
+  webDescription: string | null;
+  viscosity: string | null;
+  volume: number | null;
 }
 
 export interface Partslot {
