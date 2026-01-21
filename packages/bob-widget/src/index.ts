@@ -86,6 +86,7 @@ export { useBobBackdrop } from './hooks/useBobBackdrop';
 // v3.0 New hooks
 export { useThemeSettings } from './hooks/useThemeSettings';
 export { useSparkDeals } from './hooks/useSparkDeals';
+export { useReturningUser } from './hooks/useReturningUser';
 
 // Types
 export type {

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useBobContext } from "../BobProvider";
 import { useSpeechSynthesis } from "./useSpeechSynthesis";
 import { useBobAnalytics } from "./useBobAnalytics";
+import { useReturningUser } from "./useReturningUser";
 import { BOB_VERSION } from "../version";
 import type { Vehicle } from "../types/vehicle";
 
@@ -169,6 +170,9 @@ export const useBobChat = ({
     enabled: analyticsEnabled,
   });
   
+  // Detect returning users for personalized greetings
+  const { isReturningUser } = useReturningUser();
+  
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -262,7 +266,12 @@ export const useBobChat = ({
       const selectedVehicle = hostContext.vehicle?.selectedVehicle;
       
       let greetingMessage: string;
-      if (selectedVehicle) {
+      
+      // Returning user gets a casual, familiar greeting
+      if (isReturningUser) {
+        greetingMessage = "Ah hey... you again! What you after this time?";
+        console.log('[BobWidget] Using returning user greeting');
+      } else if (selectedVehicle) {
         const vehicleName = `${selectedVehicle.year} ${selectedVehicle.make} ${selectedVehicle.model}`;
         greetingMessage = `G'day! Saw you've got the ${vehicleName} - choice wagon! What can I help you find for it today?`;
       } else {
