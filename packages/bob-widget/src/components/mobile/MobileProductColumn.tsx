@@ -576,48 +576,60 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                               </div>
                             )}
                             
-                            {/* Tier Name */}
-                            <p className="text-xs font-semibold mt-1" style={{ color: tierConfig?.textColor || CARFIX_COLORS.foreground }}>
+                            {/* Tier Name - Larger for readability */}
+                            <p className="text-sm font-bold mt-1" style={{ color: tierConfig?.textColor || CARFIX_COLORS.foreground }}>
                               {tierConfig?.emoji} {tier.displayName}
                             </p>
                             
-                            {/* Brand Logo - Single prominent logo, compact for 4-tier */}
-                            <div className="flex flex-col items-center gap-1 mt-1.5" style={{ minHeight: visibleTiers.length >= 4 ? '36px' : '44px' }}>
-                              {tier.brands.slice(0, 1).map((brand, idx) => (
-                                <div 
-                                  key={idx}
-                                  className="w-full bg-white rounded-lg flex items-center justify-center overflow-hidden"
-                                  style={{ 
-                                    height: visibleTiers.length >= 4 ? '32px' : '40px',
-                                    maxWidth: visibleTiers.length >= 4 ? '56px' : '72px',
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)', 
-                                    border: '1px solid #F1F5F9' 
-                                  }}
-                                >
-                                  <img 
-                                    src={brand.imageUrl}
-                                    alt={brand.fullName}
-                                    className="w-auto object-contain"
-                                    style={{ height: visibleTiers.length >= 4 ? '22px' : '28px' }}
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).style.display = 'none';
-                                      (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-[9px] font-semibold text-gray-600 truncate px-1">${brand.name}</span>`;
+                            {/* Brand Logo - Single prominent logo with corrected URL fallback */}
+                            <div className="flex flex-col items-center gap-1 mt-2" style={{ minHeight: visibleTiers.length >= 4 ? '40px' : '48px' }}>
+                              {tier.brands.slice(0, 1).map((brand, idx) => {
+                                // Construct corrected URL using fullName (removes spaces, adds .jpg)
+                                const correctedImageUrl = `https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/brand_images/${brand.fullName.replace(/\s+/g, '')}.jpg`;
+                                
+                                return (
+                                  <div 
+                                    key={idx}
+                                    className="w-full bg-white rounded-lg flex items-center justify-center overflow-hidden"
+                                    style={{ 
+                                      height: visibleTiers.length >= 4 ? '36px' : '44px',
+                                      maxWidth: visibleTiers.length >= 4 ? '64px' : '80px',
+                                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)', 
+                                      border: '1px solid #F1F5F9' 
                                     }}
-                                  />
-                                </div>
-                              ))}
+                                  >
+                                    <img 
+                                      src={brand.imageUrl}
+                                      alt={brand.fullName}
+                                      className="w-auto object-contain"
+                                      style={{ height: visibleTiers.length >= 4 ? '26px' : '32px' }}
+                                      onError={(e) => {
+                                        const img = e.target as HTMLImageElement;
+                                        // Try corrected URL using fullName if different from current src
+                                        if (img.src !== correctedImageUrl) {
+                                          img.src = correctedImageUrl;
+                                        } else {
+                                          // If corrected URL also fails, show text fallback
+                                          img.style.display = 'none';
+                                          img.parentElement!.innerHTML = `<span class="text-[10px] font-semibold text-gray-600 truncate px-1">${brand.fullName}</span>`;
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                );
+                              })}
                             </div>
                             
-                            {/* Parts Count */}
-                            <p className="text-[9px] mt-1.5" style={{ color: CARFIX_COLORS.mutedForeground }}>
+                            {/* Parts Count - Slightly larger */}
+                            <p className="text-[10px] mt-2" style={{ color: CARFIX_COLORS.mutedForeground }}>
                               {tier.productCount} {tier.productCount === 1 ? 'part' : 'parts'}
                             </p>
                             
-                            {/* Price */}
-                            <p className="text-sm font-bold mt-0.5" style={{ color: CARFIX_COLORS.foreground }}>
+                            {/* Price - LARGER for better readability */}
+                            <p className="text-base font-bold mt-1" style={{ color: CARFIX_COLORS.foreground }}>
                               {formatNZD(tier.totalPrice)}
                             </p>
-                            <p className="text-[9px]" style={{ color: CARFIX_COLORS.mutedForeground }}>inc GST</p>
+                            <p className="text-[10px]" style={{ color: CARFIX_COLORS.mutedForeground }}>inc GST</p>
                             
                             {/* Add to Cart button per tier */}
                             <button
