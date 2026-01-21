@@ -23,7 +23,7 @@ export type {
 export type { Vehicle } from './vehicle';
 
 // Product types
-export type { Product, APIPart, CartItem, ServicePackage } from './product';
+export type { Product, APIPart, CartItem, ServicePackage, PreparedTier, PreparedTierProduct, PreparedTierBrand } from './product';
 
 // Message types
 export type { Message, HighlightedProduct } from './message';
