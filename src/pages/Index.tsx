@@ -11,7 +11,6 @@ import { useBobAnimationConfig } from "@/hooks/useBobAnimationConfig";
 import { useBobChat, HighlightedProduct } from "@/hooks/useBobChat";
 import { useSessionHandoff } from "@/hooks/useSessionHandoff";
 import { Product, APIPart, apiPartToProduct } from "@/types/product";
-
 import { useBobStateTransitions } from "@/hooks/useBobStateTransitions";
 import { useBobBackdrop } from "@/hooks/useBobBackdrop";
 import { Vehicle } from "@/types/vehicle";
