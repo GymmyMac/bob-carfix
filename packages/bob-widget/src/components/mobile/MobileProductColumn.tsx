@@ -320,7 +320,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
   const shouldBeVisible = visible || hasContent;
   
   // Layout calculations - MAXIMIZED for full screen utilization
-  const columnWidth = viewportSize === 'mobile' ? 88 : viewportSize === 'tablet' ? 58 : 48;
+  const columnWidth = viewportSize === 'mobile' ? 92 : viewportSize === 'tablet' ? 65 : 48;
   const maxWidth = viewportSize === 'desktop' ? '580px' : viewportSize === 'tablet' ? '500px' : '100%';
   // Mobile: Position shelf near top, below vehicle bar if present (not wasting 22vh)
   const topOffset = viewportSize === 'mobile' 
@@ -549,8 +549,9 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                           <div
                             key={tier.tierName}
                             onClick={() => setSelectedTiers(prev => ({ ...prev, [pkg.id]: tier.tierName }))}
-                            className="relative p-2 rounded-xl text-center transition-all cursor-pointer"
+                            className="relative rounded-xl text-center transition-all cursor-pointer"
                             style={{
+                              padding: visibleTiers.length >= 4 ? '6px 4px' : '8px',
                               background: tier.isRecommended 
                                 ? `${CARFIX_COLORS.primary}10` 
                                 : isSelected 
@@ -580,21 +581,27 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                               {tierConfig?.emoji} {tier.displayName}
                             </p>
                             
-                            {/* Brand Logo - Single prominent logo, stacked vertically */}
-                            <div className="flex flex-col items-center gap-1.5 mt-2 min-h-[44px]">
+                            {/* Brand Logo - Single prominent logo, compact for 4-tier */}
+                            <div className="flex flex-col items-center gap-1 mt-1.5" style={{ minHeight: visibleTiers.length >= 4 ? '36px' : '44px' }}>
                               {tier.brands.slice(0, 1).map((brand, idx) => (
                                 <div 
                                   key={idx}
-                                  className="h-10 w-full max-w-[72px] bg-white rounded-xl flex items-center justify-center overflow-hidden"
-                                  style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid #F1F5F9' }}
+                                  className="w-full bg-white rounded-lg flex items-center justify-center overflow-hidden"
+                                  style={{ 
+                                    height: visibleTiers.length >= 4 ? '32px' : '40px',
+                                    maxWidth: visibleTiers.length >= 4 ? '56px' : '72px',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)', 
+                                    border: '1px solid #F1F5F9' 
+                                  }}
                                 >
                                   <img 
                                     src={brand.imageUrl}
                                     alt={brand.fullName}
-                                    className="h-7 w-auto object-contain"
+                                    className="w-auto object-contain"
+                                    style={{ height: visibleTiers.length >= 4 ? '22px' : '28px' }}
                                     onError={(e) => {
                                       (e.target as HTMLImageElement).style.display = 'none';
-                                      (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-[10px] font-semibold text-gray-600 truncate px-1">${brand.name}</span>`;
+                                      (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-[9px] font-semibold text-gray-600 truncate px-1">${brand.name}</span>`;
                                     }}
                                   />
                                 </div>
@@ -649,27 +656,24 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                   </div>
                 )}
                 
-                {/* View Product Details - Accordion Toggle */}
-                <div className="px-3 pb-3">
-                  <button
-                    onClick={() => setExpandedPackageId(isExpanded ? null : pkg.id)}
-                    className="w-full py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2"
-                    style={{
-                      background: isExpanded ? CARFIX_COLORS.background : CARFIX_COLORS.primary,
-                      color: isExpanded ? CARFIX_COLORS.foreground : 'white',
-                      border: isExpanded ? `1px solid ${CARFIX_COLORS.border}` : 'none',
-                    }}
+                {/* Product Details Toggle - Minimal Chevron */}
+                <div 
+                  onClick={() => setExpandedPackageId(isExpanded ? null : pkg.id)}
+                  className="flex items-center justify-center gap-1.5 py-2 cursor-pointer hover:bg-gray-50 transition-colors border-t"
+                  style={{ borderColor: CARFIX_COLORS.border }}
+                >
+                  <span className="text-xs" style={{ color: CARFIX_COLORS.mutedForeground }}>
+                    {isExpanded ? 'Hide details' : 'Show details'}
+                  </span>
+                  <svg 
+                    className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                    style={{ color: CARFIX_COLORS.mutedForeground }}
                   >
-                    <svg 
-                      className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} 
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                    {isExpanded ? 'Hide Product Details' : 'View Product Details'}
-                  </button>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
                 </div>
                 
                 {/* Accordion Content - Products for Selected Tier */}

@@ -38,7 +38,7 @@ export function getPositionFactors(viewport: ViewportSize): PositionFactors {
         bobOffset: 1.0,
         productWidth: 1.0,
         uiScale: 1.0,
-        partialLeftPosition: -35,  // Bob 35% off-screen left when products show
+        partialLeftPosition: -55,  // Bob 55% off-screen left when products show (was -35)
         hiddenPosition: -100,      // Fully off-screen
       };
     case 'tablet':
@@ -46,7 +46,7 @@ export function getPositionFactors(viewport: ViewportSize): PositionFactors {
         bobOffset: 0.7,
         productWidth: 0.85,
         uiScale: 1.1,
-        partialLeftPosition: -10,  // Less offset on tablet
+        partialLeftPosition: -25,  // More offset on tablet (was -10)
         hiddenPosition: -80,       // Slightly visible edge
       };
     case 'desktop':
@@ -54,7 +54,7 @@ export function getPositionFactors(viewport: ViewportSize): PositionFactors {
         bobOffset: 0.5,
         productWidth: 0.6,
         uiScale: 1.2,
-        partialLeftPosition: 5,    // Stays more visible on desktop
+        partialLeftPosition: -5,   // Slight left shift on desktop (was 5)
         hiddenPosition: -60,       // Can still see some of Bob
       };
     default:
