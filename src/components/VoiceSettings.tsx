@@ -16,6 +16,7 @@ import { toast } from "sonner";
 // ElevenLabs voice options - curated for Bob's friendly Kiwi character
 const ELEVENLABS_VOICES = [
   // Custom Voices (your cloned/created voices)
+  { value: "o2Ro0Po66l6AjasDfFKd", label: "Bob (New)", description: "Latest custom voice", category: "custom" },
   { value: "BHhU6fTKdSX6bN7T1tpz", label: "Hemi", description: "True Kiwi Voice", category: "custom" },
   // Recommended for Bob
   { value: "JBFqnCBsd6RMkjVDRZzb", label: "George", description: "Warm & friendly", isDefault: true, category: "recommended" },
