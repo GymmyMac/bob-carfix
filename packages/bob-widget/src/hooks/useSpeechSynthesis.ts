@@ -10,11 +10,23 @@ interface UseSpeechSynthesisProps {
 // Timeout for TTS requests - generous to allow longer responses
 const TTS_TIMEOUT_MS = 15000;
 
+// Pattern matching for pre-recorded audio clips
+// These patterns identify standard phrases that can use cached MP3s
+const CLIP_PATTERNS: Record<string, RegExp> = {
+  greeting_welcome: /welcome to (carfix|car fix)/i,
+  ask_rego: /what('?s| is) your rego/i,
+  ask_rego_alt: /need your rego/i,
+  vehicle_not_found: /couldn'?t find that/i,
+  no_parts_found: /no parts (found|available)/i,
+  checkout_ready: /ready to checkout/i,
+  thanks_mate: /thanks,? mate/i,
+};
+
+// In-memory cache for clip lookups (persists across renders)
+const clipCache = new Map<string, { audio_url: string } | null>();
+
 // Sanitize text for TTS - fix pronunciation issues
-// Google TTS pronounces "ya" as "yah" instead of "yuh", so we replace with "you"
 const sanitizeForTTS = (text: string): string => {
-  // Replace "ya" with "you" at word boundaries to avoid false positives
-  // This handles: "ya", "Ya", "YA" but not words like "kayak", "royal"
   return text.replace(/\bya\b/gi, 'you');
 };
 
@@ -23,7 +35,7 @@ export const useSpeechSynthesis = ({
   onEnd,
   onFailed,
 }: UseSpeechSynthesisProps = {}) => {
-  const { bobConfig } = useBobContext();
+  const { bobConfig, supabase } = useBobContext();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -61,6 +73,54 @@ export const useSpeechSynthesis = ({
       onStartRef.current?.();
     }
   }, []);
+
+  // Fetch pre-recorded audio clip from database with caching
+  const fetchAudioClip = useCallback(async (clipKey: string): Promise<{ audio_url: string } | null> => {
+    // Check cache first
+    if (clipCache.has(clipKey)) {
+      const cached = clipCache.get(clipKey);
+      console.log(`[BobWidget TTS] Cache hit for clip: ${clipKey}`, cached ? 'found' : 'null');
+      return cached || null;
+    }
+
+    try {
+      console.log(`[BobWidget TTS] Fetching clip from DB: ${clipKey}`);
+      const { data, error } = await supabase
+        .from('bob_audio_clips')
+        .select('audio_url')
+        .eq('clip_key', clipKey)
+        .eq('is_active', true)
+        .single();
+
+      if (error || !data) {
+        console.log(`[BobWidget TTS] No clip found for: ${clipKey}`);
+        clipCache.set(clipKey, null);
+        return null;
+      }
+
+      console.log(`[BobWidget TTS] Clip found: ${clipKey} -> ${data.audio_url}`);
+      clipCache.set(clipKey, data);
+      return data;
+    } catch (error) {
+      console.warn(`[BobWidget TTS] Clip lookup failed for ${clipKey}:`, error);
+      clipCache.set(clipKey, null);
+      return null;
+    }
+  }, [supabase]);
+
+  // Try to match text against pre-recorded clip patterns
+  const tryMatchPrerecordedClip = useCallback(async (text: string): Promise<string | null> => {
+    for (const [clipKey, pattern] of Object.entries(CLIP_PATTERNS)) {
+      if (pattern.test(text)) {
+        console.log(`[BobWidget TTS] Pattern matched: ${clipKey}`);
+        const clip = await fetchAudioClip(clipKey);
+        if (clip?.audio_url) {
+          return clip.audio_url;
+        }
+      }
+    }
+    return null;
+  }, [fetchAudioClip]);
 
   // Process the speech queue
   const processQueue = useCallback(async () => {
@@ -105,43 +165,53 @@ export const useSpeechSynthesis = ({
     }, TTS_TIMEOUT_MS);
 
     try {
-      // Sanitize text for TTS pronunciation before sending
-      const sanitizedText = sanitizeForTTS(text);
+      let audioUrl: string | null = null;
+
+      // ========== NEW: Try pre-recorded clip first ==========
+      audioUrl = await tryMatchPrerecordedClip(text);
       
-      // Use ElevenLabs streaming endpoint for lower latency
-      const response = await fetch(
-        `${bobConfig.supabaseUrl}/functions/v1/bob-tts-elevenlabs`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${bobConfig.supabaseKey}`,
-          },
-          body: JSON.stringify({ text: sanitizedText }),
+      if (audioUrl) {
+        console.log("[BobWidget TTS] Using pre-recorded audio (fast path)");
+      } else {
+        // ========== FALLBACK: Use ElevenLabs TTS ==========
+        console.log("[BobWidget TTS] No pre-recorded clip, using ElevenLabs TTS");
+        
+        const sanitizedText = sanitizeForTTS(text);
+        const response = await fetch(
+          `${bobConfig.supabaseUrl}/functions/v1/bob-tts-elevenlabs`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${bobConfig.supabaseKey}`,
+            },
+            body: JSON.stringify({ text: sanitizedText }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error("[BobWidget TTS] Request failed:", errorData);
+          throw new Error("TTS request failed");
         }
-      );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error("[BobWidget TTS] Request failed:", errorData);
-        throw new Error("TTS request failed");
+        const audioBlob = await response.blob();
+        audioUrl = URL.createObjectURL(audioBlob);
       }
-
-      // ElevenLabs returns audio blob directly (not base64)
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
       
+      // ========== UNCHANGED: Audio playback with animation callbacks ==========
+      // This works identically for pre-recorded OR TTS audio
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
 
       audio.onplay = () => {
         clearTtsTimeout();
-        pendingGreetingRef.current = null; // Clear pending since we're playing
+        pendingGreetingRef.current = null;
         if (!startTriggeredRef.current) {
           startTriggeredRef.current = true;
           setIsSpeaking(true);
-          console.log("[BobWidget TTS] Audio playing, triggering onStart");
-          onStartRef.current?.();
+          console.log("[BobWidget TTS] Audio playing, triggering onStart (animation: TALKING)");
+          onStartRef.current?.();  // ← Bob starts TALKING animation
         }
       };
 
@@ -149,7 +219,8 @@ export const useSpeechSynthesis = ({
         clearTtsTimeout();
         setIsSpeaking(false);
         greetingPlayingRef.current = false;
-        onEndRef.current?.();
+        console.log("[BobWidget TTS] Audio ended, triggering onEnd (animation: COMPLETE/IDLE)");
+        onEndRef.current?.();  // ← Bob transitions to COMPLETE/IDLE
         audioRef.current = null;
         isProcessingRef.current = false;
         // Process next in queue
@@ -163,7 +234,7 @@ export const useSpeechSynthesis = ({
         setIsSpeaking(false);
         greetingPlayingRef.current = false;
         onEndRef.current?.();
-        onFailedRef.current?.();
+        onFailedRef.current?.();  // ← Graceful fallback
         audioRef.current = null;
         isProcessingRef.current = false;
         // Process next in queue
@@ -202,7 +273,7 @@ export const useSpeechSynthesis = ({
       // Process next in queue
       processQueue();
     }
-  }, [bobConfig.supabaseUrl, bobConfig.supabaseKey, clearTtsTimeout, triggerFallbackStart]);
+  }, [bobConfig.supabaseUrl, bobConfig.supabaseKey, clearTtsTimeout, triggerFallbackStart, tryMatchPrerecordedClip]);
 
   const speak = useCallback((text: string, isGreeting = false) => {
     if (!text.trim()) return;
