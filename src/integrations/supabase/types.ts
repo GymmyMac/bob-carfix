@@ -227,6 +227,50 @@ export type Database = {
           },
         ]
       }
+      bob_audio_clips: {
+        Row: {
+          audio_url: string
+          clip_key: string
+          created_at: string | null
+          duration_ms: number | null
+          id: string
+          is_active: boolean | null
+          tenant_id: string | null
+          transcript: string
+          updated_at: string | null
+        }
+        Insert: {
+          audio_url: string
+          clip_key: string
+          created_at?: string | null
+          duration_ms?: number | null
+          id?: string
+          is_active?: boolean | null
+          tenant_id?: string | null
+          transcript: string
+          updated_at?: string | null
+        }
+        Update: {
+          audio_url?: string
+          clip_key?: string
+          created_at?: string | null
+          duration_ms?: number | null
+          id?: string
+          is_active?: boolean | null
+          tenant_id?: string | null
+          transcript?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bob_audio_clips_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "bob_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bob_backdrops: {
         Row: {
           counter_height_percent: number | null
