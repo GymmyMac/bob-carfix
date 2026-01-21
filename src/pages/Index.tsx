@@ -174,10 +174,23 @@ const Index = () => {
     },
     onServicePackagesFound: (packages: ServicePackage[]) => {
       // Store service packages but don't display yet - wait for Bob to speak (unless auto-fetch)
+      // ✅ PARITY DEBUG: Detailed logging to verify clean payload arrival
       console.log("[Index] Service packages received:", {
         count: packages.length,
-        titles: packages.map(p => p.title),
-        fromPrices: packages.map(p => p.from_price)
+        packages: packages.map(p => ({
+          id: p.id,
+          title: p.title,
+          from_price: p.from_price,
+          hasPreparedTiers: !!p.preparedTiers,
+          preparedTiersCount: p.preparedTiers?.length || 0,
+          hasPartslots: !!(p as any).partslots,  // Should be FALSE after fix
+          firstTier: p.preparedTiers?.[0] ? {
+            tierName: p.preparedTiers[0].tierName,
+            totalPrice: p.preparedTiers[0].totalPrice,
+            productCount: p.preparedTiers[0].productCount,
+            brands: p.preparedTiers[0].brands?.map(b => b.fullName || b.name),
+          } : null
+        }))
       });
       pendingPackagesRef.current = packages;
       // If this is from auto-fetch (no user message), display immediately
