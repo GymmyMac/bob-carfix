@@ -538,7 +538,7 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
         </div>
 
         {/* View Product Details - Collapsible Accordion (CLOSED by default) */}
-        {uniquePriceTiers.length > 0 && (
+        {(hasPreparedTiers ? visiblePreparedTiers.length > 0 : uniquePriceTiers.length > 0) && (
           <div className="px-4 pb-4">
             <button
               onClick={() => setShowDetails(!showDetails)}
@@ -548,103 +548,212 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
                 {showDetails ? '▼' : '▶'} View Product Details
               </span>
               <span className="text-xs text-[#64748B]">
-                {totalPartslots} product{totalPartslots !== 1 ? 's' : ''}
+                {totalPartsCount} product{totalPartsCount !== 1 ? 's' : ''}
               </span>
             </button>
             
             {/* Expanded product details */}
             {showDetails && (
               <div className="mt-3 space-y-4 bg-white rounded-xl border border-[#E2E8F0] p-3">
-                {uniquePriceTiers.map(tier => {
-                  const parts = getRecommendedPartsForTier(tier);
-                  if (parts.length === 0) return null;
-                  const tierConfig = QUALITY_TIER_CONFIG[tier];
-                  
-                  return (
-                    <div key={tier} className="space-y-2">
-                      {/* Tier section header */}
-                      <div className="flex items-center gap-2 pb-1 border-b border-[#E2E8F0]">
-                        <span className="text-lg">{tierConfig.emoji}</span>
-                        <span 
-                          className="font-semibold text-sm"
-                          style={{ color: tierConfig.textColor }}
-                        >
-                          {tier}
-                        </span>
-                        <span className="text-xs text-[#64748B]">({parts.length} parts)</span>
-                      </div>
-                      
-                      {/* Parts list */}
-                      <div className="space-y-2">
-                        {parts.map((part, idx) => {
-                          const imageUrl = part.image_url || IMAGE_URLS.productImage(part.sku);
-                          const isValueProduct = pkg.carfixValueProducts?.includes(part.sku);
-                          const isRotor = isRotorProduct(part);
-                          const { displayPrice, unitPriceLabel } = getDisplayPrice(part.price, isRotor);
-                          const brandName = part.brand_full_name || part.brand;
-                          
-                          return (
-                            <div
-                              key={`${part.sku}-${idx}`}
-                              className="flex items-center gap-3 p-2.5 rounded-xl transition-all hover:bg-slate-50 cursor-pointer border border-[#E2E8F0]"
-                              onClick={() => onNavigateToProductPage?.(part.sku)}
-                            >
-                              {/* Product image */}
-                              <div className="w-14 h-14 flex-shrink-0 rounded-lg bg-white overflow-hidden border border-[#E2E8F0]">
-                                <img 
-                                  src={imageUrl}
-                                  alt={part.name}
-                                  className="w-full h-full object-contain p-1.5"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).src = '/placeholder.svg';
-                                  }}
-                                />
-                              </div>
-                              
-                              {/* Product info */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="text-xs font-semibold text-[#0F172A]">{brandName}</span>
-                                  {isValueProduct && (
-                                    <span 
-                                      className="px-1.5 py-0.5 text-[8px] font-bold rounded-full"
-                                      style={{
-                                        background: 'rgba(0, 82, 204, 0.1)',
-                                        color: '#0052CC',
-                                      }}
-                                    >
-                                      CFX VALUE
-                                    </span>
+                {hasPreparedTiers ? (
+                  /* PreparedTiers product list with multi-qty support */
+                  visiblePreparedTiers.map(tier => {
+                    if (tier.products.length === 0) return null;
+                    const tierConfig = QUALITY_TIER_CONFIG[tier.tierName as keyof typeof QUALITY_TIER_CONFIG];
+                    
+                    return (
+                      <div key={tier.tierName} className="space-y-2">
+                        {/* Tier section header */}
+                        <div className="flex items-center gap-2 pb-1 border-b border-[#E2E8F0]">
+                          <span className="text-lg">{tierConfig?.emoji}</span>
+                          <span 
+                            className="font-semibold text-sm"
+                            style={{ color: tierConfig?.textColor }}
+                          >
+                            {tier.displayName}
+                          </span>
+                          <span className="text-xs text-[#64748B]">({tier.products.length} parts)</span>
+                        </div>
+                        
+                        {/* Products list */}
+                        <div className="space-y-2">
+                          {tier.products.map((product, idx) => {
+                            const isValueProduct = pkg.carfixValueProducts?.includes(product.sku);
+                            const unitPrice = product.unitPrice ?? product.price;
+                            
+                            return (
+                              <div
+                                key={`${product.sku}-${idx}`}
+                                className="flex items-center gap-3 p-2.5 rounded-xl transition-all hover:bg-slate-50 cursor-pointer border border-[#E2E8F0]"
+                                onClick={() => onNavigateToProductPage?.(product.sku)}
+                              >
+                                {/* Product image */}
+                                <div className="w-14 h-14 flex-shrink-0 rounded-lg bg-white overflow-hidden border border-[#E2E8F0]">
+                                  <img 
+                                    src={product.productImageUrl || IMAGE_URLS.productImage(product.sku)}
+                                    alt={product.name}
+                                    className="w-full h-full object-contain p-1.5"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = '/placeholder.svg';
+                                    }}
+                                  />
+                                </div>
+                                
+                                {/* Product info */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-xs font-semibold text-[#0F172A]">{product.brandFullName || product.brand}</span>
+                                    {isValueProduct && (
+                                      <span 
+                                        className="px-1.5 py-0.5 text-[8px] font-bold rounded-full"
+                                        style={{
+                                          background: 'rgba(0, 82, 204, 0.1)',
+                                          color: '#0052CC',
+                                        }}
+                                      >
+                                        CFX VALUE
+                                      </span>
+                                    )}
+                                    {product.isMultiQty && product.perCarQty > 1 && (
+                                      <span 
+                                        className="px-1.5 py-0.5 text-[8px] font-bold rounded-full"
+                                        style={{
+                                          background: '#F0FDF4',
+                                          color: '#15803D',
+                                        }}
+                                      >
+                                        ×{product.perCarQty}
+                                      </span>
+                                    )}
+                                    {product.isRotor && (
+                                      <span 
+                                        className="px-1.5 py-0.5 text-[8px] font-bold rounded-full"
+                                        style={{
+                                          background: '#EFF6FF',
+                                          color: '#1D4ED8',
+                                        }}
+                                      >
+                                        Pair
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-[#64748B] line-clamp-1">{product.name}</p>
+                                </div>
+                                
+                                {/* Price with multi-qty breakdown */}
+                                <div className="text-right flex-shrink-0">
+                                  <p className="text-sm font-bold text-[#0F172A]">{formatNZD(product.displayPrice)}</p>
+                                  {product.isMultiQty && product.perCarQty > 1 && (
+                                    <p className="text-[10px] text-[#64748B]">
+                                      {product.perCarQty}× {formatNZD(unitPrice)} each
+                                    </p>
                                   )}
-                                  {isRotor && (
-                                    <span 
-                                      className="px-1.5 py-0.5 text-[8px] font-bold rounded-full"
-                                      style={{
-                                        background: '#EFF6FF',
-                                        color: '#1D4ED8',
-                                      }}
-                                    >
-                                      Pair
-                                    </span>
+                                  {product.isRotor && !product.isMultiQty && (
+                                    <p className="text-[10px] text-[#64748B]">
+                                      {formatNZD(unitPrice)} each
+                                    </p>
                                   )}
                                 </div>
-                                <p className="text-xs text-[#64748B] line-clamp-1">{part.name}</p>
                               </div>
-                              
-                              {/* Price */}
-                              <div className="text-right flex-shrink-0">
-                                <p className="text-sm font-bold text-[#0F172A]">{formatNZD(displayPrice)}</p>
-                                {unitPriceLabel && (
-                                  <p className="text-[10px] text-[#64748B]">{unitPriceLabel}</p>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                ) : (
+                  /* Legacy fallback - client-side tier processing */
+                  uniquePriceTiers.map(tier => {
+                    const parts = getRecommendedPartsForTier(tier);
+                    if (parts.length === 0) return null;
+                    const tierConfig = QUALITY_TIER_CONFIG[tier];
+                    
+                    return (
+                      <div key={tier} className="space-y-2">
+                        {/* Tier section header */}
+                        <div className="flex items-center gap-2 pb-1 border-b border-[#E2E8F0]">
+                          <span className="text-lg">{tierConfig.emoji}</span>
+                          <span 
+                            className="font-semibold text-sm"
+                            style={{ color: tierConfig.textColor }}
+                          >
+                            {tier}
+                          </span>
+                          <span className="text-xs text-[#64748B]">({parts.length} parts)</span>
+                        </div>
+                        
+                        {/* Parts list */}
+                        <div className="space-y-2">
+                          {parts.map((part, idx) => {
+                            const imageUrl = part.image_url || IMAGE_URLS.productImage(part.sku);
+                            const isValueProduct = pkg.carfixValueProducts?.includes(part.sku);
+                            const isRotor = isRotorProduct(part);
+                            const { displayPrice, unitPriceLabel } = getDisplayPrice(part.price, isRotor);
+                            const brandName = part.brand_full_name || part.brand;
+                            
+                            return (
+                              <div
+                                key={`${part.sku}-${idx}`}
+                                className="flex items-center gap-3 p-2.5 rounded-xl transition-all hover:bg-slate-50 cursor-pointer border border-[#E2E8F0]"
+                                onClick={() => onNavigateToProductPage?.(part.sku)}
+                              >
+                                {/* Product image */}
+                                <div className="w-14 h-14 flex-shrink-0 rounded-lg bg-white overflow-hidden border border-[#E2E8F0]">
+                                  <img 
+                                    src={imageUrl}
+                                    alt={part.name}
+                                    className="w-full h-full object-contain p-1.5"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = '/placeholder.svg';
+                                    }}
+                                  />
+                                </div>
+                                
+                                {/* Product info */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-xs font-semibold text-[#0F172A]">{brandName}</span>
+                                    {isValueProduct && (
+                                      <span 
+                                        className="px-1.5 py-0.5 text-[8px] font-bold rounded-full"
+                                        style={{
+                                          background: 'rgba(0, 82, 204, 0.1)',
+                                          color: '#0052CC',
+                                        }}
+                                      >
+                                        CFX VALUE
+                                      </span>
+                                    )}
+                                    {isRotor && (
+                                      <span 
+                                        className="px-1.5 py-0.5 text-[8px] font-bold rounded-full"
+                                        style={{
+                                          background: '#EFF6FF',
+                                          color: '#1D4ED8',
+                                        }}
+                                      >
+                                        Pair
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-[#64748B] line-clamp-1">{part.name}</p>
+                                </div>
+                                
+                                {/* Price */}
+                                <div className="text-right flex-shrink-0">
+                                  <p className="text-sm font-bold text-[#0F172A]">{formatNZD(displayPrice)}</p>
+                                  {unitPriceLabel && (
+                                    <p className="text-[10px] text-[#64748B]">{unitPriceLabel}</p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             )}
           </div>

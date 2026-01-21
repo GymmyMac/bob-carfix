@@ -105,10 +105,12 @@ export interface PreparedTierProduct {
   brandFullName: string;
   brandImageUrl: string;      // Full URL - use directly in <img src>
   productImageUrl: string;    // Full URL - use directly in <img src>
-  price: number;              // Database unit price
-  displayPrice: number;       // With rotor pair adjustment (use this for display!)
+  price: number;              // Database unit price (legacy, prefer unitPrice)
+  unitPrice: number;          // Price per single unit
+  displayPrice: number;       // Already calculated total (unitPrice × perCarQty)
   isRotor: boolean;           // If true, show "[Pair]" badge
-  perCarQty: number;
+  isMultiQty: boolean;        // If true, show quantity breakdown (e.g., spark plugs)
+  perCarQty: number;          // Quantity needed (1, 2, 4, 6, 8, 12, etc.)
   partNumber: string | null;
   webDescription: string | null;
   viscosity: string | null;   // For oils
