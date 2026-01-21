@@ -755,7 +755,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           <section 
             key={name}
             ref={(el) => { groupRefs.current[name] = el; }}
-            className="transition-all duration-300 overflow-hidden"
+            className="transition-all duration-300"
             style={{
               ...(isHighlighted ? glassCardPremium : glassCard),
               background: isHighlighted 
