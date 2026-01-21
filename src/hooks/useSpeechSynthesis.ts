@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UseSpeechSynthesisProps {
   onStart?: () => void;
@@ -6,7 +7,7 @@ interface UseSpeechSynthesisProps {
   onFailed?: () => void;
 }
 
-const TTS_TIMEOUT_MS = 5000; // 5 second timeout for TTS
+const TTS_TIMEOUT_MS = 15000; // 15 second timeout for TTS
 
 // Clip patterns for matching pre-recorded audio
 const CLIP_PATTERNS: Record<string, RegExp> = {
@@ -17,6 +18,54 @@ const CLIP_PATTERNS: Record<string, RegExp> = {
   no_parts_found: /nothing came up|no results|sorry.*search/i,
   checkout_ready: /ready to checkout|checkout.*ready|choice.*checkout/i,
   rego_searching: /let('?s| us) see what car|sweet.*searching|searching for/i,
+};
+
+// In-memory cache for audio clips
+const clipCache = new Map<string, { audio_url: string } | null>();
+
+// Fetch audio clip from database with caching
+const fetchAudioClip = async (clipKey: string): Promise<{ audio_url: string } | null> => {
+  if (clipCache.has(clipKey)) {
+    console.log(`[TTS] Cache hit for clip: ${clipKey}`);
+    return clipCache.get(clipKey) || null;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('bob_audio_clips')
+      .select('audio_url')
+      .eq('clip_key', clipKey)
+      .eq('is_active', true)
+      .single();
+
+    if (error || !data) {
+      console.log(`[TTS] No clip found for key: ${clipKey}`);
+      clipCache.set(clipKey, null);
+      return null;
+    }
+
+    console.log(`[TTS] Loaded clip from DB: ${clipKey} -> ${data.audio_url}`);
+    clipCache.set(clipKey, data);
+    return data;
+  } catch (err) {
+    console.warn(`[TTS] Error fetching clip ${clipKey}:`, err);
+    clipCache.set(clipKey, null);
+    return null;
+  }
+};
+
+// Try to match text against pre-recorded clip patterns and fetch audio URL
+const tryMatchPrerecordedClip = async (text: string): Promise<string | null> => {
+  for (const [clipKey, pattern] of Object.entries(CLIP_PATTERNS)) {
+    if (pattern.test(text)) {
+      console.log(`[TTS] Pattern matched: ${clipKey}`);
+      const clip = await fetchAudioClip(clipKey);
+      if (clip?.audio_url) {
+        return clip.audio_url;
+      }
+    }
+  }
+  return null;
 };
 
 // Sanitize text for TTS - fix Kiwi slang pronunciation
@@ -31,16 +80,6 @@ const sanitizeForTTS = (text: string): string => {
     .replace(/\bfor ya\b/gi, 'for you')
     .replace(/\bto ya\b/gi, 'to you')
     .replace(/\bwith ya\b/gi, 'with you');
-};
-
-// Try to match text against pre-recorded clip patterns
-const tryMatchClipPattern = (text: string): string | null => {
-  for (const [clipKey, pattern] of Object.entries(CLIP_PATTERNS)) {
-    if (pattern.test(text)) {
-      return clipKey;
-    }
-  }
-  return null;
 };
 
 interface SpeechQueueItem {
@@ -83,7 +122,6 @@ export const useSpeechSynthesis = ({
   }, []);
 
   const triggerFallbackStart = useCallback(() => {
-    // Ensure onStart is called exactly once per speak() call
     if (!startTriggeredRef.current) {
       startTriggeredRef.current = true;
       console.log("[TTS] Fallback: triggering onStart without audio");
@@ -121,56 +159,63 @@ export const useSpeechSynthesis = ({
       audioRef.current = null;
     }
 
-    // Set up timeout fallback - if TTS doesn't play within 5s, trigger callbacks anyway
+    // Set up timeout fallback
     timeoutRef.current = setTimeout(() => {
-      console.warn("[TTS] Timeout after 5s - triggering fallback callbacks");
+      console.warn("[TTS] Timeout after 15s - triggering fallback callbacks");
       triggerFallbackStart();
       setIsSpeaking(false);
       onEndRef.current?.();
       onFailedRef.current?.();
       audioRef.current = null;
       isProcessingRef.current = false;
-      // Process next item in queue
       processQueue();
     }, TTS_TIMEOUT_MS);
 
     try {
-      console.log("[TTS] Fetching audio from ElevenLabs...");
-      
-      // Use ElevenLabs streaming endpoint for lower latency
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bob-tts-elevenlabs`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ text: sanitizeForTTS(text) }),
-        }
-      );
+      let audioUrl: string | null = null;
+      let isPrerecorded = false;
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error("[TTS] Request failed:", errorData);
-        throw new Error("TTS request failed");
+      // PRIORITY 1: Try pre-recorded clip first (fast path - no API call)
+      audioUrl = await tryMatchPrerecordedClip(text);
+      if (audioUrl) {
+        console.log("[TTS] Using pre-recorded audio (fast path)");
+        isPrerecorded = true;
       }
 
-      console.log("[TTS] Audio received, creating blob URL...");
-      
-      // ElevenLabs returns audio blob directly (not base64)
-      const audioBlob = await response.blob();
-      console.log("[TTS] Blob size:", audioBlob.size, "bytes, type:", audioBlob.type);
-      
-      const audioUrl = URL.createObjectURL(audioBlob);
-      
-      // Create audio element from blob URL
+      // PRIORITY 2: Fall back to ElevenLabs TTS
+      if (!audioUrl) {
+        console.log("[TTS] No pre-recorded clip, fetching from ElevenLabs...");
+        
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bob-tts-elevenlabs`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({ text: sanitizeForTTS(text) }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error("[TTS] ElevenLabs request failed:", errorData);
+          throw new Error("TTS request failed");
+        }
+
+        console.log("[TTS] ElevenLabs audio received, creating blob URL...");
+        const audioBlob = await response.blob();
+        console.log("[TTS] Blob size:", audioBlob.size, "bytes, type:", audioBlob.type);
+        audioUrl = URL.createObjectURL(audioBlob);
+      }
+
+      // Create and play audio element
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
       
-      console.log("[TTS] Audio element created, attempting playback...");
+      console.log(`[TTS] Audio element created (${isPrerecorded ? 'pre-recorded' : 'ElevenLabs'}), attempting playback...`);
 
-      // Trigger onStart when audio actually begins playing
       audio.onplay = () => {
         clearTtsTimeout();
         if (!startTriggeredRef.current) {
@@ -187,7 +232,6 @@ export const useSpeechSynthesis = ({
         onEndRef.current?.();
         audioRef.current = null;
         isProcessingRef.current = false;
-        // Process next item in queue
         processQueue();
       };
 
@@ -200,18 +244,15 @@ export const useSpeechSynthesis = ({
         onFailedRef.current?.();
         audioRef.current = null;
         isProcessingRef.current = false;
-        // Process next item in queue
         processQueue();
       };
 
-      // Try to play
       try {
         await audio.play();
       } catch (playError) {
         console.warn("[TTS] Audio play() failed (likely autoplay policy):", playError);
         clearTtsTimeout();
         
-        // Store greeting for retry on user interaction
         if (isGreeting) {
           console.log("[TTS] Storing greeting for retry on user interaction");
           pendingGreetingRef.current = text;
@@ -223,7 +264,6 @@ export const useSpeechSynthesis = ({
         onFailedRef.current?.();
         audioRef.current = null;
         isProcessingRef.current = false;
-        // Process next item in queue
         processQueue();
       }
     } catch (error) {
@@ -234,7 +274,6 @@ export const useSpeechSynthesis = ({
       onEndRef.current?.();
       onFailedRef.current?.();
       isProcessingRef.current = false;
-      // Process next item in queue
       processQueue();
     }
   }, [clearTtsTimeout, triggerFallbackStart]);
@@ -251,7 +290,6 @@ export const useSpeechSynthesis = ({
       speechQueueRef.current.push({ text, isGreeting });
     }
     
-    // Start processing if not already
     processQueue();
   }, [processQueue]);
 
@@ -266,7 +304,6 @@ export const useSpeechSynthesis = ({
 
   const stop = useCallback(() => {
     clearTtsTimeout();
-    // Clear the queue
     speechQueueRef.current = [];
     isProcessingRef.current = false;
     
@@ -302,7 +339,7 @@ export const useSpeechSynthesis = ({
     pause,
     resume,
     isSpeaking,
-    isSupported: true, // Always supported since we use backend API
+    isSupported: true,
     retryPendingGreeting,
   };
 };

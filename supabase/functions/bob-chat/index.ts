@@ -1907,7 +1907,7 @@ IMPORTANT: Only reference products/packages from this list with these EXACT pric
             return total;
           };
 
-          // Process service packages: calculate prices if missing, deduplicate, filter $0
+          // Process service packages: use preparedTiers price first, fallback to partslots
           let packagesToSend = servicePackagesToEmit;
           if (packagesToSend && packagesToSend.length > 0) {
             const packagesWithPrices = packagesToSend.map((pkg: any) => {
@@ -1922,21 +1922,32 @@ IMPORTANT: Only reference products/packages from this list with these EXACT pric
                 return null;
               }
               
-              // If from_price is 0 or missing, calculate from partslots
-              if (!pkg.from_price || pkg.from_price === 0) {
-                const calculatedPrice = calculatePackageMinPrice(pkg.partslots);
-                
-                if (calculatedPrice > 0) {
-                  console.log(`[Packages] Calculated price for "${pkg.title}": $${calculatedPrice.toFixed(2)}`);
-                  return { ...pkg, from_price: calculatedPrice };
+              // PRIORITY 1: Use preparedTiers totalPrice (server-calculated, most accurate)
+              if (pkg.preparedTiers && Array.isArray(pkg.preparedTiers)) {
+                const visibleTiers = pkg.preparedTiers.filter((t: any) => !t.isHidden);
+                if (visibleTiers.length > 0) {
+                  const minPrice = Math.min(...visibleTiers.map((t: any) => t.totalPrice || 0));
+                  if (minPrice > 0) {
+                    console.log(`[Packages] Using preparedTiers price for "${pkg.title}": $${minPrice.toFixed(2)}`);
+                    return { ...pkg, from_price: pkg.from_price || minPrice };
+                  }
                 }
-                
-                // If we can't calculate a price AND there's no existing price, skip this package
-                console.warn(`[Packages] Skipping package "${pkg.title}" - no price available`);
-                return null;
               }
               
-              return pkg;
+              // PRIORITY 2: Use existing from_price if set
+              if (pkg.from_price && pkg.from_price > 0) {
+                return pkg;
+              }
+              
+              // PRIORITY 3: Legacy fallback - calculate from partslots
+              const calculatedPrice = calculatePackageMinPrice(pkg.partslots);
+              if (calculatedPrice > 0) {
+                console.log(`[Packages] Calculated legacy price for "${pkg.title}": $${calculatedPrice.toFixed(2)}`);
+                return { ...pkg, from_price: calculatedPrice };
+              }
+              
+              console.warn(`[Packages] Skipping package "${pkg.title}" - no price in preparedTiers or partslots`);
+              return null;
             }).filter(Boolean);
             
             // Mark all packages as emitted
