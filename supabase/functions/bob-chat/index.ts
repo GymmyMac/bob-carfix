@@ -147,12 +147,13 @@ const tools = [
     type: "function",
     function: {
       name: "retrieve_service_packages",
-      description: "CALL THIS FIRST when customer asks about brakes, filters, oil, wipers, or any regular maintenance parts. Service packages offer better value than individual parts. ALWAYS check packages before recommending individual parts - this is MANDATORY.",
+      description: "Fetch pre-configured CFX Service Packs with preparedTiers from the calculate-service-bundles API. Returns standardized service bundles with Economy/Standard/Premium/Performance tiers ready for display. CALL THIS FIRST when customer asks about brakes, filters, oil, wipers, or any regular maintenance parts. Service packages offer better value than individual parts.",
       parameters: {
         type: "object",
         properties: {
-          vehicleid: { type: "number", description: "The vehicle ID for vehicle-specific packages (optional - can list all packages if not provided)" }
-        }
+          vehicleid: { type: "number", description: "The vehicle ID for vehicle-specific packages (REQUIRED for accurate service bundle pricing)" }
+        },
+        required: ["vehicleid"]
       }
     }
   },
@@ -864,12 +865,22 @@ function filterDisplayablePackages(packages: any[]): any[] {
   });
 }
 
-async function retrieveServicePackages(vehicleId: number | undefined, apiConfig: ApiConfig): Promise<unknown> {
-  if (DEBUG) console.log('[DEBUG] Calling calculate-service-bundles for vehicle:', vehicleId);
+// PRIMARY SERVICE PACKAGE API: Uses calculate-service-bundles for preparedTiers format
+async function fetchPreparedServiceBundles(vehicleId: number | undefined, apiConfig: ApiConfig): Promise<unknown> {
+  console.log('[ServiceBundles] Fetching preparedTiers from calculate-service-bundles API for vehicle:', vehicleId);
+  
+  if (!vehicleId || !Number.isFinite(vehicleId) || vehicleId <= 0) {
+    console.log('[ServiceBundles] Invalid vehicleId - cannot fetch bundles without vehicle');
+    return { 
+      success: false, 
+      error: "Vehicle ID required for service package pricing",
+      packages: []
+    };
+  }
   
   try {
     // Use 'vehicleId' (camelCase) as required by calculate-service-bundles API
-    const body = vehicleId ? { vehicleId: String(vehicleId) } : {};
+    const body = { vehicleId: String(vehicleId) };
     
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -888,40 +899,42 @@ async function retrieveServicePackages(vehicleId: number | undefined, apiConfig:
     
     if (!response.ok) {
       const errorBody = await response.text();
-      console.error('Service bundles lookup failed:', response.status, errorBody);
+      console.error('[ServiceBundles] API failed:', response.status, errorBody);
       
       // Handle 500 errors gracefully - CARFIX API may be temporarily unavailable
       if (response.status === 500) {
-        console.error('Service bundles API returned 500 - may be temporary outage');
         return { 
           success: false, 
-          error: "Service packages temporarily unavailable. Individual parts are still available - ask about specific parts you need.",
+          error: "Service packages temporarily unavailable. Individual parts are still available.",
           packages: [],
           retryable: true,
           api_status: 500
         };
       }
       
-      return { success: false, error: `Service bundles lookup failed with status ${response.status}` };
+      return { success: false, error: `Service bundles API returned ${response.status}`, packages: [] };
     }
     
     const data = await response.json();
-    console.log('Service bundles result:', JSON.stringify(data).substring(0, 500));
+    console.log('[ServiceBundles] API response (truncated):', JSON.stringify(data).substring(0, 500));
     
-    // Handle both old format (data.packages) and new calculate-service-bundles format (data.servicePackages or data.data.servicePackages)
-    const packages = data.servicePackages || data.data?.servicePackages || data.packages || data;
-    console.log('Extracted packages:', Array.isArray(packages) ? packages.length : 'not array');
+    // Extract packages from calculate-service-bundles response format
+    const packages = data.servicePackages || data.data?.servicePackages || [];
+    console.log('[ServiceBundles] Extracted', Array.isArray(packages) ? packages.length : 0, 'packages with preparedTiers');
     
     return { 
       success: true, 
       packages: packages,
-      total_found: Array.isArray(packages) ? packages.length : 1
+      total_found: Array.isArray(packages) ? packages.length : 0
     };
   } catch (error) {
-    console.error('Service bundles error:', error);
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+    console.error('[ServiceBundles] Error:', error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error", packages: [] };
   }
 }
+
+// Backward compatibility alias
+const retrieveServicePackages = fetchPreparedServiceBundles;
 
 async function searchGeneralProducts(query: string): Promise<{ success: boolean; products?: unknown[]; total_found?: number; error?: string; ai_instruction?: string }> {
   console.log('Searching general products for:', query);
