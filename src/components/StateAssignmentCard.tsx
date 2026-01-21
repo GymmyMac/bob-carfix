@@ -79,7 +79,6 @@ export const StateAssignmentCard = memo(({
   const [loading, setLoading] = useState<string | null>(null);
   const [deletingState, setDeletingState] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
-  const [pendingSlots, setPendingSlots] = useState<Set<number>>(new Set());
   
   const [localSpeed, setLocalSpeed] = useState(animationSpeed);
   const [localPause, setLocalPause] = useState(pauseDuration);
@@ -129,12 +128,11 @@ export const StateAssignmentCard = memo(({
     setLocalTrigger(chatTrigger);
   }, [chatTrigger]);
 
-  const handleDeleteForReplace = useCallback(async (id: string, sequenceOrder: number) => {
+  const handleDelete = useCallback(async (id: string) => {
     setLoading(id);
     try {
       await onDelete(id);
-      setPendingSlots(prev => new Set(prev).add(sequenceOrder));
-      toast({ title: "Image removed - upload replacement" });
+      toast({ title: "Image removed" });
     } catch (error) {
       console.error("Delete error:", error);
       toast({
@@ -145,15 +143,6 @@ export const StateAssignmentCard = memo(({
       setLoading(null);
     }
   }, [onDelete, toast]);
-
-  const handleSlotUploadComplete = useCallback((sequenceNumber: number) => {
-    setPendingSlots(prev => {
-      const next = new Set(prev);
-      next.delete(sequenceNumber);
-      return next;
-    });
-    onRefresh?.();
-  }, [onRefresh]);
 
   const handleToggleActive = useCallback(async (id: string, currentActive: boolean) => {
     setLoading(id);
@@ -397,66 +386,41 @@ export const StateAssignmentCard = memo(({
           </CollapsibleContent>
         </Collapsible>
 
-        {/* Image List with In-Place Replacement */}
-        <div className="space-y-3">
-          {(() => {
-            // Build slots from assignments + pending slots
-            const maxSeq = Math.max(
-              ...assignments.map(a => a.sequence_order),
-              ...Array.from(pendingSlots),
-              0
-            );
-            const slots: Array<{ sequenceNumber: number; assignment: BobAnimationConfig | null }> = [];
-            
-            for (let i = 1; i <= maxSeq; i++) {
-              const assignment = assignments.find(a => a.sequence_order === i) || null;
-              if (assignment || pendingSlots.has(i)) {
-                slots.push({ sequenceNumber: i, assignment });
-              }
-            }
-
-            return slots.map((slot) => (
-              slot.assignment ? (
-                <div key={slot.assignment.id} className="flex items-center gap-3 p-3 border rounded-lg bg-card">
-                  <img 
-                    src={slot.assignment.image_url} 
-                    alt={`Sequence ${slot.sequenceNumber}`}
-                    className="w-16 h-16 object-contain rounded border bg-muted"
+        {/* Image List */}
+        {assignments.length > 0 && (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={assignments.map((a) => a.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-4">
+                {assignments.map((assignment) => (
+                  <SortableImageItem
+                    key={assignment.id}
+                    assignment={assignment}
+                    state={state}
+                    isLoading={loading === assignment.id}
+                    onDelete={handleDelete}
+                    onToggleActive={handleToggleActive}
+                    onUpdateOffset={handleUpdateOffset}
+                    onUpdateScale={onUpdateScale}
+                    onApplyGlobalScale={onApplyGlobalScale}
                   />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Sequence #{slot.sequenceNumber}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {slot.assignment.is_active ? "Active" : "Inactive"}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteForReplace(slot.assignment!.id, slot.sequenceNumber)}
-                    disabled={loading === slot.assignment.id}
-                  >
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                </div>
-              ) : (
-                <QuickImageUploader
-                  key={`pending-${slot.sequenceNumber}`}
-                  stateKey={state}
-                  lookId={lookId || null}
-                  sequenceNumber={slot.sequenceNumber}
-                  onComplete={() => handleSlotUploadComplete(slot.sequenceNumber)}
-                  compact
-                />
-              )
-            ));
-          })()}
-        </div>
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        )}
 
-        {/* Add new image at end */}
+        {/* Always show uploader at bottom */}
         <QuickImageUploader
           stateKey={state}
           lookId={lookId || null}
-          sequenceNumber={assignments.length + 1}
+          nextSequence={assignments.length + 1}
           onComplete={() => onRefresh?.()}
         />
       </CardContent>

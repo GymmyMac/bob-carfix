@@ -7,17 +7,15 @@ import { Upload, Loader2, Image as ImageIcon } from "lucide-react";
 interface QuickImageUploaderProps {
   stateKey: string;
   lookId: string | null;
-  sequenceNumber: number;
+  nextSequence: number;
   onComplete: () => void;
-  compact?: boolean;
 }
 
 export const QuickImageUploader: React.FC<QuickImageUploaderProps> = ({
   stateKey,
   lookId,
-  sequenceNumber,
+  nextSequence,
   onComplete,
-  compact = false,
 }) => {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
@@ -57,7 +55,7 @@ export const QuickImageUploader: React.FC<QuickImageUploaderProps> = ({
         .insert({
           animation_state: stateKey,
           image_url: publicUrl,
-          sequence_order: sequenceNumber,
+          sequence_order: nextSequence,
           is_active: true,
           look_id: lookId,
           scale: 100,
@@ -75,7 +73,7 @@ export const QuickImageUploader: React.FC<QuickImageUploaderProps> = ({
     } finally {
       setUploading(false);
     }
-  }, [stateKey, lookId, sequenceNumber, onComplete, toast]);
+  }, [stateKey, lookId, nextSequence, onComplete, toast]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -88,50 +86,6 @@ export const QuickImageUploader: React.FC<QuickImageUploaderProps> = ({
     const file = e.target.files?.[0];
     if (file) handleFileSelect(file);
   }, [handleFileSelect]);
-
-  if (compact) {
-    return (
-      <div
-        className={`flex items-center gap-3 p-3 border-2 border-dashed rounded-lg transition-colors cursor-pointer hover:bg-muted/50 ${
-          dragOver ? "bg-primary/10 border-primary" : "bg-muted/30"
-        }`}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleInputChange}
-          className="hidden"
-        />
-        {preview ? (
-          <div className="relative w-16 h-16">
-            <img
-              src={preview}
-              alt="Preview"
-              className="w-16 h-16 object-contain rounded border"
-            />
-            {uploading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded">
-                <Loader2 className="w-4 h-4 animate-spin" />
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="w-16 h-16 flex items-center justify-center bg-muted rounded border-2 border-dashed">
-            <Upload className="w-5 h-5 text-muted-foreground" />
-          </div>
-        )}
-        <div className="flex-1">
-          <p className="text-sm font-medium">Sequence #{sequenceNumber}</p>
-          <p className="text-xs text-muted-foreground">Drop image or click to upload</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="mt-4 p-4 border-2 border-dashed rounded-lg bg-muted/30">
@@ -184,7 +138,7 @@ export const QuickImageUploader: React.FC<QuickImageUploaderProps> = ({
       </div>
       
       <p className="text-xs text-muted-foreground text-center mt-2">
-        Will be added as frame #{sequenceNumber} to "{stateKey}"
+        Will be added as frame #{nextSequence} to "{stateKey}"
       </p>
     </div>
   );
