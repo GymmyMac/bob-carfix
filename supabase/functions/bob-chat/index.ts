@@ -817,7 +817,16 @@ function calculatePackageMinPriceEarly(partslots: any[]): number {
 function isPackageDisplayable(pkg: any): boolean {
   if (!pkg || !pkg.id) return false;
   
-  // If from_price is set and > 0, also verify partslots have valid products
+  // Modern format: Check preparedTiers (from calculate-service-bundles API)
+  if (pkg.preparedTiers && Array.isArray(pkg.preparedTiers) && pkg.preparedTiers.length > 0) {
+    // Check if any tier has valid pricing
+    const hasValidTier = pkg.preparedTiers.some((tier: any) => 
+      tier.totalPrice > 0 || (tier.products && tier.products.length > 0)
+    );
+    if (hasValidTier) return true;
+  }
+  
+  // Legacy format: If from_price is set and > 0, also verify partslots have valid products
   if (pkg.from_price && pkg.from_price > 0) {
     if (pkg.partslots && Array.isArray(pkg.partslots)) {
       const hasValidProducts = pkg.partslots.some((slot: any) => {
