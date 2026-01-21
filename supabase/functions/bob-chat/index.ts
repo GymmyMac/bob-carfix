@@ -879,13 +879,15 @@ async function fetchPreparedServiceBundles(vehicleId: number | undefined, apiCon
   }
   
   try {
-    // Use 'vehicleId' (camelCase) as required by calculate-service-bundles API
-    const body = { vehicleId: String(vehicleId) };
+    // Use 'vehicleId' (camelCase) as NUMBER - required by calculate-service-bundles API
+    const body = { vehicleId: vehicleId };
+    
+    // Use CARFIX anon key specifically for calculate-service-bundles endpoint
+    const CARFIX_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZscHpqYmFzZHNmd29lcnV5eGdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2NTIwNzQsImV4cCI6MjA3MTIyODA3NH0.wKoJ51_VPro_BrJz-A-NRpSmUW0XBP-7TJJcrhvYwxE";
     
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      "apikey": apiConfig.apiKey,
-      ...apiConfig.customHeaders,
+      "apikey": CARFIX_ANON_KEY,
     };
     
     const response = await fetch(
