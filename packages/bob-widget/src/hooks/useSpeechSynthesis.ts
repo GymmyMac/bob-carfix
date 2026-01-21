@@ -13,13 +13,12 @@ const TTS_TIMEOUT_MS = 15000;
 // Pattern matching for pre-recorded audio clips
 // These patterns identify standard phrases that can use cached MP3s
 const CLIP_PATTERNS: Record<string, RegExp> = {
-  greeting_welcome: /welcome to (carfix|car fix)/i,
-  ask_rego: /what('?s| is) your rego/i,
-  ask_rego_alt: /need your rego/i,
-  vehicle_not_found: /couldn'?t find that/i,
-  no_parts_found: /no parts (found|available)/i,
-  checkout_ready: /ready to checkout/i,
-  thanks_mate: /thanks,? mate/i,
+  greeting_welcome: /g'?day|welcome.*carfix|bob.*here/i,
+  ask_rego: /need your rego|rego.*get cracking|what('?s| is) your rego/i,
+  vehicle_not_found: /couldn'?t find that|double.?check.*plate/i,
+  no_parts_found: /nothing came up|no results|sorry.*search/i,
+  checkout_ready: /ready to checkout|checkout.*ready|choice.*checkout/i,
+  rego_searching: /let('?s| us) see what car|sweet.*searching|searching for/i,
 };
 
 // In-memory cache for clip lookups (persists across renders)

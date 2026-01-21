@@ -8,6 +8,16 @@ interface UseSpeechSynthesisProps {
 
 const TTS_TIMEOUT_MS = 5000; // 5 second timeout for TTS
 
+// Clip patterns for matching pre-recorded audio
+const CLIP_PATTERNS: Record<string, RegExp> = {
+  greeting_welcome: /g'?day|welcome.*carfix|bob.*here/i,
+  ask_rego: /need your rego|rego.*get cracking|what('?s| is) your rego/i,
+  vehicle_not_found: /couldn'?t find that|double.?check.*plate/i,
+  no_parts_found: /nothing came up|no results|sorry.*search/i,
+  checkout_ready: /ready to checkout|checkout.*ready|choice.*checkout/i,
+  rego_searching: /let('?s| us) see what car|sweet.*searching|searching for/i,
+};
+
 // Sanitize text for TTS - fix Kiwi slang pronunciation
 const sanitizeForTTS = (text: string): string => {
   return text
@@ -20,6 +30,16 @@ const sanitizeForTTS = (text: string): string => {
     .replace(/\bfor ya\b/gi, 'for you')
     .replace(/\bto ya\b/gi, 'to you')
     .replace(/\bwith ya\b/gi, 'with you');
+};
+
+// Try to match text against pre-recorded clip patterns
+const tryMatchClipPattern = (text: string): string | null => {
+  for (const [clipKey, pattern] of Object.entries(CLIP_PATTERNS)) {
+    if (pattern.test(text)) {
+      return clipKey;
+    }
+  }
+  return null;
 };
 
 interface SpeechQueueItem {

@@ -229,7 +229,9 @@ export type Database = {
       }
       bob_audio_clips: {
         Row: {
+          animation_state_id: string | null
           audio_url: string
+          chat_trigger: string | null
           clip_key: string
           created_at: string | null
           duration_ms: number | null
@@ -240,7 +242,9 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          animation_state_id?: string | null
           audio_url: string
+          chat_trigger?: string | null
           clip_key: string
           created_at?: string | null
           duration_ms?: number | null
@@ -251,7 +255,9 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          animation_state_id?: string | null
           audio_url?: string
+          chat_trigger?: string | null
           clip_key?: string
           created_at?: string | null
           duration_ms?: number | null
@@ -262,6 +268,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "bob_audio_clips_animation_state_id_fkey"
+            columns: ["animation_state_id"]
+            isOneToOne: false
+            referencedRelation: "animation_states"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "bob_audio_clips_tenant_id_fkey"
             columns: ["tenant_id"]

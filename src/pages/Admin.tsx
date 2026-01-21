@@ -9,7 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image, Database, Volume2, Wand2, ArrowLeft, FileText, Palette, Building2, Globe } from "lucide-react";
+import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image, Database, Volume2, Wand2, ArrowLeft, FileText, Palette, Building2, Globe, Music } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PromptsManager } from "@/components/PromptsManager";
 import { ImageUploaderWithState } from "@/components/ImageUploaderWithState";
@@ -25,6 +25,7 @@ import { BobCharacter } from "@/components/BobCharacter";
 import { ThemeSettingsPanel } from "@/components/ThemeSettingsPanel";
 import { SparkDealsSettings } from "@/components/SparkDealsSettings";
 import { TenantManager } from "@/components/TenantManager";
+import { AudioClipsManager } from "@/components/AudioClipsManager";
 import { useBobAnimationConfig, AnimationState as AnimationStateType } from "@/hooks/useBobAnimationConfig";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobBackdrop } from "@/hooks/useBobBackdrop";
@@ -612,13 +613,17 @@ const Admin = () => {
                   </div>
                 ) : (
                   <Tabs value={galleryTab} onValueChange={setGalleryTab}>
-                    <TabsList className="grid w-full grid-cols-4">
+                    <TabsList className="grid w-full grid-cols-5">
                       <TabsTrigger value="ai-builder" className="gap-1">
                         <Wand2 className="w-3 h-3" />
                         AI Builder
                       </TabsTrigger>
                       <TabsTrigger value="upload">Upload & Define</TabsTrigger>
                       <TabsTrigger value="assign">Assign to States</TabsTrigger>
+                      <TabsTrigger value="audio" className="gap-1">
+                        <Music className="w-3 h-3" />
+                        Audio
+                      </TabsTrigger>
                       <TabsTrigger value="preview">Live Preview</TabsTrigger>
                     </TabsList>
 
@@ -702,6 +707,7 @@ const Admin = () => {
                             loopCount={state.loop_count || 0}
                             chatTrigger={state.chat_trigger || null}
                             assignments={getAssignmentsByState(state.state_key)}
+                            lookId={selectedLookId}
                             onDelete={deleteAnimation}
                             onDeleteState={deleteState}
                             onToggleActive={(id, isActive) =>
@@ -716,9 +722,14 @@ const Admin = () => {
                               updateAnimation(id, { scale: scale })
                             }
                             onApplyGlobalScale={handleApplyGlobalScaleValue}
+                            onRefresh={refetch}
                           />
                         ))
                       )}
+                    </TabsContent>
+
+                    <TabsContent value="audio" className="space-y-6 mt-4">
+                      <AudioClipsManager />
                     </TabsContent>
 
                     <TabsContent value="preview" className="space-y-6 mt-4">
