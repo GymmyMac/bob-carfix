@@ -1,54 +1,16 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { 
   QUALITY_TIER_CONFIG, 
   formatNZD, 
   IMAGE_URLS, 
   CARFIX_COLORS,
-  isRotorProduct,
-  getDisplayPrice,
   getServicePackageDescription
 } from "../../styles/carfix-tokens";
-import type { PreparedTier, PreparedTierProduct, PreparedTierBrand } from "../../types/product";
+import type { PreparedTier, PreparedTierProduct } from "../../types/product";
 
-// Extended types for service package detail (legacy fallback)
-interface Part {
-  sku: string;
-  name: string;
-  brand: string;
-  brand_full_name?: string;
-  price: number;
-  is_on_sale?: boolean;
-  sale_price?: number;
-  was_price?: number;
-  discount_percentage?: number;
-  image_url?: string;
-  part_number?: string;
-  web_description?: string;
-  partslot_description?: string;
-  per_car_qty?: number;
-  classification?: {
-    primary_tier: string;
-    sub_tier: string;
-    display_name: string;
-  };
-}
-
-interface QualityTiers {
-  Economy?: Part[];
-  Standard?: Part[];
-  Premium?: Part[];
-  Performance?: Part[];
-}
-
-interface Partslot {
-  id: number;
-  name: string;
-  description?: string;
-  products: {
-    quality_tiers: QualityTiers;
-  };
-}
-
+/**
+ * Service package interface - preparedTiers is the ONLY source of truth
+ */
 interface ServicePackageDetail {
   id: string;
   title: string;
@@ -57,27 +19,22 @@ interface ServicePackageDetail {
   estimated_time?: string;
   difficulty_level?: string;
   bundle_discount_percentage?: number;
-  carfixValueTier?: string;
   carfixValueProducts?: string[];
-  partslots?: Partslot[];
-  preparedTiers?: PreparedTier[]; // Server-prepared tier data
+  preparedTiers?: PreparedTier[];
   icon_url?: string;
 }
 
 interface ServicePackageDetailViewProps {
   package: ServicePackageDetail;
   onBack: () => void;
-  onAddToCart?: (parts: Part[] | PreparedTierProduct[]) => void;
+  onAddToCart?: (products: PreparedTierProduct[]) => void;
   onNavigateToProductPage?: (sku: string) => void;
 }
 
-type TierName = 'Economy' | 'Standard' | 'Premium' | 'Performance';
-
-const TIER_ORDER: TierName[] = ['Economy', 'Standard', 'Premium', 'Performance'];
-
 /**
  * ServicePackageDetailView - CARFIX Website Specification
- * Uses preparedTiers when available, falls back to client-side processing
+ * Uses preparedTiers EXCLUSIVELY - no client-side fallback processing
+ * Server is the single source of truth for products, prices, and tiers
  */
 export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> = ({
   package: pkg,
@@ -87,128 +44,13 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
 }) => {
   const [showDetails, setShowDetails] = useState(false);
   
-  // Check if we have server-prepared tier data
-  const hasPreparedTiers = pkg.preparedTiers && pkg.preparedTiers.length > 0;
-  
-  // Filter visible tiers (not hidden)
+  // Filter visible tiers (not hidden) - preparedTiers is the ONLY source
   const visiblePreparedTiers = useMemo(() => {
-    if (!hasPreparedTiers) return [];
-    return pkg.preparedTiers!.filter(tier => !tier.isHidden);
-  }, [pkg.preparedTiers, hasPreparedTiers]);
+    if (!pkg.preparedTiers || pkg.preparedTiers.length === 0) return [];
+    return pkg.preparedTiers.filter(tier => !tier.isHidden);
+  }, [pkg.preparedTiers]);
   
-  // Debug logging
-  useEffect(() => {
-    console.log('[ServicePackageDetailView] Package:', pkg.title);
-    console.log('[ServicePackageDetailView] Has preparedTiers:', hasPreparedTiers);
-    console.log('[ServicePackageDetailView] Visible tiers:', visiblePreparedTiers.length);
-    if (!hasPreparedTiers) {
-      console.log('[ServicePackageDetailView] Falling back to partslots:', pkg.partslots?.length || 0);
-    }
-  }, [pkg, hasPreparedTiers, visiblePreparedTiers]);
-
-  // ============================================================================
-  // FALLBACK: Legacy client-side tier processing (when preparedTiers not available)
-  // ============================================================================
-  
-  // Normalize partslots to handle API structure variations
-  const normalizedPartslots = useMemo((): Partslot[] => {
-    if (hasPreparedTiers || !pkg.partslots) return [];
-    
-    return pkg.partslots.map(slot => {
-      const tiers = slot.products?.quality_tiers || 
-                    (slot as any).quality_tiers || 
-                    (slot as any).products || 
-                    {};
-      
-      return {
-        ...slot,
-        products: { quality_tiers: tiers as QualityTiers }
-      };
-    });
-  }, [pkg.partslots, hasPreparedTiers]);
-  
-  // Get the CARFIX Value (recommended) product for each partslot in a tier
-  const getRecommendedPartsForTier = (tier: TierName): Part[] => {
-    if (normalizedPartslots.length === 0) return [];
-    
-    return normalizedPartslots.map(slot => {
-      const parts = slot.products?.quality_tiers?.[tier] || [];
-      if (parts.length === 0) return null;
-      
-      // First check for CARFIX Value product
-      const valueProduct = parts.find(p => pkg.carfixValueProducts?.includes(p.sku));
-      if (valueProduct) return valueProduct;
-      
-      // Otherwise return cheapest product in this tier
-      return parts.reduce((min, p) => p.price < min.price ? p : min, parts[0]);
-    }).filter((p): p is Part => p !== null);
-  };
-  
-  // Calculate tier total using recommended products (with rotor pair pricing)
-  const getTierTotal = (tier: TierName): number => {
-    return getRecommendedPartsForTier(tier).reduce((total, part) => {
-      const isRotor = isRotorProduct(part);
-      const { displayPrice } = getDisplayPrice(part.price, isRotor);
-      return total + displayPrice;
-    }, 0);
-  };
-
-  // Get unique brands for a tier (use full name when available)
-  const getTierBrands = (tier: TierName): string[] => {
-    const parts = getRecommendedPartsForTier(tier);
-    const brands = [...new Set(parts.map(p => p.brand_full_name || p.brand))];
-    return brands.slice(0, 3); // Max 3 brand logos on mobile
-  };
-
-  // Get parts count for tier
-  const getTierPartCount = (tier: TierName): number => {
-    return getRecommendedPartsForTier(tier).length;
-  };
-
-  // Get available tiers (ones that have parts)
-  const availableTiers = useMemo(() => {
-    return TIER_ORDER.filter(tier => {
-      return normalizedPartslots.some(slot => {
-        const parts = slot.products?.quality_tiers?.[tier];
-        return parts && parts.length > 0;
-      });
-    });
-  }, [normalizedPartslots]);
-
-  // Tier deduplication - remove tiers with identical prices, keep higher priority
-  const uniquePriceTiers = useMemo(() => {
-    const tierPrices: Record<string, number> = {};
-    availableTiers.forEach(tier => {
-      tierPrices[tier] = getTierTotal(tier);
-    });
-    
-    const seenPrices = new Map<number, string>();
-    const uniqueTiers: string[] = [];
-    
-    // Process in priority order (Performance → Premium → Standard → Economy)
-    const reversePriority = [...availableTiers].reverse();
-    reversePriority.forEach(tier => {
-      const price = tierPrices[tier];
-      if (!seenPrices.has(price)) {
-        seenPrices.set(price, tier);
-        uniqueTiers.push(tier);
-      }
-    });
-    
-    // Return in standard order (Economy → Performance)
-    return TIER_ORDER.filter(tier => uniqueTiers.includes(tier)) as TierName[];
-  }, [availableTiers]);
-  
-  useEffect(() => {
-    console.log('[ServicePackageDetailView] Available tiers:', availableTiers);
-    console.log('[ServicePackageDetailView] Unique price tiers:', uniquePriceTiers);
-  }, [availableTiers, uniquePriceTiers]);
-
-  // Handle add to cart for a specific tier (legacy)
-  const handleAddTierToCart = (tier: TierName) => {
-    const parts = getRecommendedPartsForTier(tier);
-    onAddToCart?.(parts);
-  };
+  const hasTiers = visiblePreparedTiers.length > 0;
   
   // Handle add to cart using preparedTiers
   const handleAddPreparedTierToCart = (tier: PreparedTier) => {
@@ -225,10 +67,8 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
   // Get service package description
   const packageDescription = getServicePackageDescription(pkg.title);
   
-  // Total parts count - use preparedTiers if available
-  const totalPartsCount = hasPreparedTiers 
-    ? (visiblePreparedTiers[0]?.productCount || 0)
-    : normalizedPartslots.length;
+  // Total parts count from preparedTiers
+  const totalPartsCount = visiblePreparedTiers[0]?.productCount || 0;
 
   return (
     <div className="absolute inset-0 z-35 flex flex-col bg-[#FAFAFA] overflow-hidden">
@@ -307,8 +147,7 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
         
         {/* Tier Selection Cards - Horizontal Grid */}
         <div className="p-4">
-          {/* Use preparedTiers when available */}
-          {hasPreparedTiers && visiblePreparedTiers.length > 0 ? (
+          {hasTiers ? (
             <div className={`grid ${getGridClass(visiblePreparedTiers.length)} gap-3`}>
               {visiblePreparedTiers.map(tier => {
                 const tierConfig = QUALITY_TIER_CONFIG[tier.tierName as keyof typeof QUALITY_TIER_CONFIG];
@@ -360,9 +199,17 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
                               alt={brand.fullName}
                               className="h-6 w-auto object-contain"
                               onError={(e) => {
-                                const parent = (e.target as HTMLImageElement).parentElement;
-                                if (parent) {
-                                  parent.innerHTML = `<span class="text-[10px] font-medium text-slate-700 px-1 truncate max-w-[60px]">${brand.name}</span>`;
+                                // Try with full brand name if URL was truncated
+                                const img = e.target as HTMLImageElement;
+                                const correctedUrl = `${IMAGE_URLS.storageBase}/brand_images/${brand.fullName.replace(/\s+/g, '')}.jpg`;
+                                if (img.src !== correctedUrl) {
+                                  img.src = correctedUrl;
+                                } else {
+                                  // Final fallback: show text
+                                  const parent = img.parentElement;
+                                  if (parent) {
+                                    parent.innerHTML = `<span class="text-[10px] font-medium text-slate-700 px-1 truncate max-w-[60px]">${brand.name}</span>`;
+                                  }
                                 }
                               }}
                             />
@@ -405,140 +252,24 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
                 );
               })}
             </div>
-          ) : uniquePriceTiers.length > 0 ? (
-            /* FALLBACK: Legacy tier cards using client-side processing */
-            <div className={`grid ${getGridClass(uniquePriceTiers.length)} gap-3`}>
-              {uniquePriceTiers.map(tier => {
-                const tierConfig = QUALITY_TIER_CONFIG[tier];
-                const tierPrice = getTierTotal(tier);
-                const tierBrands = getTierBrands(tier);
-                const partCount = getTierPartCount(tier);
-                const isRecommended = tierConfig.isRecommended || false;
-                
-                return (
-                  <div
-                    key={tier}
-                    className="relative rounded-2xl overflow-hidden bg-white shadow-md flex flex-col"
-                    style={{
-                      border: isRecommended ? '2px solid #0052CC' : '1px solid #E2E8F0',
-                    }}
-                  >
-                    {/* RECOMMENDED badge */}
-                    {isRecommended && (
-                      <div 
-                        className="absolute top-0 left-0 right-0 px-2 py-1 text-[9px] font-bold text-white text-center"
-                        style={{ background: 'linear-gradient(135deg, #0052CC 0%, #38BDF8 100%)' }}
-                      >
-                        ★ RECOMMENDED
-                      </div>
-                    )}
-                    
-                    <div className={`p-3 flex-1 flex flex-col ${isRecommended ? 'pt-7' : ''}`}>
-                      {/* Tier name with icon */}
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <span className="text-lg">{tierConfig.emoji}</span>
-                        <div>
-                          <span 
-                            className="font-bold text-sm block"
-                            style={{ color: tierConfig.textColor }}
-                          >
-                            {tier}
-                          </span>
-                          <span className="text-[10px] text-[#64748B] hidden md:block">
-                            {tierConfig.description}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      {/* Brand logos - Fallback uses IMAGE_URLS */}
-                      <div className="flex items-center gap-1.5 mb-3 min-h-[42px] flex-wrap">
-                        {tierBrands.map((brand) => (
-                          <div 
-                            key={brand}
-                            className="h-10 px-2 bg-white rounded-xl flex items-center justify-center shadow-md border border-[#F1F5F9]"
-                          >
-                            <img 
-                              src={IMAGE_URLS.brandLogo(brand)}
-                              alt={brand}
-                              className="h-6 w-auto object-contain"
-                              onError={(e) => {
-                                const parent = (e.target as HTMLImageElement).parentElement;
-                                if (parent) {
-                                  parent.innerHTML = `<span class="text-[10px] font-medium text-slate-700 px-1 truncate max-w-[60px]">${brand}</span>`;
-                                }
-                              }}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      
-                      {/* Parts count - desktop only */}
-                      <p className="text-xs text-[#64748B] hidden md:block mb-2">
-                        {partCount} part{partCount !== 1 ? 's' : ''} included
-                      </p>
-                      
-                      {/* Price */}
-                      <div className="mt-auto">
-                        <p 
-                          className="text-xl font-bold"
-                          style={{ color: isRecommended ? '#0052CC' : '#0F172A' }}
-                        >
-                          {formatNZD(tierPrice)}
-                        </p>
-                        <p className="text-[10px] text-[#64748B] hidden md:block">inc GST</p>
-                      </div>
-                      
-                      {/* Add to Cart button - SOLID, no glass */}
-                      <button
-                        onClick={() => handleAddTierToCart(tier)}
-                        className={`mt-3 w-full px-3 py-2.5 rounded-xl text-xs font-semibold transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-1.5 ${
-                          isRecommended 
-                            ? 'bg-[#0052CC] text-white shadow-md hover:bg-[#0047B3]' 
-                            : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200'
-                        }`}
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                        Add to Cart
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
           ) : (
-            /* Fallback UI when no tier data available */
-            <div className="rounded-2xl p-5 bg-white border-2 border-[#0052CC] shadow-md">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-[#0052CC]">
-                  {pkg.from_price > 0 ? formatNZD(pkg.from_price) : 'Price on request'}
-                </p>
-                <p className="text-xs text-[#64748B] mt-1">
-                  {pkg.from_price > 0 ? 'Starting price inc GST' : 'Contact us for pricing'}
-                </p>
-              </div>
-              
-              {totalPartsCount > 0 && (
-                <div className="mt-4 pt-3 border-t border-[#E2E8F0]">
-                  <p className="text-xs text-[#64748B] text-center">
-                    Includes {totalPartsCount} part{totalPartsCount !== 1 ? 's' : ''}
-                  </p>
-                </div>
-              )}
-              
-              <button
-                onClick={() => onAddToCart?.([])}
-                className="w-full mt-4 px-4 py-3 rounded-xl text-sm font-semibold bg-[#0052CC] text-white hover:bg-[#0047B3] active:scale-95 transition-all shadow-md"
-              >
-                Contact for Details
-              </button>
+            /* No tier data available - show empty state */
+            <div className="rounded-2xl p-6 bg-white border border-[#E2E8F0] shadow-md text-center">
+              <svg className="w-12 h-12 mx-auto text-[#94A3B8] mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+              <p className="text-sm font-medium text-[#64748B]">
+                Package details not available for this vehicle
+              </p>
+              <p className="text-xs text-[#94A3B8] mt-1">
+                Please try refreshing or contact support
+              </p>
             </div>
           )}
         </div>
 
         {/* View Product Details - Collapsible Accordion (CLOSED by default) */}
-        {(hasPreparedTiers ? visiblePreparedTiers.length > 0 : uniquePriceTiers.length > 0) && (
+        {hasTiers && (
           <div className="px-4 pb-4">
             <button
               onClick={() => setShowDetails(!showDetails)}
@@ -555,205 +286,110 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
             {/* Expanded product details */}
             {showDetails && (
               <div className="mt-3 space-y-4 bg-white rounded-xl border border-[#E2E8F0] p-3">
-                {hasPreparedTiers ? (
-                  /* PreparedTiers product list with multi-qty support */
-                  visiblePreparedTiers.map(tier => {
-                    if (tier.products.length === 0) return null;
-                    const tierConfig = QUALITY_TIER_CONFIG[tier.tierName as keyof typeof QUALITY_TIER_CONFIG];
-                    
-                    return (
-                      <div key={tier.tierName} className="space-y-2">
-                        {/* Tier section header */}
-                        <div className="flex items-center gap-2 pb-1 border-b border-[#E2E8F0]">
-                          <span className="text-lg">{tierConfig?.emoji}</span>
-                          <span 
-                            className="font-semibold text-sm"
-                            style={{ color: tierConfig?.textColor }}
-                          >
-                            {tier.displayName}
-                          </span>
-                          <span className="text-xs text-[#64748B]">({tier.products.length} parts)</span>
-                        </div>
-                        
-                        {/* Products list */}
-                        <div className="space-y-2">
-                          {tier.products.map((product, idx) => {
-                            const isValueProduct = pkg.carfixValueProducts?.includes(product.sku);
-                            const unitPrice = product.unitPrice ?? product.price;
-                            
-                            return (
-                              <div
-                                key={`${product.sku}-${idx}`}
-                                className="flex items-center gap-3 p-2.5 rounded-xl transition-all hover:bg-slate-50 cursor-pointer border border-[#E2E8F0]"
-                                onClick={() => onNavigateToProductPage?.(product.sku)}
-                              >
-                                {/* Product image */}
-                                <div className="w-14 h-14 flex-shrink-0 rounded-lg bg-white overflow-hidden border border-[#E2E8F0]">
-                                  <img 
-                                    src={product.productImageUrl || IMAGE_URLS.productImage(product.sku)}
-                                    alt={product.name}
-                                    className="w-full h-full object-contain p-1.5"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).src = '/placeholder.svg';
-                                    }}
-                                  />
-                                </div>
-                                
-                                {/* Product info */}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="text-xs font-semibold text-[#0F172A]">{product.brandFullName || product.brand}</span>
-                                    {isValueProduct && (
-                                      <span 
-                                        className="px-1.5 py-0.5 text-[8px] font-bold rounded-full"
-                                        style={{
-                                          background: 'rgba(0, 82, 204, 0.1)',
-                                          color: '#0052CC',
-                                        }}
-                                      >
-                                        CFX VALUE
-                                      </span>
-                                    )}
-                                    {product.isMultiQty && product.perCarQty > 1 && (
-                                      <span 
-                                        className="px-1.5 py-0.5 text-[8px] font-bold rounded-full"
-                                        style={{
-                                          background: '#F0FDF4',
-                                          color: '#15803D',
-                                        }}
-                                      >
-                                        ×{product.perCarQty}
-                                      </span>
-                                    )}
-                                    {product.isRotor && (
-                                      <span 
-                                        className="px-1.5 py-0.5 text-[8px] font-bold rounded-full"
-                                        style={{
-                                          background: '#EFF6FF',
-                                          color: '#1D4ED8',
-                                        }}
-                                      >
-                                        Pair
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="text-xs text-[#64748B] line-clamp-1">{product.name}</p>
-                                </div>
-                                
-                                {/* Price with multi-qty breakdown */}
-                                <div className="text-right flex-shrink-0">
-                                  <p className="text-sm font-bold text-[#0F172A]">{formatNZD(product.displayPrice)}</p>
+                {visiblePreparedTiers.map(tier => {
+                  if (tier.products.length === 0) return null;
+                  const tierConfig = QUALITY_TIER_CONFIG[tier.tierName as keyof typeof QUALITY_TIER_CONFIG];
+                  
+                  return (
+                    <div key={tier.tierName} className="space-y-2">
+                      {/* Tier section header */}
+                      <div className="flex items-center gap-2 pb-1 border-b border-[#E2E8F0]">
+                        <span className="text-lg">{tierConfig?.emoji}</span>
+                        <span 
+                          className="font-semibold text-sm"
+                          style={{ color: tierConfig?.textColor }}
+                        >
+                          {tier.displayName}
+                        </span>
+                        <span className="text-xs text-[#64748B]">({tier.products.length} parts)</span>
+                      </div>
+                      
+                      {/* Products list - all data from server */}
+                      <div className="space-y-2">
+                        {tier.products.map((product, idx) => {
+                          const isValueProduct = pkg.carfixValueProducts?.includes(product.sku);
+                          const unitPrice = product.unitPrice ?? product.price;
+                          
+                          return (
+                            <div
+                              key={`${product.sku}-${idx}`}
+                              className="flex items-center gap-3 p-2.5 rounded-xl transition-all hover:bg-slate-50 cursor-pointer border border-[#E2E8F0]"
+                              onClick={() => onNavigateToProductPage?.(product.sku)}
+                            >
+                              {/* Product image - use server-provided URL */}
+                              <div className="w-14 h-14 flex-shrink-0 rounded-lg bg-white overflow-hidden border border-[#E2E8F0]">
+                                <img 
+                                  src={product.productImageUrl || IMAGE_URLS.productImage(product.sku)}
+                                  alt={product.name}
+                                  className="w-full h-full object-contain p-1.5"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = '/placeholder.svg';
+                                  }}
+                                />
+                              </div>
+                              
+                              {/* Product info */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-xs font-semibold text-[#0F172A]">{product.brandFullName || product.brand}</span>
+                                  {isValueProduct && (
+                                    <span 
+                                      className="px-1.5 py-0.5 text-[8px] font-bold rounded-full"
+                                      style={{
+                                        background: 'rgba(0, 82, 204, 0.1)',
+                                        color: '#0052CC',
+                                      }}
+                                    >
+                                      CFX VALUE
+                                    </span>
+                                  )}
                                   {product.isMultiQty && product.perCarQty > 1 && (
-                                    <p className="text-[10px] text-[#64748B]">
-                                      {product.perCarQty}× {formatNZD(unitPrice)} each
-                                    </p>
+                                    <span 
+                                      className="px-1.5 py-0.5 text-[8px] font-bold rounded-full"
+                                      style={{
+                                        background: '#F0FDF4',
+                                        color: '#15803D',
+                                      }}
+                                    >
+                                      ×{product.perCarQty}
+                                    </span>
                                   )}
-                                  {product.isRotor && !product.isMultiQty && (
-                                    <p className="text-[10px] text-[#64748B]">
-                                      {formatNZD(unitPrice)} each
-                                    </p>
+                                  {product.isRotor && (
+                                    <span 
+                                      className="px-1.5 py-0.5 text-[8px] font-bold rounded-full"
+                                      style={{
+                                        background: '#EFF6FF',
+                                        color: '#1D4ED8',
+                                      }}
+                                    >
+                                      Pair
+                                    </span>
                                   )}
                                 </div>
+                                <p className="text-xs text-[#64748B] line-clamp-1">{product.name}</p>
                               </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  /* Legacy fallback - client-side tier processing */
-                  uniquePriceTiers.map(tier => {
-                    const parts = getRecommendedPartsForTier(tier);
-                    if (parts.length === 0) return null;
-                    const tierConfig = QUALITY_TIER_CONFIG[tier];
-                    
-                    return (
-                      <div key={tier} className="space-y-2">
-                        {/* Tier section header */}
-                        <div className="flex items-center gap-2 pb-1 border-b border-[#E2E8F0]">
-                          <span className="text-lg">{tierConfig.emoji}</span>
-                          <span 
-                            className="font-semibold text-sm"
-                            style={{ color: tierConfig.textColor }}
-                          >
-                            {tier}
-                          </span>
-                          <span className="text-xs text-[#64748B]">({parts.length} parts)</span>
-                        </div>
-                        
-                        {/* Parts list */}
-                        <div className="space-y-2">
-                          {parts.map((part, idx) => {
-                            const imageUrl = part.image_url || IMAGE_URLS.productImage(part.sku);
-                            const isValueProduct = pkg.carfixValueProducts?.includes(part.sku);
-                            const isRotor = isRotorProduct(part);
-                            const { displayPrice, unitPriceLabel } = getDisplayPrice(part.price, isRotor);
-                            const brandName = part.brand_full_name || part.brand;
-                            
-                            return (
-                              <div
-                                key={`${part.sku}-${idx}`}
-                                className="flex items-center gap-3 p-2.5 rounded-xl transition-all hover:bg-slate-50 cursor-pointer border border-[#E2E8F0]"
-                                onClick={() => onNavigateToProductPage?.(part.sku)}
-                              >
-                                {/* Product image */}
-                                <div className="w-14 h-14 flex-shrink-0 rounded-lg bg-white overflow-hidden border border-[#E2E8F0]">
-                                  <img 
-                                    src={imageUrl}
-                                    alt={part.name}
-                                    className="w-full h-full object-contain p-1.5"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).src = '/placeholder.svg';
-                                    }}
-                                  />
-                                </div>
-                                
-                                {/* Product info */}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="text-xs font-semibold text-[#0F172A]">{brandName}</span>
-                                    {isValueProduct && (
-                                      <span 
-                                        className="px-1.5 py-0.5 text-[8px] font-bold rounded-full"
-                                        style={{
-                                          background: 'rgba(0, 82, 204, 0.1)',
-                                          color: '#0052CC',
-                                        }}
-                                      >
-                                        CFX VALUE
-                                      </span>
-                                    )}
-                                    {isRotor && (
-                                      <span 
-                                        className="px-1.5 py-0.5 text-[8px] font-bold rounded-full"
-                                        style={{
-                                          background: '#EFF6FF',
-                                          color: '#1D4ED8',
-                                        }}
-                                      >
-                                        Pair
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="text-xs text-[#64748B] line-clamp-1">{part.name}</p>
-                                </div>
-                                
-                                {/* Price */}
-                                <div className="text-right flex-shrink-0">
-                                  <p className="text-sm font-bold text-[#0F172A]">{formatNZD(displayPrice)}</p>
-                                  {unitPriceLabel && (
-                                    <p className="text-[10px] text-[#64748B]">{unitPriceLabel}</p>
-                                  )}
-                                </div>
+                              
+                              {/* Price with multi-qty breakdown - all from server */}
+                              <div className="text-right flex-shrink-0">
+                                <p className="text-sm font-bold text-[#0F172A]">{formatNZD(product.displayPrice)}</p>
+                                {product.isMultiQty && product.perCarQty > 1 && (
+                                  <p className="text-[10px] text-[#64748B]">
+                                    {product.perCarQty}× {formatNZD(unitPrice)} each
+                                  </p>
+                                )}
+                                {product.isRotor && !product.isMultiQty && (
+                                  <p className="text-[10px] text-[#64748B]">
+                                    {formatNZD(unitPrice)} each
+                                  </p>
+                                )}
                               </div>
-                            );
-                          })}
-                        </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })
-                )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
