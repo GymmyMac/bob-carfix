@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useMemo, useState } from "react";
 import { useViewportSize, type ViewportSize } from "../../hooks/useViewportSize";
 import { usePositionFactors } from "../../hooks/usePositionFactors";
 import { ProductTile } from "../ProductTile";
-import type { Product, ServicePackage } from "../../types";
+import type { Product, ServicePackage, PreparedTierProduct } from "../../types";
 import type { HighlightedProduct } from "../../types/message";
 import { 
   glassCard, 
@@ -17,6 +17,7 @@ import {
   QUALITY_TIER_CONFIG,
   getServicePackageDescription,
   IMAGE_URLS,
+  formatNZD,
 } from "../../styles/carfix-tokens";
 
 interface MobileProductColumnProps {
@@ -30,7 +31,7 @@ interface MobileProductColumnProps {
   visible?: boolean;
   counterHeightPercent?: number;
   hasVehicle?: boolean;
-  onAddToCart?: (product: Product) => void;
+  onAddToCart?: (product: Product | Product[]) => void;
 }
 
 const matchesPartType = (description: string, partType: string): boolean => {
@@ -241,6 +242,10 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
   const [visibleCount, setVisibleCount] = useState(INITIAL_BATCH_SIZE);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   
+  // Service package accordion state
+  const [expandedPackageId, setExpandedPackageId] = useState<string | null>(null);
+  const [selectedTiers, setSelectedTiers] = useState<Record<string, string>>({});
+  
   // Reset visible count when products change
   useEffect(() => {
     setVisibleCount(INITIAL_BATCH_SIZE);
@@ -447,7 +452,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
         </div>
       )}
 
-      {/* Service Packages - CARFIX Tier Preview Cards */}
+      {/* Service Packages - CARFIX Tier Cards with Inline Accordion */}
       {showContent && servicePackages.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center gap-2 px-1">
@@ -470,9 +475,17 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
             // Use preparedTiers from server (no fallback needed - API always provides them)
             const visibleTiers = (pkg.preparedTiers || []).filter(tier => !tier.isHidden);
             
+            // Track selected tier for this package (default to recommended or first)
+            const defaultTier = visibleTiers.find(t => t.isRecommended)?.tierName || visibleTiers[0]?.tierName || '';
+            const selectedTierName = selectedTiers[pkg.id] || defaultTier;
+            const selectedTier = visibleTiers.find(t => t.tierName === selectedTierName);
+            
             // Get description
             const description = getServicePackageDescription(pkg.title);
             const shortDescription = description.split('.')[0] + '.';
+            
+            // Is this package expanded?
+            const isExpanded = expandedPackageId === pkg.id;
             
             return (
               <div
@@ -508,9 +521,6 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                             </svg>
                             {pkg.estimated_time}
                           </span>
-                          {pkg.difficulty && (
-                            <span className="text-white/70 text-xs capitalize">{pkg.difficulty}</span>
-                          )}
                         </div>
                       )}
                     </div>
@@ -524,7 +534,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                   </p>
                 </div>
                 
-                {/* Tier Preview Grid - Using preparedTiers from server */}
+                {/* Tier Selection Cards - Vertical Brand Logo, Add to Cart per tier */}
                 {visibleTiers.length > 0 && (
                   <div className="p-3">
                     <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1" style={{ color: CARFIX_COLORS.mutedForeground }}>
@@ -533,14 +543,26 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                     <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(visibleTiers.length, 4)}, 1fr)` }}>
                       {visibleTiers.map((tier) => {
                         const tierConfig = QUALITY_TIER_CONFIG[tier.tierName as keyof typeof QUALITY_TIER_CONFIG];
+                        const isSelected = tier.tierName === selectedTierName;
                         
                         return (
                           <div
                             key={tier.tierName}
-                            className="relative p-2 rounded-xl text-center transition-all"
+                            onClick={() => setSelectedTiers(prev => ({ ...prev, [pkg.id]: tier.tierName }))}
+                            className="relative p-2 rounded-xl text-center transition-all cursor-pointer"
                             style={{
-                              background: tier.isRecommended ? `${CARFIX_COLORS.primary}10` : CARFIX_COLORS.background,
-                              border: `2px solid ${tier.isRecommended ? CARFIX_COLORS.primary : CARFIX_COLORS.border}`,
+                              background: tier.isRecommended 
+                                ? `${CARFIX_COLORS.primary}10` 
+                                : isSelected 
+                                  ? `${CARFIX_COLORS.primary}05`
+                                  : CARFIX_COLORS.background,
+                              border: `2px solid ${
+                                tier.isRecommended 
+                                  ? CARFIX_COLORS.primary 
+                                  : isSelected 
+                                    ? CARFIX_COLORS.primary + '80'
+                                    : CARFIX_COLORS.border
+                              }`,
                             }}
                           >
                             {/* Recommended Badge */}
@@ -558,37 +580,68 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                               {tierConfig?.emoji} {tier.displayName}
                             </p>
                             
-                            {/* Brand Logos - Use server-provided URLs directly */}
-                            <div className="flex items-center justify-center gap-1 mt-1.5 min-h-[24px]">
-                              {tier.brands.slice(0, 3).map((brand, idx) => (
+                            {/* Brand Logo - Single prominent logo, stacked vertically */}
+                            <div className="flex flex-col items-center gap-1.5 mt-2 min-h-[44px]">
+                              {tier.brands.slice(0, 1).map((brand, idx) => (
                                 <div 
                                   key={idx}
-                                  className="h-5 w-10 bg-white rounded flex items-center justify-center overflow-hidden"
-                                  style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+                                  className="h-10 w-full max-w-[72px] bg-white rounded-xl flex items-center justify-center overflow-hidden"
+                                  style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid #F1F5F9' }}
                                 >
                                   <img 
                                     src={brand.imageUrl}
                                     alt={brand.fullName}
-                                    className="h-full w-full object-contain p-0.5"
+                                    className="h-7 w-auto object-contain"
                                     onError={(e) => {
                                       (e.target as HTMLImageElement).style.display = 'none';
-                                      (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-[8px] font-medium text-gray-600 truncate px-1">${brand.name}</span>`;
+                                      (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-[10px] font-semibold text-gray-600 truncate px-1">${brand.name}</span>`;
                                     }}
                                   />
                                 </div>
                               ))}
                             </div>
                             
-                            {/* Parts Count - Use server-provided productCount */}
-                            <p className="text-[9px] mt-1" style={{ color: CARFIX_COLORS.mutedForeground }}>
-                              {tier.productCount} {tier.productCount === 1 ? 'part' : 'parts'} included
+                            {/* Parts Count */}
+                            <p className="text-[9px] mt-1.5" style={{ color: CARFIX_COLORS.mutedForeground }}>
+                              {tier.productCount} {tier.productCount === 1 ? 'part' : 'parts'}
                             </p>
                             
-                            {/* Price - Use server-provided totalPrice (includes rotor pair pricing) */}
-                            <p className="text-sm font-bold mt-1" style={{ color: CARFIX_COLORS.foreground }}>
-                              ${tier.totalPrice.toFixed(0)}
+                            {/* Price */}
+                            <p className="text-sm font-bold mt-0.5" style={{ color: CARFIX_COLORS.foreground }}>
+                              {formatNZD(tier.totalPrice)}
                             </p>
                             <p className="text-[9px]" style={{ color: CARFIX_COLORS.mutedForeground }}>inc GST</p>
+                            
+                            {/* Add to Cart button per tier */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Convert PreparedTierProduct[] to Product[] for onAddToCart
+                                const productsToAdd: Product[] = tier.products.map(p => ({
+                                  id: p.sku,
+                                  name: p.name,
+                                  brand: p.brand,
+                                  price: p.displayPrice,
+                                  sku: p.sku,
+                                  partNumber: p.partNumber || undefined,
+                                  image_url: p.productImageUrl,
+                                  partslotDescription: p.partslotName,
+                                  quantity: 1,
+                                }));
+                                onAddToCart?.(productsToAdd);
+                              }}
+                              className="w-full mt-2 py-1.5 rounded-lg text-[10px] font-semibold transition-all flex items-center justify-center gap-1"
+                              style={{
+                                background: tier.isRecommended ? CARFIX_COLORS.primary : '#F1F5F9',
+                                color: tier.isRecommended ? 'white' : '#475569',
+                                border: tier.isRecommended ? 'none' : '1px solid #E2E8F0',
+                              }}
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                              </svg>
+                              Add
+                            </button>
                           </div>
                         );
                       })}
@@ -596,19 +649,98 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                   </div>
                 )}
                 
-                {/* CTA Button */}
+                {/* View Product Details - Accordion Toggle */}
                 <div className="px-3 pb-3">
                   <button
-                    onClick={() => onPackageSelect?.(pkg)}
-                    className="w-full py-2.5 rounded-xl font-semibold text-sm transition-all"
+                    onClick={() => setExpandedPackageId(isExpanded ? null : pkg.id)}
+                    className="w-full py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2"
                     style={{
-                      background: CARFIX_COLORS.primary,
-                      color: 'white',
+                      background: isExpanded ? CARFIX_COLORS.background : CARFIX_COLORS.primary,
+                      color: isExpanded ? CARFIX_COLORS.foreground : 'white',
+                      border: isExpanded ? `1px solid ${CARFIX_COLORS.border}` : 'none',
                     }}
                   >
-                    View Package Details
+                    <svg 
+                      className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    {isExpanded ? 'Hide Product Details' : 'View Product Details'}
                   </button>
                 </div>
+                
+                {/* Accordion Content - Products for Selected Tier */}
+                {isExpanded && selectedTier && (
+                  <div 
+                    className="px-4 pb-4 border-t animate-in slide-in-from-top-2 duration-200"
+                    style={{ borderColor: CARFIX_COLORS.border }}
+                  >
+                    <div className="pt-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: CARFIX_COLORS.mutedForeground }}>
+                        {selectedTier.displayName} Tier Products
+                      </p>
+                      <div className="space-y-2">
+                        {selectedTier.products.map((product) => (
+                          <div 
+                            key={product.sku}
+                            className="flex items-center gap-3 p-2 rounded-lg"
+                            style={{ background: CARFIX_COLORS.background, border: `1px solid ${CARFIX_COLORS.border}` }}
+                          >
+                            {/* Product Image */}
+                            <div className="w-14 h-14 flex-shrink-0 bg-white rounded-lg overflow-hidden flex items-center justify-center">
+                              {product.productImageUrl ? (
+                                <img 
+                                  src={product.productImageUrl} 
+                                  alt={product.name}
+                                  className="w-full h-full object-contain p-1"
+                                />
+                              ) : (
+                                <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                              )}
+                            </div>
+                            
+                            {/* Product Info */}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate" style={{ color: CARFIX_COLORS.foreground }}>
+                                {product.name}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px]" style={{ color: CARFIX_COLORS.mutedForeground }}>
+                                  {product.brand}
+                                </span>
+                                {product.isRotor && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
+                                    Pair
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] mt-0.5" style={{ color: CARFIX_COLORS.mutedForeground }}>
+                                {product.partslotName}
+                              </p>
+                            </div>
+                            
+                            {/* Price */}
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-sm font-bold" style={{ color: CARFIX_COLORS.primary }}>
+                                {formatNZD(product.displayPrice)}
+                              </p>
+                              {product.isRotor && (
+                                <p className="text-[9px]" style={{ color: CARFIX_COLORS.mutedForeground }}>
+                                  ${(product.price).toFixed(2)} ea
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
