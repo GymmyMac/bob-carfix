@@ -10,6 +10,7 @@ const TTS_TIMEOUT_MS = 5000; // 5 second timeout for TTS
 
 // Clip patterns for matching pre-recorded audio
 const CLIP_PATTERNS: Record<string, RegExp> = {
+  greeting_returning: /ah hey|you again|what you after this time/i,
   greeting_welcome: /g'?day|welcome.*carfix|bob.*here/i,
   ask_rego: /need your rego|rego.*get cracking|what('?s| is) your rego/i,
   vehicle_not_found: /couldn'?t find that|double.?check.*plate/i,
