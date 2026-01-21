@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, memo } from "react";
-import { Trash2, Settings2 } from "lucide-react";
+import { Trash2, Settings2, Plus } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AnimationState, BobAnimationConfig } from "@/hooks/useBobAnimationConfig";
@@ -26,6 +26,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { SortableImageItem } from "./SortableImageItem";
+import { QuickImageUploader } from "./QuickImageUploader";
 
 interface StateAssignmentCardProps {
   stateId: string;
@@ -37,6 +38,7 @@ interface StateAssignmentCardProps {
   loopCount: number;
   chatTrigger: string | null;
   assignments: BobAnimationConfig[];
+  lookId?: string | null;
   onDelete: (id: string) => Promise<void>;
   onDeleteState: (stateId: string) => Promise<void>;
   onToggleActive: (id: string, isActive: boolean) => Promise<void>;
@@ -50,6 +52,7 @@ interface StateAssignmentCardProps {
   onUpdateOffset: (id: string, offset: number) => Promise<void>;
   onUpdateScale: (id: string, scale: number) => Promise<void>;
   onApplyGlobalScale?: (scale: number) => Promise<void>;
+  onRefresh?: () => void;
 }
 
 export const StateAssignmentCard = memo(({
@@ -62,6 +65,7 @@ export const StateAssignmentCard = memo(({
   loopCount,
   chatTrigger,
   assignments,
+  lookId,
   onDelete,
   onDeleteState,
   onToggleActive,
@@ -70,10 +74,12 @@ export const StateAssignmentCard = memo(({
   onUpdateOffset,
   onUpdateScale,
   onApplyGlobalScale,
+  onRefresh,
 }: StateAssignmentCardProps) => {
   const [loading, setLoading] = useState<string | null>(null);
   const [deletingState, setDeletingState] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
+  const [addImageOpen, setAddImageOpen] = useState(false);
   const [localSpeed, setLocalSpeed] = useState(animationSpeed);
   const [localPause, setLocalPause] = useState(pauseDuration);
   const [localLoops, setLocalLoops] = useState(loopCount);
@@ -377,6 +383,32 @@ export const StateAssignmentCard = memo(({
             >
               {savingSettings ? "Saving..." : "Save Settings"}
             </Button>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Quick Add Image */}
+        <Collapsible open={addImageOpen} onOpenChange={setAddImageOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="w-full justify-between">
+              <span className="flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                Add Image to State
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {addImageOpen ? "Hide" : "Show"}
+              </span>
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <QuickImageUploader
+              stateKey={state}
+              lookId={lookId || null}
+              nextSequence={assignments.length + 1}
+              onComplete={() => {
+                setAddImageOpen(false);
+                onRefresh?.();
+              }}
+            />
           </CollapsibleContent>
         </Collapsible>
         
