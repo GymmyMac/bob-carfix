@@ -1440,23 +1440,43 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
           };
           
           // Extract vehicle ID from various response formats
-          // Priority: vehicle.id > vehicles array (if single match with ID) > multiple matches
+          // CORRECTED PRIORITY: vehicle_id (TecDoc) > id (CarJam) per CARFIX API spec
           let vehicleId: number | null = null;
           
-          // First check: ID inside confirmed vehicle object (highest priority - REGO lookup)
-          if (vehicleResult.vehicle?.id || vehicleResult.vehicle?.vehicle_id) {
-            vehicleId = vehicleResult.vehicle.id || vehicleResult.vehicle.vehicle_id || null;
-            console.log('Found confirmed vehicle with ID:', vehicleId);
+          // Debug: Log all available IDs for tracing
+          console.log('[VehicleID] Selection debug:', {
+            'result.vehicle_id': vehicleResult.vehicle_id,
+            'result.id': vehicleResult.id,
+            'vehicle.vehicle_id': vehicleResult.vehicle?.vehicle_id,
+            'vehicle.id': vehicleResult.vehicle?.id,
+            'vehicles[0].vehicle_id': vehicleResult.vehicles?.[0]?.vehicle_id,
+            'vehicles[0].id': vehicleResult.vehicles?.[0]?.id,
+          });
+          
+          // First check: Explicit vehicle_id at top level (TecDoc ID from auto-confirmed single match)
+          if (vehicleResult.vehicle_id && Number.isFinite(vehicleResult.vehicle_id)) {
+            vehicleId = vehicleResult.vehicle_id;
+            console.log('Using explicit vehicle_id from lookup result (TecDoc):', vehicleId);
           }
-          // Second check: Direct ID on result
-          else if (vehicleResult.id || vehicleResult.vehicle_id) {
-            vehicleId = vehicleResult.id || vehicleResult.vehicle_id || null;
-            console.log('Found direct vehicle ID:', vehicleId);
+          // Second check: vehicle_id inside confirmed vehicle object (TecDoc ID preferred)
+          else if (vehicleResult.vehicle?.vehicle_id && Number.isFinite(vehicleResult.vehicle.vehicle_id)) {
+            vehicleId = vehicleResult.vehicle.vehicle_id;
+            console.log('Using vehicle.vehicle_id (TecDoc ID):', vehicleId);
           }
-          // Third check: Single match in vehicles array that has an ID
-          else if (vehicleResult.vehicles?.length === 1 && (vehicleResult.vehicles[0].id || vehicleResult.vehicles[0].vehicle_id)) {
-            vehicleId = vehicleResult.vehicles[0].id || vehicleResult.vehicles[0].vehicle_id || null;
-            console.log('Single vehicle match in array with ID:', vehicleId);
+          // Third check: Single match in vehicles array - use TecDoc vehicle_id
+          else if (vehicleResult.vehicles?.length === 1 && vehicleResult.vehicles[0].vehicle_id) {
+            vehicleId = vehicleResult.vehicles[0].vehicle_id;
+            console.log('Single vehicle match in array - using TecDoc vehicle_id:', vehicleId);
+          }
+          // Fourth check: Fallback to vehicle.id only if no vehicle_id exists (CarJam ID)
+          else if (vehicleResult.vehicle?.id && Number.isFinite(vehicleResult.vehicle.id)) {
+            vehicleId = vehicleResult.vehicle.id;
+            console.log('Fallback to vehicle.id (CarJam):', vehicleId);
+          }
+          // Fifth check: Direct ID on result (legacy format)
+          else if (vehicleResult.id && Number.isFinite(vehicleResult.id)) {
+            vehicleId = vehicleResult.id;
+            console.log('Using direct ID on result:', vehicleId);
           }
           // Multiple matches without a confirmed vehicle - flag for frontend to show placeholders
           else if (vehicleResult.vehicles?.length && vehicleResult.vehicles.length > 1) {
@@ -1465,6 +1485,8 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
             (conversationMessages as unknown as { _multipleVehiclesFound?: boolean })._multipleVehiclesFound = true;
             // Don't set vehicleId - wait for customer to confirm
           }
+          
+          console.log('[VehicleID] Final selected ID:', vehicleId);
           
           if (vehicleId && vehicleResult.success !== false) {
             confirmedVehicleId = vehicleId;
