@@ -924,6 +924,22 @@ async function fetchPreparedServiceBundles(vehicleId: number | undefined, apiCon
     const packages = data.servicePackages || data.data?.servicePackages || [];
     console.log('[ServiceBundles] Extracted', Array.isArray(packages) ? packages.length : 0, 'packages with preparedTiers');
     
+    // ✅ PARITY DEBUG: Log preparedTiers structure for first package
+    const firstPackage = packages[0];
+    if (firstPackage) {
+      console.log('[ServiceBundles] First package structure:', JSON.stringify({
+        title: firstPackage.title,
+        hasPreparedTiers: !!firstPackage.preparedTiers,
+        preparedTiersCount: firstPackage.preparedTiers?.length || 0,
+        hasPartslots: !!firstPackage.partslots,
+        partslotsCount: firstPackage.partslots?.length || 0,
+        firstTierBrands: firstPackage.preparedTiers?.[0]?.brands?.map((b: any) => b.fullName || b.name),
+        firstTierPrice: firstPackage.preparedTiers?.[0]?.totalPrice,
+        firstProductName: firstPackage.preparedTiers?.[0]?.products?.[0]?.name,
+        firstProductBrand: firstPackage.preparedTiers?.[0]?.products?.[0]?.brand,
+      }));
+    }
+    
     return { 
       success: true, 
       packages: packages,
@@ -1947,30 +1963,33 @@ IMPORTANT: Only reference products/packages from this list with these EXACT pric
               }
               
               // PRIORITY 1: Use preparedTiers totalPrice (server-calculated, most accurate)
+              // ✅ CARFIX PARITY: Only accept packages with preparedTiers, strip partslots
               if (pkg.preparedTiers && Array.isArray(pkg.preparedTiers)) {
                 const visibleTiers = pkg.preparedTiers.filter((t: any) => !t.isHidden);
                 if (visibleTiers.length > 0) {
                   const minPrice = Math.min(...visibleTiers.map((t: any) => t.totalPrice || 0));
                   if (minPrice > 0) {
-                    console.log(`[Packages] Using preparedTiers price for "${pkg.title}": $${minPrice.toFixed(2)}`);
-                    return { ...pkg, from_price: pkg.from_price || minPrice };
+                    console.log(`[Packages] Using preparedTiers price for "${pkg.title}": $${minPrice.toFixed(2)}, tiers: ${visibleTiers.length}`);
+                    // ✅ CLEAN OUTPUT: Only send display-ready fields, STRIP partslots
+                    return {
+                      id: pkg.id,
+                      title: pkg.title,
+                      description: pkg.description,
+                      from_price: pkg.from_price || minPrice,
+                      estimated_time: pkg.estimated_time,
+                      difficulty_level: pkg.difficulty_level,
+                      bundle_discount_percentage: pkg.bundle_discount_percentage,
+                      icon_url: pkg.icon_url,
+                      carfixValueTier: pkg.carfixValueTier,
+                      preparedTiers: pkg.preparedTiers  // ✅ Server-prepared, clean data
+                      // EXCLUDED: partslots (raw source data with potential contamination)
+                    };
                   }
                 }
               }
               
-              // PRIORITY 2: Use existing from_price if set
-              if (pkg.from_price && pkg.from_price > 0) {
-                return pkg;
-              }
-              
-              // PRIORITY 3: Legacy fallback - calculate from partslots
-              const calculatedPrice = calculatePackageMinPrice(pkg.partslots);
-              if (calculatedPrice > 0) {
-                console.log(`[Packages] Calculated legacy price for "${pkg.title}": $${calculatedPrice.toFixed(2)}`);
-                return { ...pkg, from_price: calculatedPrice };
-              }
-              
-              console.warn(`[Packages] Skipping package "${pkg.title}" - no price in preparedTiers or partslots`);
+              // ❌ REJECTED: Packages without valid preparedTiers cannot achieve CARFIX parity
+              console.warn(`[Packages] Rejecting "${pkg.title}" - missing or invalid preparedTiers (required for CARFIX parity)`);
               return null;
             }).filter(Boolean);
             
