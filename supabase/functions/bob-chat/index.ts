@@ -111,6 +111,56 @@ interface CannedResponseClip {
   clip_key: string;
 }
 
+interface SearchingClip {
+  transcript: string;
+  audio_url: string;
+  clip_key: string;
+}
+
+/**
+ * Fetch a "searching" audio clip for real-time feedback during tool execution.
+ * Returns null if no clip is configured or active.
+ */
+async function getSearchingClip(
+  searchType: 'vehicle' | 'parts'
+): Promise<SearchingClip | null> {
+  const triggerMap = {
+    vehicle: 'searching_vehicle',
+    parts: 'searching_parts'
+  };
+  
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.log('[Searching Clip] Missing Supabase credentials');
+      return null;
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    const { data, error } = await supabase
+      .from('bob_audio_clips')
+      .select('transcript, audio_url, clip_key')
+      .eq('response_trigger', triggerMap[searchType])
+      .eq('is_active', true)
+      .single();
+    
+    if (error || !data) {
+      console.log(`[Searching Clip] No clip found for ${searchType}:`, error?.message);
+      return null;
+    }
+    
+    const clipData = data as { transcript: string; audio_url: string; clip_key: string };
+    console.log(`[Searching Clip] Found clip for ${searchType}:`, clipData.clip_key);
+    return clipData;
+  } catch (err) {
+    console.error(`[Searching Clip] Error fetching ${searchType} clip:`, err);
+    return null;
+  }
+}
+
 /**
  * Check if we should bypass AI and return a canned response.
  * Returns the matching clip data or null if no match.
@@ -1554,8 +1604,44 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
         let partsFoundResult: unknown[] | null = null;
         let confirmedVehicleId: number | null = null;
         
+        // Initialize array for searching events (supports multiple: vehicle + parts)
+        const searchingEventsToEmit: Array<{
+          type: string;
+          search_type: string;
+          transcript: string;
+          audio_url: string;
+          clip_key: string;
+        }> = [];
+        
         for (const toolCall of assistantMessage.tool_calls) {
           console.log(`Executing tool: ${toolCall.function.name}`);
+          
+          // Queue searching event AS we execute lookup_vehicle
+          if (toolCall.function.name === "lookup_vehicle") {
+            const searchingClip = await getSearchingClip('vehicle');
+            if (searchingClip) {
+              searchingEventsToEmit.push({
+                type: "bob_searching",
+                search_type: "vehicle",
+                ...searchingClip
+              });
+              console.log('[Searching] Queued vehicle searching event');
+            }
+          }
+          
+          // Queue searching event AS we execute retrieve_parts (explicit calls)
+          if (toolCall.function.name === "retrieve_parts") {
+            const searchingClip = await getSearchingClip('parts');
+            if (searchingClip) {
+              searchingEventsToEmit.push({
+                type: "bob_searching",
+                search_type: "parts",
+                ...searchingClip
+              });
+              console.log('[Searching] Queued parts searching event');
+            }
+          }
+          
           const result = await executeToolCall(toolCall, apiConfig);
           
         // After vehicle lookup succeeds, auto-fetch ALL parts AND service packages for theatrical display
@@ -1627,6 +1713,17 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
             (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId = vehicleId;
             (conversationMessages as unknown as { _lookupVehicleData?: unknown })._lookupVehicleData = vehicleResult.vehicle || vehicleResult;
             console.log(`Stored lookup vehicle ID for later verification: ${vehicleId}`);
+            
+            // Queue parts searching event for auto-fetch after vehicle lookup
+            const partsSearchingClip = await getSearchingClip('parts');
+            if (partsSearchingClip) {
+              searchingEventsToEmit.push({
+                type: "bob_searching",
+                search_type: "parts",
+                ...partsSearchingClip
+              });
+              console.log('[Searching] Queued parts searching event (auto-fetch after vehicle)');
+            }
             
             // Immediately fetch ALL parts (no filter) for impressive range display
             const allParts = await retrieveParts(vehicleId, apiConfig);
@@ -1986,6 +2083,24 @@ IMPORTANT: Only reference products/packages from this list with these EXACT pric
           let accumulatedContent = ""; // Accumulate ALL content for marker detection
           let vehicleEmitted = false;
           let partsEmitted = false;
+          
+          // ============= EMIT SEARCHING EVENTS FIRST =============
+          // These play immediately while API calls complete in background
+          const searchingEventsToEmit = (conversationMessages as unknown as { _searchingEventsToEmit?: Array<{
+            type: string;
+            search_type: string;
+            transcript: string;
+            audio_url: string;
+            clip_key: string;
+          }> })._searchingEventsToEmit;
+          
+          if (searchingEventsToEmit && searchingEventsToEmit.length > 0) {
+            for (const searchEvent of searchingEventsToEmit) {
+              const event = `data: ${JSON.stringify(searchEvent)}\n\n`;
+              controller.enqueue(encoder.encode(event));
+              console.log(`[Stream] Emitted bob_searching: ${searchEvent.search_type} (${searchEvent.clip_key})`);
+            }
+          }
           
           // Check if we have a confirmed vehicle stored from the first AI response
           // This ensures the vehicle ID matches what was used for parts/packages fetch
