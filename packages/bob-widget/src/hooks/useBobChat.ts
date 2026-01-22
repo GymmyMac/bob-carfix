@@ -185,6 +185,11 @@ export const useBobChat = ({
   const speechStartedRef = useRef(false);
   const fallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioHintUrlRef = useRef<string | null>(null);
+  
+  // Searching audio queue for sequential playback (vehicle + parts)
+  const searchingAudioQueueRef = useRef<string[]>([]);
+  const isPlayingSearchingRef = useRef(false);
+  const currentSearchingAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const clearFallbackTimeout = () => {
     if (fallbackTimeoutRef.current) {
@@ -411,6 +416,46 @@ export const useBobChat = ({
     }
   };
 
+  // Sequential audio player for searching events
+  const playNextSearchingAudio = () => {
+    if (searchingAudioQueueRef.current.length === 0) {
+      isPlayingSearchingRef.current = false;
+      // Return to thinking state when all searching audio completes
+      if (!manualMode) {
+        safeSetState(thinkingState);
+      }
+      return;
+    }
+    
+    isPlayingSearchingRef.current = true;
+    const url = searchingAudioQueueRef.current.shift()!;
+    const audio = new Audio(url);
+    currentSearchingAudioRef.current = audio;
+    
+    audio.onplay = () => {
+      console.log('[BobWidget] Searching audio STARTED:', url);
+      if (!manualMode) safeSetState(talkingState);
+    };
+    
+    audio.onended = () => {
+      console.log('[BobWidget] Searching audio ENDED, playing next...');
+      currentSearchingAudioRef.current = null;
+      playNextSearchingAudio();
+    };
+    
+    audio.onerror = () => {
+      console.warn('[BobWidget] Searching audio failed:', url);
+      currentSearchingAudioRef.current = null;
+      playNextSearchingAudio();
+    };
+    
+    audio.play().catch(() => {
+      console.warn('[BobWidget] Searching audio autoplay blocked:', url);
+      currentSearchingAudioRef.current = null;
+      playNextSearchingAudio();
+    });
+  };
+
   const streamChat = async (userMessage: Message) => {
     const CHAT_URL = `${bobConfig.supabaseUrl}/functions/v1/bob-chat`;
     const customerEmail = hostContext.user?.email;
@@ -552,6 +597,22 @@ export const useBobChat = ({
             if (parsed.type === "audio_hint" && parsed.audio_url) {
               console.log('[useBobChat] Audio hint received:', parsed.clip_key, parsed.audio_url);
               audioHintUrlRef.current = parsed.audio_url;
+              continue;
+            }
+            
+            // Handle bob_searching event - play audio immediately while search runs
+            if (parsed.type === "bob_searching" && parsed.audio_url) {
+              console.log('[useBobChat] Bob searching:', parsed.search_type, parsed.clip_key);
+              
+              // Queue the audio for sequential playback
+              searchingAudioQueueRef.current.push(parsed.audio_url);
+              
+              // Start playing if not already
+              if (!isPlayingSearchingRef.current && !isMuted) {
+                playNextSearchingAudio();
+              }
+              
+              // Don't add to message history - this is a transient announcement
               continue;
             }
             
