@@ -36,6 +36,9 @@ interface MobileBobLayoutCoreProps {
   bobOffset?: number;
   bobScale?: number;
   
+  // Theatrical entrance - Bob fades in after shop loads
+  bobHasArrived?: boolean;
+  
   // External position control (from SwipeableBob)
   externalBobPosition?: BobPosition;
   onBobPositionChange?: (position: BobPosition) => void;
@@ -66,6 +69,7 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
   onChangeVehicle,
   bobOffset = 0,
   bobScale = 100,
+  bobHasArrived = true,
   externalBobPosition,
   onBobPositionChange
 }) => {
@@ -165,7 +169,7 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
         </>
       )}
 
-      {/* Bob Character with 3-position system */}
+      {/* Bob Character with 3-position system and theatrical entrance */}
       <MobileBobCharacter
         currentImage={currentImage}
         animationState={animationState}
@@ -174,6 +178,7 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
         scale={finalBobScale}
         position={bobPosition}
         verticalOffset={bobOffset}
+        hasArrived={bobHasArrived}
       />
 
       {/* Vehicle Context Bar */}

@@ -11,6 +11,8 @@ interface MobileBobCharacterProps {
   scale?: number;
   position?: BobPosition;
   verticalOffset?: number;
+  /** Theatrical entrance - controls fade-in opacity */
+  hasArrived?: boolean;
 }
 
 /**
@@ -28,7 +30,8 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
   counterHeightPercent = 15,
   scale = 100,
   position = 'center',
-  verticalOffset = 0
+  verticalOffset = 0,
+  hasArrived = true
 }) => {
   const factors = usePositionFactors();
   
@@ -94,8 +97,9 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
           transform: getTransform(),
           width: `${scaledWidth}%`,
           maxWidth: `${scaledMaxWidth}px`,
-          transition: getTransition(),
-          willChange: 'transform, left',
+          transition: getTransition() + ', opacity 0.6s ease-out',
+          willChange: 'transform, left, opacity',
+          opacity: hasArrived ? 1 : 0,
         }}
       >
         <img 

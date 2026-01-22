@@ -26,6 +26,18 @@ const Index = () => {
   const [isSpeakingForAnimation, setIsSpeakingForAnimation] = useState(false);
   const [isDataReady, setIsDataReady] = useState(false);
   
+  // Theatrical entrance - Bob "arrives" at his shop after stage is set
+  const [bobHasArrived, setBobHasArrived] = useState(false);
+  
+  // Trigger Bob's entrance after shop backdrop renders (theatrical delay)
+  useEffect(() => {
+    const arrivalTimer = setTimeout(() => {
+      setBobHasArrived(true);
+    }, 300); // 300ms delay for shop to render, then Bob fades in
+    
+    return () => clearTimeout(arrivalTimer);
+  }, []);
+  
   const { 
     animationState, 
     setAnimationState, 
@@ -328,6 +340,7 @@ const Index = () => {
             pendingPackagesRef.current = [];
             clearVehicle();
           }}
+          bobHasArrived={bobHasArrived}
         />
       </SwipeableBob>
 
