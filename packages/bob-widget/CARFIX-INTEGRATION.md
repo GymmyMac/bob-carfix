@@ -1,24 +1,24 @@
-# CARFIX Integration Guide - Bob Widget v1.3.1
+# CARFIX Integration Guide - Bob Widget v3.0.0
 
-## 🚀 One-Click Install Instructions
+## 🚀 Major Release: v3.0.0
 
 This guide provides step-by-step instructions to integrate or update Bob Widget in your CARFIX application.
 
 ---
 
-## What's New in v1.3.1
+## What's New in v3.0.0
 
 | Feature | Description |
 |---------|-------------|
+| **SwipeableBob** | Gesture-based interactions - swipe Bob in/out of view |
+| **RAF Animations** | Smooth 60fps animations using requestAnimationFrame |
+| **MatrixProductLoader** | Cyberpunk-style loading with phased states |
+| **SparkDealBanner** | Animated promotional banner component |
+| **Multi-Tenant Support** | Configurable looks and animations per tenant |
+| **Returning User Detection** | Personalized greetings for repeat visitors |
+| **Theme Settings** | Dynamic theme configuration from database |
 | `bottomOffset` prop | Position Bob above your bottom navigation bar |
 | `zIndexBase` prop | Control z-index stacking to avoid conflicts |
-| CSS containment | Improved style isolation with `contain: layout style` |
-
----
-| Internal QueryClientProvider | **No more "No QueryClient set" errors!** |
-| New `BobWidget` component | Simpler one-component integration |
-| Bundled react-query | No peer dependency required |
-| Startup logging | Easy version verification |
 
 ---
 
@@ -30,7 +30,7 @@ npm uninstall @gymmymac/bob-widget
 rm -rf node_modules/.vite
 
 # Install latest version
-npm install @gymmymac/bob-widget@^1.3.1
+npm install @gymmymac/bob-widget@^3.0.0
 
 # Restart dev server
 npm run dev
@@ -189,15 +189,15 @@ This allows Bob's queries to share the same cache as your app.
 
 ---
 
-## Step 3: Verify Installation
+## Step 4: Verify Installation
 
 ### Console Verification
 
 Open browser DevTools (F12) and check the console. You should see:
 
 ```
-[BobWidget] Package loaded - v1.1.5
-[BobWidget] v1.1.5 initialized
+[BobWidget] Package loaded - v3.0.0
+[BobWidget] v3.0.0 initialized
 [BobWidget] QueryClient: internal
 ```
 
@@ -207,15 +207,15 @@ If you see "QueryClient: external (shared)", you're using a shared QueryClient.
 
 Type in the chat: **"What version are you running?"**
 
-Bob should respond with his current version (1.1.5).
+Bob should respond with his current version (3.0.0).
 
 ### Programmatic Check
 
 ```tsx
 import { getBobVersion, BOB_VERSION } from '@gymmymac/bob-widget';
 
-console.log('Bob Version:', getBobVersion()); // "1.1.5"
-console.log('BOB_VERSION constant:', BOB_VERSION); // "1.1.5"
+console.log('Bob Version:', getBobVersion()); // "3.0.0"
+console.log('BOB_VERSION constant:', BOB_VERSION); // "3.0.0"
 ```
 
 ---
@@ -265,7 +265,7 @@ npm run dev
 
 ## Dependencies
 
-Bob Widget v1.1.5 **bundles** its own dependencies. Your project only needs:
+Bob Widget v3.0.0 **bundles** its own dependencies. Your project only needs:
 
 | Dependency | Version | Required |
 |------------|---------|----------|
@@ -372,22 +372,21 @@ If you encounter any issues:
 
 ## Changelog
 
-### v1.1.5 (Current)
-- ✅ **Immersive inline variant** - `variant="inline"` + `showChat={true}` now renders full immersive experience
-- ✅ New `ContainedMobileBobLayout` - uses `position: absolute` instead of `fixed`
-- ✅ New `ContainedChatDrawer` - chat drawer that respects parent bounds
-- ✅ Better variant documentation
+See [CHANGELOG.md](./CHANGELOG.md) for full version history.
 
-### v1.1.4
-- ✅ Internal QueryClientProvider - no wrapper needed
-- ✅ New `BobWidget` component for easy integration
-- ✅ Startup logging for debugging
-- ✅ Bundled react-query dependency
-- ✅ Optional `queryClient` prop for shared caching
+### v3.0.0 (Current)
+- 🎭 **SwipeableBob**: Gesture-based interactions
+- 🎬 **RAF Animations**: 60fps smooth animations using requestAnimationFrame
+- ⚡ **MatrixProductLoader**: Cyberpunk-style phased loading
+- 🔥 **SparkDealBanner**: Animated promotional banners
+- 🏢 **Multi-Tenant Support**: Configurable looks per tenant
+- 👋 **Returning User Detection**: Personalized greetings
+- 🎨 **Theme Settings**: Dynamic theming from database
 
-### v1.1.3
-- Version reporting feature
-- `getBobVersion()` and `BOB_VERSION` exports
+### v2.0.0
+- GA4 Analytics integration
+- BobWidget self-contained component
+- Bottom offset and z-index control
 
-### v1.1.2
-- Initial multi-tenant widget release
+### v1.x
+- Initial widget releases with core functionality
