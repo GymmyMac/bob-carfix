@@ -184,6 +184,7 @@ export const useBobChat = ({
   const latestAssistantMessageRef = useRef<string>("");
   const speechStartedRef = useRef(false);
   const fallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const audioHintUrlRef = useRef<string | null>(null);
 
   const clearFallbackTimeout = () => {
     if (fallbackTimeoutRef.current) {
@@ -547,6 +548,13 @@ export const useBobChat = ({
               continue;
             }
             
+            // Handle audio_hint for canned responses - bypass TTS entirely
+            if (parsed.type === "audio_hint" && parsed.audio_url) {
+              console.log('[useBobChat] Audio hint received:', parsed.clip_key, parsed.audio_url);
+              audioHintUrlRef.current = parsed.audio_url;
+              continue;
+            }
+            
             if (parsed.type === "cart_updated" && parsed.items) {
               callbacks.onCartUpdated?.(parsed.items);
               continue;
@@ -609,9 +617,46 @@ export const useBobChat = ({
         speechStartedRef.current = false;
         clearFallbackTimeout();
         
-        // Use TTS-specific sanitization for cleaner spoken output
-        const ttsText = sanitizeForTTS(latestAssistantMessageRef.current);
-        speak(ttsText);
+        // Check for audio hint (canned response) - bypass TTS entirely
+        if (audioHintUrlRef.current) {
+          console.log('[BobWidget] Playing canned audio:', audioHintUrlRef.current);
+          const audio = new Audio(audioHintUrlRef.current);
+          audio.onplay = () => {
+            console.log('[BobWidget] Canned audio STARTED');
+            speechStartedRef.current = true;
+            onReadyToSpeak?.();
+            if (!manualMode) safeSetState(talkingState);
+          };
+          audio.onended = () => {
+            console.log('[BobWidget] Canned audio ENDED');
+            clearFallbackTimeout();
+            if (!manualMode) {
+              if (hasProductContent && onShowingProduct) {
+                onShowingProduct();
+              } else if (onStreamComplete) {
+                onStreamComplete();
+              } else {
+                safeSetState(completeState);
+                setTimeout(() => safeSetState(listenState), 3000);
+              }
+            }
+          };
+          audio.onerror = () => {
+            console.error('[BobWidget] Canned audio failed, falling back to TTS');
+            const ttsText = sanitizeForTTS(latestAssistantMessageRef.current);
+            speak(ttsText);
+          };
+          audio.play().catch(() => {
+            console.error('[BobWidget] Canned audio autoplay blocked, falling back to TTS');
+            const ttsText = sanitizeForTTS(latestAssistantMessageRef.current);
+            speak(ttsText);
+          });
+          audioHintUrlRef.current = null; // Reset for next message
+        } else {
+          // Use TTS-specific sanitization for cleaner spoken output
+          const ttsText = sanitizeForTTS(latestAssistantMessageRef.current);
+          speak(ttsText);
+        }
         
         fallbackTimeoutRef.current = setTimeout(() => {
           if (!speechStartedRef.current) {

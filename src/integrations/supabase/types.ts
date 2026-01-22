@@ -231,40 +231,49 @@ export type Database = {
         Row: {
           animation_state_id: string | null
           audio_url: string
+          bypass_ai: boolean | null
           chat_trigger: string | null
           clip_key: string
           created_at: string | null
           duration_ms: number | null
           id: string
           is_active: boolean | null
+          response_trigger: string | null
           tenant_id: string | null
           transcript: string
+          trigger_context: string | null
           updated_at: string | null
         }
         Insert: {
           animation_state_id?: string | null
           audio_url: string
+          bypass_ai?: boolean | null
           chat_trigger?: string | null
           clip_key: string
           created_at?: string | null
           duration_ms?: number | null
           id?: string
           is_active?: boolean | null
+          response_trigger?: string | null
           tenant_id?: string | null
           transcript: string
+          trigger_context?: string | null
           updated_at?: string | null
         }
         Update: {
           animation_state_id?: string | null
           audio_url?: string
+          bypass_ai?: boolean | null
           chat_trigger?: string | null
           clip_key?: string
           created_at?: string | null
           duration_ms?: number | null
           id?: string
           is_active?: boolean | null
+          response_trigger?: string | null
           tenant_id?: string | null
           transcript?: string
+          trigger_context?: string | null
           updated_at?: string | null
         }
         Relationships: [

@@ -108,6 +108,7 @@ export const useBobChat = ({
   const autoFetchTriggeredRef = useRef(false);
   const initialGreetingSentRef = useRef(false);
   const latestAssistantMessageRef = useRef<string>("");
+  const audioHintUrlRef = useRef<string | null>(null);
 
   const { speak, stop: stopSpeech, isSpeaking, retryPendingGreeting } = useSpeechSynthesis({
     onStart: () => {
@@ -348,6 +349,13 @@ export const useBobChat = ({
               continue;
             }
             
+            // Handle audio_hint for canned responses - bypass TTS entirely
+            if (parsed.type === "audio_hint" && parsed.audio_url) {
+              console.log('[useBobChat] Audio hint received:', parsed.clip_key, parsed.audio_url);
+              audioHintUrlRef.current = parsed.audio_url;
+              continue;
+            }
+            
             if (parsed.type === "cart_updated" && parsed.items) {
               onCartUpdated?.(parsed.items);
               continue;
@@ -391,7 +399,38 @@ export const useBobChat = ({
       );
       
       if (!isMuted && latestAssistantMessageRef.current) {
-        speak(latestAssistantMessageRef.current);
+        // Check for audio hint (canned response) - bypass TTS entirely
+        if (audioHintUrlRef.current) {
+          console.log('[useBobChat] Playing canned audio:', audioHintUrlRef.current);
+          const audio = new Audio(audioHintUrlRef.current);
+          audio.onplay = () => {
+            console.log('[useBobChat] Canned audio STARTED');
+            onReadyToSpeak?.();
+            if (!manualMode) safeSetState(talkingState);
+          };
+          audio.onended = () => {
+            console.log('[useBobChat] Canned audio ENDED');
+            if (!manualMode) {
+              if (onStreamComplete) {
+                onStreamComplete();
+              } else {
+                safeSetState(completeState);
+                setTimeout(() => safeSetState(listenState), 3000);
+              }
+            }
+          };
+          audio.onerror = () => {
+            console.error('[useBobChat] Canned audio failed, falling back to TTS');
+            speak(latestAssistantMessageRef.current);
+          };
+          audio.play().catch(() => {
+            console.error('[useBobChat] Canned audio autoplay blocked, falling back to TTS');
+            speak(latestAssistantMessageRef.current);
+          });
+          audioHintUrlRef.current = null; // Reset for next message
+        } else {
+          speak(latestAssistantMessageRef.current);
+        }
       }
       
     } catch (error) {
