@@ -49,6 +49,9 @@ export const useSpeechSynthesis = ({
   // Store pending greeting for user interaction retry
   const pendingGreetingRef = useRef<string | null>(null);
   
+  // Track last queued greeting to prevent duplicates
+  const lastQueuedGreetingRef = useRef<string | null>(null);
+  
   const onStartRef = useRef(onStart);
   const onEndRef = useRef(onEnd);
   const onFailedRef = useRef(onFailed);
@@ -278,6 +281,17 @@ export const useSpeechSynthesis = ({
   const speak = useCallback((text: string, isGreeting = false) => {
     if (!text.trim()) return;
 
+    // Prevent duplicate greeting playback
+    if (isGreeting) {
+      if (lastQueuedGreetingRef.current === text) {
+        console.log(`[BobWidget TTS] Ignoring duplicate greeting: "${text.substring(0, 30)}..."`);
+        return;
+      }
+      lastQueuedGreetingRef.current = text;
+      // Clear pending since we're about to queue it
+      pendingGreetingRef.current = null;
+    }
+
     // If a greeting is currently playing, queue non-greeting messages
     if (greetingPlayingRef.current && !isGreeting) {
       console.log("[BobWidget TTS] Greeting playing - queueing message");
@@ -297,7 +311,8 @@ export const useSpeechSynthesis = ({
 
   // Retry pending greeting on user interaction
   const retryPendingGreeting = useCallback(() => {
-    if (pendingGreetingRef.current) {
+    // Only retry if we have a pending greeting AND audio isn't already playing
+    if (pendingGreetingRef.current && !audioRef.current && !isProcessingRef.current) {
       console.log("[BobWidget TTS] Retrying pending greeting on user interaction");
       const greetingText = pendingGreetingRef.current;
       pendingGreetingRef.current = null;
