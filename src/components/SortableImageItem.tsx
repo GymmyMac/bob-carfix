@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useState, useRef, useEffect } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Trash2, Move, ZoomIn, Globe } from "lucide-react";
+import { GripVertical, Trash2, Move, ZoomIn, Globe, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,7 @@ interface SortableImageItemProps {
   onUpdateOffset: (id: string, offset: number) => void;
   onUpdateScale: (id: string, scale: number) => void;
   onApplyGlobalScale?: (scale: number) => Promise<void>;
+  onReplaceImage?: (id: string, sequenceOrder: number) => void;
 }
 
 export const SortableImageItem = memo(({
@@ -28,6 +29,7 @@ export const SortableImageItem = memo(({
   onUpdateOffset,
   onUpdateScale,
   onApplyGlobalScale,
+  onReplaceImage,
 }: SortableImageItemProps) => {
   const [editingOffset, setEditingOffset] = useState(false);
   const [editingScale, setEditingScale] = useState(false);
@@ -180,13 +182,30 @@ export const SortableImageItem = memo(({
           <GripVertical className="w-5 h-5 text-muted-foreground" />
         </button>
 
-        <div className="w-20 h-20 bg-muted rounded-md overflow-hidden flex-shrink-0">
+        <div className="w-20 h-20 bg-muted rounded-md overflow-hidden flex-shrink-0 relative group">
           <img
             src={assignment.image_url}
             alt={`${state} ${assignment.sequence_order}`}
             className="w-full h-full object-contain"
             loading="lazy"
           />
+          {/* X button overlay for image replacement */}
+          {onReplaceImage && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onReplaceImage(assignment.id, assignment.sequence_order);
+              }}
+              disabled={isLoading}
+              className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground 
+                         rounded-full flex items-center justify-center 
+                         opacity-0 group-hover:opacity-100 transition-opacity 
+                         hover:scale-110 shadow-md z-10 disabled:opacity-50"
+              aria-label="Replace image"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium">

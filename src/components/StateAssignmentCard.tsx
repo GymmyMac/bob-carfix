@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect, memo } from "react";
+import React, { useState, useCallback, useRef, useEffect, memo, useMemo } from "react";
 import { Trash2, Settings2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { SortableImageItem } from "./SortableImageItem";
-import { QuickImageUploader } from "./QuickImageUploader";
+import { InlineSlotUploader } from "./InlineSlotUploader";
 
 interface StateAssignmentCardProps {
   stateId: string;
@@ -79,6 +79,7 @@ export const StateAssignmentCard = memo(({
   const [loading, setLoading] = useState<string | null>(null);
   const [deletingState, setDeletingState] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
+  const [pendingSlots, setPendingSlots] = useState<Set<number>>(new Set());
   
   const [localSpeed, setLocalSpeed] = useState(animationSpeed);
   const [localPause, setLocalPause] = useState(pauseDuration);
@@ -143,6 +144,68 @@ export const StateAssignmentCard = memo(({
       setLoading(null);
     }
   }, [onDelete, toast]);
+
+  // Delete image and mark slot as pending replacement
+  const handleReplaceImage = useCallback(async (id: string, sequenceOrder: number) => {
+    setLoading(id);
+    try {
+      await onDelete(id);
+      // Mark this sequence number as awaiting replacement
+      setPendingSlots(prev => new Set(prev).add(sequenceOrder));
+      toast({ title: "Upload replacement image" });
+    } catch (error) {
+      console.error("Delete for replacement error:", error);
+      toast({
+        title: "Failed to delete image",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(null);
+    }
+  }, [onDelete, toast]);
+
+  // Clear pending slot after successful upload
+  const handleSlotComplete = useCallback((sequenceNumber: number) => {
+    setPendingSlots(prev => {
+      const next = new Set(prev);
+      next.delete(sequenceNumber);
+      return next;
+    });
+    onRefresh?.();
+  }, [onRefresh]);
+
+  // Cancel pending slot (no replacement)
+  const handleSlotCancel = useCallback((sequenceNumber: number) => {
+    setPendingSlots(prev => {
+      const next = new Set(prev);
+      next.delete(sequenceNumber);
+      return next;
+    });
+  }, []);
+
+  // Build unified list of slots (images + pending uploaders) sorted by sequence
+  const allSlots = useMemo(() => {
+    type Slot = 
+      | { type: 'image'; sequenceOrder: number; assignment: BobAnimationConfig }
+      | { type: 'pending'; sequenceOrder: number };
+    
+    const slots: Slot[] = [];
+    
+    // Add existing images
+    assignments.forEach(a => {
+      slots.push({ type: 'image', sequenceOrder: a.sequence_order, assignment: a });
+    });
+    
+    // Add pending replacement slots (where images were deleted)
+    pendingSlots.forEach(seq => {
+      // Only add if no assignment exists for this sequence
+      if (!assignments.find(a => a.sequence_order === seq)) {
+        slots.push({ type: 'pending', sequenceOrder: seq });
+      }
+    });
+    
+    return slots.sort((a, b) => a.sequenceOrder - b.sequenceOrder);
+  }, [assignments, pendingSlots]);
 
   const handleToggleActive = useCallback(async (id: string, currentActive: boolean) => {
     setLoading(id);
@@ -388,8 +451,8 @@ export const StateAssignmentCard = memo(({
           </CollapsibleContent>
         </Collapsible>
 
-        {/* Image List */}
-        {assignments.length > 0 && (
+        {/* Image List with Inline Replacement Uploaders */}
+        {allSlots.length > 0 && (
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -400,31 +463,42 @@ export const StateAssignmentCard = memo(({
               strategy={verticalListSortingStrategy}
             >
               <div className="space-y-4">
-                {assignments.map((assignment) => (
-                  <SortableImageItem
-                    key={assignment.id}
-                    assignment={assignment}
-                    state={state}
-                    isLoading={loading === assignment.id}
-                    onDelete={handleDelete}
-                    onToggleActive={handleToggleActive}
-                    onUpdateOffset={handleUpdateOffset}
-                    onUpdateScale={onUpdateScale}
-                    onApplyGlobalScale={onApplyGlobalScale}
-                  />
-                ))}
+                {allSlots.map((slot) => 
+                  slot.type === 'image' ? (
+                    <SortableImageItem
+                      key={slot.assignment.id}
+                      assignment={slot.assignment}
+                      state={state}
+                      isLoading={loading === slot.assignment.id}
+                      onDelete={handleDelete}
+                      onToggleActive={handleToggleActive}
+                      onUpdateOffset={handleUpdateOffset}
+                      onUpdateScale={onUpdateScale}
+                      onApplyGlobalScale={onApplyGlobalScale}
+                      onReplaceImage={handleReplaceImage}
+                    />
+                  ) : (
+                    <InlineSlotUploader
+                      key={`pending-${slot.sequenceOrder}`}
+                      stateKey={state}
+                      lookId={lookId || null}
+                      sequenceNumber={slot.sequenceOrder}
+                      onComplete={() => handleSlotComplete(slot.sequenceOrder)}
+                      onCancel={() => handleSlotCancel(slot.sequenceOrder)}
+                    />
+                  )
+                )}
               </div>
             </SortableContext>
           </DndContext>
         )}
 
-        {/* Always show uploader at bottom */}
-        <QuickImageUploader
-          stateKey={state}
-          lookId={lookId || null}
-          nextSequence={assignments.length + 1}
-          onComplete={() => onRefresh?.()}
-        />
+        {/* Empty state message */}
+        {allSlots.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            No images in this state. Use AI Animation Builder to add sequences.
+          </p>
+        )}
       </CardContent>
     </Card>
   );
