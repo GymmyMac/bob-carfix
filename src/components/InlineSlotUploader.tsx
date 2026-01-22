@@ -100,17 +100,17 @@ export const InlineSlotUploader: React.FC<InlineSlotUploaderProps> = ({
       {/* Placeholder for drag handle alignment */}
       <div className="w-5" />
 
-      {/* Upload area matching image thumbnail size */}
+      {/* Upload area matching image thumbnail size (doubled) */}
       <div
-        className="w-20 h-20 bg-muted rounded-md overflow-hidden flex-shrink-0 flex items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors"
+        className="w-40 h-40 bg-muted rounded-md overflow-hidden flex-shrink-0 flex items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors"
         onClick={() => inputRef.current?.click()}
       >
         {preview ? (
           <img src={preview} alt="Preview" className="w-full h-full object-contain" />
         ) : uploading ? (
-          <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
+          <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full" />
         ) : (
-          <Upload className="w-6 h-6 text-muted-foreground" />
+          <Upload className="w-10 h-10 text-muted-foreground" />
         )}
       </div>
 
