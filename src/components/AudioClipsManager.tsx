@@ -36,6 +36,7 @@ const CHAT_TRIGGERS = [
   { value: "processing_input", label: "🔍 Processing Input" },
   { value: "streaming_response", label: "💬 Streaming Response" },
   { value: "response_complete", label: "✅ Response Complete" },
+  { value: "idle", label: "😴 Idle" },
 ];
 
 export const AudioClipsManager: React.FC = () => {
