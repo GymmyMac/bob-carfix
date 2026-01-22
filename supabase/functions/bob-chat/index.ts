@@ -93,6 +93,84 @@ function buildSystemPromptFromDB(prompts: BobPrompt[]): string {
   return prompts.map(p => p.content).join('\n\n');
 }
 
+// ============= CANNED RESPONSE SYSTEM =============
+// Keywords that indicate user is asking for vehicle-specific parts (need REGO)
+const VEHICLE_SPECIFIC_KEYWORDS = [
+  'brake', 'pad', 'rotor', 'filter', 'oil filter', 'air filter',
+  'cabin filter', 'spark plug', 'wiper', 'clutch', 'timing belt',
+  'suspension', 'shock', 'strut', 'cv joint', 'alternator', 'starter',
+  'battery', 'radiator', 'thermostat', 'water pump', 'belt', 'gasket',
+  'head gasket', 'engine mount', 'gearbox', 'transmission', 'exhaust',
+  'muffler', 'catalytic', 'oxygen sensor', 'lambda', 'headlight', 'taillight',
+  'service', 'parts for my', 'need parts', 'need a part'
+];
+
+interface CannedResponseClip {
+  transcript: string;
+  audio_url: string;
+  clip_key: string;
+}
+
+/**
+ * Check if we should bypass AI and return a canned response.
+ * Returns the matching clip data or null if no match.
+ */
+async function checkCannedResponse(
+  messages: Array<{ role: string; content: string }>,
+  vehicleContext: unknown,
+  customerEmail: string | null
+): Promise<CannedResponseClip | null> {
+  // Only check last user message
+  const lastMessage = messages.filter(m => m.role === 'user').pop();
+  if (!lastMessage) return null;
+  
+  const userText = lastMessage.content.toLowerCase();
+  
+  // Check if this is a vehicle-specific request without vehicle context
+  const isVehicleSpecificRequest = VEHICLE_SPECIFIC_KEYWORDS.some(kw => 
+    userText.includes(kw.toLowerCase())
+  );
+  
+  const hasVehicleContext = !!vehicleContext;
+  
+  // Trigger: User asks for parts but no vehicle identified
+  if (isVehicleSpecificRequest && !hasVehicleContext) {
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL");
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      
+      if (!supabaseUrl || !supabaseKey) {
+        console.log('[Canned Response] Missing Supabase credentials');
+        return null;
+      }
+      
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
+      // Look for an active canned response for 'need_rego' trigger
+      const { data, error } = await supabase
+        .from('bob_audio_clips')
+        .select('transcript, audio_url, clip_key')
+        .eq('response_trigger', 'need_rego')
+        .eq('bypass_ai', true)
+        .eq('is_active', true)
+        .single();
+      
+      if (error || !data) {
+        console.log('[Canned Response] No matching clip found:', error?.message);
+        return null;
+      }
+      
+      console.log(`[Canned Response] Matched 'need_rego' trigger for: "${userText.substring(0, 30)}..."`);
+      return data as CannedResponseClip;
+    } catch (err) {
+      console.error('[Canned Response] Error checking clips:', err);
+      return null;
+    }
+  }
+  
+  return null;
+}
+
 const tools = [
   {
     type: "function",
@@ -1286,6 +1364,42 @@ serve(async (req) => {
 
       return new Response(stream.readable, {
         headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      });
+    }
+
+    // ============= CANNED RESPONSE SYSTEM =============
+    // Check if we can bypass AI entirely for common triggers
+    const cannedResponse = await checkCannedResponse(messages, vehicleContext, customerEmail);
+    
+    if (cannedResponse) {
+      console.log(`[Canned Response] Bypassing AI with: "${cannedResponse.transcript.substring(0, 50)}..."`);
+      
+      // Return canned response as SSE stream (no AI call)
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          // Emit the canned text as if it were streamed
+          const textEvent = `data: ${JSON.stringify({
+            choices: [{ delta: { content: cannedResponse.transcript } }]
+          })}\n\n`;
+          controller.enqueue(encoder.encode(textEvent));
+          
+          // Emit audio_url hint for frontend to play exact audio
+          const audioHint = `data: ${JSON.stringify({
+            type: 'audio_hint',
+            audio_url: cannedResponse.audio_url,
+            clip_key: cannedResponse.clip_key
+          })}\n\n`;
+          controller.enqueue(encoder.encode(audioHint));
+          
+          // End stream
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+        }
+      });
+
+      return new Response(stream, {
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
       });
     }
 
