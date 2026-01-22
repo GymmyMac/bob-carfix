@@ -87,6 +87,9 @@ interface SpeechQueueItem {
   isGreeting: boolean;
 }
 
+// Track last queued greeting to prevent duplicates
+let lastQueuedGreeting: string | null = null;
+
 export const useSpeechSynthesis = ({
   onStart,
   onEnd,
@@ -281,6 +284,17 @@ export const useSpeechSynthesis = ({
   const speak = useCallback((text: string, isGreeting = false) => {
     if (!text.trim()) return;
 
+    // Prevent duplicate greeting playback
+    if (isGreeting) {
+      if (lastQueuedGreeting === text) {
+        console.log(`[TTS] Ignoring duplicate greeting: "${text.substring(0, 30)}..."`);
+        return;
+      }
+      lastQueuedGreeting = text;
+      // Clear pending since we're about to queue it
+      pendingGreetingRef.current = null;
+    }
+
     console.log(`[TTS] Queuing ${isGreeting ? 'GREETING' : 'speech'}: "${text.substring(0, 50)}..."`);
 
     // Greetings go to front of queue with priority
@@ -294,7 +308,8 @@ export const useSpeechSynthesis = ({
   }, [processQueue]);
 
   const retryPendingGreeting = useCallback(() => {
-    if (pendingGreetingRef.current) {
+    // Only retry if we have a pending greeting AND audio isn't already playing
+    if (pendingGreetingRef.current && !audioRef.current && !isProcessingRef.current) {
       console.log("[TTS] Retrying pending greeting on user interaction");
       const greetingText = pendingGreetingRef.current;
       pendingGreetingRef.current = null;
