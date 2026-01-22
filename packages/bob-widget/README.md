@@ -2,6 +2,18 @@
 
 AI-powered automotive parts assistant widget for integration into partner websites.
 
+**v3.0.0** - Major release with multi-tenant support, RAF animations, swipeable Bob, and enhanced mobile experience.
+
+## What's New in v3.0.0
+
+- 🎭 **SwipeableBob**: Gesture-based interactions - swipe Bob away or back into view
+- 🏢 **Multi-Tenant Support**: Configurable looks and animations per tenant
+- 🎬 **RAF Animations**: Smooth 60fps animations using requestAnimationFrame
+- ⚡ **MatrixProductLoader**: Cyberpunk-style loading with phased states
+- 🔥 **SparkDealBanner**: Animated promotional banners
+- 👋 **Returning User Detection**: Personalized greetings for repeat visitors
+- 🎨 **Theme Settings**: Dynamic theme configuration from database
+
 ## Installation
 
 ```bash
@@ -84,13 +96,13 @@ Or programmatically:
 ```tsx
 import { BOB_VERSION, getBobVersion } from '@gymmymac/bob-widget';
 
-console.log(`Bob Widget Version: ${getBobVersion()}`); // e.g., "1.1.4"
+console.log(`Bob Widget Version: ${getBobVersion()}`); // "3.0.0"
 ```
 
 Check the console for startup logs:
 ```
-[BobWidget] Package loaded - v1.1.4
-[BobWidget] v1.1.4 initialized
+[BobWidget] Package loaded - v3.0.0
+[BobWidget] v3.0.0 initialized
 [BobWidget] QueryClient: internal
 ```
 
@@ -211,9 +223,13 @@ function App() {
 
 ## Dependencies
 
-Bob Widget v1.1.4+ bundles its own dependencies. You only need:
+Bob Widget v3.0.0+ bundles its own dependencies. You only need:
 - `react` ^18.0.0
 - `react-dom` ^18.0.0
+
+## Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md) for version history.
 
 ## Integration Guide
 
