@@ -85,6 +85,7 @@ export const useBobStateTransitions = ({
 
   const getIdleState = useCallback(() => {
     return states.find(s => 
+      s.chat_trigger === 'idle' ||  // Prioritize explicit chat_trigger
       s.state_key === 'idle' || 
       s.title.toLowerCase().includes('idle')
     );

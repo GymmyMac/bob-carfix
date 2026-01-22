@@ -254,6 +254,7 @@ export const StateAssignmentCard = memo(({
       processing_input: "🔍 Processing Input - Thinking",
       streaming_response: "💬 Streaming Response - Talking",
       response_complete: "✅ Response Complete - Finished",
+      idle: "😴 Idle - After 60s timeout",
     };
     return labels[trigger] || trigger;
   }, []);
@@ -368,6 +369,7 @@ export const StateAssignmentCard = memo(({
                   <SelectItem value="processing_input">🔍 Processing Input - Thinking</SelectItem>
                   <SelectItem value="streaming_response">💬 Streaming Response - Talking</SelectItem>
                   <SelectItem value="response_complete">✅ Response Complete - Finished</SelectItem>
+                  <SelectItem value="idle">😴 Idle - After 60s timeout</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
