@@ -94,17 +94,23 @@ export const useBobAnimationData = (lookId?: string | null) => {
   return useQuery<BobAnimationData>({
     queryKey: ['bob-animation-data', lookId],
     queryFn: async () => {
-      // Fetch all looks
-      const { data: looks, error: looksError } = await supabase
-        .from("bob_looks")
-        .select("*")
-        .order("display_order");
+      // OPTIMIZATION: Fetch looks, states, configs, and files in PARALLEL
+      // This eliminates the waterfall delay that causes the loading spinner
+      
+      const [looksResult, filesResult] = await Promise.all([
+        supabase.from("bob_looks").select("*").order("display_order"),
+        supabase.storage.from("bob-images").list()
+      ]);
 
-      if (looksError) throw looksError;
+      if (looksResult.error) throw looksResult.error;
+      if (filesResult.error) throw filesResult.error;
+
+      const looks = looksResult.data || [];
+      const files = filesResult.data || [];
 
       // Determine which look to use
-      const activeLook = (looks || []).find((l: BobLook) => l.is_active);
-      const targetLookId = lookId || activeLook?.id || (looks && looks[0]?.id) || null;
+      const activeLook = looks.find((l: BobLook) => l.is_active);
+      const targetLookId = lookId || activeLook?.id || (looks[0]?.id) || null;
 
       // If no looks exist, return empty data
       if (!targetLookId) {
@@ -112,60 +118,57 @@ export const useBobAnimationData = (lookId?: string | null) => {
           states: [],
           configs: [],
           uploadedImages: [],
-          looks: (looks || []) as BobLook[],
+          looks: looks as BobLook[],
           activeLookId: null,
         };
       }
 
-      // Fetch animation states for the target look
-      const { data: states, error: statesError } = await supabase
-        .from("animation_states")
-        .select("*")
-        .eq("is_active", true)
-        .eq("look_id", targetLookId)
-        .order("display_order");
-      if (statesError) throw statesError;
+      // Now fetch states and configs in PARALLEL (both depend on targetLookId)
+      const [statesResult, configsResult] = await Promise.all([
+        supabase
+          .from("animation_states")
+          .select("*")
+          .eq("is_active", true)
+          .eq("look_id", targetLookId)
+          .order("display_order"),
+        supabase
+          .from("bob_animations")
+          .select("*")
+          .eq("is_active", true)
+          .eq("look_id", targetLookId)
+          .order("animation_state")
+          .order("sequence_order")
+      ]);
 
-      // Fetch animation configurations for the target look
-      const { data: configs, error: configsError } = await supabase
-        .from("bob_animations")
-        .select("*")
-        .eq("is_active", true)
-        .eq("look_id", targetLookId)
-        .order("animation_state")
-        .order("sequence_order");
+      if (statesResult.error) throw statesResult.error;
+      if (configsResult.error) throw configsResult.error;
 
-      if (configsError) throw configsError;
+      const states = statesResult.data || [];
+      const configs = configsResult.data || [];
 
       // Filter configs to only include those with valid state keys
-      const validStateKeys = new Set((states || []).map((s: AnimationStateDefinition) => s.state_key));
-      const filteredConfigs = (configs || []).filter((c: BobAnimationConfig) => validStateKeys.has(c.animation_state));
+      const validStateKeys = new Set(states.map((s: AnimationStateDefinition) => s.state_key));
+      const filteredConfigs = configs.filter((c: BobAnimationConfig) => validStateKeys.has(c.animation_state));
 
-      // List uploaded images from storage
-      const { data: files, error: filesError } = await supabase.storage
-        .from("bob-images")
-        .list();
-
-      if (filesError) throw filesError;
-
-      const uploadedImages = (files || []).map((file) => {
+      // Build uploaded images list
+      const uploadedImages = files.map((file) => {
         const { data: urlData } = supabase.storage
           .from("bob-images")
           .getPublicUrl(file.name);
         return urlData.publicUrl;
       });
 
-      // Preload all animation images for smooth transitions
+      // Preload all animation images for smooth transitions (non-blocking)
       filteredConfigs.forEach((config: BobAnimationConfig) => {
         const img = new Image();
         img.src = config.image_url;
       });
 
       return {
-        states: (states || []) as AnimationStateDefinition[],
+        states: states as AnimationStateDefinition[],
         configs: filteredConfigs as BobAnimationConfig[],
         uploadedImages,
-        looks: (looks || []) as BobLook[],
+        looks: looks as BobLook[],
         activeLookId: targetLookId,
       };
     },
