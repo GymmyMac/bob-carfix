@@ -182,7 +182,7 @@ export const SortableImageItem = memo(({
           <GripVertical className="w-5 h-5 text-muted-foreground" />
         </button>
 
-        <div className="w-20 h-20 bg-muted rounded-md overflow-hidden flex-shrink-0 relative group">
+        <div className="w-40 h-40 bg-muted rounded-md overflow-hidden flex-shrink-0 relative group">
           <img
             src={assignment.image_url}
             alt={`${state} ${assignment.sequence_order}`}
@@ -197,13 +197,13 @@ export const SortableImageItem = memo(({
                 onReplaceImage(assignment.id, assignment.sequence_order);
               }}
               disabled={isLoading}
-              className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground 
+              className="absolute -top-1 -right-1 w-6 h-6 bg-destructive text-destructive-foreground 
                          rounded-full flex items-center justify-center 
                          opacity-0 group-hover:opacity-100 transition-opacity 
                          hover:scale-110 shadow-md z-10 disabled:opacity-50"
               aria-label="Replace image"
             >
-              <X className="w-3 h-3" />
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
