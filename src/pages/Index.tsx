@@ -18,25 +18,28 @@ import { ServicePackage } from "@/types/servicePackage";
 import bobBgWall from "@/assets/bob-bg-wall.png";
 import bobCounter from "@/assets/bob-counter.png";
 
-// Static placeholder for instant display while data loads
-const PLACEHOLDER_BOB_IMAGE = "https://gjoguxzstsihhxvdgpto.supabase.co/storage/v1/object/public/bob-images/fffbyytt2sg-1763972487670.png";
+// No placeholder - Bob stays invisible until animation data loads
 
 const Index = () => {
   // Shared isSpeaking state for animation sync
   const [isSpeakingForAnimation, setIsSpeakingForAnimation] = useState(false);
   const [isDataReady, setIsDataReady] = useState(false);
   
-  // Theatrical entrance - Bob "arrives" at his shop after stage is set
-  const [bobHasArrived, setBobHasArrived] = useState(false);
+  // Theatrical entrance - Bob "arrives" only after shop AND data are ready
+  const [minDelayPassed, setMinDelayPassed] = useState(false);
   
-  // Trigger Bob's entrance after shop backdrop renders (theatrical delay)
+  // Start minimum theatrical delay timer (shop needs time to render)
   useEffect(() => {
-    const arrivalTimer = setTimeout(() => {
-      setBobHasArrived(true);
-    }, 300); // 300ms delay for shop to render, then Bob fades in
-    
-    return () => clearTimeout(arrivalTimer);
+    const delayTimer = setTimeout(() => {
+      setMinDelayPassed(true);
+    }, 300);
+    return () => clearTimeout(delayTimer);
   }, []);
+
+  // Bob arrives when BOTH conditions are met:
+  // 1. Minimum delay passed (shop backdrop rendered)
+  // 2. Animation data is ready (has valid images)
+  const bobHasArrived = minDelayPassed && isDataReady;
   
   const { 
     animationState, 
@@ -56,8 +59,8 @@ const Index = () => {
     }
   }, [animationLoading, animationState, getCurrentImage]);
   
-  // Get current image with placeholder fallback for instant display
-  const currentBobImage = getCurrentImage() || PLACEHOLDER_BOB_IMAGE;
+  // Only show Bob's image once data is ready - he's invisible until then
+  const currentBobImage = isDataReady ? (getCurrentImage() || '') : '';
   
   // Get backdrop data
   const { activeBackdrop } = useBobBackdrop();
