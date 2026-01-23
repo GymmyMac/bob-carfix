@@ -220,3 +220,69 @@
 .bob-widget-root .high-contrast-input:focus::placeholder {
   color: rgba(255, 255, 255, 0.5);
 }
+
+/* ============================================
+   CARFIX / External Host Override Fixes
+   Aggressive resets to prevent host style bleeding
+   ============================================ */
+
+/* Force input styling for glassmorphism look */
+.bob-widget-root input[type="text"],
+.bob-widget-root input[type="search"],
+.bob-widget-root textarea {
+  background: rgba(0, 51, 102, 0.85) !important;
+  color: white !important;
+  border: 2px solid rgba(255, 255, 255, 0.35) !important;
+  border-radius: 12px !important;
+  padding: 12px 16px !important;
+  font-size: 16px !important;
+  line-height: 1.5 !important;
+  outline: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+.bob-widget-root input[type="text"]:focus,
+.bob-widget-root input[type="search"]:focus,
+.bob-widget-root textarea:focus {
+  border-color: rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.3) !important;
+}
+
+/* Reset all button base styles from host */
+.bob-widget-root button {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-size: inherit;
+  line-height: inherit;
+  padding: 0;
+  margin: 0;
+}
+
+/* Force flex containers to behave correctly */
+.bob-widget-root .bob-chat-drawer,
+.bob-widget-root .bob-product-column {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Ensure proper stacking context */
+.bob-widget-root {
+  position: relative !important;
+  z-index: var(--bob-z-base, 50) !important;
+}
+
+/* Prevent host transforms from affecting Bob */
+.bob-widget-root * {
+  transform-style: flat;
+}
+
+/* Override any host max-width constraints */
+.bob-widget-root,
+.bob-widget-root * {
+  max-width: none;
+}
