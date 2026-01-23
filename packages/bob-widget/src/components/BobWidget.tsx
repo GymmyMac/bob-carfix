@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BobProvider } from '../BobProvider';
 import { Bob, BobVariant } from './Bob';
+import { BOB_VERSION } from '../version';
 import type {
   BobConfig,
   HostApiConfig,
@@ -110,6 +111,19 @@ export const BobWidget: React.FC<BobWidgetProps> = ({
   bottomOffset = 0,
   zIndexBase = 50,
 }) => {
+  // Debug logging for external host troubleshooting
+  useEffect(() => {
+    console.log('[BobWidget] Initialized', {
+      version: BOB_VERSION,
+      variant,
+      bottomOffset,
+      zIndexBase,
+      bobConfigUrl: bobConfig.supabaseUrl,
+      hostApiBaseUrl: hostApiConfig.baseUrl,
+      analyticsEnabled,
+    });
+  }, [variant, bottomOffset, zIndexBase, bobConfig.supabaseUrl, hostApiConfig.baseUrl, analyticsEnabled]);
+
   return (
     <div className="bob-widget-root" style={{ width: '100%', height: '100%' }}>
       <BobProvider
