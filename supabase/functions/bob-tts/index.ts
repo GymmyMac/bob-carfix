@@ -41,6 +41,12 @@ serve(async (req) => {
       throw new Error("No text provided");
     }
 
+    // Helper to check if voice ID is a Google Cloud TTS voice format (e.g., "en-AU-Neural2-B")
+    const isGoogleVoice = (voice: string): boolean => {
+      // Google voices follow pattern: language-region-type-variant (e.g., en-AU-Neural2-B, en-US-Wavenet-D)
+      return /^[a-z]{2}-[A-Z]{2}-(Neural2|Wavenet|Standard)-[A-Z]$/i.test(voice);
+    };
+
     // Determine voice: use request voice, or fetch from database, or use default
     let voiceName = requestVoice;
     
@@ -62,9 +68,15 @@ serve(async (req) => {
           
           if (settingResponse.ok) {
             const settings = await settingResponse.json();
-            if (settings?.[0]?.setting_value) {
-              voiceName = settings[0].setting_value;
-              console.log(`Using voice from database: ${voiceName}`);
+            const storedVoice = settings?.[0]?.setting_value;
+            
+            // Only use stored voice if it's a valid Google voice format
+            // ElevenLabs voice IDs are alphanumeric strings like "JBFqnCBsd6RMkjVDRZzb"
+            if (storedVoice && isGoogleVoice(storedVoice)) {
+              voiceName = storedVoice;
+              console.log(`Using Google voice from database: ${voiceName}`);
+            } else if (storedVoice) {
+              console.log(`Stored voice "${storedVoice}" is not a Google voice format, using default`);
             }
           }
         }
@@ -73,10 +85,10 @@ serve(async (req) => {
       }
     }
     
-    // Default fallback
-    if (!voiceName) {
+    // Default fallback - always use a valid Google voice
+    if (!voiceName || !isGoogleVoice(voiceName)) {
       voiceName = "en-AU-Neural2-B";
-      console.log(`Using default voice: ${voiceName}`);
+      console.log(`Using default Google voice: ${voiceName}`);
     }
 
     // Extract language code from voice name (e.g., "en-AU-Neural2-B" -> "en-AU")
