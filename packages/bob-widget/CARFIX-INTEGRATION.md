@@ -1,24 +1,28 @@
-# CARFIX Integration Guide - Bob Widget v3.0.0
+# CARFIX Integration Guide - Bob Widget v3.0.3
 
-## 🚀 Major Release: v3.0.0
+## 🚀 Current Release: v3.0.3
 
 This guide provides step-by-step instructions to integrate or update Bob Widget in your CARFIX application.
 
 ---
 
-## What's New in v3.0.0
+## What's New in v3.0.x
 
-| Feature | Description |
-|---------|-------------|
-| **SwipeableBob** | Gesture-based interactions - swipe Bob in/out of view |
-| **RAF Animations** | Smooth 60fps animations using requestAnimationFrame |
-| **MatrixProductLoader** | Cyberpunk-style loading with phased states |
-| **SparkDealBanner** | Animated promotional banner component |
-| **Multi-Tenant Support** | Configurable looks and animations per tenant |
-| **Returning User Detection** | Personalized greetings for repeat visitors |
-| **Theme Settings** | Dynamic theme configuration from database |
-| `bottomOffset` prop | Position Bob above your bottom navigation bar |
-| `zIndexBase` prop | Control z-index stacking to avoid conflicts |
+| Version | Feature | Description |
+|---------|---------|-------------|
+| **v3.0.3** | Counter Overlay Fix | Shop counter image now hosted on Supabase Storage with absolute URLs |
+| **v3.0.2** | External Audio Hosting | Audio clips use absolute URLs - no more silent audio on external sites |
+| **v3.0.2** | CSS Isolation | Strengthened widget-reset.css to block host site style bleeding |
+| **v3.0.1** | TTS Voice Validation | Automatic fallback for mismatched voice provider IDs |
+| **v3.0.0** | SwipeableBob | Gesture-based interactions - swipe Bob in/out of view |
+| **v3.0.0** | RAF Animations | Smooth 60fps animations using requestAnimationFrame |
+| **v3.0.0** | MatrixProductLoader | Cyberpunk-style loading with phased states |
+| **v3.0.0** | SparkDealBanner | Animated promotional banner component |
+| **v3.0.0** | Multi-Tenant Support | Configurable looks and animations per tenant |
+| **v3.0.0** | Returning User Detection | Personalized greetings for repeat visitors |
+| **v3.0.0** | Theme Settings | Dynamic theme configuration from database |
+| **v3.0.0** | `bottomOffset` prop | Position Bob above your bottom navigation bar |
+| **v3.0.0** | `zIndexBase` prop | Control z-index stacking to avoid conflicts |
 
 ---
 
@@ -30,7 +34,7 @@ npm uninstall @gymmymac/bob-widget
 rm -rf node_modules/.vite
 
 # Install latest version
-npm install @gymmymac/bob-widget@^3.0.0
+npm install @gymmymac/bob-widget@^3.0.3
 
 # Restart dev server
 npm run dev
@@ -196,8 +200,8 @@ This allows Bob's queries to share the same cache as your app.
 Open browser DevTools (F12) and check the console. You should see:
 
 ```
-[BobWidget] Package loaded - v3.0.0
-[BobWidget] v3.0.0 initialized
+[BobWidget] Package loaded - v3.0.3
+[BobWidget] v3.0.3 initialized
 [BobWidget] QueryClient: internal
 ```
 
@@ -207,15 +211,15 @@ If you see "QueryClient: external (shared)", you're using a shared QueryClient.
 
 Type in the chat: **"What version are you running?"**
 
-Bob should respond with his current version (3.0.0).
+Bob should respond with his current version (3.0.3).
 
 ### Programmatic Check
 
 ```tsx
 import { getBobVersion, BOB_VERSION } from '@gymmymac/bob-widget';
 
-console.log('Bob Version:', getBobVersion()); // "3.0.0"
-console.log('BOB_VERSION constant:', BOB_VERSION); // "3.0.0"
+console.log('Bob Version:', getBobVersion()); // "3.0.3"
+console.log('BOB_VERSION constant:', BOB_VERSION); // "3.0.3"
 ```
 
 ---
@@ -374,7 +378,19 @@ If you encounter any issues:
 
 See [CHANGELOG.md](./CHANGELOG.md) for full version history.
 
-### v3.0.0 (Current)
+### v3.0.3 (Current)
+- 🖼️ **Counter Overlay Fix**: Shop counter image uses absolute Supabase Storage URL
+- 🗄️ **Database Migration**: `counter_overlay_url` field added to `bob_backdrops`
+
+### v3.0.2
+- 🔊 **External Audio Hosting**: Audio clips use absolute URLs from Supabase Storage
+- 🎨 **CSS Isolation**: Strengthened widget-reset.css to prevent host style bleeding
+- 🐛 **Debug Logging**: Added initialization logging for external site debugging
+
+### v3.0.1
+- 🎙️ **TTS Voice Validation**: Prevents 400 errors from mismatched voice provider IDs
+
+### v3.0.0
 - 🎭 **SwipeableBob**: Gesture-based interactions
 - 🎬 **RAF Animations**: 60fps smooth animations using requestAnimationFrame
 - ⚡ **MatrixProductLoader**: Cyberpunk-style phased loading
