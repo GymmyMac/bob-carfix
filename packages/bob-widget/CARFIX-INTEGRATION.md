@@ -1,6 +1,6 @@
-# CARFIX Integration Guide - Bob Widget v3.0.3
+# CARFIX Integration Guide - Bob Widget v3.0.4
 
-## 🚀 Current Release: v3.0.3
+## 🚀 Current Release: v3.0.4
 
 This guide provides step-by-step instructions to integrate or update Bob Widget in your CARFIX application.
 
@@ -10,6 +10,8 @@ This guide provides step-by-step instructions to integrate or update Bob Widget 
 
 | Version | Feature | Description |
 |---------|---------|-------------|
+| **v3.0.4** | Animation Health Check | New `useBobHealthCheck` hook for diagnosing connectivity issues |
+| **v3.0.4** | Enhanced Diagnostics | Console logging reports loaded states and warns about missing critical states |
 | **v3.0.3** | Counter Overlay Fix | Shop counter image now hosted on Supabase Storage with absolute URLs |
 | **v3.0.2** | External Audio Hosting | Audio clips use absolute URLs - no more silent audio on external sites |
 | **v3.0.2** | CSS Isolation | Strengthened widget-reset.css to block host site style bleeding |
@@ -34,7 +36,7 @@ npm uninstall @gymmymac/bob-widget
 rm -rf node_modules/.vite
 
 # Install latest version
-npm install @gymmymac/bob-widget@^3.0.3
+npm install @gymmymac/bob-widget@^3.0.4
 
 # Restart dev server
 npm run dev
@@ -200,26 +202,56 @@ This allows Bob's queries to share the same cache as your app.
 Open browser DevTools (F12) and check the console. You should see:
 
 ```
-[BobWidget] Package loaded - v3.0.3
-[BobWidget] v3.0.3 initialized
-[BobWidget] QueryClient: internal
+[BobWidget] Package loaded - v3.0.4
+[BobWidget] v3.0.4 initialized
+[BobAnimation] Loading animations for look: V2 Bob
+[BobAnimation] Loaded 6 states: idle, waving, listening, researching, talking, showing_product
+[BobAnimation] Loaded 24 animation frames
 ```
 
-If you see "QueryClient: external (shared)", you're using a shared QueryClient.
+If critical states are missing, you'll see a warning:
+```
+[BobAnimation] ⚠️ Missing critical states: talking, listening
+```
+
+### Programmatic Health Check (NEW in v3.0.4)
+
+```tsx
+import { useBobHealthCheck } from '@gymmymac/bob-widget';
+
+function DiagnosticComponent() {
+  const { checkHealth } = useBobHealthCheck();
+
+  useEffect(() => {
+    checkHealth().then(result => {
+      console.log('Bob Health:', result);
+      // {
+      //   healthy: true,
+      //   activeLookId: "bddd31eb-...",
+      //   activeLookName: "V2 Bob",
+      //   stateCount: 6,
+      //   states: ["idle", "waving", "listening", "researching", "talking", "showing_product"],
+      //   missingCritical: [],
+      //   frameCount: 24
+      // }
+    });
+  }, []);
+}
+```
 
 ### Ask Bob
 
 Type in the chat: **"What version are you running?"**
 
-Bob should respond with his current version (3.0.3).
+Bob should respond with his current version (3.0.4).
 
-### Programmatic Check
+### Version Check
 
 ```tsx
 import { getBobVersion, BOB_VERSION } from '@gymmymac/bob-widget';
 
-console.log('Bob Version:', getBobVersion()); // "3.0.3"
-console.log('BOB_VERSION constant:', BOB_VERSION); // "3.0.3"
+console.log('Bob Version:', getBobVersion()); // "3.0.4"
+console.log('BOB_VERSION constant:', BOB_VERSION); // "3.0.4"
 ```
 
 ---
@@ -244,6 +276,18 @@ const queryClient = new QueryClient();
 
 ## Troubleshooting
 
+### Animation State Issues
+
+Bob requires these animation states to function correctly:
+- `idle` or `listening` - Default waiting state
+- `talking` or `talk` - Active speech animation  
+- `researching` or `research` - Processing user input
+- `waving` - Greeting animation (optional fallback)
+
+**Fallback Behaviour**: If a requested state is missing, Bob falls back to the first available state with images (typically `waving`). This is defensive behaviour, not an error.
+
+### Common Issues
+
 | Issue | Solution |
 |-------|----------|
 | Old version showing in console | Clear `node_modules/.vite`, restart dev server |
@@ -251,6 +295,8 @@ const queryClient = new QueryClient();
 | "Package loaded" but not "initialized" | BobProvider/BobWidget not rendered yet |
 | No products loading | Verify hostApiConfig credentials and baseUrl |
 | Version mismatch | Run `npm ls @gymmymac/bob-widget` to check installed version |
+| "Missing critical states" warning | Check database has animation_states for active look |
+| Bob stuck on waving | Verify `animation_states` table has `talking`/`listening` rows |
 
 ### Cache Clearing Commands
 
@@ -378,7 +424,12 @@ If you encounter any issues:
 
 See [CHANGELOG.md](./CHANGELOG.md) for full version history.
 
-### v3.0.3 (Current)
+### v3.0.4 (Current)
+- 🩺 **Animation Health Check**: New `useBobHealthCheck` hook for diagnosing connectivity
+- 📊 **Enhanced Diagnostics**: Console logging reports loaded states and frame counts
+- ⚠️ **Missing State Warnings**: Warns about missing critical states (`idle`, `talking`, `listening`)
+
+### v3.0.3
 - 🖼️ **Counter Overlay Fix**: Shop counter image uses absolute Supabase Storage URL
 - 🗄️ **Database Migration**: `counter_overlay_url` field added to `bob_backdrops`
 

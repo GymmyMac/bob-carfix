@@ -87,6 +87,8 @@ export { useBobBackdrop } from './hooks/useBobBackdrop';
 export { useThemeSettings } from './hooks/useThemeSettings';
 export { useSparkDeals } from './hooks/useSparkDeals';
 export { useReturningUser } from './hooks/useReturningUser';
+export { useBobHealthCheck } from './hooks/useBobHealthCheck';
+export type { BobHealthCheckResult } from './hooks/useBobHealthCheck';
 
 // Types
 export type {
