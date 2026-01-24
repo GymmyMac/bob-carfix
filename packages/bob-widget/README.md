@@ -2,7 +2,7 @@
 
 AI-powered automotive parts assistant widget for integration into partner websites.
 
-**v3.0.0** - Major release with multi-tenant support, RAF animations, swipeable Bob, and enhanced mobile experience.
+**v3.0.5** - Stability release with complete CARFIX integration documentation, animation state manifest, and TTS configuration guide.
 
 ## What's New in v3.0.0
 
@@ -96,13 +96,13 @@ Or programmatically:
 ```tsx
 import { BOB_VERSION, getBobVersion } from '@gymmymac/bob-widget';
 
-console.log(`Bob Widget Version: ${getBobVersion()}`); // "3.0.0"
+console.log(`Bob Widget Version: ${getBobVersion()}`); // "3.0.5"
 ```
 
 Check the console for startup logs:
 ```
-[BobWidget] Package loaded - v3.0.0
-[BobWidget] v3.0.0 initialized
+[BobWidget] Package loaded - v3.0.5
+[BobWidget] v3.0.5 initialized
 [BobWidget] QueryClient: internal
 ```
 

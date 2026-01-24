@@ -1,6 +1,6 @@
-# CARFIX Integration Guide - Bob Widget v3.0.4
+# CARFIX Integration Guide - Bob Widget v3.0.5
 
-## 🚀 Current Release: v3.0.4
+## 🚀 Current Release: v3.0.5
 
 This guide provides step-by-step instructions to integrate or update Bob Widget in your CARFIX application.
 
@@ -10,6 +10,8 @@ This guide provides step-by-step instructions to integrate or update Bob Widget 
 
 | Version | Feature | Description |
 |---------|---------|-------------|
+| **v3.0.5** | Integration Stability | Complete animation state manifest and TTS configuration guide |
+| **v3.0.5** | Documentation | Backend infrastructure checklist for external installations |
 | **v3.0.4** | Animation Health Check | New `useBobHealthCheck` hook for diagnosing connectivity issues |
 | **v3.0.4** | Enhanced Diagnostics | Console logging reports loaded states and warns about missing critical states |
 | **v3.0.3** | Counter Overlay Fix | Shop counter image now hosted on Supabase Storage with absolute URLs |
@@ -36,7 +38,7 @@ npm uninstall @gymmymac/bob-widget
 rm -rf node_modules/.vite
 
 # Install latest version
-npm install @gymmymac/bob-widget@^3.0.4
+npm install @gymmymac/bob-widget@^3.0.5
 
 # Restart dev server
 npm run dev
@@ -202,8 +204,8 @@ This allows Bob's queries to share the same cache as your app.
 Open browser DevTools (F12) and check the console. You should see:
 
 ```
-[BobWidget] Package loaded - v3.0.4
-[BobWidget] v3.0.4 initialized
+[BobWidget] Package loaded - v3.0.5
+[BobWidget] v3.0.5 initialized
 [BobAnimation] Loading animations for look: V2 Bob
 [BobAnimation] Loaded 6 states: idle, waving, listening, researching, talking, showing_product
 [BobAnimation] Loaded 24 animation frames
@@ -214,7 +216,7 @@ If critical states are missing, you'll see a warning:
 [BobAnimation] ⚠️ Missing critical states: talking, listening
 ```
 
-### Programmatic Health Check (NEW in v3.0.4)
+### Programmatic Health Check (v3.0.4+)
 
 ```tsx
 import { useBobHealthCheck } from '@gymmymac/bob-widget';
@@ -243,15 +245,15 @@ function DiagnosticComponent() {
 
 Type in the chat: **"What version are you running?"**
 
-Bob should respond with his current version (3.0.4).
+Bob should respond with his current version (3.0.5).
 
 ### Version Check
 
 ```tsx
 import { getBobVersion, BOB_VERSION } from '@gymmymac/bob-widget';
 
-console.log('Bob Version:', getBobVersion()); // "3.0.4"
-console.log('BOB_VERSION constant:', BOB_VERSION); // "3.0.4"
+console.log('Bob Version:', getBobVersion()); // "3.0.5"
+console.log('BOB_VERSION constant:', BOB_VERSION); // "3.0.5"
 ```
 
 ---
@@ -424,7 +426,12 @@ If you encounter any issues:
 
 See [CHANGELOG.md](./CHANGELOG.md) for full version history.
 
-### v3.0.4 (Current)
+### v3.0.5 (Current)
+- 📋 **Animation State Manifest**: Complete state documentation for CARFIX integration
+- 🎙️ **TTS Configuration Guide**: Documented hybrid audio system
+- ✅ **Backend Infrastructure Checklist**: Verification guide for external installations
+
+### v3.0.4
 - 🩺 **Animation Health Check**: New `useBobHealthCheck` hook for diagnosing connectivity
 - 📊 **Enhanced Diagnostics**: Console logging reports loaded states and frame counts
 - ⚠️ **Missing State Warnings**: Warns about missing critical states (`idle`, `talking`, `listening`)
