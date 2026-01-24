@@ -5,6 +5,18 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.6] - 2026-01-24
+
+### Changed
+- **Release Process Fix**: Corrected GitHub tag/version sync from v3.0.5 release attempt
+- **Documentation Consolidation**: Incorporated CARFIX integration feedback into all guides
+- **Version References**: Updated all documentation to reflect current stable release
+
+### Documentation
+- Clarified animation state naming conventions for external integrations
+- Enhanced troubleshooting section with common CARFIX deployment scenarios
+- Updated console verification examples with current version output
+
 ## [3.0.5] - 2026-01-24
 
 ### Added

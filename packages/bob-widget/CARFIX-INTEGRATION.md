@@ -1,6 +1,6 @@
-# CARFIX Integration Guide - Bob Widget v3.0.5
+# CARFIX Integration Guide - Bob Widget v3.0.6
 
-## 🚀 Current Release: v3.0.5
+## 🚀 Current Release: v3.0.6
 
 This guide provides step-by-step instructions to integrate or update Bob Widget in your CARFIX application.
 
@@ -10,6 +10,7 @@ This guide provides step-by-step instructions to integrate or update Bob Widget 
 
 | Version | Feature | Description |
 |---------|---------|-------------|
+| **v3.0.6** | Documentation Release | Corrected GitHub sync, consolidated CARFIX feedback |
 | **v3.0.5** | Integration Stability | Complete animation state manifest and TTS configuration guide |
 | **v3.0.5** | Documentation | Backend infrastructure checklist for external installations |
 | **v3.0.4** | Animation Health Check | New `useBobHealthCheck` hook for diagnosing connectivity issues |
@@ -38,7 +39,7 @@ npm uninstall @gymmymac/bob-widget
 rm -rf node_modules/.vite
 
 # Install latest version
-npm install @gymmymac/bob-widget@^3.0.5
+npm install @gymmymac/bob-widget@^3.0.6
 
 # Restart dev server
 npm run dev
@@ -204,8 +205,8 @@ This allows Bob's queries to share the same cache as your app.
 Open browser DevTools (F12) and check the console. You should see:
 
 ```
-[BobWidget] Package loaded - v3.0.5
-[BobWidget] v3.0.5 initialized
+[BobWidget] Package loaded - v3.0.6
+[BobWidget] v3.0.6 initialized
 [BobAnimation] Loading animations for look: V2 Bob
 [BobAnimation] Loaded 6 states: idle, waving, listening, researching, talking, showing_product
 [BobAnimation] Loaded 24 animation frames
@@ -245,15 +246,15 @@ function DiagnosticComponent() {
 
 Type in the chat: **"What version are you running?"**
 
-Bob should respond with his current version (3.0.5).
+Bob should respond with his current version (3.0.6).
 
 ### Version Check
 
 ```tsx
 import { getBobVersion, BOB_VERSION } from '@gymmymac/bob-widget';
 
-console.log('Bob Version:', getBobVersion()); // "3.0.5"
-console.log('BOB_VERSION constant:', BOB_VERSION); // "3.0.5"
+console.log('Bob Version:', getBobVersion()); // "3.0.6"
+console.log('BOB_VERSION constant:', BOB_VERSION); // "3.0.6"
 ```
 
 ---
@@ -426,7 +427,11 @@ If you encounter any issues:
 
 See [CHANGELOG.md](./CHANGELOG.md) for full version history.
 
-### v3.0.5 (Current)
+### v3.0.6 (Current)
+- 🔄 **Release Process Fix**: Corrected GitHub tag/version sync
+- 📚 **Documentation Consolidation**: Incorporated CARFIX integration feedback
+
+### v3.0.5
 - 📋 **Animation State Manifest**: Complete state documentation for CARFIX integration
 - 🎙️ **TTS Configuration Guide**: Documented hybrid audio system
 - ✅ **Backend Infrastructure Checklist**: Verification guide for external installations
