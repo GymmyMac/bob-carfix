@@ -104,7 +104,7 @@ export const useBobAnimationData = (lookId?: string | null) => {
     queryKey: ['bob-animation-data', lookId],
     queryFn: async () => {
       if (!supabase) {
-        console.log('[useBobAnimationData] No supabase client, returning empty data');
+        console.log('[BobAnimation] No supabase client, returning empty data');
         return EMPTY_ANIMATION_DATA;
       }
 
@@ -122,6 +122,7 @@ export const useBobAnimationData = (lookId?: string | null) => {
 
       // If no looks exist, return empty data
       if (!targetLookId) {
+        console.warn('[BobAnimation] No looks configured in database');
         return {
           states: [],
           configs: [],
@@ -130,6 +131,8 @@ export const useBobAnimationData = (lookId?: string | null) => {
           activeLookId: null,
         };
       }
+
+      console.log(`[BobAnimation] Loading animations for look: ${activeLook?.name || targetLookId}`);
 
       // Fetch animation states for the target look
       const { data: states, error: statesError } = await supabase
@@ -151,9 +154,25 @@ export const useBobAnimationData = (lookId?: string | null) => {
 
       if (configsError) throw configsError;
 
+      // Log loaded states for debugging
+      const stateKeys = (states || []).map((s: AnimationStateDefinition) => s.state_key);
+      console.log(`[BobAnimation] Loaded ${stateKeys.length} states: ${stateKeys.join(', ')}`);
+
+      // Check for critical states and warn if missing
+      const criticalStates = ['idle', 'talking', 'listening'];
+      const missingCritical = criticalStates.filter(key => {
+        const variations = [key, key.replace('ing', ''), key + 'ing'];
+        return !stateKeys.some(sk => variations.includes(sk));
+      });
+      if (missingCritical.length > 0) {
+        console.warn(`[BobAnimation] ⚠️ Missing critical states: ${missingCritical.join(', ')}`);
+      }
+
       // Filter configs to only include those with valid state keys
-      const validStateKeys = new Set((states || []).map((s: AnimationStateDefinition) => s.state_key));
+      const validStateKeys = new Set(stateKeys);
       const filteredConfigs = (configs || []).filter((c: BobAnimationConfig) => validStateKeys.has(c.animation_state));
+
+      console.log(`[BobAnimation] Loaded ${filteredConfigs.length} animation frames`);
 
       // List uploaded images from storage
       const { data: files, error: filesError } = await supabase.storage

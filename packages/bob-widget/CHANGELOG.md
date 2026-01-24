@@ -5,10 +5,14 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.0.4] - 2026-01-23
+## [3.0.4] - 2026-01-24
+
+### Added
+- **Animation Health Check**: New `useBobHealthCheck` hook for diagnosing animation system connectivity on external sites
+- **Enhanced Diagnostics**: Console logging now reports loaded states, frame counts, and warns about missing critical states (`idle`, `talking`, `listening`)
 
 ### Changed
-- Version bump for release
+- Improved animation data loading logs for easier CARFIX integration debugging
 
 ## [3.0.3] - 2026-01-23
 - **Database Migration**: Added `counter_overlay_url` to active backdrop record pointing to `bob-images` storage bucket
