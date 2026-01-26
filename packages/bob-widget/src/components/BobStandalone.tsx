@@ -150,29 +150,12 @@ export const BobStandalone: React.FC<StandaloneWidgetProps> = ({
     });
   }, [partner, sessionToken, debug]);
 
-  // Show loading state
-  if (isLoading) {
-    return <LoadingState />;
-  }
-
-  // Show error state
-  if (error || !config || !supabaseClient) {
-    const displayError = error || new Error('Failed to initialize Bob');
-    onError?.(displayError);
-    return <ErrorState error={displayError} partner={partner} />;
-  }
-
-  // Merge config with prop overrides
-  const bottomOffset = propsBottomOffset ?? config.default_bottom_offset;
-  const zIndexBase = propsZIndexBase ?? config.default_z_index_base;
-  const showDebug = debug || getFeatureFlag(config, 'showDebugOverlay', false);
-
+  // ✅ CRITICAL: All hooks MUST be called before any conditional returns
   // Build callbacks - map essential callbacks to full BobCallbacks interface
   const callbacks: BobCallbacks = useMemo(() => ({
     onAddToCart: onAddToCart ? (item) => onAddToCart(item) : undefined,
     onCheckoutRequested: onCheckout,
     onError,
-    // Navigation handler - Bob calls this for internal links
     onNavigateToProductPage: onNavigate 
       ? (product: unknown) => {
           const p = product as { sku?: string };
@@ -189,6 +172,23 @@ export const BobStandalone: React.FC<StandaloneWidgetProps> = ({
     // The session-handoff edge function resolves vehicle/user context
     return {};
   }, []);
+
+  // Show loading state - AFTER all hooks
+  if (isLoading) {
+    return <LoadingState />;
+  }
+
+  // Show error state - AFTER all hooks
+  if (error || !config || !supabaseClient) {
+    const displayError = error || new Error('Failed to initialize Bob');
+    onError?.(displayError);
+    return <ErrorState error={displayError} partner={partner} />;
+  }
+
+  // Merge config with prop overrides (safe after config is confirmed non-null)
+  const bottomOffset = propsBottomOffset ?? config.default_bottom_offset;
+  const zIndexBase = propsZIndexBase ?? config.default_z_index_base;
+  const showDebug = debug || getFeatureFlag(config, 'showDebugOverlay', false);
 
   return (
     <div 

@@ -5,6 +5,12 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.1] - 2026-01-26
+
+### Fixed
+- **React Hooks Order Violation**: Moved `useMemo` hooks before conditional early returns in `BobStandalone` to comply with React's Rules of Hooks, fixing "Rendered more hooks than during the previous render" error
+- **Allowed Origins**: Added `https://*.lovableproject.com` to CARFIX partner allowed origins for Lovable preview support
+
 ## [3.1.0] - 2026-01-26
 
 ### Added
