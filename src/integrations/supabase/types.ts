@@ -403,6 +403,63 @@ export type Database = {
         }
         Relationships: []
       }
+      bob_partners: {
+        Row: {
+          allowed_origins: string[] | null
+          api_base_url: string
+          api_key_secret_name: string | null
+          backdrop_blur_intensity: number | null
+          backdrop_overlay_opacity: number | null
+          bob_supabase_key: string | null
+          bob_supabase_url: string | null
+          created_at: string | null
+          default_bottom_offset: number | null
+          default_z_index_base: number | null
+          display_name: string
+          feature_flags: Json | null
+          id: string
+          is_active: boolean | null
+          partner_code: string
+          updated_at: string | null
+        }
+        Insert: {
+          allowed_origins?: string[] | null
+          api_base_url: string
+          api_key_secret_name?: string | null
+          backdrop_blur_intensity?: number | null
+          backdrop_overlay_opacity?: number | null
+          bob_supabase_key?: string | null
+          bob_supabase_url?: string | null
+          created_at?: string | null
+          default_bottom_offset?: number | null
+          default_z_index_base?: number | null
+          display_name: string
+          feature_flags?: Json | null
+          id?: string
+          is_active?: boolean | null
+          partner_code: string
+          updated_at?: string | null
+        }
+        Update: {
+          allowed_origins?: string[] | null
+          api_base_url?: string
+          api_key_secret_name?: string | null
+          backdrop_blur_intensity?: number | null
+          backdrop_overlay_opacity?: number | null
+          bob_supabase_key?: string | null
+          bob_supabase_url?: string | null
+          created_at?: string | null
+          default_bottom_offset?: number | null
+          default_z_index_base?: number | null
+          display_name?: string
+          feature_flags?: Json | null
+          id?: string
+          is_active?: boolean | null
+          partner_code?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       bob_prompts: {
         Row: {
           category: string

@@ -1,5 +1,6 @@
 /**
  * Bob Widget CSS Reset - Complete isolation from host page styles
+ * v3.1.0 - Enhanced isolation with CSS variables for partner customization
  * This prevents CarFix (and other host sites) from bleeding styles into Bob
  */
 
@@ -26,6 +27,13 @@
   /* Override any inherited --border CSS variable from host */
   --border: transparent !important;
   --border-border: transparent !important;
+  
+  /* v3.1.0: CSS Variables for partner customization */
+  --bob-blur-intensity: 8px;
+  --bob-overlay-opacity: 0.15;
+  --bob-z-base: 50;
+  --bob-primary-color: #0066cc;
+  --bob-accent-color: #ff8c00;
 }
 
 /* Reset box-sizing for all child elements */

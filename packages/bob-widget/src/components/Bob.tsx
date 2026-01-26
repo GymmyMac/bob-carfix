@@ -22,6 +22,8 @@ interface BobProps {
   defaultBobImage?: string;
   verticalOffset?: number;
   scale?: number;
+  /** Session token for pre-authenticated sessions (vehicle/user context) */
+  sessionToken?: string;
 }
 
 export const Bob: React.FC<BobProps> = ({
@@ -34,7 +36,8 @@ export const Bob: React.FC<BobProps> = ({
   counterHeightPercent: propCounterHeight,
   defaultBobImage,
   verticalOffset = 0,
-  scale = 100
+  scale = 100,
+  sessionToken
 }) => {
   const { callbacks } = useBobContext();
   

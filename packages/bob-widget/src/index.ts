@@ -3,6 +3,7 @@
  * 
  * AI-powered automotive parts assistant widget - Full immersive experience
  * 
+ * v3.1.0 - Standalone partner integration: auto-config from database, simplified props
  * v3.0.0 - Major rebuild with multi-tenant support, RAF animations, swipeable Bob
  * v1.4.0 - Redesigned PTT button: 3x larger, green "TALK" text, floating cartoon style
  * v1.3.1 - Bottom offset support for host navigation bars
@@ -34,6 +35,17 @@ export {
 // Self-contained widget (recommended for easy integration)
 export { BobWidget } from './components/BobWidget';
 export type { BobWidgetProps } from './components/BobWidget';
+
+// v3.1.0 Standalone widget (simplest integration - auto-configures from database)
+export { BobStandalone } from './components/BobStandalone';
+export type { StandaloneWidgetProps } from './types/partner';
+
+// Partner configuration hook (for advanced integrations)
+export { usePartnerConfig, getFeatureFlag } from './hooks/usePartnerConfig';
+export type { PartnerConfig, PartnerFeatureFlags, EssentialCallbacks } from './types/partner';
+
+// Debug overlay (can be used standalone)
+export { BobDebugOverlay } from './components/BobDebugOverlay';
 
 // Main components
 export { Bob } from './components/Bob';
