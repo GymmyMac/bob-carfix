@@ -35,7 +35,7 @@ export const useSpeechSynthesis = ({
   onEnd,
   onFailed,
 }: UseSpeechSynthesisProps = {}) => {
-  const { bobConfig, supabase } = useBobContext();
+  const { bobConfig, bobSupabase: supabase } = useBobContext();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
