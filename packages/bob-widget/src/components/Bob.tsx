@@ -24,6 +24,13 @@ interface BobProps {
   scale?: number;
   /** Session token for pre-authenticated sessions (vehicle/user context) */
   sessionToken?: string;
+  /** 
+   * Use container-relative positioning instead of fixed viewport.
+   * Set to true when Bob is embedded in a host site with headers/footers.
+   * Only applies to mobile/fullscreen variants.
+   * @default false
+   */
+  embedded?: boolean;
 }
 
 export const Bob: React.FC<BobProps> = ({
@@ -37,7 +44,8 @@ export const Bob: React.FC<BobProps> = ({
   defaultBobImage,
   verticalOffset = 0,
   scale = 100,
-  sessionToken
+  sessionToken,
+  embedded = false
 }) => {
   const { callbacks } = useBobContext();
   
@@ -167,6 +175,7 @@ export const Bob: React.FC<BobProps> = ({
         counterHeightPercent={counterHeightPercent}
         bobOffset={dbOffset}
         bobScale={dbScale}
+        embedded={embedded}
         messages={bobChat.messages}
         input={bobChat.input}
         setInput={bobChat.setInput}
