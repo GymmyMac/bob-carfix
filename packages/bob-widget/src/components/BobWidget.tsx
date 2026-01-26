@@ -61,6 +61,13 @@ export interface BobWidgetProps {
    * Bob calculates internal z-indexes relative to this base.
    */
   zIndexBase?: number;
+  /**
+   * Use container-relative positioning instead of fixed viewport.
+   * Set to true when Bob is embedded in a host site with headers/footers.
+   * Only applies to mobile/fullscreen variants.
+   * @default false
+   */
+  embedded?: boolean;
 }
 
 /**
@@ -110,6 +117,7 @@ export const BobWidget: React.FC<BobWidgetProps> = ({
   analyticsEnabled = true,
   bottomOffset = 0,
   zIndexBase = 50,
+  embedded = false,
 }) => {
   // Debug logging for external host troubleshooting
   useEffect(() => {
@@ -147,6 +155,7 @@ export const BobWidget: React.FC<BobWidgetProps> = ({
           defaultBobImage={defaultBobImage}
           verticalOffset={verticalOffset}
           scale={scale}
+          embedded={embedded}
         />
       </BobProvider>
     </div>

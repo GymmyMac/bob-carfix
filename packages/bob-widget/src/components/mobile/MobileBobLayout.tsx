@@ -50,6 +50,13 @@ interface MobileBobLayoutProps {
   // Bob positioning from database
   bobOffset?: number;
   bobScale?: number;
+  
+  /** 
+   * Use container-relative positioning instead of fixed viewport.
+   * Set to true when Bob is embedded in a host site with headers/footers.
+   * @default false
+   */
+  embedded?: boolean;
 }
 
 export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
@@ -80,7 +87,8 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
   vehicle,
   onChangeVehicle,
   bobOffset = 0,
-  bobScale = 100
+  bobScale = 100,
+  embedded = false
 }) => {
   // Debug logging
   console.log('[MobileBobLayout] Rendering with:', {
@@ -143,9 +151,9 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 overflow-hidden"
+      className={embedded ? "absolute inset-0 overflow-hidden" : "fixed inset-0 overflow-hidden"}
       style={{
-        height: '100dvh',
+        height: embedded ? '100%' : '100dvh',
         touchAction: 'manipulation'
       }}
     >
