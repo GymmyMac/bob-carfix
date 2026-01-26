@@ -5,17 +5,31 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-01-26
+
+### Added
+- **BobStandalone Component**: New simplified integration component that auto-configures from database
+- **Partner Config System**: `bob_partners` database table stores all partner-specific settings
+- **usePartnerConfig Hook**: Auto-loads partner configuration including API URLs, layout defaults, and feature flags
+- **BobDebugOverlay Component**: Visual diagnostic overlay for integration troubleshooting
+- **CSS Variables**: Customizable `--bob-blur-intensity`, `--bob-overlay-opacity`, `--bob-primary-color`
+- **sessionToken Prop**: Support for pre-authenticated sessions on Bob and BobStandalone components
+
+### Changed
+- **Integration Complexity**: Reduced from 30+ lines to 4 lines of code for CARFIX
+- **Callback Model**: Simplified to 3 essential callbacks (`onAddToCart`, `onNavigate`, `onCheckout`)
+- **Config Model**: All configuration now auto-loaded from `bob_partners` table
+
+### Documentation
+- Complete rewrite of CARFIX-INTEGRATION.md for v3.1.0
+- Migration guide from v3.0.x to v3.1.0
+
 ## [3.0.6] - 2026-01-24
 
 ### Changed
 - **Release Process Fix**: Corrected GitHub tag/version sync from v3.0.5 release attempt
 - **Documentation Consolidation**: Incorporated CARFIX integration feedback into all guides
 - **Version References**: Updated all documentation to reflect current stable release
-
-### Documentation
-- Clarified animation state naming conventions for external integrations
-- Enhanced troubleshooting section with common CARFIX deployment scenarios
-- Updated console verification examples with current version output
 
 ## [3.0.5] - 2026-01-24
 

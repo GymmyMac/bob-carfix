@@ -1,37 +1,68 @@
-# CARFIX Integration Guide - Bob Widget v3.0.6
+# CARFIX Integration Guide - Bob Widget v3.1.0
 
-## 🚀 Current Release: v3.0.6
+## 🚀 Current Release: v3.1.0 (Standalone Architecture)
 
-This guide provides step-by-step instructions to integrate or update Bob Widget in your CARFIX application.
-
----
-
-## What's New in v3.0.x
-
-| Version | Feature | Description |
-|---------|---------|-------------|
-| **v3.0.6** | Documentation Release | Corrected GitHub sync, consolidated CARFIX feedback |
-| **v3.0.5** | Integration Stability | Complete animation state manifest and TTS configuration guide |
-| **v3.0.5** | Documentation | Backend infrastructure checklist for external installations |
-| **v3.0.4** | Animation Health Check | New `useBobHealthCheck` hook for diagnosing connectivity issues |
-| **v3.0.4** | Enhanced Diagnostics | Console logging reports loaded states and warns about missing critical states |
-| **v3.0.3** | Counter Overlay Fix | Shop counter image now hosted on Supabase Storage with absolute URLs |
-| **v3.0.2** | External Audio Hosting | Audio clips use absolute URLs - no more silent audio on external sites |
-| **v3.0.2** | CSS Isolation | Strengthened widget-reset.css to block host site style bleeding |
-| **v3.0.1** | TTS Voice Validation | Automatic fallback for mismatched voice provider IDs |
-| **v3.0.0** | SwipeableBob | Gesture-based interactions - swipe Bob in/out of view |
-| **v3.0.0** | RAF Animations | Smooth 60fps animations using requestAnimationFrame |
-| **v3.0.0** | MatrixProductLoader | Cyberpunk-style loading with phased states |
-| **v3.0.0** | SparkDealBanner | Animated promotional banner component |
-| **v3.0.0** | Multi-Tenant Support | Configurable looks and animations per tenant |
-| **v3.0.0** | Returning User Detection | Personalized greetings for repeat visitors |
-| **v3.0.0** | Theme Settings | Dynamic theme configuration from database |
-| **v3.0.0** | `bottomOffset` prop | Position Bob above your bottom navigation bar |
-| **v3.0.0** | `zIndexBase` prop | Control z-index stacking to avoid conflicts |
+This guide provides step-by-step instructions to integrate Bob Widget in your CARFIX application using the new simplified v3.1.0 architecture.
 
 ---
 
-## Step 1: Update Bob Widget
+## What's New in v3.1.0
+
+| Feature | Description |
+|---------|-------------|
+| **BobStandalone** | Auto-configures from database - 4 lines to integrate |
+| **Partner Config System** | All settings stored in `bob_partners` table |
+| **CSS Variables** | Customizable blur, opacity, colors via CSS |
+| **Debug Overlay** | Visual diagnostic tool for troubleshooting |
+| **sessionToken Prop** | Pre-authenticated sessions for vehicle handoff |
+| **Simplified Callbacks** | Only 3 essential callbacks required |
+
+---
+
+## Quick Start (Recommended)
+
+With v3.1.0, Bob auto-loads all configuration from the database. CARFIX only needs 4 lines of code:
+
+```tsx
+import { BobStandalone } from '@gymmymac/bob-widget';
+
+function AskBobPage() {
+  const { addToCart } = useCart();
+  const router = useRouter();
+  const sessionToken = router.query.session as string;
+
+  return (
+    <div className="h-[calc(100dvh-136px)] relative">
+      <BobStandalone
+        partner="CARFIX"
+        sessionToken={sessionToken}
+        onAddToCart={(item) => addToCart(item)}
+        onNavigate={(url) => router.push(url)}
+      />
+    </div>
+  );
+}
+```
+
+**That's it!** Bob handles everything else internally.
+
+---
+
+## What's Auto-Configured
+
+| Setting | Value | Source |
+|---------|-------|--------|
+| API Base URL | `https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1` | `bob_partners` table |
+| Bottom Offset | 60px | `bob_partners` table |
+| Backdrop Blur | 4px | `bob_partners` table |
+| Overlay Opacity | 10% | `bob_partners` table |
+| Service Packages | Enabled | Feature flag |
+| TTS | Enabled | Feature flag |
+| Speech Recognition | Enabled | Feature flag |
+
+---
+
+## Step 1: Install/Update Bob Widget
 
 ```bash
 # Remove old version and clear cache
@@ -39,7 +70,7 @@ npm uninstall @gymmymac/bob-widget
 rm -rf node_modules/.vite
 
 # Install latest version
-npm install @gymmymac/bob-widget@^3.0.6
+npm install @gymmymac/bob-widget@^3.1.0
 
 # Restart dev server
 npm run dev
@@ -47,261 +78,270 @@ npm run dev
 
 ---
 
-## Step 2: Handle Bottom Navigation (NEW!)
+## Step 2: Choose Your Integration Method
 
-If your site has a bottom navigation bar, use the `bottomOffset` prop to position Bob above it:
-
-```tsx
-<BobWidget
-  bobConfig={{...}}
-  hostApiConfig={{...}}
-  variant="mobile"
-  // NEW: Tell Bob about your 60px bottom navigation
-  bottomOffset={60}
-/>
-```
-
-This ensures:
-- ✅ Chat drawer appears above your navigation
-- ✅ Push-to-talk button is fully accessible
-- ✅ Text input is not obscured
-- ✅ Expand/collapse button is tappable
-
-### Z-Index Control (Optional)
-
-If you have z-index conflicts, specify a base z-index:
+### Option A: BobStandalone (Recommended - Simplest)
 
 ```tsx
-<BobWidget
-  bottomOffset={60}
-  zIndexBase={100}  // Bob's elements will use z-100, z-110, z-120, etc.
-/>
-```
+import { BobStandalone } from '@gymmymac/bob-widget';
 
----
+function AskBobPage() {
+  const { addToCart } = useCart();
+  const router = useRouter();
+  const sessionToken = router.query.session;
 
-## Step 3: Choose Your Integration Method
-
-This is the easiest way to integrate Bob. It handles all providers internally.
-
-```tsx
-import { BobWidget } from '@gymmymac/bob-widget';
-
-function App() {
   return (
-    <div className="app">
-      {/* Your existing app content */}
-      
-      <BobWidget
-        bobConfig={{
-          supabaseUrl: 'https://gjoguxzstsihhxvdgpto.supabase.co',
-          supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdqb2d1eHpzdHNpaGh4dmRncHRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5MzgyODEsImV4cCI6MjA3OTUxNDI4MX0.detu4TKB7RjC6l6CrVaPYoi0Hhz2asDt6zxNx1cdzq8',
-        }}
-        hostApiConfig={{
-          baseUrl: 'YOUR_API_BASE_URL',
-          apiKey: 'YOUR_API_KEY',
-          partnerCode: 'CARFIX',
-        }}
-        hostContext={{
-          user: { id: user?.id, email: user?.email },
-          vehicle: { selectedVehicle: currentVehicle },
-        }}
-        callbacks={{
-          onVehicleIdentified: (vehicle) => setVehicle(vehicle),
-          onPartsFound: (parts) => setParts(parts),
-          onAddToCart: (item) => addToCart(item),
-        }}
-        variant="mobile"
+    <div className="h-[calc(100dvh-136px)] relative">
+      <BobStandalone
+        partner="CARFIX"
+        sessionToken={sessionToken}
+        onAddToCart={(item) => addToCart(item)}
+        onNavigate={(url) => router.push(url)}
       />
     </div>
   );
 }
 ```
 
-**Benefits of BobWidget:**
-- ✅ Zero configuration required
-- ✅ No QueryClientProvider wrapping needed
-- ✅ All props in one component
-- ✅ Self-contained and isolated
+### Option B: BobWidget (More Control)
 
----
-
-### Option B: BobProvider + Bob (More Control)
-
-Use this if you need to access Bob's context in other parts of your app.
+Use this if you need to override database defaults or access more callbacks:
 
 ```tsx
-import { BobProvider, Bob, useHostContext } from '@gymmymac/bob-widget';
+import { BobWidget } from '@gymmymac/bob-widget';
 
-function App() {
-  return (
-    <BobProvider
-      bobConfig={{
-        supabaseUrl: 'https://gjoguxzstsihhxvdgpto.supabase.co',
-        supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdqb2d1eHpzdHNpaGh4dmRncHRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5MzgyODEsImV4cCI6MjA3OTUxNDI4MX0.detu4TKB7RjC6l6CrVaPYoi0Hhz2asDt6zxNx1cdzq8',
-      }}
-      hostApiConfig={{
-        baseUrl: 'YOUR_API_BASE_URL',
-        apiKey: 'YOUR_API_KEY',
-        partnerCode: 'CARFIX',
-      }}
-      hostContext={{
-        user: { id: user?.id, email: user?.email },
-      }}
-      callbacks={{
-        onAddToCart: (item) => addToCart(item),
-      }}
-    >
-      <YourAppLayout>
-        <VehicleDisplay /> {/* Can use useHostContext() */}
-        <Bob variant="mobile" />
-      </YourAppLayout>
-    </BobProvider>
-  );
-}
-
-// Example: Access Bob's context in child components
-function VehicleDisplay() {
-  const { vehicle } = useHostContext();
-  return <div>Current: {vehicle?.selectedVehicle?.rego}</div>;
-}
+<BobWidget
+  bobConfig={{
+    supabaseUrl: 'https://gjoguxzstsihhxvdgpto.supabase.co',
+    supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  }}
+  hostApiConfig={{
+    baseUrl: 'https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1',
+    apiKey: '',  // Handled server-side
+    partnerCode: 'CARFIX',
+  }}
+  callbacks={{
+    onAddToCart: (item) => addToCart(item),
+  }}
+  variant="mobile"
+  bottomOffset={60}
+/>
 ```
 
 ---
 
-### Option C: Shared QueryClient (Advanced)
+## Props Reference
 
-If you already use React Query and want to share the cache with Bob:
+### BobStandalone Props
 
-```tsx
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BobProvider, Bob } from '@gymmymac/bob-widget';
+#### Required Props
 
-const queryClient = new QueryClient();
+| Prop | Type | Description |
+|------|------|-------------|
+| `partner` | `string` | Partner code - `"CARFIX"` |
 
-function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <BobProvider
-        bobConfig={...}
-        hostApiConfig={...}
-        queryClient={queryClient} // Pass your QueryClient
-      >
-        <Bob variant="mobile" />
-      </BobProvider>
-    </QueryClientProvider>
-  );
-}
-```
+#### Optional Props
 
-This allows Bob's queries to share the same cache as your app.
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `sessionToken` | `string` | - | Pre-authenticated session token from Partner API |
+| `bottomOffset` | `number` | 60 | Override database default (for CARFIX bottom nav) |
+| `zIndexBase` | `number` | 50 | Override z-index base |
+| `backdropBlurIntensity` | `number` | 4 | Blur intensity (0-20) |
+| `backdropOverlayOpacity` | `number` | 0.1 | Overlay opacity (0-1) |
+| `debug` | `boolean` | false | Show diagnostic overlay |
+| `className` | `string` | - | Additional CSS class |
+
+#### Callbacks
+
+| Callback | Type | Description |
+|----------|------|-------------|
+| `onAddToCart` | `(item: CartItem) => void` | **Essential** - Handle cart addition |
+| `onNavigate` | `(url: string) => void` | SPA navigation within CARFIX |
+| `onCheckout` | `(url: string) => void` | Handle checkout redirect |
+| `onError` | `(error: Error) => void` | Custom error handling |
 
 ---
 
-## Step 4: Verify Installation
+## Session Handoff (Pre-Selected Vehicle)
 
-### Console Verification
+When a customer selects a vehicle on the main CARFIX site, create a session before redirecting to Bob:
+
+```typescript
+// 1. Create session via Partner API
+const response = await fetch('https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1/partner-api', {
+  method: 'POST',
+  headers: { 
+    'Content-Type': 'application/json',
+    'X-Partner-Key': 'bob_carfix_p4rtner_2024_x7kL9mNqR3wY5vBc' 
+  },
+  body: JSON.stringify({
+    action: 'create_session',
+    vehicle: { 
+      vehicle_id: 42899,  // MUST be numeric
+      make: 'MAZDA',
+      model: 'DEMIO',
+      year: 2008
+    },
+    user_email: customer?.email  // Optional
+  })
+});
+
+const { session_token } = await response.json();
+
+// 2. Redirect to Bob with session
+router.push(`/ask-bob?session=${session_token}`);
+```
+
+**Critical:** `vehicle_id` MUST be a numeric type, not a string!
+
+---
+
+## CSS Customization
+
+### Override via CSS Variables
+
+Bob uses CSS variables that can be overridden in your container:
+
+```css
+/* In your CARFIX stylesheet */
+.bob-container {
+  --bob-blur-intensity: 2px;    /* Reduce blur */
+  --bob-overlay-opacity: 0.05;  /* Lighter overlay */
+  --bob-primary-color: #0052cc; /* Match CARFIX blue */
+  --bob-accent-color: #ff8c00;  /* Orange for highlights */
+}
+```
+
+### CSS Isolation
+
+Bob v3.1.0 uses aggressive CSS isolation via `.bob-widget-root`:
+
+```css
+.bob-widget-root {
+  isolation: isolate;
+  contain: layout style;
+  /* All internal styles scoped */
+}
+```
+
+This prevents CARFIX styles from bleeding into Bob and vice versa.
+
+---
+
+## Debug Mode
+
+Enable debug overlay for troubleshooting:
+
+```tsx
+<BobStandalone
+  partner="CARFIX"
+  debug={true}  // Shows diagnostic overlay
+/>
+```
+
+The overlay displays:
+- Partner config loaded status
+- Session token status
+- Viewport size and device type
+- Position factors being applied
+- Feature flags
+- CSS conflicts detected
+
+---
+
+## Container Requirements
+
+Bob's container should:
+
+1. Have a defined height (not auto)
+2. Have `position: relative`
+3. NOT have `overflow: hidden` on parent elements
+4. NOT have transforms that would affect Bob's positioning
+
+**Recommended container:**
+
+```tsx
+<div 
+  className="bob-container"
+  style={{ 
+    height: 'calc(100dvh - 136px)', // Account for header + footer
+    position: 'relative',
+  }}
+>
+  <BobStandalone partner="CARFIX" />
+</div>
+```
+
+---
+
+## Verification
+
+### Console Output
 
 Open browser DevTools (F12) and check the console. You should see:
 
 ```
-[BobWidget] Package loaded - v3.0.6
-[BobWidget] v3.0.6 initialized
-[BobAnimation] Loading animations for look: V2 Bob
-[BobAnimation] Loaded 6 states: idle, waving, listening, researching, talking, showing_product
-[BobAnimation] Loaded 24 animation frames
+[BobWidget] Package loaded - v3.1.0
+[BobStandalone] Initialized { version: "3.1.0", partner: "CARFIX", session: "present" }
+[BobWidget] Loading partner config for: CARFIX
+[BobWidget] Partner config loaded: { partner: "CARFIX", bottomOffset: 60, ... }
+[BobWidget] v3.1.0 initialized
 ```
-
-If critical states are missing, you'll see a warning:
-```
-[BobAnimation] ⚠️ Missing critical states: talking, listening
-```
-
-### Programmatic Health Check (v3.0.4+)
-
-```tsx
-import { useBobHealthCheck } from '@gymmymac/bob-widget';
-
-function DiagnosticComponent() {
-  const { checkHealth } = useBobHealthCheck();
-
-  useEffect(() => {
-    checkHealth().then(result => {
-      console.log('Bob Health:', result);
-      // {
-      //   healthy: true,
-      //   activeLookId: "bddd31eb-...",
-      //   activeLookName: "V2 Bob",
-      //   stateCount: 6,
-      //   states: ["idle", "waving", "listening", "researching", "talking", "showing_product"],
-      //   missingCritical: [],
-      //   frameCount: 24
-      // }
-    });
-  }, []);
-}
-```
-
-### Ask Bob
-
-Type in the chat: **"What version are you running?"**
-
-Bob should respond with his current version (3.0.6).
 
 ### Version Check
 
 ```tsx
 import { getBobVersion, BOB_VERSION } from '@gymmymac/bob-widget';
 
-console.log('Bob Version:', getBobVersion()); // "3.0.6"
-console.log('BOB_VERSION constant:', BOB_VERSION); // "3.0.6"
+console.log('Bob Version:', getBobVersion()); // "3.1.0"
 ```
 
----
+### Ask Bob
 
-## Step 4: Remove Old Workarounds
+Type in the chat: **"What version are you running?"**
 
-If you had any of these workarounds, you can safely remove them:
-
-```tsx
-// ❌ NO LONGER NEEDED - Remove this wrapper
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-const queryClient = new QueryClient();
-<QueryClientProvider client={queryClient}>
-  ...
-</QueryClientProvider>
-
-// ✅ Just use BobWidget directly
-<BobWidget ... />
-```
+Bob should respond with his current version.
 
 ---
 
 ## Troubleshooting
 
-### Animation State Issues
+### Bob doesn't appear / is cropped
 
-Bob requires these animation states to function correctly:
-- `idle` or `listening` - Default waiting state
-- `talking` or `talk` - Active speech animation  
-- `researching` or `research` - Processing user input
-- `waving` - Greeting animation (optional fallback)
+1. Check parent containers for `overflow: hidden`
+2. Ensure container has explicit height
+3. Check z-index conflicts with CARFIX header/nav
+4. Enable debug mode to see CSS conflicts
 
-**Fallback Behaviour**: If a requested state is missing, Bob falls back to the first available state with images (typically `waving`). This is defensive behaviour, not an error.
+### Service packages not showing
+
+1. Check browser Network tab for `calculate-service-bundles` response
+2. Verify the vehicle has service packages allocated
+3. Check console for `[BobWidget] Service Packages Received` log
+
+### Products not loading
+
+1. Verify session token is being passed correctly
+2. Check `retrieve-parts` API response in Network tab
+3. Ensure `vehicle_id` is numeric type
+
+### Blur/overlay too strong
+
+1. Use `backdropBlurIntensity` and `backdropOverlayOpacity` props
+2. Or override CSS variables in container
 
 ### Common Issues
 
 | Issue | Solution |
 |-------|----------|
 | Old version showing in console | Clear `node_modules/.vite`, restart dev server |
-| Blank screen | Check console for errors, verify bobConfig credentials |
-| "Package loaded" but not "initialized" | BobProvider/BobWidget not rendered yet |
-| No products loading | Verify hostApiConfig credentials and baseUrl |
-| Version mismatch | Run `npm ls @gymmymac/bob-widget` to check installed version |
-| "Missing critical states" warning | Check database has animation_states for active look |
-| Bob stuck on waving | Verify `animation_states` table has `talking`/`listening` rows |
+| Blank screen | Check console for errors, verify partner code |
+| "Partner not found" error | Ensure `bob_partners` table has CARFIX entry |
+| No products loading | Verify vehicle_id is numeric in session token |
+| Version mismatch | Run `npm ls @gymmymac/bob-widget` to check version |
 
-### Cache Clearing Commands
+### Cache Clearing
 
 ```bash
 # Full clean install
@@ -316,9 +356,52 @@ npm run dev
 
 ---
 
+## Migration from v3.0.x
+
+### Before (v3.0.6)
+```tsx
+<BobWidget
+  bobConfig={{
+    supabaseUrl: 'https://gjoguxzstsihhxvdgpto.supabase.co',
+    supabaseKey: 'eyJhbGciOiJI...',
+  }}
+  hostApiConfig={{
+    baseUrl: 'https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1',
+    apiKey: 'secret_key',
+    partnerCode: 'CARFIX',
+  }}
+  hostContext={{
+    user: { email: user?.email },
+    vehicle: { selectedVehicle },
+  }}
+  callbacks={{
+    onVehicleIdentified: (v) => setVehicle(v),
+    onPartsFound: (p) => setParts(p),
+    onServicePackagesFound: (s) => setPackages(s),
+    onAddToCart: (item) => addToCart(item),
+  }}
+  variant="mobile"
+  bottomOffset={60}
+/>
+```
+
+### After (v3.1.0)
+```tsx
+<BobStandalone
+  partner="CARFIX"
+  sessionToken={sessionToken}
+  onAddToCart={(item) => addToCart(item)}
+  onNavigate={(url) => router.push(url)}
+/>
+```
+
+**Lines of code: 30+ → 4**
+
+---
+
 ## Dependencies
 
-Bob Widget v3.0.0 **bundles** its own dependencies. Your project only needs:
+Bob Widget v3.1.0 **bundles** its own dependencies. Your project only needs:
 
 | Dependency | Version | Required |
 |------------|---------|----------|
@@ -328,97 +411,13 @@ Bob Widget v3.0.0 **bundles** its own dependencies. Your project only needs:
 
 ---
 
-## API Reference
-
-### BobWidget Props
-
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `bobConfig` | `BobConfig` | ✅ | Bob's Supabase credentials |
-| `hostApiConfig` | `HostApiConfig` | ✅ | Your API configuration |
-| `hostContext` | `HostContext` | ❌ | Current user/vehicle/cart state |
-| `callbacks` | `BobCallbacks` | ❌ | Event handlers |
-| `variant` | `'mobile' \| 'inline' \| 'floating' \| 'fullscreen'` | ❌ | Display mode (default: 'mobile') |
-| `showChat` | `boolean` | ❌ | Show chat interface (default: true) |
-| `className` | `string` | ❌ | Additional CSS classes |
-
-### Choosing the Right Variant
-
-| Variant | Use Case | Behavior |
-|---------|----------|----------|
-| `"mobile"` | Full viewport takeover (standalone Bob page) | Uses `position: fixed`, takes over entire screen |
-| `"fullscreen"` | Same as mobile | Alias for mobile variant |
-| `"inline"` + `showChat={true}` | **Embedded immersive experience** | Uses `position: absolute`, fills parent container |
-| `"inline"` + `showChat={false}` | Just Bob's animation | Shows only BobCharacter, no chat |
-| `"floating"` | Small widget in corner | Fixed position bottom-right, 96px wide |
-
-#### 📱 Recommended for CARFIX `/ask-bob` Page
-
-```tsx
-// For a contained immersive experience within your page layout
-<div className="h-[calc(100dvh-136px)] relative">
-  <BobWidget
-    variant="inline"
-    showChat={true}
-    className="h-full w-full"
-    bobConfig={...}
-    hostApiConfig={...}
-    callbacks={...}
-  />
-</div>
-```
-
-This renders Bob with:
-- ✅ Immersive animation filling the container
-- ✅ Blurred backdrop for depth
-- ✅ Collapsible chat drawer at bottom
-- ✅ Product column slide-in when parts found
-- ✅ Respects parent container bounds (doesn't escape header/nav)
-
-### BobConfig
-
-```typescript
-interface BobConfig {
-  supabaseUrl: string;  // Bob's Supabase URL
-  supabaseKey: string;  // Bob's public anon key
-}
-```
-
-### HostApiConfig
-
-```typescript
-interface HostApiConfig {
-  baseUrl: string;           // Your API base URL
-  apiKey: string;            // Your API key
-  partnerCode?: string;      // Partner identifier (e.g., 'CARFIX')
-  customHeaders?: Record<string, string>;
-}
-```
-
-### BobCallbacks
-
-```typescript
-interface BobCallbacks {
-  onVehicleIdentified?: (vehicle: Vehicle) => void;
-  onPartsFound?: (parts: unknown[]) => void;
-  onServicePackagesFound?: (packages: unknown[]) => void;
-  onAddToCart?: (item: CartItem) => void;
-  onCartUpdated?: (cart: { items: CartItem[]; total: number }) => void;
-  onCheckoutRequested?: (checkoutUrl: string) => void;
-  onBobMessage?: (message: string) => void;
-  onError?: (error: Error) => void;
-}
-```
-
----
-
 ## Support
 
 If you encounter any issues:
 
-1. Check the browser console for error messages
-2. Verify the version with `getBobVersion()`
-3. Review this guide's troubleshooting section
+1. Enable debug mode (`debug={true}`)
+2. Check browser console for `[BobWidget]` logs
+3. Check Network tab for API responses
 4. Contact the Bob Widget team with console logs and version info
 
 ---
@@ -427,45 +426,18 @@ If you encounter any issues:
 
 See [CHANGELOG.md](./CHANGELOG.md) for full version history.
 
-### v3.0.6 (Current)
-- 🔄 **Release Process Fix**: Corrected GitHub tag/version sync
-- 📚 **Documentation Consolidation**: Incorporated CARFIX integration feedback
+### v3.1.0 (Current)
+- 🎯 **BobStandalone**: Auto-configures from database - 4 lines to integrate
+- 🗄️ **Partner Config System**: All settings in `bob_partners` table
+- 🎨 **CSS Variables**: Customizable blur, opacity, colors
+- 🔍 **Debug Overlay**: Visual diagnostic tool
+- 📦 **Simplified Callbacks**: Only essential callbacks required
 
-### v3.0.5
-- 📋 **Animation State Manifest**: Complete state documentation for CARFIX integration
-- 🎙️ **TTS Configuration Guide**: Documented hybrid audio system
-- ✅ **Backend Infrastructure Checklist**: Verification guide for external installations
+### v3.0.6
+- 🔄 Release process fix
+- 📚 Documentation consolidation
 
-### v3.0.4
-- 🩺 **Animation Health Check**: New `useBobHealthCheck` hook for diagnosing connectivity
-- 📊 **Enhanced Diagnostics**: Console logging reports loaded states and frame counts
-- ⚠️ **Missing State Warnings**: Warns about missing critical states (`idle`, `talking`, `listening`)
-
-### v3.0.3
-- 🖼️ **Counter Overlay Fix**: Shop counter image uses absolute Supabase Storage URL
-- 🗄️ **Database Migration**: `counter_overlay_url` field added to `bob_backdrops`
-
-### v3.0.2
-- 🔊 **External Audio Hosting**: Audio clips use absolute URLs from Supabase Storage
-- 🎨 **CSS Isolation**: Strengthened widget-reset.css to prevent host style bleeding
-- 🐛 **Debug Logging**: Added initialization logging for external site debugging
-
-### v3.0.1
-- 🎙️ **TTS Voice Validation**: Prevents 400 errors from mismatched voice provider IDs
-
-### v3.0.0
-- 🎭 **SwipeableBob**: Gesture-based interactions
-- 🎬 **RAF Animations**: 60fps smooth animations using requestAnimationFrame
-- ⚡ **MatrixProductLoader**: Cyberpunk-style phased loading
-- 🔥 **SparkDealBanner**: Animated promotional banners
-- 🏢 **Multi-Tenant Support**: Configurable looks per tenant
-- 👋 **Returning User Detection**: Personalized greetings
-- 🎨 **Theme Settings**: Dynamic theming from database
-
-### v2.0.0
-- GA4 Analytics integration
-- BobWidget self-contained component
-- Bottom offset and z-index control
-
-### v1.x
-- Initial widget releases with core functionality
+### v3.0.0-v3.0.5
+- SwipeableBob, RAF animations, MatrixProductLoader, SparkDealBanner
+- Multi-tenant support, returning user detection
+- External audio hosting, CSS isolation, TTS validation
