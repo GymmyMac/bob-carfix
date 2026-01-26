@@ -5,6 +5,15 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.4] - 2026-01-26
+
+### Fixed
+- **Supabase Bundling**: Removed `@supabase/supabase-js` from external dependencies in Vite config - now bundled directly into the widget to prevent "module not found" errors on host sites that don't have Supabase installed
+- **HTTPS Validation for PTT**: Added programmatic check in `useSpeechRecognition` that detects non-HTTPS environments and gracefully disables speech recognition with a clear error message
+
+### Changed
+- **Debug Logging**: Leveraging existing `bobLog`/`bobWarn` utilities from `utils/debug.ts` for consistent, gated console output
+
 ## [3.1.3] - 2026-01-26
 
 ### Added

@@ -59,6 +59,17 @@ export const useSpeechRecognition = ({
   }, [onTranscript, onSpeechEnd]);
 
   useEffect(() => {
+    // HTTPS validation - Speech Recognition requires secure context
+    if (typeof window !== 'undefined' && 
+        window.location.protocol !== 'https:' && 
+        window.location.hostname !== 'localhost' &&
+        window.location.hostname !== '127.0.0.1') {
+      console.warn('[BobWidget] Speech recognition requires HTTPS. PTT will not work on HTTP.');
+      setError('Voice input requires a secure connection (HTTPS)');
+      setIsSupported(false);
+      return;
+    }
+
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     
     if (SpeechRecognitionAPI) {

@@ -29,7 +29,7 @@ export default defineConfig({
       external: [
         'react',
         'react-dom',
-        '@supabase/supabase-js',
+        // Note: @supabase/supabase-js is now bundled (removed from external)
         // Note: @tanstack/react-query is now bundled for self-contained operation
       ],
       output: {
