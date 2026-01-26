@@ -1,6 +1,6 @@
 # Bob Widget - Complete Documentation
 
-> **Version:** 3.1.0 | **Last Updated:** January 2025
+> **Version:** 3.1.2 | **Last Updated:** January 2025
 
 AI-powered automotive parts assistant widget for seamless integration into partner websites.
 
@@ -124,7 +124,7 @@ console.log(`Bob Widget Version: ${getBobVersion()}`); // "3.1.0"
 
 ```bash
 # Install Bob Widget
-npm install @gymmymac/bob-widget@^3.1.0
+npm install @gymmymac/bob-widget@^3.1.2
 
 # If upgrading, clear cache first
 rm -rf node_modules/.vite
@@ -133,26 +133,112 @@ npm run dev
 
 ### Container Requirements
 
-Bob's container should:
+Bob's container **MUST** meet these specifications for correct rendering:
 
-1. Have a defined height (not auto)
-2. Have `position: relative`
-3. NOT have `overflow: hidden` on parent elements
-4. NOT have transforms that would affect Bob's positioning
+#### Required Container Height Formula
 
-**Recommended container:**
+```css
+height: calc(100dvh - [header_height] - [bottom_nav_height])
+```
+
+**CARFIX Reference Measurements:**
+| Element | Height |
+|---------|--------|
+| CARFIX Header | ~52px |
+| Bottom Navigation | ~60px |
+| **Total to subtract** | ~112px |
+
+**Recommended formula for CARFIX:** `height: calc(100dvh - 112px)`
+
+#### Container CSS Requirements
+
+```css
+.bob-container {
+  height: calc(100dvh - 112px);
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
+```
+
+**Critical Container Rules:**
+
+| Requirement | Reason |
+|-------------|--------|
+| `position: relative` | Bob uses `position: absolute` internally |
+| Defined height (NOT auto or 100%) | Bob needs a fixed container boundary |
+| `overflow: hidden` | Prevents content bleed outside container |
+| No parent CSS transforms | Transforms break absolute positioning |
+
+#### Complete Integration Example
 
 ```tsx
-<div 
-  className="bob-container"
-  style={{ 
-    height: 'calc(100dvh - 136px)', // Account for header + footer
-    position: 'relative',
-  }}
->
-  <BobStandalone partner="CARFIX" />
-</div>
+import { BobStandalone } from '@gymmymac/bob-widget';
+
+function AskBobPage() {
+  const { addToCart } = useCart();
+  const router = useRouter();
+  const sessionToken = router.query.session as string;
+
+  return (
+    <div 
+      className="bob-container"
+      style={{ 
+        height: 'calc(100dvh - 112px)',
+        position: 'relative',
+        overflow: 'hidden',
+        width: '100%'
+      }}
+    >
+      <BobStandalone
+        partner="CARFIX"
+        sessionToken={sessionToken}
+        bottomOffset={60}           // Matches CARFIX bottom nav height
+        onAddToCart={(item) => addToCart(item)}
+        onNavigate={(url) => router.push(url)}
+      />
+    </div>
+  );
+}
 ```
+
+#### Layout Measurements Reference
+
+Based on visual analysis of pre-installed Bob:
+
+```
+┌─────────────────────────────────┐
+│        CARFIX HEADER            │  ← ~52px fixed
+├─────────────────────────────────┤
+│                                 │
+│  ┌─────────┐  ┌──────────────┐  │
+│  │ BOB'S   │  │              │  │
+│  │ SHELF   │  │   PRODUCTS   │  │
+│  │ HEADER  │  │   (scrolls)  │  │
+│  ├─────────┤  │              │  │
+│  │         │  │              │  │
+│  │  BOB    │  │              │  │  ← Bob container
+│  │ (char)  │  │              │  │    height: calc(100dvh - 112px)
+│  │    ╲    │  │              │  │
+│  │     ╲   │  │              │  │
+│  ├──────╲──┴──┴──────────────┤  │
+│  │   COUNTER OVERLAY (22%)   │  │
+│  ├───────────────────────────┤  │
+│  │  CHAT DRAWER (collapsed)  │  │  ← 70px collapsed
+├─────────────────────────────────┤
+│       BOTTOM NAV (60px)         │  ← bottomOffset: 60
+└─────────────────────────────────┘
+```
+
+| Element | Height/Value | Notes |
+|---------|--------------|-------|
+| Bob Container | `calc(100dvh - 112px)` | After header, before bottom nav |
+| `bottomOffset` prop | `60` | Height of CARFIX bottom nav in pixels |
+| Counter Overlay | 22% | Percentage of container height |
+| Chat Drawer (collapsed) | 70px | From bottom of container |
+| Chat Drawer (expanded) | 55% | Of container height |
+| Bob Character | ~140% scale | Mobile base scale |
+| z-index base | 50 | Default, configurable |
 
 ---
 
@@ -616,7 +702,14 @@ npm run dev
 
 ## 11. Changelog Summary
 
-### v3.1.0 (Current)
+### v3.1.2 (Current)
+- 🔊 **Pre-recorded Audio Clips**: Fixed context property mismatch where `useSpeechSynthesis` was accessing `supabase` instead of `bobSupabase`, causing pre-recorded clips to never play
+
+### v3.1.1
+- ⚛️ **React Hooks Order Violation**: Fixed hooks being called after conditional returns
+- 🌐 **Allowed Origins**: Added Lovable preview domain support
+
+### v3.1.0
 - 🎯 **BobStandalone**: Auto-configures from database - 4 lines to integrate
 - 🗄️ **Partner Config System**: All settings in `bob_partners` table
 - 🎨 **CSS Variables**: Customizable blur, opacity, colors
