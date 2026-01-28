@@ -76,6 +76,7 @@ export const SERVICE_PACKAGE_DESCRIPTIONS: Record<string, string> = {
 export const DEFAULT_SERVICE_DESCRIPTION = 'Keep your vehicle running safely and efficiently with quality parts matched to your specific make and model. Each CFX Service Pack includes everything you need for this essential maintenance.';
 
 export const IMAGE_URLS = {
+  storageBase: 'https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public',
   productImage: (sku: string) =>
     `https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/product_images/${sku}.jpg`,
   brandLogo: (brandName: string) =>

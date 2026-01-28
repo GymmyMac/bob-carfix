@@ -91,7 +91,7 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
   bobOffset = 0,
   bobScale = 100
 }) => {
-  const [bobPosition, setBobPosition] = useState<'center' | 'left'>('center');
+  const [bobPosition, setBobPosition] = useState<'center' | 'partial-left'>('center');
   const [panelState, setPanelState] = useState<PanelState>('hidden');
   const [currentView, setCurrentView] = useState<ViewState>('products');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -116,11 +116,11 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
       setPanelState('loading');
       
       if (bobPosition === 'center') {
-        setBobPosition('left');
+        setBobPosition('partial-left');
       }
     } else if (hasProducts && panelState !== 'visible') {
       if (bobPosition === 'center') {
-        setBobPosition('left');
+        setBobPosition('partial-left');
         setPanelState('transitioning');
         
         const timer = setTimeout(() => {

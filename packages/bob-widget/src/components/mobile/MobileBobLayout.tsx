@@ -100,7 +100,7 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
   const isEmbedded = typeof window !== 'undefined' && window.self !== window.top;
   const viewportSize = useViewportSize();
   
-  const [bobPosition, setBobPosition] = useState<'center' | 'left'>('center');
+  const [bobPosition, setBobPosition] = useState<'center' | 'partial-left'>('center');
   const [panelState, setPanelState] = useState<PanelState>('hidden');
   
   const hasProducts = products.length > 0 || servicePackages.length > 0;
@@ -126,11 +126,11 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
       setPanelState('loading');
       
       if (bobPosition === 'center') {
-        setBobPosition('left');
+        setBobPosition('partial-left');
       }
     } else if (hasProducts && panelState !== 'visible') {
       if (bobPosition === 'center') {
-        setBobPosition('left');
+        setBobPosition('partial-left');
         setPanelState('transitioning');
         
         const timer = setTimeout(() => {

@@ -1,8 +1,8 @@
-# Bob Widget v3.1.10 - CARFIX Installation Guide
+# Bob Widget v3.1.11 - CARFIX Installation Guide
 
 > 🚨 **STOP - READ THIS FIRST**
 >
-> Bob v3.1.10 requires a **strict 3-stage installation process**. Skipping stages WILL cause visual issues (blur, wrong scale, wrong position).
+> Bob v3.1.11 requires a **strict 3-stage installation process**. Skipping stages WILL cause visual issues (blur, wrong scale, wrong position).
 
 ## Overview
 
@@ -17,8 +17,11 @@ The 3-stage process ensures:
 # Stage A: Forensic Scan & Purge
 npx @gymmymac/bob-widget carfix stage-a
 
-# Stage B: Generate Page Template
+# Stage B: Generate Page Template (if you have existing Header/BottomNav)
 npx @gymmymac/bob-widget carfix stage-b --target next-pages --output pages/ask-bob.tsx
+
+# Stage B: Generate Page Template WITH Layout Components (if you need Header/BottomNav)
+npx @gymmymac/bob-widget carfix stage-b --target next-pages --with-layout
 
 # Stage C: Install & Verify
 npx @gymmymac/bob-widget carfix stage-c --partner CARFIX
@@ -49,6 +52,23 @@ Generates a container page template for your framework:
 - `next-app` - Next.js App Router
 - `react-router` - React Router (Vite)
 
+**⚠️ IMPORTANT: Layout Components Required**
+
+The container height formula assumes you have:
+- **CARFIX Header**: 72px fixed at top
+- **CARFIX Bottom Navigation**: 72px fixed at bottom
+
+If these components **don't exist**, use the `--with-layout` flag:
+
+```bash
+npx @gymmymac/bob-widget carfix stage-b --target next-pages --with-layout
+```
+
+This generates:
+- `components/CarfixHeader.tsx` (72px header)
+- `components/CarfixBottomNav.tsx` (72px bottom nav)
+- Complete page template with layout wired up
+
 The template includes the correct container height calculation:
 ```css
 height: calc(100dvh - 144px - env(safe-area-inset-bottom, 0px))
@@ -58,7 +78,7 @@ height: calc(100dvh - 144px - env(safe-area-inset-bottom, 0px))
 
 **Time: 1-2 minutes**
 
-- Installs `@gymmymac/bob-widget@3.1.10`
+- Installs `@gymmymac/bob-widget@3.1.11`
 - Verifies the installed version
 - Tests backend connectivity
 - Provides final code integration example
@@ -77,12 +97,14 @@ After completing all stages, verify in browser:
 
 | Test | Expected Result |
 |------|-----------------|
-| Console version | `[BobWidget] Package loaded - v3.1.10` |
+| Console version | `[BobWidget] Package loaded - v3.1.11` |
 | Bob visibility | Fully visible, not cropped |
 | No blur | Background is NOT blurred |
 | Correct scale | Bob is prominently sized |
 | Chat works | Messages send and Bob responds |
 | PTT (HTTPS) | Speech recognition activates |
+| Header visible | 72px CARFIX header at top |
+| Bottom nav visible | 72px navigation at bottom |
 
 ## Support
 
