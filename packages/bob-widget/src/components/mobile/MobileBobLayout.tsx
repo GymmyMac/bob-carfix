@@ -271,6 +271,7 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
         isSpeaking={isSpeaking}
         onAddToCart={onProductClick}
         onProductClick={onProductClick}
+        counterHeightPercent={counterHeightPercent}
       />
     </div>
   );

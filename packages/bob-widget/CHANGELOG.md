@@ -5,6 +5,14 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.13] - 2026-01-28
+
+### Fixed
+- 📐 **Chat Drawer Positioning**: Chat drawer now positions above counter overlay using `counterHeightPercent`
+- 🎨 **Visual Alignment**: Chat input and PTT button no longer overlap with counter graphic
+
+---
+
 ## [3.1.12] - 2026-01-28
 
 ### Fixed

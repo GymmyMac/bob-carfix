@@ -17,6 +17,8 @@ interface ContainedChatDrawerProps {
   isMuted?: boolean;
   onToggleMute?: () => void;
   isSpeaking?: boolean;
+  /** Counter height as percentage of container - chat positions above this */
+  counterHeightPercent?: number;
 }
 
 /**
@@ -35,7 +37,8 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
   chatEndRef,
   isMuted = false,
   onToggleMute,
-  isSpeaking = false
+  isSpeaking = false,
+  counterHeightPercent = 22
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
@@ -126,7 +129,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
       ref={drawerRef}
       style={{
         position: 'absolute',
-        bottom: `${bottomOffset}px`,
+        bottom: `calc(${counterHeightPercent}% + ${bottomOffset}px)`,
         left: 0,
         right: 0,
         ...glassPanel,
