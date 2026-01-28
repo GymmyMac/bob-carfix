@@ -96,17 +96,28 @@ function buildSystemPromptFromDB(prompts: BobPrompt[]): string {
 // ============= CANNED RESPONSE SYSTEM =============
 
 // NZ Registration plate pattern detection
-// Patterns: ABC123, AB1234, ABC12, 123ABC (older format)
+// Patterns: ABC123, ABC-123, AB1234, AB-1234, ABC12, 123ABC (older format)
 function containsRegoPattern(text: string): boolean {
+  // Normalize: uppercase for consistent matching
+  const normalized = text.toUpperCase().trim();
+  
   const patterns = [
-    /\b[A-Z]{3}\s?[0-9]{3}\b/i,    // ABC123 or ABC 123 (most common)
-    /\b[A-Z]{2}\s?[0-9]{4}\b/i,    // AB1234 or AB 1234 (older format)
-    /\b[A-Z]{3}\s?[0-9]{2}\b/i,    // ABC12 (personalized short)
-    /\b[0-9]{2,3}\s?[A-Z]{3}\b/i,  // 123ABC or 12ABC (older format)
+    // Standard NZ plates: ABC123, ABC-123, ABC 123
+    /(?:^|[\s,.])[A-Z]{3}[\s\-]?[0-9]{3}(?:$|[\s,.])/,
+    // Older format: AB1234, AB-1234, AB 1234
+    /(?:^|[\s,.])[A-Z]{2}[\s\-]?[0-9]{4}(?:$|[\s,.])/,
+    // Personalized short: ABC12, ABC-12
+    /(?:^|[\s,.])[A-Z]{3}[\s\-]?[0-9]{2}(?:$|[\s,.])/,
+    // Reverse older format: 123ABC, 12ABC, 123-ABC
+    /(?:^|[\s,.])[0-9]{2,3}[\s\-]?[A-Z]{3}(?:$|[\s,.])/,
   ];
-  const hasRego = patterns.some(p => p.test(text));
+  
+  // Add padding spaces to ensure boundary matching works at string edges
+  const paddedText = ' ' + normalized + ' ';
+  const hasRego = patterns.some(p => p.test(paddedText));
+  
   if (hasRego) {
-    console.log(`[REGO Detection] Found registration pattern in: "${text.substring(0, 50)}..."`);
+    console.log(`[REGO Detection] Found registration pattern in: "${text.substring(0, 60)}..."`);
   }
   return hasRego;
 }
