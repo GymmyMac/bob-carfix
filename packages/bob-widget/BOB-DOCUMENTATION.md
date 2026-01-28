@@ -1,6 +1,6 @@
 # Bob Widget - Complete Documentation
 
-> **Version:** 3.1.6 | **Last Updated:** January 2025
+> **Version:** 3.1.7 | **Last Updated:** January 2025
 
 AI-powered automotive parts assistant widget for seamless integration into partner websites.
 
