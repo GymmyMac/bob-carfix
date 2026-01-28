@@ -2,7 +2,7 @@
 
 AI-powered automotive parts assistant widget for integration into partner websites.
 
-**Current Version:** 3.1.7
+**Current Version:** 3.1.8
 
 ---
 
@@ -46,7 +46,7 @@ import { BobStandalone } from '@gymmymac/bob-widget';
 ## Installation
 
 ```bash
-npm install @gymmymac/bob-widget@^3.1.7
+npm install @gymmymac/bob-widget@^3.1.8
 ```
 
 ## What's New in v3.1.6
