@@ -21,6 +21,8 @@ interface MobileChatDrawerProps {
   isSpeaking?: boolean;
   onAddToCart?: (product: Product) => void;
   onProductClick?: (product: Product) => void;
+  /** Counter height as percentage of container - chat positions above this */
+  counterHeightPercent?: number;
 }
 
 export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
@@ -37,7 +39,8 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
   onToggleMute,
   isSpeaking = false,
   onAddToCart,
-  onProductClick
+  onProductClick,
+  counterHeightPercent = 22
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
@@ -135,7 +138,7 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
       ref={drawerRef}
       style={{
         position: 'fixed',
-        bottom: `${bottomOffset}px`,
+        bottom: `calc(${counterHeightPercent}% + ${bottomOffset}px)`,
         left: 0,
         right: 0,
         ...glassPanel,

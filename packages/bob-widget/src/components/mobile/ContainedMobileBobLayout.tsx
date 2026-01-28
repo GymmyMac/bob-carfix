@@ -309,6 +309,7 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
           isMuted={isMuted}
           onToggleMute={onToggleMute}
           isSpeaking={isSpeaking}
+          counterHeightPercent={counterHeightPercent}
         />
       )}
     </div>
