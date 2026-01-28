@@ -5,6 +5,14 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.12] - 2026-01-28
+
+### Fixed
+- 🎨 **Chat Drawer Z-Index**: Raised chat drawer z-index above counter overlay (z-80) to ensure visibility
+- 🎤 **PTT Button Layering**: Elevated PTT button and handle button z-index for proper layer hierarchy
+
+---
+
 ## [3.1.11] - 2026-01-28
 
 ### Added
