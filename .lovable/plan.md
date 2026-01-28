@@ -1,188 +1,172 @@
 
-# Fix Plan: Chat Drawer Height, Bob Position, and Product Column Bottom (v3.1.16)
+# Implementation Plan: CARFIX Language, Value Recommendation, and Button Styling (v3.1.18)
 
-## Issues Identified from Screenshot
+## Summary of Changes
 
-| # | Issue | Root Cause | Severity |
-|---|-------|------------|----------|
-| 1 | "Listening..." text pushes chat drawer behind bottom nav | Chat drawer collapsed height (90px) doesn't account for the "Listening..." indicator adding ~24px | 🔴 Critical |
-| 2 | Bob pushed too far left | `partialLeftPosition: -55` on mobile is too aggressive - Bob is 55% off-screen | 🔴 Critical |
-| 3 | Product column doesn't extend below counter | Mobile bottom is `180px` which doesn't extend to the actual bottom | 🟡 Medium |
-
----
-
-## Technical Analysis
-
-### Issue 1: Chat Drawer "Listening..." Pushes Content Off-Screen
-
-**Current Code (`ContainedChatDrawer.tsx` lines 230-235):**
-```tsx
-{isListening && (
-  <div style={{ marginBottom: '8px', fontSize: '12px', ... }}>
-    <span ... />
-    Listening...
-  </div>
-)}
-```
-
-This adds ~24px of content when the PTT button is held. Combined with the collapsed height of `90px`, the total drawer height becomes ~114px, but the container only allocates 90px, causing content to overflow downward behind the host's bottom nav.
-
-**Solution:** Increase collapsed height to account for "Listening..." state OR make the listening indicator NOT affect layout (position absolute).
-
-### Issue 2: Bob Too Far Left
-
-**Current Code (`usePositionFactors.ts` line 41):**
-```tsx
-case 'mobile':
-  return {
-    partialLeftPosition: -55,  // Bob 55% off-screen left when products show
-```
-
-This pushes Bob so far left that very little of him is visible. The screenshot shows Bob's head barely visible at the left edge.
-
-**Solution:** Reduce `partialLeftPosition` from `-55` to `-30` or `-35` so more of Bob remains visible when products are showing.
-
-### Issue 3: Product Column Bottom Cutoff
-
-**Current Code (`MobileProductColumn.tsx` line 361-362):**
-```tsx
-bottom: viewportSize === 'mobile' 
-  ? 'calc(180px + env(safe-area-inset-bottom, 0px))' 
-```
-
-This 180px accounts for:
-- Counter overlay: 12-22% of container
-- Chat drawer collapsed: 90px
-- Host bottom nav: Outside container (not relevant for contained mode)
-
-But the chat drawer at `bottom: 0` + collapsed height 90px means product column should stop at ~90-100px from container bottom, not 180px.
-
-**Solution:** Reduce mobile bottom offset from `180px` to `100px` so products extend lower.
+| # | Change | Location | Impact |
+|---|--------|----------|--------|
+| 1 | Replace "CFX" with "CARFIX" in Bob's speech | Database prompts + Edge function | 🔴 Critical |
+| 2 | Update Bob to verbally recommend "CARFIX Value" tier | Database prompts | 🔴 Critical |
+| 3 | Green Add button for Value tier, green text for others | MobileProductColumn + ServicePackageDetailView | 🟡 Medium |
+| 4 | Update carfix-tokens descriptions | carfix-tokens.ts | 🟡 Medium |
 
 ---
 
-## Implementation Plan
+## Technical Details
 
-### File 1: `packages/bob-widget/src/components/mobile/ContainedChatDrawer.tsx`
+### 1. Database Prompt Update (sales_flow)
 
-**Option A (Recommended): Make "Listening..." indicator position absolute**
+The `bob_prompts` table contains the `sales_flow` prompt that tells Bob how to present service packages. Current text includes:
+
+- "CFX SERVICE PACKS FIRST"
+- "CFX Service Pack"
+- "Standard tier" as "RECOMMENDED"
+
+**Update to:**
+
+```
+SALES WORKFLOW - CARFIX SERVICE PACKS FIRST:
+...
+3. Once vehicle confirmed: ALWAYS recommend the relevant CARFIX Service Pack before individual parts
+4. Present Service Packs by VALUE TIER (Economy, Standard, Premium, Performance)
+5. Highlight the "CARFIX Value" option (Standard tier) - best value for most customers
+...
+- Example: "Worn brakes increase stopping distance - pretty dangerous, mate. The CARFIX Front Brake Service Pack includes quality pads and rotors. I'd recommend the CARFIX Value option - best value at around $XXX"
+...
+- Confirm additions: "Added the [tier] CARFIX [Package] to your cart..."
+```
+
+### 2. Edge Function Tool Description
+
+**File:** `supabase/functions/bob-chat/index.ts`  
+**Line 278:**
+
+```typescript
+// BEFORE:
+description: "Fetch pre-configured CFX Service Packs with preparedTiers..."
+
+// AFTER:
+description: "Fetch pre-configured CARFIX Service Packs with preparedTiers..."
+```
+
+### 3. Service Package Descriptions
+
+**File:** `packages/bob-widget/src/styles/carfix-tokens.ts`  
+**Lines 62-76:**
+
+Replace all "CFX" occurrences with "CARFIX":
+
+```typescript
+// BEFORE:
+'Each CFX Oil Change Service Pack includes...'
+'Each CFX Front Brake Service Pack includes...'
+// etc.
+
+// AFTER:
+'Each CARFIX Oil Change Service Pack includes...'
+'Each CARFIX Front Brake Service Pack includes...'
+// etc.
+```
+
+Also update `DEFAULT_SERVICE_DESCRIPTION`:
+
+```typescript
+// BEFORE:
+export const DEFAULT_SERVICE_DESCRIPTION = '...Each CFX Service Pack includes everything...';
+
+// AFTER:
+export const DEFAULT_SERVICE_DESCRIPTION = '...Each CARFIX Service Pack includes everything...';
+```
+
+### 4. Button Styling - Value Tier = Solid Green, Others = Green Text
+
+**File:** `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`  
+**Lines 642-648:**
+
+```typescript
+// BEFORE:
+style={{
+  background: tier.isRecommended ? CARFIX_COLORS.primary : '#F1F5F9',
+  color: tier.isRecommended ? 'white' : '#475569',
+  border: tier.isRecommended ? 'none' : '1px solid #E2E8F0',
+}}
+
+// AFTER - Green for recommended, green TEXT for others:
+style={{
+  background: tier.isRecommended ? '#22C55E' : '#F1F5F9', // Green button for Value
+  color: tier.isRecommended ? 'white' : '#22C55E',        // Green text for others
+  border: tier.isRecommended ? 'none' : '1px solid #E2E8F0',
+}}
+```
+
+**File:** `packages/bob-widget/src/components/mobile/ServicePackageDetailView.tsx`  
+**Lines 239-243:**
+
+```typescript
+// BEFORE:
+className={`... ${
+  tier.isRecommended 
+    ? 'bg-[#0052CC] text-white...' 
+    : 'bg-slate-100 text-slate-700...'
+}`}
+
+// AFTER - Green styling:
+className={`... ${
+  tier.isRecommended 
+    ? 'bg-[#22C55E] text-white shadow-md hover:bg-[#16A34A]' 
+    : 'bg-slate-100 text-[#22C55E] border border-slate-200 hover:bg-slate-200'
+}`}
+```
+
+Also remove the cart icon (per previous request):
+
 ```tsx
-// Lines 230-235: Make listening indicator not affect layout
-{isListening && (
-  <div style={{ 
-    position: 'absolute',
-    top: '4px',
-    left: '12px',
-    marginBottom: '0', 
-    fontSize: '12px', 
-    color: 'rgba(255,255,255,0.7)', 
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: '8px',
-    zIndex: 10
-  }}>
-    <span style={{ ... }} />
-    Listening...
-  </div>
-)}
-```
-
-**Option B: Increase collapsed height to 120px**
-```tsx
-height: isExpanded ? '55%' : '120px',
-```
-
-### File 2: `packages/bob-widget/src/hooks/usePositionFactors.ts`
-
-**Update mobile `partialLeftPosition` from `-55` to `-30`:**
-```tsx
-case 'mobile':
-  return {
-    bobOffset: 1.0,
-    productWidth: 1.0,
-    uiScale: 1.0,
-    partialLeftPosition: -30,  // Reduced from -55 to keep more of Bob visible
-    hiddenPosition: -100,
-  };
-```
-
-### File 3: `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`
-
-**Update mobile bottom offset from `180px` to `100px`:**
-```tsx
-bottom: viewportSize === 'mobile' 
-  ? 'calc(100px + env(safe-area-inset-bottom, 0px))'  // Reduced from 180px
-  : '52px',
-```
-
-### File 4: Version files
-
-Bump to **v3.1.16**:
-- `packages/bob-widget/package.json`
-- `packages/bob-widget/src/version.ts`
-- `packages/bob-widget/CHANGELOG.md`
-
----
-
-## Visual Comparison
-
-### Before:
-```text
-┌───────────────────────────────┐
-│ Header                        │
-├───────────────────────────────┤
-│ Bob [barely visible edge]     │
-│         ┌─────────────────────┤
-│         │ Products            │
-│         │ (cut off at 180px)  │
-│         └─────────────────────┤
-│ ┌─────────────────────────────┤
-│ │ Chat (90px) + Listening     │ ← Overflows
-│ └─────────────────────────────┤
-├───────────────────────────────┤
-│ Bottom Nav (72px)             │ ← Chat hidden behind this
-└───────────────────────────────┘
-```
-
-### After:
-```text
-┌───────────────────────────────┐
-│ Header                        │
-├───────────────────────────────┤
-│ Bob [~70% visible]            │
-│         ┌─────────────────────┤
-│         │ Products            │
-│         │ (extends to ~100px) │
-│         │                     │
-│         └─────────────────────┤
-│ ┌─────────────────────────────┤
-│ │ Chat [Listening overlay]    │ ← Contained properly
-│ └─────────────────────────────┤
-├───────────────────────────────┤
-│ Bottom Nav (72px)             │ ← Clear separation
-└───────────────────────────────┘
+// Remove lines 245-247 (cart icon SVG)
+// Button text only: "Add to Cart" centered
 ```
 
 ---
 
-## Changelog Entry
+## Visual Result
 
-```markdown
-## [3.1.16] - 2026-01-28
+### Service Card Buttons After Change:
 
-### Fixed
-- 🎤 **Listening Indicator**: Made "Listening..." overlay position: absolute so it doesn't push chat drawer content down
-- 🧍 **Bob Positioning**: Reduced mobile `partialLeftPosition` from -55 to -30 to keep more of Bob visible when products show
-- 📦 **Product Column Height**: Reduced mobile bottom offset from 180px to 100px so products extend closer to chat drawer
-```
+| Tier | Button Background | Text Color | Cart Icon |
+|------|-------------------|------------|-----------|
+| Economy | Slate (#F1F5F9) | Green (#22C55E) | ❌ Removed |
+| **CARFIX Value** | **Green (#22C55E)** | **White** | ❌ Removed |
+| Premium | Slate (#F1F5F9) | Green (#22C55E) | ❌ Removed |
+| Performance | Slate (#F1F5F9) | Green (#22C55E) | ❌ Removed |
+
+---
+
+## Files to Modify
+
+1. **Database Migration** - Update `bob_prompts` sales_flow content
+2. `supabase/functions/bob-chat/index.ts` - Tool description
+3. `packages/bob-widget/src/styles/carfix-tokens.ts` - Service descriptions
+4. `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx` - Button styling
+5. `packages/bob-widget/src/components/mobile/ServicePackageDetailView.tsx` - Button styling + remove icon
+6. `packages/bob-widget/package.json` - Version bump to 3.1.18
+7. `packages/bob-widget/src/version.ts` - Version bump
+8. `packages/bob-widget/CHANGELOG.md` - Add entry
+
+---
+
+## Bob's Updated Speech Pattern
+
+**Before:**
+> "I'd recommend the CFX Front Brake Service Pack - the Standard tier is best value at around $185"
+
+**After:**
+> "I'd recommend the CARFIX Front Brake Service Pack - the CARFIX Value option is best value at around $185"
 
 ---
 
 ## Verification Checklist
 
-1. Navigate to `/ask-bob`
-2. Confirm Bob is ~70% visible when products are showing (not pushed too far left)
-3. Hold PTT button - confirm "Listening..." appears WITHOUT pushing drawer behind bottom nav
-4. Confirm product column extends lower on the page (closer to the chat drawer)
-5. Scroll products to bottom - confirm last items are accessible
-6. Test on mobile viewport (375px)
+1. Ask Bob about brakes → Verify he says "CARFIX Service Pack" not "CFX"
+2. Verify he recommends "CARFIX Value" tier verbally
+3. Check service cards: Value tier button = solid green, others = green text only
+4. Check both MobileProductColumn and ServicePackageDetailView buttons match
+5. Verify no cart icons on buttons
