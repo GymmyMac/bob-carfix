@@ -5,14 +5,19 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.1.16] - 2026-01-28
+## [3.1.17] - 2026-01-28
 
-### Fixed
-- 🎤 **Listening Indicator**: Made "Listening..." overlay `position: absolute` so it doesn't push chat drawer behind bottom nav
-- 🧍 **Bob Positioning**: Reduced mobile `partialLeftPosition` from -55 to -30 to keep more of Bob visible when products show
-- 📦 **Product Column Height**: Reduced mobile bottom offset from 180px to 100px so products extend closer to chat drawer
+### Changed
+- 🏷️ **Shelf Header**: Replaced "Bob's Shelf" with vehicle make/model (e.g., "Toyota RAV4")
+- 🗑️ **Service Packs Label**: Removed "CFX SERVICE PACKS" row to reclaim vertical space
+- 🎨 **Recommended Badge**: Changed green "Recommended" pill to blue "Carfix Value" 
+- 🛒 **Add Buttons**: Removed cart icons, centered button text
+- 🔘 **Chevron Handle**: Larger handle button (32px) positioned higher (-24px) to prevent clipping
+- 📐 **Chat Height**: Increased collapsed drawer from 90px to 110px for PTT button visibility
 
 ---
+
+## [3.1.16] - 2026-01-28
 
 ## [3.1.15] - 2026-01-28
 
