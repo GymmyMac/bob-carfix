@@ -1,188 +1,246 @@
 
 
-# Fix: Counter Duplication, Chat Positioning, and Container Constraints (v3.1.14)
+# Fix Plan: Bob Layout, State Terminology, and Counter Stretching (v3.1.15)
 
-## Problem Analysis
+## Issues Summary
 
-The screenshot reveals three distinct issues:
+After deep-diving the codebase and database, I've identified **5 critical issues**:
 
-### Issue 1: Duplicate Counter at Different Scales
-
-**Root Cause:** The backdrop image (`bob-bg-wall.png`) already contains the counter graphic at the bottom. Then `MobileBobCharacter.tsx` renders an **additional** counter overlay image on top:
-
-```text
-┌────────────────────────┐
-│   Backdrop Image       │
-│   (includes counter    │ ← First counter (from backdrop)
-│    at bottom)          │
-├────────────────────────┤
-│ Counter Overlay (z-70) │ ← SECOND counter (rendered separately)
-└────────────────────────┘
-```
-
-**Solution:** The backdrop image and counter overlay are SEPARATE assets designed to layer together. The issue is that the **backdrop URL is pointing to the wrong asset** - it should be the wall-only image, not the full scene with counter. Alternatively, if using a combined backdrop, the counter overlay should be disabled.
-
-I need to verify the actual asset URLs being loaded from the database.
-
-### Issue 2: Chat Box Floating Too High
-
-**Root Cause:** The v3.1.13 formula is:
-```tsx
-bottom: `calc(${counterHeightPercent}% + ${bottomOffset}px)`
-```
-
-With `counterHeightPercent = 22` and CARFIX's `bottomOffset = 0` (the bottom nav is **outside** the container), this pushes the chat to `22%` from the container bottom.
-
-**The error:** For `ContainedMobileBobLayout`, the container ALREADY excludes the host's header (72px) and bottom nav (72px). The `bottomOffset` from `BobProvider` is meant for `position: fixed` layouts (like `MobileBobLayout`), NOT for contained layouts.
-
-```text
-For ContainedMobileBobLayout:
-┌─────────────────────────┐ ← Header (72px) - OUTSIDE container
-├─────────────────────────┤
-│ Bob Container           │
-│   height: 100dvh - 144px│
-│                         │
-│ Counter ends at ~22%    │
-│ Chat should be AT 22%   │ ← Correct: bottom: 22%
-├─────────────────────────┤
-└─────────────────────────┘ ← Bottom Nav (72px) - OUTSIDE container
-```
-
-The `bottomOffset` should **NOT** be added for `ContainedChatDrawer` because the host nav is outside the container.
-
-### Issue 3: Chat Box Constrained Width
-
-The chat drawer fills the container properly but appears "narrow" because the container itself may be constrained. This appears correct based on the code - the chat stretches `left: 0, right: 0` within its parent.
+| # | Issue | Impact | Severity |
+|---|-------|--------|----------|
+| 1 | State terminology mismatch | Bob defaults to "talk" but V2 Bob only has "talking" | 🔴 Critical |
+| 2 | Chat drawer at counter height | Chat overlaps counter instead of sitting below it | 🔴 Critical |
+| 3 | Counter height mismatch | DB says 12%, code defaults to 22% | 🟡 Medium |
+| 4 | Duplicate counter appearance | User reported seeing two counters | 🟡 Medium |
+| 5 | Counter image stretched wrong | Need `object-fill` to stretch to fit space | 🟡 Medium |
 
 ---
 
-## Technical Solution
+## Technical Analysis
 
-### Fix 1: Remove bottomOffset from ContainedChatDrawer
+### Issue 1: State Terminology Mismatch
 
-The `ContainedChatDrawer` is positioned within a container that already accounts for host UI. Remove the `bottomOffset` addition:
+**Database (V2 Bob active look):**
+| State Key | Frame Count |
+|-----------|-------------|
+| `talking` | 4 |
+| `researching` | 2 |
+| `listening` | 2 |
+| `idle` | 3 |
+| `waving` | 5 |
+
+**Code defaults (`useBobChat.ts` lines 148-152):**
+```tsx
+talkingState = "talk",       // ❌ V2 has "talking"
+thinkingState = "research",  // ❌ V2 has "researching"
+completeState = "complete",  // ❌ V2 has no "complete"
+idleState = "idle",          // ✅ Correct
+listenState = "talk_pause",  // ❌ V2 has "listening"
+```
+
+This causes console warnings like:
+```
+[useBobAnimation] No images for "talk", using fallback: waving
+```
+
+---
+
+### Issue 2: Chat Drawer Positioning
+
+**Current positioning:**
+- `ContainedChatDrawer.tsx` line 134: `bottom: ${counterHeightPercent}%`
+- This positions the chat drawer AT the same height as the counter overlay
+
+**The intended layer architecture:**
+```text
+Layer 1: Backdrop (z-0)       - Full container background
+Layer 2: Bob Character (z-60) - Standing behind counter
+Layer 3: Counter (z-70)       - Overlaps Bob's lower body
+Layer 4: Chat Drawer (z-80)   - Below counter visually, in front via z-index
+```
+
+**The fix:** Chat drawer should be at `bottom: 0`, not at `counterHeightPercent%`.
+
+---
+
+### Issue 3: Counter Height Configuration
+
+**Database `bob_backdrops`:**
+- `counter_height_percent: 12`
+
+**Code defaults:**
+- `MobileBobCharacter.tsx` line 30: `counterHeightPercent = 15`
+- `ContainedMobileBobLayout.tsx` line 67: `counterHeightPercent = 22`
+- `ContainedChatDrawer.tsx` line 41: `counterHeightPercent = 22`
+
+The database value (12%) should be the source of truth.
+
+---
+
+### Issue 4: Duplicate Counter
+
+The user screenshot shows two counters at different scales. This could be caused by:
+1. The backdrop image containing a counter AND the counter overlay rendering separately
+2. Multiple render paths rendering the same element
+
+**Root cause:** The backdrop image itself may contain a counter graphic. Combined with the `counterOverlayUrl` rendering a separate counter layer, this creates duplication.
+
+**Solution options:**
+- Option A: Use a backdrop image that does NOT include the counter
+- Option B: Skip the counter overlay when backdrop already has it (add `skipCounterOverlay` prop)
+- **Option C (user selected):** Stretch the counter image to fill the required space using `object-fill`
+
+---
+
+### Issue 5: Counter Image Stretching
+
+Currently, `MobileBobCharacter.tsx` uses:
+```tsx
+<img 
+  src={counterOverlayUrl} 
+  className="w-full h-full object-cover object-top"
+/>
+```
+
+`object-cover` maintains aspect ratio and crops. For stretching to fit the exact space, use:
+```tsx
+className="w-full h-full object-fill"  // Stretches to fill container
+```
+
+---
+
+## Implementation Plan
+
+### File 1: `packages/bob-widget/src/hooks/useBobChat.ts`
+
+Update default state names to match V2 Bob (lines 148-152):
 
 ```tsx
-// packages/bob-widget/src/components/mobile/ContainedChatDrawer.tsx
+talkingState = "talking",      // Was "talk"
+thinkingState = "researching", // Was "research"
+completeState = "idle",        // Was "complete" (V2 has no complete)
+idleState = "idle",            // Unchanged
+listenState = "listening",     // Was "talk_pause"
+```
 
-// BEFORE (wrong - adds offset that's already accounted for by container):
-bottom: `calc(${counterHeightPercent}% + ${bottomOffset}px)`,
+---
 
-// AFTER (correct - just position above counter):
+### File 2: `packages/bob-widget/src/components/mobile/ContainedChatDrawer.tsx`
+
+Position chat at container bottom (line 134):
+
+```tsx
+// BEFORE:
 bottom: `${counterHeightPercent}%`,
+
+// AFTER - Chat sits at the very bottom of container:
+bottom: 0,
 ```
 
-### Fix 2: Verify Counter Overlay Logic
-
-Check if `counterOverlayUrl` is being passed correctly. If the backdrop already contains the counter, set `counterOverlayUrl` to `undefined` or ensure it's a transparent/separate layer.
-
-The counter overlay in `MobileBobCharacter` at lines 114-129 should only render when there's a distinct counter asset - not when the backdrop already includes it.
-
-### Fix 3: Add Guard Against Double Counter
-
-Add a prop to disable the counter overlay when the backdrop is a combined image:
+Also increase collapsed height for more space (line 142):
 
 ```tsx
-// MobileBobCharacter.tsx
-interface MobileBobCharacterProps {
-  // ... existing props
-  /** Skip counter overlay if backdrop already includes it */
-  skipCounterOverlay?: boolean;
-}
-```
+// BEFORE:
+height: isExpanded ? '55%' : '70px',
 
-Or verify database configuration is correct - `counter_overlay_url` should only be set when using a backdrop that **doesn't** include the counter.
-
----
-
-## Files to Modify
-
-| File | Change |
-|------|--------|
-| `packages/bob-widget/src/components/mobile/ContainedChatDrawer.tsx` | Remove `bottomOffset` from bottom calculation |
-| `packages/bob-widget/src/components/mobile/ContainedMobileBobLayout.tsx` | Verify counter overlay handling |
-| `packages/bob-widget/package.json` | Bump to v3.1.14 |
-| `packages/bob-widget/src/version.ts` | Bump version |
-| `packages/bob-widget/CHANGELOG.md` | Add entry |
-
----
-
-## Detailed Changes
-
-### ContainedChatDrawer.tsx
-
-```tsx
-// Line 131-132 - Remove bottomOffset for contained mode
-style={{
-  position: 'absolute',
-  bottom: `${counterHeightPercent}%`,  // No bottomOffset - container already sized
-  left: 0,
-  right: 0,
-  // ...
-```
-
-### Alternative: Accept a "contained" prop
-
-If we want to preserve bottomOffset for non-contained use cases:
-
-```tsx
-interface ContainedChatDrawerProps {
-  // ...existing
-  /** If true, container already excludes host UI - don't add bottomOffset */
-  isContained?: boolean;
-}
-
-// Usage:
-bottom: isContained 
-  ? `${counterHeightPercent}%` 
-  : `calc(${counterHeightPercent}% + ${bottomOffset}px)`,
+// AFTER:
+height: isExpanded ? '55%' : '90px',
 ```
 
 ---
 
-## Expected Result After Fix
+### File 3: `packages/bob-widget/src/components/mobile/MobileBobCharacter.tsx`
+
+Change counter image rendering to use `object-fill` for stretching (lines 123-127):
+
+```tsx
+// BEFORE:
+<img 
+  src={counterOverlayUrl} 
+  className="w-full h-full object-cover object-top"
+/>
+
+// AFTER - Stretch to fill the counter space:
+<img 
+  src={counterOverlayUrl} 
+  className="w-full h-full"
+  style={{ objectFit: 'fill' }}
+/>
+```
+
+---
+
+### File 4: `packages/bob-widget/src/components/mobile/MobileChatDrawer.tsx`
+
+Apply same positioning fix (bottom: 0) for consistency across both drawer variants.
+
+---
+
+### File 5: Version files
+
+Bump to **v3.1.15**:
+- `packages/bob-widget/package.json`
+- `packages/bob-widget/src/version.ts`
+- `packages/bob-widget/CHANGELOG.md`
+
+---
+
+## Correct Layer Architecture After Fix
 
 ```text
-┌─────────────────────────┐ ← Header (72px) - OUTSIDE container
-├─────────────────────────┤
-│ Bob Container           │
-│   ┌───────────────────┐ │
-│   │ Backdrop (no      │ │
-│   │ counter in image) │ │
-│   │                   │ │
-│   │    Bob character  │ │
-│   │                   │ │
-│   ├───────────────────┤ │ ← 22% from bottom
-│   │ Chat Drawer       │ │ ← Positioned correctly
-│   ├───────────────────┤ │
-│   │ Counter Overlay   │ │ ← Single counter (z-70)
-│   └───────────────────┘ │
-├─────────────────────────┤
-└─────────────────────────┘ ← Bottom Nav (72px) - OUTSIDE container
+┌─────────────────────────────────────┐
+│ Host Header (72px)                  │ ← OUTSIDE Bob container
+├─────────────────────────────────────┤
+│                                     │
+│  ┌─────────────────────────────────┐│
+│  │ Layer 1: Backdrop (z-0)         ││ ← Full height background
+│  │                                 ││
+│  │    ┌──────────────────┐         ││
+│  │    │ Layer 2: Bob     │         ││ ← Character (z-60)
+│  │    │ (animations)     │         ││
+│  │    └──────────────────┘         ││
+│  │                                 ││
+│  ├─────────────────────────────────┤│
+│  │ Layer 3: Counter (z-70)         ││ ← 12% height, stretched to fit
+│  │ (overlaps Bob's lower body)     ││
+│  ├─────────────────────────────────┤│
+│  │ Layer 4: Chat Drawer (z-80)     ││ ← bottom: 0
+│  │ [Preview] [Input] [PTT]         ││
+│  └─────────────────────────────────┘│
+│                                     │
+├─────────────────────────────────────┤
+│ Host Bottom Nav (72px)              │ ← OUTSIDE Bob container
+└─────────────────────────────────────┘
 ```
 
 ---
 
-## Version Bump
+## Changelog Entry
 
 ```markdown
-## [3.1.14] - 2026-01-28
+## [3.1.15] - 2026-01-28
 
 ### Fixed
-- Chat drawer positioning in contained mode no longer adds bottomOffset (container already sized correctly)
-- Removed duplicate bottom offset calculation for ContainedChatDrawer
-- Verified counter overlay only renders when backdrop doesn't include counter
+- 🗣️ **State Terminology**: Default animation states updated to match V2 Bob:
+  - "talking" (was "talk")
+  - "researching" (was "research")
+  - "listening" (was "talk_pause")
+  - "idle" for complete state (was "complete")
+- 📐 **Chat Drawer Position**: Chat drawer now positioned at `bottom: 0` to sit below the counter overlay
+- 🖼️ **Counter Stretching**: Counter overlay now uses `object-fit: fill` to stretch to configured height
+- 📏 **Chat Height**: Increased collapsed chat drawer height from 70px to 90px
 ```
 
 ---
 
 ## Verification Checklist
 
-1. Navigate to `/ask-bob` route
-2. Verify **single** counter image (not duplicated)
-3. Verify chat drawer sits just above the counter (at ~22% from container bottom)
-4. Verify chat drawer expands correctly when clicked
-5. Verify PTT button is fully visible and tappable
-6. Test on mobile viewport (375px)
-7. Deploy to CARFIX test site to confirm parity
+1. Navigate to `/ask-bob`
+2. Verify Bob animates correctly (no console warnings about missing states)
+3. Verify single counter (not duplicated)
+4. Verify counter stretches to fill its 12% height allocation
+5. Verify chat drawer sits at the bottom of the container (below counter visually)
+6. Verify PTT button is fully visible and tappable
+7. Test chat expansion/collapse
+8. Test on mobile viewport (375px) and desktop (1920px)
 
