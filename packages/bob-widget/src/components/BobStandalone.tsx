@@ -218,7 +218,7 @@ export const BobStandalone: React.FC<StandaloneWidgetProps> = ({
         zIndexBase={zIndexBase}
       >
         <Bob
-          variant="mobile"
+          variant="inline"
           sessionToken={sessionToken}
         />
         {showDebug && (

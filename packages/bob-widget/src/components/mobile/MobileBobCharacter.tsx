@@ -74,8 +74,9 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
     return 'translateX(0)';
   };
   
-  // Calculate bottom position including vertical offset from database
-  const bottomPercent = counterHeightPercent - 2 + verticalOffset;
+  // Calculate bottom position - v3.1.10: Fixed formula to align with counter
+  // Bob stands ON the counter, not below it
+  const bottomPercent = counterHeightPercent + verticalOffset;
   
   // Transition timing - faster for hidden/show, smoother for positioning
   const getTransition = (): string => {

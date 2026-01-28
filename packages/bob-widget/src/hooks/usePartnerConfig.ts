@@ -111,9 +111,17 @@ export function usePartnerConfig(partnerCode: string | undefined): UsePartnerCon
       }
 
       // Create Supabase client with partner-specific credentials
+      // v3.1.10: Use unique storage key to prevent auth collisions with host site
       const client = createClient(
         partnerConfig.bob_supabase_url || BOB_DEFAULT_SUPABASE_URL,
-        partnerConfig.bob_supabase_key || BOB_DEFAULT_SUPABASE_KEY
+        partnerConfig.bob_supabase_key || BOB_DEFAULT_SUPABASE_KEY,
+        {
+          auth: {
+            storageKey: `bobwidget_${partnerConfig.partner_code.toLowerCase()}`,
+            persistSession: false,
+            autoRefreshToken: false,
+          }
+        }
       );
 
       console.log(`[BobWidget] Partner config loaded:`, {
