@@ -157,7 +157,7 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
         touchAction: 'manipulation'
       }}
     >
-      {/* Blurred Background - v2.0: REDUCED BLUR FOR READABILITY */}
+      {/* Background - v3.1.10: Config-driven blur via CSS variable (default: none) */}
       {backdropUrl && (
         <>
           <div 
@@ -166,19 +166,17 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
               backgroundImage: `url(${backdropUrl})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center bottom',
-              // REDUCED blur from 12px to 4px so CARFIX branding is readable
-              // INCREASED brightness from 0.7 to 0.85 for better visibility
-              filter: 'blur(4px) brightness(0.85)',
-              transform: 'scale(1.05)' // Reduced scale to minimize edge bleeding
+              // Use CSS variable for blur - defaults to 0 (no blur) for CARFIX
+              filter: 'blur(var(--bob-blur-intensity, 0px)) brightness(0.95)',
+              transform: 'scale(1.02)' // Minimal scale to prevent edge artifacts
             }}
           />
           
-          {/* Lighter overlay - more transparent to show branding */}
+          {/* Light overlay - uses CSS variable for opacity */}
           <div 
             className="absolute inset-0 z-[1]"
             style={{
-              // Much lighter overlay - allows backdrop text to show through
-              background: 'linear-gradient(to bottom, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.35) 100%)'
+              background: `rgba(0, 0, 0, var(--bob-overlay-opacity, 0.1))`
             }}
           />
         </>

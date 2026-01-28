@@ -180,7 +180,7 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
         touchAction: 'manipulation'
       }}
     >
-      {/* Background - NO overlay on Bob, only on backdrop */}
+      {/* Background - v3.1.10: Config-driven blur via CSS variable */}
       {backdropUrl && (
         <div 
           className="absolute inset-0 z-0 transition-all duration-500 ease-out"
@@ -188,10 +188,11 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
             backgroundImage: `url(${backdropUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center bottom',
+            // Use CSS variable for blur - defaults to 0 (no blur) for CARFIX
             filter: shouldBlurBackground 
-              ? 'blur(8px) brightness(0.9)' 
-              : 'blur(0px) brightness(1)',
-            transform: 'scale(1.05)'
+              ? 'blur(var(--bob-blur-intensity, 0px)) brightness(0.95)' 
+              : 'none',
+            transform: shouldBlurBackground ? 'scale(1.02)' : 'scale(1)'
           }}
         />
       )}

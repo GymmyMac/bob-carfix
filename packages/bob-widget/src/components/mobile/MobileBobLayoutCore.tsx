@@ -145,7 +145,7 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
         touchAction: 'manipulation'
       }}
     >
-      {/* Background with conditional blur when products shown */}
+      {/* Background - v3.1.10: Config-driven blur via CSS variable */}
       {backdropUrl && (
         <>
           <img 
@@ -154,15 +154,16 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
             className="absolute inset-0 z-0 w-full h-full object-cover object-center transition-all duration-500"
             style={{ 
               pointerEvents: 'none',
-              filter: shouldBlur ? 'blur(8px)' : 'none',
-              transform: shouldBlur ? 'scale(1.02)' : 'scale(1)', // Prevent blur edge artifacts
+              // Use CSS variable for blur - defaults to 0 (no blur) for CARFIX
+              filter: shouldBlur ? 'blur(var(--bob-blur-intensity, 0px))' : 'none',
+              transform: shouldBlur ? 'scale(1.02)' : 'scale(1)',
             }}
           />
-          {/* Dark overlay when products shown for better contrast */}
+          {/* Overlay when products shown - uses CSS variable for opacity */}
           <div 
             className="absolute inset-0 z-[1] transition-opacity duration-500 pointer-events-none"
             style={{ 
-              background: 'rgba(0, 0, 0, 0.15)',
+              background: `rgba(0, 0, 0, var(--bob-overlay-opacity, 0.1))`,
               opacity: shouldBlur ? 1 : 0,
             }}
           />

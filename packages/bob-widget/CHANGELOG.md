@@ -5,15 +5,28 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.10] - 2026-01-28
+
+### Added
+- 🛠️ **Executable CLI Installer**: New `bin/bob-widget.mjs` CLI for 3-stage installation process
+  - `npx @gymmymac/bob-widget carfix stage-a` - Forensic scan and cache purge
+  - `npx @gymmymac/bob-widget carfix stage-b` - Generate page container template
+  - `npx @gymmymac/bob-widget carfix stage-c` - Install and verify backend
+- 📦 **Full Package Distribution**: `bin`, `install`, and documentation files now shipped in npm package
+- 🔒 **Auth Isolation**: Supabase clients now use unique `storageKey` and `persistSession: false` to prevent host-site auth collisions
+
+### Fixed
+- 🎨 **Removed Hardcoded Blur**: All backdrop blur now uses CSS variable `--bob-blur-intensity` (default: 0px)
+- 📐 **Bob Vertical Positioning**: Fixed formula in MobileBobCharacter from `counterHeightPercent - 2 + verticalOffset` to `counterHeightPercent + verticalOffset`
+- 🖼️ **BobStandalone Embedded Mode**: Changed default variant from `mobile` to `inline` for proper container-respecting behavior
+
+### Changed
+- 📊 **CARFIX Backend Defaults**: Set `backdrop_blur_intensity: 0` and `default_bottom_offset: 72` in bob_partners table
+- 🔧 **Animation Offsets**: Reset negative `vertical_offset` values to 0 for active look
+
 ## [3.1.9] - 2026-01-28
 
 ### Changed
-- 🔧 **3-Stage Installation Process**: Complete rewrite of Section 10 with strict sequential stages:
-  - **Stage A: Forensic Removal** - Script now EXITS with error if any Bob files/imports found, forcing manual deletion
-  - **Stage B: Page Preparation** - Clear template for creating blank container page with CARFIX layout
-  - **Stage C: Install & Verify** - Fresh installation with mandatory verification checklist
-- 📖 **Documentation Restructure**: Installation and cleanup are now clearly separated into distinct, mandatory stages
-- ⚠️ **Prevents Legacy Code Interference**: Enhanced cleanup script detects Bob components, hooks, imports, and environment variables
 
 ## [3.1.8] - 2026-01-28
 

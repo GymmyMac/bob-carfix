@@ -1,6 +1,6 @@
 # Bob Widget - Complete Documentation
 
-> **Version:** 3.1.9 | **Last Updated:** January 2025
+> **Version:** 3.1.10 | **Last Updated:** January 2025
 
 AI-powered automotive parts assistant widget for seamless integration into partner websites.
 
@@ -26,27 +26,34 @@ AI-powered automotive parts assistant widget for seamless integration into partn
 
 Bob is a friendly Kiwi auto parts expert that helps customers find the right parts for their vehicles through natural conversation. The widget is designed as a **"black box"** that auto-configures from the database—partners only need to provide a partner code.
 
-### Key Features (v3.1.9)
+### Key Features (v3.1.10)
 
 | Feature | Description |
 |---------|-------------|
+| **CLI Installer** | 3-stage installation via `npx @gymmymac/bob-widget carfix stage-a\|b\|c` |
 | **BobStandalone** | Auto-configures from database - 4 lines to integrate |
+| **No Hardcoded Blur** | Background uses CSS variable `--bob-blur-intensity` (default: 0) |
 | **Partner Config System** | All settings stored in `bob_partners` table |
 | **CSS Variables** | Customizable blur, opacity, colors via CSS |
 | **Debug Overlay** | Visual diagnostic tool for troubleshooting |
 | **Session Handoff** | Pre-authenticated sessions for vehicle handoff |
 | **SwipeableBob** | Gesture-based interactions - swipe Bob away or back |
 | **RAF Animations** | Smooth 60fps animations using requestAnimationFrame |
-| **MatrixProductLoader** | Cyberpunk-style loading with phased states |
 | **HTTPS Validation** | Programmatic check for PTT with user warnings |
 
 ---
 
 ## 2. Quick Start
 
-> ⚠️ **IMPORTANT: 3-Stage Installation Process**
+> ⚠️ **IMPORTANT: Run the 3-Stage Installer First**
 > 
-> Bob v3.1.9 requires a strict 3-stage installation process: **Stage A (Forensic Removal) → Stage B (Page Preparation) → Stage C (Install & Verify)**. See [Section 10](#10-carfix-3-stage-installation) for complete instructions. Skipping stages WILL cause configuration conflicts.
+> Bob v3.1.10 includes an executable CLI installer. Do NOT skip this step.
+>
+> ```bash
+> npx @gymmymac/bob-widget carfix stage-a  # Forensic removal
+> npx @gymmymac/bob-widget carfix stage-b --target next-pages  # Generate template
+> npx @gymmymac/bob-widget carfix stage-c --partner CARFIX  # Install & verify
+> ```
 
 ### Recommended: BobStandalone (Simplest)
 
@@ -576,25 +583,35 @@ npm run dev
 
 ## 10. CARFIX 3-Stage Installation
 
-> 🚨 **CRITICAL: This is a MANDATORY 3-stage sequential process**
+> 🚨 **CRITICAL: Use the CLI Installer**
 > 
-> Bob v3.1.9 requires completing **all three stages in order**. Each stage has verification steps that MUST pass before proceeding. Skipping stages WILL cause visual issues (blur, wrong scale, wrong position).
+> Bob v3.1.10 includes an executable CLI for the 3-stage installation process.
+>
+> ```bash
+> # Stage A: Forensic Scan & Purge
+> npx @gymmymac/bob-widget carfix stage-a
+>
+> # Stage B: Generate Page Template
+> npx @gymmymac/bob-widget carfix stage-b --target next-pages --output pages/ask-bob.tsx
+>
+> # Stage C: Install & Verify
+> npx @gymmymac/bob-widget carfix stage-c --partner CARFIX
+> ```
+
+### Where the Install Files Live
+
+After installation, you can find the scripts in:
+```
+node_modules/@gymmymac/bob-widget/
+├── bin/bob-widget.mjs           # CLI entrypoint
+├── install/carfix/
+│   ├── 00-README-PREINSTALL.md  # This guide
+│   └── 05-runtime-verification-checklist.md
+├── BOB-DOCUMENTATION.md         # Full documentation
+└── CHANGELOG.md                 # Version history
+```
 
 ### Why 3 Stages?
-
-The issues seen on previous installations (blur always applied, Bob too small, wrong position) were caused by:
-1. **Old Bob components** still in the codebase with hardcoded values
-2. **Old state management** interfering with the standalone architecture  
-3. **Cached packages** serving old versions
-
-The 3-stage process ensures:
-1. **Stage A**: No old code remains (forensic removal)
-2. **Stage B**: Container is correctly configured (page preparation)
-3. **Stage C**: Only the new version is installed and verified
-
----
-
-### STAGE A: Forensic Removal
 
 > **Must complete BEFORE Stage B**
 

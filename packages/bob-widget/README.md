@@ -2,30 +2,45 @@
 
 AI-powered automotive parts assistant widget for integration into partner websites.
 
-**Current Version:** 3.1.9
+**Current Version:** 3.1.10
 
 ---
 
-## 🚨 IMPORTANT: Read Before Installing
+## 🚨 STOP - RUN THE INSTALLER FIRST
 
-**CARFIX Team:** Before integrating Bob, you MUST read the following documentation:
+Bob v3.1.10 includes an **executable 3-stage installer**. Do NOT skip this step.
+
+```bash
+# Stage A: Forensic Scan & Purge (removes old Bob code)
+npx @gymmymac/bob-widget carfix stage-a
+
+# Stage B: Generate Page Template (creates container)
+npx @gymmymac/bob-widget carfix stage-b --target next-pages --output pages/ask-bob.tsx
+
+# Stage C: Install & Verify (installs Bob + tests backend)
+npx @gymmymac/bob-widget carfix stage-c --partner CARFIX
+```
 
 ### 📖 Required Reading
 
 | Document | Description |
 |----------|-------------|
-| **[BOB-DOCUMENTATION.md](./BOB-DOCUMENTATION.md)** | **Complete integration guide** - Contains CARFIX-specific installation steps, container height calculations (144px offset), forensic cleanup process, and verification tests. **START HERE.** |
+| **[BOB-DOCUMENTATION.md](./BOB-DOCUMENTATION.md)** | **Complete integration guide** - Contains CARFIX-specific installation steps, container height calculations, and verification tests. **START HERE.** |
 | **[CHANGELOG.md](./CHANGELOG.md)** | Version history and release notes |
+| **[install/carfix/](./install/carfix/)** | Installer scripts and templates |
 
 ### ⚠️ Critical Installation Notes
 
-1. **3-Stage Installation Process**: Bob v3.1.9 requires a strict 3-stage installation: Stage A (Forensic Removal), Stage B (Page Preparation), Stage C (Install & Verify). See BOB-DOCUMENTATION.md Section 10.
-2. **Container Height**: Bob requires `height: calc(100dvh - 144px - env(safe-area-inset-bottom, 0px))` to display correctly with CARFIX header/footer
+1. **3-Stage Installation Process**: Bob v3.1.10 requires a strict 3-stage installation via CLI. See the commands above.
+2. **Container Height**: Bob requires `height: calc(100dvh - 144px - env(safe-area-inset-bottom, 0px))` for CARFIX header/footer
 3. **HTTPS Required**: Push-to-Talk (PTT) requires HTTPS - will be disabled on HTTP connections
+4. **No Background Blur**: v3.1.10 removes hardcoded blur - background is crisp by default
 
 ---
 
 ## Quick Start
+
+After completing the 3-stage installation:
 
 ```tsx
 import { BobStandalone } from '@gymmymac/bob-widget';
@@ -43,25 +58,13 @@ import { BobStandalone } from '@gymmymac/bob-widget';
 
 ---
 
-## Installation
+## What's New in v3.1.10
 
-```bash
-npm install @gymmymac/bob-widget@^3.1.9
-```
-
-## What's New in v3.1.6
-
-- 📚 **Documentation Update**: Corrected CARFIX layout measurements (144px total offset)
-- 🔧 **Installation Guide**: Added comprehensive 6-phase forensic cleanup process
-- 📐 **Container Height**: Updated formula for notched device support
-
-## What's New in v3.1.0+
-
-- 🎯 **BobStandalone** - Auto-configures from database (4 lines to integrate)
-- 🗄️ **Partner Config System** - All settings in `bob_partners` table
-- 🎨 **CSS Variables** - Customizable blur, opacity, colors
-- 🔍 **Debug Overlay** - Visual diagnostic tool
-- 📦 **Simplified Callbacks** - Only 3 essential callbacks needed
+- 🛠️ **Executable CLI Installer**: Run `npx @gymmymac/bob-widget carfix stage-a|b|c`
+- 🎨 **Fixed Visual Issues**: Removed hardcoded blur, fixed Bob positioning/scale
+- 📦 **Full Package Distribution**: CLI, install scripts, and docs shipped in npm
+- 🔧 **Embedded Mode Default**: BobStandalone now uses `inline` variant (container-respecting)
+- 🔒 **Auth Isolation**: Unique storage keys prevent host-site auth collisions
 
 ## Dependencies
 
@@ -73,7 +76,7 @@ All other dependencies are bundled.
 
 ## Support
 
-For integration issues, check the troubleshooting section in [BOB-DOCUMENTATION.md](./BOB-DOCUMENTATION.md#11-troubleshooting-reference).
+For integration issues, check the troubleshooting section in [BOB-DOCUMENTATION.md](./BOB-DOCUMENTATION.md#9-troubleshooting).
 
 ## License
 
