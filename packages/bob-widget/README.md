@@ -2,7 +2,28 @@
 
 AI-powered automotive parts assistant widget for integration into partner websites.
 
-**Current Version:** 3.1.0
+**Current Version:** 3.1.6
+
+---
+
+## 🚨 IMPORTANT: Read Before Installing
+
+**CARFIX Team:** Before integrating Bob, you MUST read the following documentation:
+
+### 📖 Required Reading
+
+| Document | Description |
+|----------|-------------|
+| **[BOB-DOCUMENTATION.md](./BOB-DOCUMENTATION.md)** | **Complete integration guide** - Contains CARFIX-specific installation steps, container height calculations (144px offset), forensic cleanup process, and verification tests. **START HERE.** |
+| **[CHANGELOG.md](./CHANGELOG.md)** | Version history and release notes |
+
+### ⚠️ Critical Installation Notes
+
+1. **Forensic Cleanup Required**: If upgrading from v3.0.x, you MUST run the cleanup script in BOB-DOCUMENTATION.md Section 10 before installing
+2. **Container Height**: Bob requires `height: calc(100dvh - 144px - env(safe-area-inset-bottom, 0px))` to display correctly with CARFIX header/footer
+3. **HTTPS Required**: Push-to-Talk (PTT) requires HTTPS - will be disabled on HTTP connections
+
+---
 
 ## Quick Start
 
@@ -14,24 +35,27 @@ import { BobStandalone } from '@gymmymac/bob-widget';
   sessionToken={sessionToken}
   onAddToCart={(item) => addToCart(item)}
   onNavigate={(url) => router.push(url)}
+  onCheckout={(url) => window.location.href = url}
 />
 ```
 
 **That's it!** Bob auto-configures from the database.
 
-## Documentation
-
-📖 **[Full Documentation](./BOB-DOCUMENTATION.md)** - Complete integration guide, props reference, behaviour guidelines, and troubleshooting.
-
-📋 **[Changelog](./CHANGELOG.md)** - Version history and release notes.
+---
 
 ## Installation
 
 ```bash
-npm install @gymmymac/bob-widget@^3.1.0
+npm install @gymmymac/bob-widget@^3.1.6
 ```
 
-## What's New in v3.1.0
+## What's New in v3.1.6
+
+- 📚 **Documentation Update**: Corrected CARFIX layout measurements (144px total offset)
+- 🔧 **Installation Guide**: Added comprehensive 6-phase forensic cleanup process
+- 📐 **Container Height**: Updated formula for notched device support
+
+## What's New in v3.1.0+
 
 - 🎯 **BobStandalone** - Auto-configures from database (4 lines to integrate)
 - 🗄️ **Partner Config System** - All settings in `bob_partners` table
@@ -46,6 +70,10 @@ Only requires:
 - `react-dom` ^18.0.0
 
 All other dependencies are bundled.
+
+## Support
+
+For integration issues, check the troubleshooting section in [BOB-DOCUMENTATION.md](./BOB-DOCUMENTATION.md#11-troubleshooting-reference).
 
 ## License
 

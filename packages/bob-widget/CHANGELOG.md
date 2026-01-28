@@ -5,6 +5,17 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.6] - 2026-01-28
+
+### Added
+- **Installation README**: Updated README.md with prominent "Read Before Installing" section directing CARFIX team to BOB-DOCUMENTATION.md
+- **Required Reading Table**: Clear documentation hierarchy for new integrators
+
+### Changed
+- **Documentation Update**: Corrected CARFIX layout measurements to 144px total offset (72px header + 72px bottom nav)
+- **Container Height Formula**: Updated to `calc(100dvh - 144px - env(safe-area-inset-bottom, 0px))` for notched device support
+- **Forensic Cleanup**: Expanded Section 10 with comprehensive 6-phase migration process
+
 ## [3.1.5] - 2026-01-26
 
 ### Changed
