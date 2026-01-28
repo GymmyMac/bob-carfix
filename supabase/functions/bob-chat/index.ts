@@ -275,7 +275,7 @@ const tools = [
     type: "function",
     function: {
       name: "retrieve_service_packages",
-      description: "Fetch pre-configured CARFIX Service Packs with preparedTiers from the calculate-service-bundles API. Returns standardized service bundles with Economy/CARFIX Value/Premium/Performance tiers ready for display. CALL THIS FIRST when customer asks about brakes, filters, oil, wipers, or any regular maintenance parts. Service packages offer better value than individual parts.",
+      description: "Fetch pre-configured CARFIX Service Packs with preparedTiers from the calculate-service-bundles API. Returns service bundles with Economy/Standard/Premium/Performance tiers. CRITICAL: Each tier in preparedTiers has 'isRecommended: true/false' - the tier with isRecommended=true is the 'CARFIX Value' option you MUST recommend. DO NOT assume Standard is the CARFIX Value - check the isRecommended flag! CALL THIS FIRST when customer asks about brakes, filters, oil, wipers, or any maintenance parts.",
       parameters: {
         type: "object",
         properties: {
