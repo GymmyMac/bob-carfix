@@ -5,6 +5,15 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.14] - 2026-01-28
+
+### Fixed
+- 📐 **ContainedChatDrawer Positioning**: Removed incorrect `bottomOffset` addition - container already accounts for host UI
+- 🎨 **Chat Drawer Height**: Chat drawer now correctly positions at `counterHeightPercent%` from container bottom
+- 📝 **Counter Overlay**: Single counter display verified (backdrop + overlay are separate layers)
+
+---
+
 ## [3.1.13] - 2026-01-28
 
 ### Fixed

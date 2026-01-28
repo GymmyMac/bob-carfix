@@ -129,7 +129,9 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
       ref={drawerRef}
       style={{
         position: 'absolute',
-        bottom: `calc(${counterHeightPercent}% + ${bottomOffset}px)`,
+        // v3.1.14: ContainedChatDrawer is inside a container that already accounts for host UI
+        // Don't add bottomOffset - just position above the counter
+        bottom: `${counterHeightPercent}%`,
         left: 0,
         right: 0,
         ...glassPanel,
@@ -140,7 +142,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
         height: isExpanded ? '55%' : '70px',
         overflow: isExpanded ? 'visible' : 'hidden',
         zIndex: zIndexBase + 30,
-        paddingBottom: bottomOffset > 0 ? '8px' : 'env(safe-area-inset-bottom, 8px)'
+        paddingBottom: 'env(safe-area-inset-bottom, 8px)'
       }}
     >
       {/* Expand/Collapse Handle - Glass style */}
