@@ -1,297 +1,259 @@
 
-## What’s actually going wrong (confirmed from the codebase + backend config)
 
-### 1) Background blur is still “in play” (it’s hardcoded)
-Your screenshot complaints are valid. In the bob-widget package **the background blur is currently hardcoded inside the mobile layouts**, independent of any “new install”:
+# Fix Stage B Instructions: Add CARFIX Header & Bottom Navigation Preparation
 
-- `packages/bob-widget/src/components/mobile/MobileBobLayout.tsx`
-  - backdrop uses: `filter: 'blur(4px) brightness(0.85)'` (always on)
-- `packages/bob-widget/src/components/mobile/ContainedMobileBobLayout.tsx`
-  - backdrop uses: `filter: shouldBlurBackground ? 'blur(8px)...' : ...` (blur-on-state logic)
-- `packages/bob-widget/src/components/mobile/MobileBobLayoutCore.tsx`
-  - backdrop uses: `filter: shouldBlur ? 'blur(8px)' : 'none'`
+## Problem Summary
 
-So even if CARFIX does a perfect forensic cleanup, **the current published widget still can blur the backdrop** because blur is built into the widget itself.
+The CARFIX team followed the 3-stage installation process, but the instructions for **Stage B** failed to provide:
+1. **Code for the CARFIX Header** (72px fixed at top)
+2. **Code for the Bottom Navigation** (72px fixed at bottom)
+3. **Clear explanation** that the 144px height calculation assumes these elements exist
 
-### 2) Bob looks “small” and “out of position” due to a real math + data interaction
-From the backend (Lovable Cloud DB) we verified:
-
-- Active look: `V2 Bob` (look_id `bddd31eb-7e60-4467-aad3-e07783e3fbbd`)
-- For that look, most frames have:
-  - `scale = 100`
-  - `vertical_offset = -5`
-- Active backdrop has:
-  - `counter_height_percent = 12`
-
-But in `packages/bob-widget/src/components/mobile/MobileBobCharacter.tsx`, Bob’s bottom is computed as:
-
-- `bottomPercent = counterHeightPercent - 2 + verticalOffset`
-  - With counterHeightPercent=12 and verticalOffset=-5 → **bottomPercent = 5%**
-  - That makes Bob sit visibly low / “off”.
-
-This isn’t an “old install” artifact. It’s a **current formula + current DB offsets** mismatch.
-
-### 3) The “standalone embedded widget” contract is not being honored by BobStandalone right now
-`BobStandalone` currently renders:
-
-- `<Bob variant="mobile" ... />`
-
-And `mobile` variant uses `MobileBobLayout`, which uses **fixed positioning when embedded=false**. Even if CARFIX puts Bob inside a correctly sized container between header and bottom nav, a fixed-position mobile layout can still behave like a full-screen overlay and/or be clipped by host overflow rules—making Bob appear incorrectly sized/positioned.
-
-So: **even if the CARFIX team follows the container-height rules perfectly, BobStandalone currently does not default to the contained/embedded layout that CARFIX needs.**
-
-### 4) Why CARFIX didn’t see your “3-stage install process” docs/scripts
-Your bob-widget package currently has:
-
-- `packages/bob-widget/package.json` → `"files": ["dist"]`
-
-That means when CARFIX installs from npm, the package will ship basically only `dist/**` (plus npm’s default inclusions like package.json/readme), and **not necessarily** the full `BOB-DOCUMENTATION.md` + any installer assets unless we explicitly include them.
-
-So even though `packages/bob-widget/BOB-DOCUMENTATION.md` in this repo contains a Stage A/B/C section, CARFIX may not be receiving it in `node_modules/@gymmymac/bob-widget/` in a reliable way. Also: there are currently **no actual script files** in the package—only script text inside the docs—so there was nothing concrete to “run”.
-
-This matches your report: “no clean up, no pre install readme file, no 3 stage install process”.
+The documentation says "Page must use the standard CARFIX layout (Header + Bottom Navigation)" but never explains how to create them or what they should look like.
 
 ---
 
-## Goal (what we will deliver)
-A new release that includes:
+## Solution: Enhanced Stage B with Full Layout Components
 
-1) **A true “Forensic 3-Stage Installer”** that CARFIX can run as commands (not just copied from docs), with:
-   - **Stage A**: forensic detection + cache/package cleanup (safe; no auto-deleting arbitrary source files)
-   - **Stage B**: page/container template generator (prints or writes templates)
-   - **Stage C**: install + verification script (version + backend reachability + runtime checklist)
+### What We'll Add
 
-2) **Widget fixes** so CARFIX stops seeing:
-   - background blur
-   - small Bob
-   - out-of-position Bob
-
-3) **Documentation + installer files included in the npm package** with explicit paths so CARFIX can always find them.
-
-We will publish this as **v3.1.10** (patch bump from 3.1.9; scoped to fixes + packaging).
+| File | Changes |
+|------|---------|
+| `packages/bob-widget/BOB-DOCUMENTATION.md` | Add "CARFIX Layout Components" section with Header and BottomNav code |
+| `packages/bob-widget/bin/bob-widget.mjs` | Update Stage B template to include optional `--with-layout` flag that generates full page with header/nav |
+| `packages/bob-widget/install/carfix/00-README-PREINSTALL.md` | Add prerequisite note about layout components |
 
 ---
 
-## Deliverable A: “Install files” (names + locations) that CARFIX can actually execute
+## Technical Details
 
-### A1) Add an install directory that ships in npm
-Create a new directory in the widget package:
+### 1. CARFIX Header Component (72px)
 
-- `packages/bob-widget/install/carfix/`
+```tsx
+// components/CarfixHeader.tsx
+export function CarfixHeader() {
+  return (
+    <header 
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '72px',
+        backgroundColor: '#0052CC', // CARFIX Royal Blue
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 16px',
+        zIndex: 50,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <img src="/carfix-logo.svg" alt="CARFIX" style={{ height: '40px' }} />
+        <span style={{ color: 'white', fontSize: '20px', fontWeight: 'bold' }}>CARFIX</span>
+      </div>
+      <nav style={{ display: 'flex', gap: '16px' }}>
+        {/* Navigation items */}
+      </nav>
+    </header>
+  );
+}
+```
 
-Contents (concrete files, not just docs):
+### 2. CARFIX Bottom Navigation Component (72px)
 
-1. `packages/bob-widget/install/carfix/00-README-PREINSTALL.md`
-   - What “forensic removal” means
-   - What this installer can/can’t delete safely
-   - Expected time + checklist
+```tsx
+// components/CarfixBottomNav.tsx
+export function CarfixBottomNav() {
+  return (
+    <nav 
+      style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: '72px',
+        backgroundColor: '#0F172A', // CARFIX Deep Navy
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-around',
+        padding: '8px 16px',
+        paddingBottom: 'calc(8px + env(safe-area-inset-bottom, 0px))',
+        zIndex: 50,
+      }}
+    >
+      <button>Home</button>
+      <button>Search</button>
+      <button>Cart</button>
+      <button>Account</button>
+    </nav>
+  );
+}
+```
 
-2. `packages/bob-widget/install/carfix/01-stage-a-forensic-scan.sh`
-3. `packages/bob-widget/install/carfix/01-stage-a-forensic-scan.ps1`
-   - Cross-platform scanning for:
-     - any old Bob components/hooks/types
-     - any imports of old bob-widget/legacy Bob paths
-     - any `BOB_` env vars
-     - duplicate widget installs
-   - Exits non-zero if found, prints exact file paths + matching lines.
+### 3. Complete Page Layout Template
 
-4. `packages/bob-widget/install/carfix/02-stage-a-cache-purge.sh`
-5. `packages/bob-widget/install/carfix/02-stage-a-cache-purge.ps1`
-   - Performs safe cleanup steps CARFIX asked for:
-     - uninstall bob-widget packages (known names)
-     - remove node_modules + lockfiles (optional flag)
-     - remove build caches (.vite, .next/cache, dist, etc.)
+```tsx
+// pages/ask-bob.tsx - COMPLETE LAYOUT
+import React from 'react';
+import { CarfixHeader } from '@/components/CarfixHeader';
+import { CarfixBottomNav } from '@/components/CarfixBottomNav';
 
-6. `packages/bob-widget/install/carfix/03-stage-b-generate-container-template.mjs`
-   - Generates templates to stdout (and optionally writes files) for:
-     - Next.js Pages router
-     - Next.js App router
-     - React Router (Vite)
-   - Includes the CARFIX “Header + Bottom Nav present; Bob container between them” requirement.
-
-7. `packages/bob-widget/install/carfix/04-stage-c-install-and-verify.mjs`
-   - Installs bob-widget (or validates already installed)
-   - Verifies installed version matches target
-   - Verifies Bob backend is reachable by:
-     - reading the partner config row for CARFIX (public read)
-     - confirming required fields exist (api_base_url, allowed_origins, etc.)
-   - Prints a final “PASS/FAIL” summary.
-
-8. `packages/bob-widget/install/carfix/05-runtime-verification-checklist.md`
-   - The manual in-browser checks (console string, PTT, rego lookup, etc.)
-
-### A2) Add an executable CLI so CARFIX can run Stage A/B/C as commands
-Add a Node CLI entrypoint shipped in npm:
-
-- `packages/bob-widget/bin/bob-widget.mjs` (or `.js`)
-- Update `packages/bob-widget/package.json`:
-  - add `"bin": { "bob-widget": "bin/bob-widget.mjs" }`
-  - expand `"files"` to include:
-    - `dist`
-    - `install`
-    - `bin`
-    - `BOB-DOCUMENTATION.md`
-    - `CHANGELOG.md`
-    - `README.md`
-
-This enables CARFIX to run the process the way you described (“triggered by npm file being run”), via:
-
-- Stage A (before install, using npx):
-  - `npx -y @gymmymac/bob-widget@3.1.10 bob-widget carfix stage-a`
-
-- Stage B:
-  - `npx -y @gymmymac/bob-widget@3.1.10 bob-widget carfix stage-b --target next-pages --output ./pages/ask-bob.tsx`
-
-- Stage C:
-  - `npx -y @gymmymac/bob-widget@3.1.10 bob-widget carfix stage-c --partner CARFIX`
-
-This is the cleanest way to “run the install” without relying on copy/paste from docs.
-
----
-
-## Deliverable B: Fix the widget so the screenshot issues stop happening
-
-### B1) Remove hardcoded background blur and make blur purely config-driven
-Changes:
-- `packages/bob-widget/src/components/mobile/MobileBobLayout.tsx`
-  - Remove the hardcoded `blur(4px)` backdrop filter.
-  - If blur is desired, use the already-injected CSS variable:
-    - `blur(var(--bob-blur-intensity, 0px))`
-  - For CARFIX, we will set blur intensity to 0 in partner config so it becomes “none”.
-
-- `packages/bob-widget/src/components/mobile/ContainedMobileBobLayout.tsx`
-- `packages/bob-widget/src/components/mobile/MobileBobLayoutCore.tsx`
-  - Same: no magic numbers like blur(8px), use config variable consistently, and allow 0.
-
-### B2) Fix Bob’s vertical positioning math to match the “counter overlay” model
-Change:
-- `packages/bob-widget/src/components/mobile/MobileBobCharacter.tsx`
-  - Replace:
-    - `counterHeightPercent - 2 + verticalOffset`
-  - With:
-    - `counterHeightPercent + verticalOffset`
-  - This aligns with the desktop `BobCharacter` logic and stops the “sinking Bob” issue when counterHeightPercent is 12.
-
-### B3) Make BobStandalone actually behave as an embedded “standalone widget”
-Change:
-- `packages/bob-widget/src/components/BobStandalone.tsx`
-  - Switch the default rendering from:
-    - `variant="mobile"`
-  - To:
-    - `variant="inline"`
-  - Reason: inline uses `ContainedMobileBobLayout` which is container-respecting and designed for header/footer pages.
-  - Add a new `embedded?: boolean` prop to `StandaloneWidgetProps` (default true) only if still needed for other variants.
-
-This change directly supports your requirement:
-- “page with CARFIX header and bottom nav; container between them; Bob fills that container”
-
-### B4) Reduce “old install interference” risks (auth storage collision) for true standalone behavior
-Change:
-- `packages/bob-widget/src/hooks/usePartnerConfig.ts`
-- `packages/bob-widget/src/BobProvider.tsx`
-
-When creating Supabase clients, set client options to avoid:
-- storage key collisions with other clients on the host site
-- persistent session behavior the widget doesn’t need
-
-Implement:
-- unique `storageKey` for widget clients (e.g., `bobwidget_${partnerCode}`)
-- `persistSession: false`
-- `autoRefreshToken: false`
-
-This prevents the “multiple GoTrueClient instances” style of undefined behavior when partners have their own auth clients.
+export default function AskBobPage() {
+  return (
+    <>
+      {/* CARFIX Header - 72px fixed at top */}
+      <CarfixHeader />
+      
+      {/* Bob Container - fills space between header and nav */}
+      <main
+        style={{
+          marginTop: '72px', // Push below fixed header
+          height: 'calc(100dvh - 144px - env(safe-area-inset-bottom, 0px))',
+          position: 'relative',
+          overflow: 'hidden',
+          width: '100%',
+        }}
+      >
+        <p>Bob Container Ready - Proceed to Stage C</p>
+      </main>
+      
+      {/* CARFIX Bottom Navigation - 72px fixed at bottom */}
+      <CarfixBottomNav />
+    </>
+  );
+}
+```
 
 ---
 
-## Deliverable C: Update backend defaults so CARFIX gets the correct “no blur / correct offsets” out of the box
+## Updated CLI Template Generator
 
-### C1) Update CARFIX partner defaults
-In `public.bob_partners` for `partner_code='CARFIX'`:
-- set `default_bottom_offset` to **72** (matches your CARFIX bottom nav spec)
-- set `backdrop_blur_intensity` to **0** (your stated requirement: no background blur)
+Add a `--with-layout` flag to Stage B:
 
-### C2) Fix look offsets so Bob isn’t being pushed downward by legacy negative offsets
-For active look `bddd31eb-7e60-4467-aad3-e07783e3fbbd`:
-- update `bob_animations.vertical_offset` from **-5** to **0** for the look
-- (optional) if still visually small after the layout fixes, consider bumping `bob_animations.scale` from 100 → 110 for mobile-friendly presence
+```bash
+# Without layout (current behavior - assumes layout exists)
+npx @gymmymac/bob-widget carfix stage-b --target next-pages
 
-These updates are safe because scale/offset are explicitly database-driven tuning knobs.
+# With full layout (new option - generates header/nav too)
+npx @gymmymac/bob-widget carfix stage-b --target next-pages --with-layout
+```
 
 ---
 
-## Documentation updates (so CARFIX can’t miss it again)
+## Updated Documentation Structure
 
-### D1) Update BOB-DOCUMENTATION.md to reference real files
-- `packages/bob-widget/BOB-DOCUMENTATION.md`
-  - In Section 10:
-    - add a “Where the install scripts live” section with exact paths:
-      - `node_modules/@gymmymac/bob-widget/install/carfix/...`
-    - add the `npx bob-widget carfix stage-a|b|c` commands
-    - keep the inline scripts as “reference”, but the source of truth becomes the shipped files.
+### New Section in BOB-DOCUMENTATION.md (before Stage B template)
 
-### D2) Update README.md to act as the unavoidable “pre-install” gate
-- `packages/bob-widget/README.md`
-  - Add a bold “STOP: Run installer first” section with:
-    - the npx commands
-    - the file paths inside node_modules
+```markdown
+#### CARFIX Layout Components (Required)
 
----
+Before creating the Bob container, ensure your CARFIX application has:
 
-## Versioning / Release
-- Bump version everywhere from **3.1.9 → 3.1.10**
-  - `packages/bob-widget/package.json`
-  - `packages/bob-widget/src/version.ts`
-  - `packages/bob-widget/README.md`
-  - `packages/bob-widget/BOB-DOCUMENTATION.md`
-  - `packages/bob-widget/CHANGELOG.md`
+1. **Fixed Header (72px)** - Fixed to top of viewport
+2. **Fixed Bottom Navigation (72px)** - Fixed to bottom of viewport
 
----
+**If these elements do NOT exist**, you must create them first. The 144px height offset
+in the container formula ASSUMES both elements are present.
 
-## Verification (how we will prove it’s fixed)
+##### Option A: Use Existing Layout
+If your CARFIX app already has a header and bottom nav, confirm their heights:
+- Header: Must be exactly 72px
+- Bottom Nav: Must be exactly 72px (plus safe-area-inset-bottom on mobile)
 
-### Widget runtime verification (visual)
-1) Install in a constrained container (height calc) and ensure:
-- backdrop has no blur (computed filter contains `blur(0px)` or `none`)
-- Bob stands on the counter correctly (not at ~5% bottom)
-- Bob is properly sized (subjective but clearly “prominent”)
+##### Option B: Generate Layout Components
+Run Stage B with the --with-layout flag to generate placeholder components:
 
-### Installer verification (Stage A/B/C)
-- Stage A:
-  - intentionally add a fake “legacy Bob import” → installer must fail with file + line location
-- Stage B:
-  - generator must output correct container code + explicit header/bottom-nav context comments
-- Stage C:
-  - must print installed version and “partner config reachable: PASS”
+\`\`\`bash
+npx @gymmymac/bob-widget carfix stage-b --target next-pages --with-layout
+\`\`\`
 
-### Regression guard
-- Add a Playwright test (repo already uses Playwright) to assert:
-  - no hardcoded blur values exist in rendered backdrop (or filter uses CSS var)
-  - BobStandalone renders inline/contained layout by default
+This generates:
+- \`components/CarfixHeader.tsx\` (72px header)
+- \`components/CarfixBottomNav.tsx\` (72px bottom nav)
+- \`pages/ask-bob.tsx\` (complete page with layout)
+```
 
 ---
 
-## What you will get (explicit list you requested)
-After implementation, CARFIX will have:
+## Demo Route for This Repo
 
-### In the npm package (node_modules)
-- `node_modules/@gymmymac/bob-widget/BOB-DOCUMENTATION.md`
-- `node_modules/@gymmymac/bob-widget/install/carfix/00-README-PREINSTALL.md`
-- `node_modules/@gymmymac/bob-widget/install/carfix/01-stage-a-forensic-scan.sh`
-- `node_modules/@gymmymac/bob-widget/install/carfix/01-stage-a-forensic-scan.ps1`
-- `node_modules/@gymmymac/bob-widget/install/carfix/02-stage-a-cache-purge.sh`
-- `node_modules/@gymmymac/bob-widget/install/carfix/02-stage-a-cache-purge.ps1`
-- `node_modules/@gymmymac/bob-widget/install/carfix/03-stage-b-generate-container-template.mjs`
-- `node_modules/@gymmymac/bob-widget/install/carfix/04-stage-c-install-and-verify.mjs`
-- `node_modules/@gymmymac/bob-widget/install/carfix/05-runtime-verification-checklist.md`
-- `node_modules/@gymmymac/bob-widget/bin/bob-widget.mjs` (CLI)
+Add an `/ask-bob` route to the demo repo that includes a mock CARFIX layout so you can test Bob properly:
 
-### Commands CARFIX runs (single source of truth)
-- Stage A (forensic removal gate):
-  - `npx -y @gymmymac/bob-widget@3.1.10 bob-widget carfix stage-a`
-- Stage B (page/container prep):
-  - `npx -y @gymmymac/bob-widget@3.1.10 bob-widget carfix stage-b --target <next-pages|next-app|react-router> --output <path>`
-- Stage C (install + verify):
-  - `npx -y @gymmymac/bob-widget@3.1.10 bob-widget carfix stage-c --partner CARFIX`
+```tsx
+// src/pages/AskBob.tsx
+import { BobStandalone } from '../packages/bob-widget/src';
 
-This is the “npm-triggered 3-stage install” you described, with real files, real locations, and enforceable gating.
+function MockCarfixHeader() {
+  return (
+    <header className="fixed top-0 left-0 right-0 h-[72px] bg-[#0052CC] flex items-center px-4 z-50">
+      <span className="text-white text-xl font-bold">CARFIX Demo</span>
+    </header>
+  );
+}
+
+function MockCarfixBottomNav() {
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 h-[72px] bg-[#0F172A] flex items-center justify-around z-50 pb-[env(safe-area-inset-bottom)]">
+      <button className="text-white">Home</button>
+      <button className="text-white">Search</button>
+      <button className="text-white">Cart</button>
+    </nav>
+  );
+}
+
+export default function AskBobPage() {
+  return (
+    <>
+      <MockCarfixHeader />
+      <main
+        className="mt-[72px]"
+        style={{
+          height: 'calc(100dvh - 144px - env(safe-area-inset-bottom, 0px))',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        <BobStandalone
+          partner="CARFIX"
+          sessionToken=""
+          onAddToCart={(item) => console.log('Add to cart:', item)}
+          onNavigate={(url) => console.log('Navigate:', url)}
+        />
+      </main>
+      <MockCarfixBottomNav />
+    </>
+  );
+}
+```
+
+---
+
+## Files to Modify
+
+| File | Action |
+|------|--------|
+| `packages/bob-widget/BOB-DOCUMENTATION.md` | Add "CARFIX Layout Components" section before Stage B template |
+| `packages/bob-widget/bin/bob-widget.mjs` | Add `--with-layout` flag to Stage B, generate header/nav components |
+| `packages/bob-widget/install/carfix/00-README-PREINSTALL.md` | Add note: "Ensure CARFIX Header (72px) and Bottom Nav (72px) exist or use --with-layout" |
+| `src/pages/AskBob.tsx` | Create demo route with mock CARFIX layout |
+| `src/App.tsx` | Add route for `/ask-bob` |
+
+---
+
+## Version Bump
+
+This is a documentation/CLI enhancement - bump to **v3.1.11** with CHANGELOG entry:
+
+```markdown
+## [3.1.11] - 2025-01-28
+
+### Added
+- Stage B: New `--with-layout` flag generates CARFIX Header and Bottom Navigation components
+- Documentation: Added "CARFIX Layout Components" section explaining 72px header + 72px nav requirement
+
+### Fixed
+- Clarified that Stage B requires existing layout OR use of `--with-layout` flag
+- Added mock CARFIX layout to demo repo for testing
+```
 
