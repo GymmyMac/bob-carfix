@@ -144,7 +144,7 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
         transition: 'all 0.3s ease-out',
         boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.3)',
         height: isExpanded ? '55vh' : 'auto',
-        zIndex: zIndexBase + 60,
+        zIndex: zIndexBase + 80,
         paddingBottom: bottomOffset > 0 ? '8px' : 'env(safe-area-inset-bottom, 8px)'
       }}
     >
@@ -163,7 +163,7 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
           borderRadius: '9999px',
           padding: '6px',
           boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
-          zIndex: zIndexBase + 70,
+          zIndex: zIndexBase + 90,
           cursor: 'pointer',
           minHeight: 'unset',
           minWidth: 'unset'

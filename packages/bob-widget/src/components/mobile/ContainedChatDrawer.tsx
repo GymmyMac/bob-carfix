@@ -136,7 +136,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
         boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.3)',
         height: isExpanded ? '55%' : '70px',
         overflow: isExpanded ? 'visible' : 'hidden',
-        zIndex: zIndexBase + 10,
+        zIndex: zIndexBase + 30,
         paddingBottom: bottomOffset > 0 ? '8px' : 'env(safe-area-inset-bottom, 8px)'
       }}
     >
@@ -155,7 +155,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
           borderRadius: '9999px',
           padding: '6px',
           boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
-          zIndex: zIndexBase + 20,
+          zIndex: zIndexBase + 40,
           cursor: 'pointer',
           minHeight: 'unset',
           minWidth: 'unset'
@@ -373,7 +373,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
                   opacity: isLoading ? 0.6 : 1,
                   transform: isListening ? 'scale(1.08)' : 'scale(1)',
                   transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease',
-                  zIndex: zIndexBase + 25,
+                  zIndex: zIndexBase + 45,
                   ...currentPttStyle
                 }}
                 title="Hold to talk"
