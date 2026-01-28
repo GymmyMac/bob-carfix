@@ -129,9 +129,8 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
       ref={drawerRef}
       style={{
         position: 'absolute',
-        // v3.1.14: ContainedChatDrawer is inside a container that already accounts for host UI
-        // Don't add bottomOffset - just position above the counter
-        bottom: `${counterHeightPercent}%`,
+        // v3.1.15: Chat drawer sits at container bottom (below counter visually, in front via z-index)
+        bottom: 0,
         left: 0,
         right: 0,
         ...glassPanel,
@@ -139,7 +138,8 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
         borderBottom: 'none',
         transition: 'all 0.3s ease-out',
         boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.3)',
-        height: isExpanded ? '55%' : '70px',
+        // v3.1.15: Increased collapsed height from 70px to 90px
+        height: isExpanded ? '55%' : '90px',
         overflow: isExpanded ? 'visible' : 'hidden',
         zIndex: zIndexBase + 30,
         paddingBottom: 'env(safe-area-inset-bottom, 8px)'

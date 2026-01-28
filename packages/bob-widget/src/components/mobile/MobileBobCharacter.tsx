@@ -111,7 +111,7 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
         />
       </div>
 
-      {/* Counter Overlay */}
+      {/* Counter Overlay - v3.1.15: Use object-fill to stretch to configured height */}
       {counterOverlayUrl && (
         <div 
           className="absolute bottom-0 left-0 right-0 z-[70]"
@@ -123,7 +123,8 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
           <img 
             src={counterOverlayUrl} 
             alt="Shop counter" 
-            className="w-full h-full object-cover object-top"
+            className="w-full h-full"
+            style={{ objectFit: 'fill' }}
           />
         </div>
       )}

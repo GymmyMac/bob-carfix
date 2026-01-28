@@ -145,11 +145,12 @@ const PART_TYPE_KEYWORDS = [
 export const useBobChat = ({ 
   setAnimationState, 
   manualMode = false,
-  talkingState = "talk",
-  thinkingState = "research",
-  completeState = "complete",
+  // v3.1.15: Updated defaults to match V2 Bob animation state keys
+  talkingState = "talking",
+  thinkingState = "researching",
+  completeState = "idle",
   idleState = "idle",
-  listenState = "talk_pause",
+  listenState = "listening",
   onStreamStart,
   onStreamComplete,
   onShowingProduct,
