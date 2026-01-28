@@ -94,6 +94,23 @@ function buildSystemPromptFromDB(prompts: BobPrompt[]): string {
 }
 
 // ============= CANNED RESPONSE SYSTEM =============
+
+// NZ Registration plate pattern detection
+// Patterns: ABC123, AB1234, ABC12, 123ABC (older format)
+function containsRegoPattern(text: string): boolean {
+  const patterns = [
+    /\b[A-Z]{3}\s?[0-9]{3}\b/i,    // ABC123 or ABC 123 (most common)
+    /\b[A-Z]{2}\s?[0-9]{4}\b/i,    // AB1234 or AB 1234 (older format)
+    /\b[A-Z]{3}\s?[0-9]{2}\b/i,    // ABC12 (personalized short)
+    /\b[0-9]{2,3}\s?[A-Z]{3}\b/i,  // 123ABC or 12ABC (older format)
+  ];
+  const hasRego = patterns.some(p => p.test(text));
+  if (hasRego) {
+    console.log(`[REGO Detection] Found registration pattern in: "${text.substring(0, 50)}..."`);
+  }
+  return hasRego;
+}
+
 // Keywords that indicate user is asking for vehicle-specific parts (need REGO)
 const VEHICLE_SPECIFIC_KEYWORDS = [
   'brake', 'pad', 'rotor', 'filter', 'oil filter', 'air filter',
@@ -183,8 +200,13 @@ async function checkCannedResponse(
   
   const hasVehicleContext = !!vehicleContext;
   
-  // Trigger: User asks for parts but no vehicle identified
-  if (isVehicleSpecificRequest && !hasVehicleContext) {
+  // NEW: Check if user already provided a REGO in their message
+  const userProvidedRego = containsRegoPattern(lastMessage.content);
+  
+  // Trigger: User asks for parts but no vehicle identified AND didn't provide REGO
+  // If user provided REGO, let AI process it and call lookup_vehicle
+  if (isVehicleSpecificRequest && !hasVehicleContext && !userProvidedRego) {
+    console.log(`[Canned Response] Vehicle-specific request without REGO - triggering need_rego`);
     try {
       const supabaseUrl = Deno.env.get("SUPABASE_URL");
       const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
