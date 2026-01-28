@@ -359,7 +359,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           left: 'auto',
           top: topOffset,
           bottom: viewportSize === 'mobile' 
-            ? 'calc(180px + env(safe-area-inset-bottom, 0px))' 
+            ? 'calc(100px + env(safe-area-inset-bottom, 0px))'  // v3.1.16: Reduced from 180px
             : '52px',
           paddingTop: '4px',
           paddingRight: '6px',

@@ -38,7 +38,7 @@ export function getPositionFactors(viewport: ViewportSize): PositionFactors {
         bobOffset: 1.0,
         productWidth: 1.0,
         uiScale: 1.0,
-        partialLeftPosition: -55,  // Bob 55% off-screen left when products show (was -35)
+        partialLeftPosition: -30,  // v3.1.16: Reduced from -55 to keep more of Bob visible
         hiddenPosition: -100,      // Fully off-screen
       };
     case 'tablet':
