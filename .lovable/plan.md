@@ -1,172 +1,163 @@
 
-# Implementation Plan: CARFIX Language, Value Recommendation, and Button Styling (v3.1.18)
 
-## Summary of Changes
+# Fix Plan: Bob's CARFIX Value Recommendation & First-Message REGO Detection
 
-| # | Change | Location | Impact |
-|---|--------|----------|--------|
-| 1 | Replace "CFX" with "CARFIX" in Bob's speech | Database prompts + Edge function | 🔴 Critical |
-| 2 | Update Bob to verbally recommend "CARFIX Value" tier | Database prompts | 🔴 Critical |
-| 3 | Green Add button for Value tier, green text for others | MobileProductColumn + ServicePackageDetailView | 🟡 Medium |
-| 4 | Update carfix-tokens descriptions | carfix-tokens.ts | 🟡 Medium |
+## Summary of Issues
 
----
-
-## Technical Details
-
-### 1. Database Prompt Update (sales_flow)
-
-The `bob_prompts` table contains the `sales_flow` prompt that tells Bob how to present service packages. Current text includes:
-
-- "CFX SERVICE PACKS FIRST"
-- "CFX Service Pack"
-- "Standard tier" as "RECOMMENDED"
-
-**Update to:**
-
-```
-SALES WORKFLOW - CARFIX SERVICE PACKS FIRST:
-...
-3. Once vehicle confirmed: ALWAYS recommend the relevant CARFIX Service Pack before individual parts
-4. Present Service Packs by VALUE TIER (Economy, Standard, Premium, Performance)
-5. Highlight the "CARFIX Value" option (Standard tier) - best value for most customers
-...
-- Example: "Worn brakes increase stopping distance - pretty dangerous, mate. The CARFIX Front Brake Service Pack includes quality pads and rotors. I'd recommend the CARFIX Value option - best value at around $XXX"
-...
-- Confirm additions: "Added the [tier] CARFIX [Package] to your cart..."
-```
-
-### 2. Edge Function Tool Description
-
-**File:** `supabase/functions/bob-chat/index.ts`  
-**Line 278:**
-
-```typescript
-// BEFORE:
-description: "Fetch pre-configured CFX Service Packs with preparedTiers..."
-
-// AFTER:
-description: "Fetch pre-configured CARFIX Service Packs with preparedTiers..."
-```
-
-### 3. Service Package Descriptions
-
-**File:** `packages/bob-widget/src/styles/carfix-tokens.ts`  
-**Lines 62-76:**
-
-Replace all "CFX" occurrences with "CARFIX":
-
-```typescript
-// BEFORE:
-'Each CFX Oil Change Service Pack includes...'
-'Each CFX Front Brake Service Pack includes...'
-// etc.
-
-// AFTER:
-'Each CARFIX Oil Change Service Pack includes...'
-'Each CARFIX Front Brake Service Pack includes...'
-// etc.
-```
-
-Also update `DEFAULT_SERVICE_DESCRIPTION`:
-
-```typescript
-// BEFORE:
-export const DEFAULT_SERVICE_DESCRIPTION = '...Each CFX Service Pack includes everything...';
-
-// AFTER:
-export const DEFAULT_SERVICE_DESCRIPTION = '...Each CARFIX Service Pack includes everything...';
-```
-
-### 4. Button Styling - Value Tier = Solid Green, Others = Green Text
-
-**File:** `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`  
-**Lines 642-648:**
-
-```typescript
-// BEFORE:
-style={{
-  background: tier.isRecommended ? CARFIX_COLORS.primary : '#F1F5F9',
-  color: tier.isRecommended ? 'white' : '#475569',
-  border: tier.isRecommended ? 'none' : '1px solid #E2E8F0',
-}}
-
-// AFTER - Green for recommended, green TEXT for others:
-style={{
-  background: tier.isRecommended ? '#22C55E' : '#F1F5F9', // Green button for Value
-  color: tier.isRecommended ? 'white' : '#22C55E',        // Green text for others
-  border: tier.isRecommended ? 'none' : '1px solid #E2E8F0',
-}}
-```
-
-**File:** `packages/bob-widget/src/components/mobile/ServicePackageDetailView.tsx`  
-**Lines 239-243:**
-
-```typescript
-// BEFORE:
-className={`... ${
-  tier.isRecommended 
-    ? 'bg-[#0052CC] text-white...' 
-    : 'bg-slate-100 text-slate-700...'
-}`}
-
-// AFTER - Green styling:
-className={`... ${
-  tier.isRecommended 
-    ? 'bg-[#22C55E] text-white shadow-md hover:bg-[#16A34A]' 
-    : 'bg-slate-100 text-[#22C55E] border border-slate-200 hover:bg-slate-200'
-}`}
-```
-
-Also remove the cart icon (per previous request):
-
-```tsx
-// Remove lines 245-247 (cart icon SVG)
-// Button text only: "Add to Cart" centered
-```
+| # | Issue | Root Cause | Severity |
+|---|-------|------------|----------|
+| 1 | Bob recommends wrong tier (says "Standard" when Performance is highlighted) | Prompt says "check isRecommended" but doesn't explicitly inject the tier data format into the AI context | 🔴 Critical |
+| 2 | Bob ignores REGO in first message and asks for it again | Canned response triggers "need_rego" without checking if user already provided a REGO | 🔴 Critical |
 
 ---
 
-## Visual Result
+## Root Cause Analysis
 
-### Service Card Buttons After Change:
+### Issue 1: Bob Recommending Wrong Tier
 
-| Tier | Button Background | Text Color | Cart Icon |
-|------|-------------------|------------|-----------|
-| Economy | Slate (#F1F5F9) | Green (#22C55E) | ❌ Removed |
-| **CARFIX Value** | **Green (#22C55E)** | **White** | ❌ Removed |
-| Premium | Slate (#F1F5F9) | Green (#22C55E) | ❌ Removed |
-| Performance | Slate (#F1F5F9) | Green (#22C55E) | ❌ Removed |
+The current flow:
+1. `retrieve_service_packages` is called and returns `preparedTiers` data
+2. Each tier has `isRecommended: true/false` flag
+3. The prompt tells Bob to "check the isRecommended flag"
+4. **PROBLEM**: The AI receives the data but doesn't consistently parse and speak the correct tier name
+
+The issue is that the AI may be interpreting the instructions loosely. We need to:
+- Make the prompt MORE explicit about extracting and speaking the EXACT tier name
+- Add a concrete example showing the data structure the AI will receive
+
+### Issue 2: REGO in First Message Ignored
+
+Current `checkCannedResponse()` logic (lines 164-222):
+```typescript
+const isVehicleSpecificRequest = VEHICLE_SPECIFIC_KEYWORDS.some(kw => 
+  userText.includes(kw.toLowerCase())
+);
+const hasVehicleContext = !!vehicleContext;
+
+// Trigger if vehicle-specific request WITHOUT vehicle context
+if (isVehicleSpecificRequest && !hasVehicleContext) {
+  // Return canned "need_rego" response → BYPASSES AI
+}
+```
+
+**Problem**: User says "I need wipers for ABC123" → triggers "need_rego" even though REGO is in the message!
+
+**Fix**: Add REGO pattern detection - if message contains a NZ plate pattern, skip canned response and let AI process it.
+
+---
+
+## Implementation Plan
+
+### File: `supabase/functions/bob-chat/index.ts`
+
+#### Change 1: Add REGO Pattern Detection (lines 96-106)
+
+Add a regex to detect NZ registration plates:
+
+```typescript
+// NZ Registration plate patterns:
+// - Standard: 3 letters + 3 numbers (ABC123)
+// - Old: 2 letters + 4 numbers (AB1234)
+// - Personalized: 2-6 alphanumeric
+const REGO_PATTERN = /\b[A-Z]{2,3}\s?[0-9]{2,4}[A-Z]?\b/i;
+
+function containsRegoPattern(text: string): boolean {
+  // Check for common REGO patterns
+  const patterns = [
+    /\b[A-Z]{3}\s?[0-9]{3}\b/i,    // ABC123 or ABC 123
+    /\b[A-Z]{2}\s?[0-9]{4}\b/i,    // AB1234 or AB 1234
+    /\b[A-Z]{3}\s?[0-9]{2,3}\b/i,  // ABC12 or ABC123
+    /\b[0-9]{2,3}\s?[A-Z]{3}\b/i,  // 123ABC (older format)
+  ];
+  return patterns.some(p => p.test(text));
+}
+```
+
+#### Change 2: Update `checkCannedResponse()` to Skip if REGO Present (lines 179-187)
+
+```typescript
+// Check if this is a vehicle-specific request without vehicle context
+const isVehicleSpecificRequest = VEHICLE_SPECIFIC_KEYWORDS.some(kw => 
+  userText.includes(kw.toLowerCase())
+);
+
+const hasVehicleContext = !!vehicleContext;
+
+// NEW: Check if user already provided a REGO in their message
+const userProvidedRego = containsRegoPattern(userText);
+
+// Trigger: User asks for parts but no vehicle AND didn't provide REGO
+if (isVehicleSpecificRequest && !hasVehicleContext && !userProvidedRego) {
+  // ... existing canned response logic
+}
+```
+
+This ensures that if the user says "I need wipers for ABC123", the AI processes the message and calls `lookup_vehicle` with the plate.
+
+#### Change 3: Enhance `sales_flow` Prompt for Explicit Tier Recommendation
+
+Update the `bob_prompts.sales_flow` content to be MORE explicit:
+
+```
+CRITICAL - CARFIX VALUE TIER MATCHING:
+When you call retrieve_service_packages, you will receive preparedTiers array like this:
+{
+  "preparedTiers": [
+    { "tierName": "Economy", "isRecommended": false, "totalPrice": 150 },
+    { "tierName": "Standard", "isRecommended": false, "totalPrice": 200 },
+    { "tierName": "Performance", "isRecommended": true, "totalPrice": 315 }  // ← THIS IS THE CARFIX VALUE TIER
+  ]
+}
+
+YOUR TASK:
+1. Find the tier where isRecommended = true
+2. Read the tierName value from that tier (e.g., "Performance")
+3. Read the totalPrice from that tier (e.g., 315)
+4. Say: "I'd recommend the CARFIX Value option - the [tierName] tier at around $[totalPrice]"
+
+EXAMPLE - If Performance is the recommended tier:
+✅ CORRECT: "I'd recommend the CARFIX Value option - the Performance tier at around $315"
+❌ WRONG: "I'd recommend the Standard tier" (Never assume Standard!)
+
+The CARFIX Value tier varies by vehicle and package - ALWAYS read the data!
+```
 
 ---
 
 ## Files to Modify
 
-1. **Database Migration** - Update `bob_prompts` sales_flow content
-2. `supabase/functions/bob-chat/index.ts` - Tool description
-3. `packages/bob-widget/src/styles/carfix-tokens.ts` - Service descriptions
-4. `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx` - Button styling
-5. `packages/bob-widget/src/components/mobile/ServicePackageDetailView.tsx` - Button styling + remove icon
-6. `packages/bob-widget/package.json` - Version bump to 3.1.18
-7. `packages/bob-widget/src/version.ts` - Version bump
-8. `packages/bob-widget/CHANGELOG.md` - Add entry
+1. **`supabase/functions/bob-chat/index.ts`**
+   - Add `containsRegoPattern()` helper function
+   - Update `checkCannedResponse()` to check for REGO before triggering "need_rego"
 
----
-
-## Bob's Updated Speech Pattern
-
-**Before:**
-> "I'd recommend the CFX Front Brake Service Pack - the Standard tier is best value at around $185"
-
-**After:**
-> "I'd recommend the CARFIX Front Brake Service Pack - the CARFIX Value option is best value at around $185"
+2. **Database: `bob_prompts` table**
+   - Update `sales_flow` prompt with more explicit tier extraction instructions
 
 ---
 
 ## Verification Checklist
 
-1. Ask Bob about brakes → Verify he says "CARFIX Service Pack" not "CFX"
-2. Verify he recommends "CARFIX Value" tier verbally
-3. Check service cards: Value tier button = solid green, others = green text only
-4. Check both MobileProductColumn and ServicePackageDetailView buttons match
-5. Verify no cart icons on buttons
+### Issue 1: CARFIX Value Recommendation
+1. Ask Bob "I need brake pads for my [REGO]"
+2. Wait for service packages to load
+3. Check console logs for which tier has `isRecommended: true`
+4. Verify Bob verbally recommends THAT tier by name (not always "Standard")
+
+### Issue 2: First-Message REGO Detection
+1. Send first message: "I need wipers for ABC123"
+2. Verify Bob does NOT ask for REGO again
+3. Verify Bob immediately looks up the vehicle
+4. Verify vehicle is identified and products are shown
+
+---
+
+## Expected Behavior After Fix
+
+**Before:**
+> User: "I need wipers for ABC123"
+> Bob: "Just need your rego and we'll get cracking!" (ignores REGO)
+
+**After:**
+> User: "I need wipers for ABC123"
+> Bob: "Let me look up ABC123 for ya... Ah, a 2018 Toyota Corolla! Sweet ride. Here's the CARFIX Wiper Service Pack - I'd recommend the CARFIX Value option, the Performance tier at around $95."
+
