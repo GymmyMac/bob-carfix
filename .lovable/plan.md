@@ -1,216 +1,166 @@
 
+# Fix Plan: Chat Drawer Height, Bob Position, and Product Column Bottom (v3.1.16)
 
-# Fix Plan: Bob Layout, State Terminology, and Counter Stretching (v3.1.15)
+## Issues Identified from Screenshot
 
-## Issues Summary
-
-After deep-diving the codebase and database, I've identified **5 critical issues**:
-
-| # | Issue | Impact | Severity |
-|---|-------|--------|----------|
-| 1 | State terminology mismatch | Bob defaults to "talk" but V2 Bob only has "talking" | 🔴 Critical |
-| 2 | Chat drawer at counter height | Chat overlaps counter instead of sitting below it | 🔴 Critical |
-| 3 | Counter height mismatch | DB says 12%, code defaults to 22% | 🟡 Medium |
-| 4 | Duplicate counter appearance | User reported seeing two counters | 🟡 Medium |
-| 5 | Counter image stretched wrong | Need `object-fill` to stretch to fit space | 🟡 Medium |
+| # | Issue | Root Cause | Severity |
+|---|-------|------------|----------|
+| 1 | "Listening..." text pushes chat drawer behind bottom nav | Chat drawer collapsed height (90px) doesn't account for the "Listening..." indicator adding ~24px | 🔴 Critical |
+| 2 | Bob pushed too far left | `partialLeftPosition: -55` on mobile is too aggressive - Bob is 55% off-screen | 🔴 Critical |
+| 3 | Product column doesn't extend below counter | Mobile bottom is `180px` which doesn't extend to the actual bottom | 🟡 Medium |
 
 ---
 
 ## Technical Analysis
 
-### Issue 1: State Terminology Mismatch
+### Issue 1: Chat Drawer "Listening..." Pushes Content Off-Screen
 
-**Database (V2 Bob active look):**
-| State Key | Frame Count |
-|-----------|-------------|
-| `talking` | 4 |
-| `researching` | 2 |
-| `listening` | 2 |
-| `idle` | 3 |
-| `waving` | 5 |
-
-**Code defaults (`useBobChat.ts` lines 148-152):**
+**Current Code (`ContainedChatDrawer.tsx` lines 230-235):**
 ```tsx
-talkingState = "talk",       // ❌ V2 has "talking"
-thinkingState = "research",  // ❌ V2 has "researching"
-completeState = "complete",  // ❌ V2 has no "complete"
-idleState = "idle",          // ✅ Correct
-listenState = "talk_pause",  // ❌ V2 has "listening"
+{isListening && (
+  <div style={{ marginBottom: '8px', fontSize: '12px', ... }}>
+    <span ... />
+    Listening...
+  </div>
+)}
 ```
 
-This causes console warnings like:
-```
-[useBobAnimation] No images for "talk", using fallback: waving
-```
+This adds ~24px of content when the PTT button is held. Combined with the collapsed height of `90px`, the total drawer height becomes ~114px, but the container only allocates 90px, causing content to overflow downward behind the host's bottom nav.
 
----
+**Solution:** Increase collapsed height to account for "Listening..." state OR make the listening indicator NOT affect layout (position absolute).
 
-### Issue 2: Chat Drawer Positioning
+### Issue 2: Bob Too Far Left
 
-**Current positioning:**
-- `ContainedChatDrawer.tsx` line 134: `bottom: ${counterHeightPercent}%`
-- This positions the chat drawer AT the same height as the counter overlay
-
-**The intended layer architecture:**
-```text
-Layer 1: Backdrop (z-0)       - Full container background
-Layer 2: Bob Character (z-60) - Standing behind counter
-Layer 3: Counter (z-70)       - Overlaps Bob's lower body
-Layer 4: Chat Drawer (z-80)   - Below counter visually, in front via z-index
-```
-
-**The fix:** Chat drawer should be at `bottom: 0`, not at `counterHeightPercent%`.
-
----
-
-### Issue 3: Counter Height Configuration
-
-**Database `bob_backdrops`:**
-- `counter_height_percent: 12`
-
-**Code defaults:**
-- `MobileBobCharacter.tsx` line 30: `counterHeightPercent = 15`
-- `ContainedMobileBobLayout.tsx` line 67: `counterHeightPercent = 22`
-- `ContainedChatDrawer.tsx` line 41: `counterHeightPercent = 22`
-
-The database value (12%) should be the source of truth.
-
----
-
-### Issue 4: Duplicate Counter
-
-The user screenshot shows two counters at different scales. This could be caused by:
-1. The backdrop image containing a counter AND the counter overlay rendering separately
-2. Multiple render paths rendering the same element
-
-**Root cause:** The backdrop image itself may contain a counter graphic. Combined with the `counterOverlayUrl` rendering a separate counter layer, this creates duplication.
-
-**Solution options:**
-- Option A: Use a backdrop image that does NOT include the counter
-- Option B: Skip the counter overlay when backdrop already has it (add `skipCounterOverlay` prop)
-- **Option C (user selected):** Stretch the counter image to fill the required space using `object-fill`
-
----
-
-### Issue 5: Counter Image Stretching
-
-Currently, `MobileBobCharacter.tsx` uses:
+**Current Code (`usePositionFactors.ts` line 41):**
 ```tsx
-<img 
-  src={counterOverlayUrl} 
-  className="w-full h-full object-cover object-top"
-/>
+case 'mobile':
+  return {
+    partialLeftPosition: -55,  // Bob 55% off-screen left when products show
 ```
 
-`object-cover` maintains aspect ratio and crops. For stretching to fit the exact space, use:
+This pushes Bob so far left that very little of him is visible. The screenshot shows Bob's head barely visible at the left edge.
+
+**Solution:** Reduce `partialLeftPosition` from `-55` to `-30` or `-35` so more of Bob remains visible when products are showing.
+
+### Issue 3: Product Column Bottom Cutoff
+
+**Current Code (`MobileProductColumn.tsx` line 361-362):**
 ```tsx
-className="w-full h-full object-fill"  // Stretches to fill container
+bottom: viewportSize === 'mobile' 
+  ? 'calc(180px + env(safe-area-inset-bottom, 0px))' 
 ```
+
+This 180px accounts for:
+- Counter overlay: 12-22% of container
+- Chat drawer collapsed: 90px
+- Host bottom nav: Outside container (not relevant for contained mode)
+
+But the chat drawer at `bottom: 0` + collapsed height 90px means product column should stop at ~90-100px from container bottom, not 180px.
+
+**Solution:** Reduce mobile bottom offset from `180px` to `100px` so products extend lower.
 
 ---
 
 ## Implementation Plan
 
-### File 1: `packages/bob-widget/src/hooks/useBobChat.ts`
+### File 1: `packages/bob-widget/src/components/mobile/ContainedChatDrawer.tsx`
 
-Update default state names to match V2 Bob (lines 148-152):
-
+**Option A (Recommended): Make "Listening..." indicator position absolute**
 ```tsx
-talkingState = "talking",      // Was "talk"
-thinkingState = "researching", // Was "research"
-completeState = "idle",        // Was "complete" (V2 has no complete)
-idleState = "idle",            // Unchanged
-listenState = "listening",     // Was "talk_pause"
+// Lines 230-235: Make listening indicator not affect layout
+{isListening && (
+  <div style={{ 
+    position: 'absolute',
+    top: '4px',
+    left: '12px',
+    marginBottom: '0', 
+    fontSize: '12px', 
+    color: 'rgba(255,255,255,0.7)', 
+    display: 'flex', 
+    alignItems: 'center', 
+    gap: '8px',
+    zIndex: 10
+  }}>
+    <span style={{ ... }} />
+    Listening...
+  </div>
+)}
 ```
 
----
-
-### File 2: `packages/bob-widget/src/components/mobile/ContainedChatDrawer.tsx`
-
-Position chat at container bottom (line 134):
-
+**Option B: Increase collapsed height to 120px**
 ```tsx
-// BEFORE:
-bottom: `${counterHeightPercent}%`,
-
-// AFTER - Chat sits at the very bottom of container:
-bottom: 0,
+height: isExpanded ? '55%' : '120px',
 ```
 
-Also increase collapsed height for more space (line 142):
+### File 2: `packages/bob-widget/src/hooks/usePositionFactors.ts`
 
+**Update mobile `partialLeftPosition` from `-55` to `-30`:**
 ```tsx
-// BEFORE:
-height: isExpanded ? '55%' : '70px',
-
-// AFTER:
-height: isExpanded ? '55%' : '90px',
+case 'mobile':
+  return {
+    bobOffset: 1.0,
+    productWidth: 1.0,
+    uiScale: 1.0,
+    partialLeftPosition: -30,  // Reduced from -55 to keep more of Bob visible
+    hiddenPosition: -100,
+  };
 ```
 
----
+### File 3: `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`
 
-### File 3: `packages/bob-widget/src/components/mobile/MobileBobCharacter.tsx`
-
-Change counter image rendering to use `object-fill` for stretching (lines 123-127):
-
+**Update mobile bottom offset from `180px` to `100px`:**
 ```tsx
-// BEFORE:
-<img 
-  src={counterOverlayUrl} 
-  className="w-full h-full object-cover object-top"
-/>
-
-// AFTER - Stretch to fill the counter space:
-<img 
-  src={counterOverlayUrl} 
-  className="w-full h-full"
-  style={{ objectFit: 'fill' }}
-/>
+bottom: viewportSize === 'mobile' 
+  ? 'calc(100px + env(safe-area-inset-bottom, 0px))'  // Reduced from 180px
+  : '52px',
 ```
 
----
+### File 4: Version files
 
-### File 4: `packages/bob-widget/src/components/mobile/MobileChatDrawer.tsx`
-
-Apply same positioning fix (bottom: 0) for consistency across both drawer variants.
-
----
-
-### File 5: Version files
-
-Bump to **v3.1.15**:
+Bump to **v3.1.16**:
 - `packages/bob-widget/package.json`
 - `packages/bob-widget/src/version.ts`
 - `packages/bob-widget/CHANGELOG.md`
 
 ---
 
-## Correct Layer Architecture After Fix
+## Visual Comparison
 
+### Before:
 ```text
-┌─────────────────────────────────────┐
-│ Host Header (72px)                  │ ← OUTSIDE Bob container
-├─────────────────────────────────────┤
-│                                     │
-│  ┌─────────────────────────────────┐│
-│  │ Layer 1: Backdrop (z-0)         ││ ← Full height background
-│  │                                 ││
-│  │    ┌──────────────────┐         ││
-│  │    │ Layer 2: Bob     │         ││ ← Character (z-60)
-│  │    │ (animations)     │         ││
-│  │    └──────────────────┘         ││
-│  │                                 ││
-│  ├─────────────────────────────────┤│
-│  │ Layer 3: Counter (z-70)         ││ ← 12% height, stretched to fit
-│  │ (overlaps Bob's lower body)     ││
-│  ├─────────────────────────────────┤│
-│  │ Layer 4: Chat Drawer (z-80)     ││ ← bottom: 0
-│  │ [Preview] [Input] [PTT]         ││
-│  └─────────────────────────────────┘│
-│                                     │
-├─────────────────────────────────────┤
-│ Host Bottom Nav (72px)              │ ← OUTSIDE Bob container
-└─────────────────────────────────────┘
+┌───────────────────────────────┐
+│ Header                        │
+├───────────────────────────────┤
+│ Bob [barely visible edge]     │
+│         ┌─────────────────────┤
+│         │ Products            │
+│         │ (cut off at 180px)  │
+│         └─────────────────────┤
+│ ┌─────────────────────────────┤
+│ │ Chat (90px) + Listening     │ ← Overflows
+│ └─────────────────────────────┤
+├───────────────────────────────┤
+│ Bottom Nav (72px)             │ ← Chat hidden behind this
+└───────────────────────────────┘
+```
+
+### After:
+```text
+┌───────────────────────────────┐
+│ Header                        │
+├───────────────────────────────┤
+│ Bob [~70% visible]            │
+│         ┌─────────────────────┤
+│         │ Products            │
+│         │ (extends to ~100px) │
+│         │                     │
+│         └─────────────────────┤
+│ ┌─────────────────────────────┤
+│ │ Chat [Listening overlay]    │ ← Contained properly
+│ └─────────────────────────────┤
+├───────────────────────────────┤
+│ Bottom Nav (72px)             │ ← Clear separation
+└───────────────────────────────┘
 ```
 
 ---
@@ -218,17 +168,12 @@ Bump to **v3.1.15**:
 ## Changelog Entry
 
 ```markdown
-## [3.1.15] - 2026-01-28
+## [3.1.16] - 2026-01-28
 
 ### Fixed
-- 🗣️ **State Terminology**: Default animation states updated to match V2 Bob:
-  - "talking" (was "talk")
-  - "researching" (was "research")
-  - "listening" (was "talk_pause")
-  - "idle" for complete state (was "complete")
-- 📐 **Chat Drawer Position**: Chat drawer now positioned at `bottom: 0` to sit below the counter overlay
-- 🖼️ **Counter Stretching**: Counter overlay now uses `object-fit: fill` to stretch to configured height
-- 📏 **Chat Height**: Increased collapsed chat drawer height from 70px to 90px
+- 🎤 **Listening Indicator**: Made "Listening..." overlay position: absolute so it doesn't push chat drawer content down
+- 🧍 **Bob Positioning**: Reduced mobile `partialLeftPosition` from -55 to -30 to keep more of Bob visible when products show
+- 📦 **Product Column Height**: Reduced mobile bottom offset from 180px to 100px so products extend closer to chat drawer
 ```
 
 ---
@@ -236,11 +181,8 @@ Bump to **v3.1.15**:
 ## Verification Checklist
 
 1. Navigate to `/ask-bob`
-2. Verify Bob animates correctly (no console warnings about missing states)
-3. Verify single counter (not duplicated)
-4. Verify counter stretches to fill its 12% height allocation
-5. Verify chat drawer sits at the bottom of the container (below counter visually)
-6. Verify PTT button is fully visible and tappable
-7. Test chat expansion/collapse
-8. Test on mobile viewport (375px) and desktop (1920px)
-
+2. Confirm Bob is ~70% visible when products are showing (not pushed too far left)
+3. Hold PTT button - confirm "Listening..." appears WITHOUT pushing drawer behind bottom nav
+4. Confirm product column extends lower on the page (closer to the chat drawer)
+5. Scroll products to bottom - confirm last items are accessible
+6. Test on mobile viewport (375px)
