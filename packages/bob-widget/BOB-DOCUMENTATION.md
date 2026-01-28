@@ -1,6 +1,6 @@
 # Bob Widget - Complete Documentation
 
-> **Version:** 3.1.7 | **Last Updated:** January 2025
+> **Version:** 3.1.8 | **Last Updated:** January 2025
 
 AI-powered automotive parts assistant widget for seamless integration into partner websites.
 
@@ -26,7 +26,7 @@ AI-powered automotive parts assistant widget for seamless integration into partn
 
 Bob is a friendly Kiwi auto parts expert that helps customers find the right parts for their vehicles through natural conversation. The widget is designed as a **"black box"** that auto-configures from the database—partners only need to provide a partner code.
 
-### Key Features (v3.1.5)
+### Key Features (v3.1.8)
 
 | Feature | Description |
 |---------|-------------|
@@ -43,6 +43,10 @@ Bob is a friendly Kiwi auto parts expert that helps customers find the right par
 ---
 
 ## 2. Quick Start
+
+> ⚠️ **IMPORTANT: Before Installation**
+> 
+> If you are upgrading from any previous version of Bob, you **MUST** complete the [Forensic Cleanup Process](#10-carfix-cleanup--upgrade) BEFORE installing v3.1.8. Failure to do so may result in configuration conflicts and unexpected behaviour.
 
 ### Recommended: BobStandalone (Simplest)
 
@@ -102,7 +106,7 @@ Or programmatically:
 ```tsx
 import { getBobVersion, BOB_VERSION } from '@gymmymac/bob-widget';
 
-console.log(`Bob Widget Version: ${getBobVersion()}`); // "3.1.5"
+console.log(`Bob Widget Version: ${getBobVersion()}`); // "3.1.8"
 ```
 
 ---
@@ -121,11 +125,20 @@ console.log(`Bob Widget Version: ${getBobVersion()}`); // "3.1.5"
 | TTS | Enabled | Feature flag |
 | Speech Recognition | Enabled | Feature flag |
 
+### Pre-Installation Checklist
+
+> ⚠️ **MANDATORY: Complete these steps BEFORE installing Bob**
+
+1. ✅ Complete [Forensic Cleanup Process](#10-carfix-cleanup--upgrade) if upgrading
+2. ✅ Ensure HTTPS is enabled (required for Push-to-Talk)
+3. ✅ Verify Node.js v18+ is installed
+4. ✅ Confirm React ^18.0.0 is installed
+
 ### Installation
 
 ```bash
 # Install Bob Widget
-npm install @gymmymac/bob-widget@^3.1.5
+npm install @gymmymac/bob-widget@^3.1.8
 
 # If upgrading, clear cache first
 rm -rf node_modules/.vite
@@ -133,6 +146,10 @@ npm run dev
 ```
 
 ### Container Requirements
+
+> **CRITICAL: Page Layout Context**
+> 
+> The Bob container is designed to be placed on a page that **already includes** the CARFIX Header (72px) and Bottom Navigation (72px). Bob's container occupies the space **between** these fixed elements—it does NOT replace them.
 
 Bob's container **MUST** meet these specifications for correct rendering:
 
@@ -558,9 +575,15 @@ npm run dev
 
 ## 10. CARFIX Cleanup & Upgrade
 
+> ⚠️ **MANDATORY: Complete this cleanup BEFORE installing Bob v3.1.8**
+> 
+> This forensic cleanup process ensures no legacy configurations interfere with the standalone architecture. **Skipping this step may cause configuration conflicts and unexpected behaviour.**
+
 ### Overview
 
-Upgrading to Bob v3.1.5 requires a forensic cleanup to ensure no legacy configurations interfere with the standalone architecture.
+The Bob widget v3.1.8 uses a "black box" architecture where all configuration is auto-loaded from the database. Any remnants of previous installations (environment variables, old imports, cached packages) will conflict with this architecture.
+
+**The cleanup process must be completed BEFORE running `npm install @gymmymac/bob-widget`.**
 
 ### Phase 1: Forensic Detection
 
@@ -584,7 +607,7 @@ Run this script to detect and clean previous installations:
 set -e
 
 echo "═══════════════════════════════════════════════════"
-echo "  CARFIX: Bob Widget v3.1.5 Forensic Cleanup"
+echo "  CARFIX: Bob Widget v3.1.8 Forensic Cleanup"
 echo "═══════════════════════════════════════════════════"
 
 # Phase 1: Detection
@@ -637,8 +660,8 @@ fi
 
 # Phase 3: Install Bob
 echo ""
-echo "Phase 3: Installing Bob v3.1.5..."
-npm install @gymmymac/bob-widget@3.1.5
+echo "Phase 3: Installing Bob v3.1.8..."
+npm install @gymmymac/bob-widget@3.1.8
 
 # Phase 4: Verification
 echo ""
@@ -691,11 +714,23 @@ echo "════════════════════════�
 />
 ```
 
-#### 2. Replace with BobStandalone (v3.1.5)
+#### 2. Replace with BobStandalone (v3.1.8)
 
 ```tsx
-// ✅ NEW CODE (v3.1.5)
+// ✅ NEW CODE (v3.1.8)
 import { BobStandalone } from '@gymmymac/bob-widget';
+
+/**
+ * IMPORTANT: Page Layout Context
+ * 
+ * This page component should be rendered within your standard CARFIX layout
+ * that already includes:
+ * - The CARFIX Header (72px fixed at top)
+ * - The CARFIX Bottom Navigation (72px fixed at bottom)
+ * 
+ * The Bob container fits BETWEEN these elements, not replacing them.
+ * The height calculation accounts for both fixed elements.
+ */
 
 function AskBobPage() {
   const { addToCart } = useCart();
@@ -769,7 +804,7 @@ After installation, verify Bob works correctly:
 
 | Test | Expected Result |
 |------|-----------------|
-| Console log | `[BobWidget] Package loaded - v3.1.5` |
+| Console log | `[BobWidget] Package loaded - v3.1.8` |
 | Bob visibility | Character fully visible (not cut off at top or bottom) |
 | Text chat | Messages send and receive correctly |
 | PTT (Push-to-Talk) | Works on HTTPS with microphone permission |
@@ -779,7 +814,7 @@ After installation, verify Bob works correctly:
 
 ### Migration Comparison
 
-| Aspect | v3.0.x | v3.1.5 |
+| Aspect | v3.0.x | v3.1.8 |
 |--------|--------|--------|
 | Lines of code | 30+ | 4 |
 | Supabase credentials | In props | Auto-loaded |
@@ -795,7 +830,19 @@ After installation, verify Bob works correctly:
 
 ## 11. Changelog Summary
 
-### v3.1.5 (Current)
+### v3.1.8 (Current)
+- 📖 **Documentation Clarity**: Clarified that Bob container is placed on a page WITH existing CARFIX header/bottom nav
+- ⚠️ **Pre-Install Requirements**: Emphasized mandatory forensic cleanup before installation
+- 📐 **Page Layout Context**: Added explicit guidance that Bob fits BETWEEN fixed layout elements
+
+### v3.1.7
+- 📦 **Version Sync**: Prepared release with all version references aligned
+
+### v3.1.6
+- 📖 **README Update**: Added prominent "Read Before Installing" section
+- 📐 **Layout Corrections**: Documented 144px offset formula with safe-area support
+
+### v3.1.5
 - 📦 **Version Sync**: Re-released to sync package.json version with GitHub release tag
 - 📐 **Layout Corrections**: Updated CARFIX measurements to 72px header + 72px bottom nav
 
@@ -836,7 +883,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for full version history.
 
 ## Dependencies
 
-Bob Widget v3.1.5 **bundles** its own dependencies. Your project only needs:
+Bob Widget v3.1.8 **bundles** its own dependencies. Your project only needs:
 
 | Dependency | Version | Required |
 |------------|---------|----------|

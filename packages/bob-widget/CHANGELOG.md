@@ -5,6 +5,13 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.8] - 2026-01-28
+
+### Changed
+- 📖 **Documentation Clarity**: Clarified that Bob container is placed on a page WITH existing CARFIX header/bottom nav, not replacing them
+- ⚠️ **Pre-Install Requirements**: Emphasized mandatory forensic cleanup BEFORE installation with prominent warnings
+- 📐 **Page Layout Context**: Added explicit code comments and guidance that Bob fits BETWEEN fixed layout elements
+
 ## [3.1.7] - 2026-01-28
 
 ### Changed
