@@ -1,6 +1,6 @@
 # Bob Widget - Complete Documentation
 
-> **Version:** 3.1.2 | **Last Updated:** January 2025
+> **Version:** 3.1.5 | **Last Updated:** January 2025
 
 AI-powered automotive parts assistant widget for seamless integration into partner websites.
 
@@ -26,7 +26,7 @@ AI-powered automotive parts assistant widget for seamless integration into partn
 
 Bob is a friendly Kiwi auto parts expert that helps customers find the right parts for their vehicles through natural conversation. The widget is designed as a **"black box"** that auto-configures from the database—partners only need to provide a partner code.
 
-### Key Features (v3.1.0)
+### Key Features (v3.1.5)
 
 | Feature | Description |
 |---------|-------------|
@@ -38,6 +38,7 @@ Bob is a friendly Kiwi auto parts expert that helps customers find the right par
 | **SwipeableBob** | Gesture-based interactions - swipe Bob away or back |
 | **RAF Animations** | Smooth 60fps animations using requestAnimationFrame |
 | **MatrixProductLoader** | Cyberpunk-style loading with phased states |
+| **HTTPS Validation** | Programmatic check for PTT with user warnings |
 
 ---
 
@@ -54,7 +55,7 @@ function AskBobPage() {
   const sessionToken = router.query.session as string;
 
   return (
-    <div className="h-[calc(100dvh-136px)] relative">
+    <div className="h-[calc(100dvh-144px)]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
       <BobStandalone
         partner="CARFIX"
         sessionToken={sessionToken}
@@ -89,7 +90,7 @@ import { BobWidget } from '@gymmymac/bob-widget';
     onAddToCart: (item) => addToCart(item),
   }}
   variant="mobile"
-  bottomOffset={60}
+  bottomOffset={72}
 />
 ```
 
@@ -101,7 +102,7 @@ Or programmatically:
 ```tsx
 import { getBobVersion, BOB_VERSION } from '@gymmymac/bob-widget';
 
-console.log(`Bob Widget Version: ${getBobVersion()}`); // "3.1.0"
+console.log(`Bob Widget Version: ${getBobVersion()}`); // "3.1.5"
 ```
 
 ---
@@ -113,7 +114,7 @@ console.log(`Bob Widget Version: ${getBobVersion()}`); // "3.1.0"
 | Setting | Value | Source |
 |---------|-------|--------|
 | API Base URL | `https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1` | `bob_partners` table |
-| Bottom Offset | 60px | `bob_partners` table |
+| Bottom Offset | 72px | `bob_partners` table |
 | Backdrop Blur | 4px | `bob_partners` table |
 | Overlay Opacity | 10% | `bob_partners` table |
 | Service Packages | Enabled | Feature flag |
@@ -124,7 +125,7 @@ console.log(`Bob Widget Version: ${getBobVersion()}`); // "3.1.0"
 
 ```bash
 # Install Bob Widget
-npm install @gymmymac/bob-widget@^3.1.2
+npm install @gymmymac/bob-widget@^3.1.5
 
 # If upgrading, clear cache first
 rm -rf node_modules/.vite
@@ -138,23 +139,23 @@ Bob's container **MUST** meet these specifications for correct rendering:
 #### Required Container Height Formula
 
 ```css
-height: calc(100dvh - [header_height] - [bottom_nav_height])
+height: calc(100dvh - 144px - env(safe-area-inset-bottom, 0px))
 ```
 
 **CARFIX Reference Measurements:**
-| Element | Height |
-|---------|--------|
-| CARFIX Header | ~52px |
-| Bottom Navigation | ~60px |
-| **Total to subtract** | ~112px |
 
-**Recommended formula for CARFIX:** `height: calc(100dvh - 112px)`
+| Element | Height | Source |
+|---------|--------|--------|
+| CARFIX Header | 72px | Fixed header |
+| Bottom Navigation | 72px | `py-2` (16px) + `min-h-[56px]` |
+| Safe Area (notched devices) | Variable | `env(safe-area-inset-bottom)` |
+| **Total Fixed Offset** | **144px** | Header + Bottom Nav |
 
 #### Container CSS Requirements
 
 ```css
 .bob-container {
-  height: calc(100dvh - 112px);
+  height: calc(100dvh - 144px - env(safe-area-inset-bottom, 0px));
   position: relative;
   overflow: hidden;
   width: 100%;
@@ -184,7 +185,7 @@ function AskBobPage() {
     <div 
       className="bob-container"
       style={{ 
-        height: 'calc(100dvh - 112px)',
+        height: 'calc(100dvh - 144px - env(safe-area-inset-bottom, 0px))',
         position: 'relative',
         overflow: 'hidden',
         width: '100%'
@@ -193,7 +194,7 @@ function AskBobPage() {
       <BobStandalone
         partner="CARFIX"
         sessionToken={sessionToken}
-        bottomOffset={60}           // Matches CARFIX bottom nav height
+        bottomOffset={72}           // Matches CARFIX bottom nav height
         onAddToCart={(item) => addToCart(item)}
         onNavigate={(url) => router.push(url)}
       />
@@ -204,11 +205,11 @@ function AskBobPage() {
 
 #### Layout Measurements Reference
 
-Based on visual analysis of pre-installed Bob:
+Based on visual analysis of CARFIX components:
 
 ```
 ┌─────────────────────────────────┐
-│        CARFIX HEADER            │  ← ~52px fixed
+│        CARFIX HEADER            │  ← 72px fixed
 ├─────────────────────────────────┤
 │                                 │
 │  ┌─────────┐  ┌──────────────┐  │
@@ -218,7 +219,7 @@ Based on visual analysis of pre-installed Bob:
 │  ├─────────┤  │              │  │
 │  │         │  │              │  │
 │  │  BOB    │  │              │  │  ← Bob container
-│  │ (char)  │  │              │  │    height: calc(100dvh - 112px)
+│  │ (char)  │  │              │  │    height: calc(100dvh - 144px - env(...))
 │  │    ╲    │  │              │  │
 │  │     ╲   │  │              │  │
 │  ├──────╲──┴──┴──────────────┤  │
@@ -226,14 +227,15 @@ Based on visual analysis of pre-installed Bob:
 │  ├───────────────────────────┤  │
 │  │  CHAT DRAWER (collapsed)  │  │  ← 70px collapsed
 ├─────────────────────────────────┤
-│       BOTTOM NAV (60px)         │  ← bottomOffset: 60
+│   BOTTOM NAV (72px visible)     │  ← py-2 + min-h-[56px]
+│   + safe-area-inset-bottom      │  ← notched device padding
 └─────────────────────────────────┘
 ```
 
 | Element | Height/Value | Notes |
 |---------|--------------|-------|
-| Bob Container | `calc(100dvh - 112px)` | After header, before bottom nav |
-| `bottomOffset` prop | `60` | Height of CARFIX bottom nav in pixels |
+| Bob Container | `calc(100dvh - 144px - env(...))` | After header, before bottom nav |
+| `bottomOffset` prop | `72` | Height of CARFIX bottom nav in pixels |
 | Counter Overlay | 22% | Percentage of container height |
 | Chat Drawer (collapsed) | 70px | From bottom of container |
 | Chat Drawer (expanded) | 55% | Of container height |
@@ -257,11 +259,12 @@ Based on visual analysis of pre-installed Bob:
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `sessionToken` | `string` | - | Pre-authenticated session token from Partner API |
-| `bottomOffset` | `number` | 60 | Override database default (for bottom nav) |
+| `bottomOffset` | `number` | 72 | Override database default (for bottom nav) |
 | `zIndexBase` | `number` | 50 | Override z-index base |
 | `backdropBlurIntensity` | `number` | 4 | Blur intensity (0-20) |
 | `backdropOverlayOpacity` | `number` | 0.1 | Overlay opacity (0-1) |
 | `debug` | `boolean` | false | Show diagnostic overlay |
+| `embedded` | `boolean` | false | Use absolute positioning for host containers |
 | `className` | `string` | - | Additional CSS class |
 
 #### Callbacks
@@ -350,11 +353,12 @@ Bob uses CSS variables that can be overridden in your container:
 
 ### CSS Isolation
 
-Bob v3.1.0 uses aggressive CSS isolation via `.bob-widget-root`:
+Bob v3.1.5 uses aggressive CSS isolation via `.bob-widget-root`:
 
 ```css
 .bob-widget-root {
   isolation: isolate;
+  all: initial;
   contain: layout style;
   /* All internal styles scoped */
 }
@@ -442,7 +446,7 @@ If needed: "What's the engine size? 1.8L, 2.0L...?"
 ```tsx
 // Main components
 import { 
-  BobStandalone,     // v3.1.0 recommended entry point
+  BobStandalone,     // v3.1.5 recommended entry point
   BobWidget,         // Self-contained widget
   Bob,               // Core Bob component (needs BobProvider)
   BobProvider,       // Context provider
@@ -517,10 +521,10 @@ The overlay displays:
 Open browser DevTools (F12) and check the console. You should see:
 
 ```
-[BobWidget] Package loaded - v3.1.0
-[BobStandalone] Initialized { version: "3.1.0", partner: "CARFIX", session: "present" }
+[BobWidget] Package loaded - v3.1.5
+[BobStandalone] Initialized { version: "3.1.5", partner: "CARFIX", session: "present" }
 [BobWidget] Loading partner config for: CARFIX
-[BobWidget] Partner config loaded: { partner: "CARFIX", bottomOffset: 60, ... }
+[BobWidget] Partner config loaded: { partner: "CARFIX", bottomOffset: 72, ... }
 ```
 
 ### Common Issues
@@ -535,6 +539,7 @@ Open browser DevTools (F12) and check the console. You should see:
 | Bob doesn't appear / is cropped | Check parent containers for `overflow: hidden` |
 | Service packages not showing | Check `calculate-service-bundles` response in Network tab |
 | Blur/overlay too strong | Use props or CSS variables to adjust |
+| PTT not working | Ensure HTTPS connection (required for Web Speech API) |
 
 ### Cache Clearing
 
@@ -553,41 +558,109 @@ npm run dev
 
 ## 10. CARFIX Cleanup & Upgrade
 
-### Pre-Installation Cleanup for v3.1.0
+### Overview
 
-Run these commands **BEFORE** installing v3.1.0:
+Upgrading to Bob v3.1.5 requires a forensic cleanup to ensure no legacy configurations interfere with the standalone architecture.
+
+### Phase 1: Forensic Detection
+
+Before installation, check for these patterns in your codebase:
+
+| Pattern | Files to Check |
+|---------|----------------|
+| Bob components | `**/Bob*.tsx`, `**/AskBob*.tsx`, `**/*bob*.tsx` |
+| Bob hooks | `**/useBob*.ts`, `**/useBob*.tsx` |
+| Type definitions | `**/bob*.d.ts` |
+| Environment variables | `.env*` containing `BOB_` |
+| Import statements | Files with `from '@gymmymac/bob-widget'` or `from 'bob-widget'` |
+| Cached packages | `node_modules/@gymmymac`, `node_modules/.vite`, `.next/cache` |
+
+### Phase 2: Forensic Cleanup Script
+
+Run this script to detect and clean previous installations:
 
 ```bash
-# =============================================
-# CARFIX: Bob Widget v3.1.0 Upgrade Cleanup
-# =============================================
+#!/bin/bash
+set -e
 
-# 1. Remove old widget package completely
-npm uninstall @gymmymac/bob-widget
+echo "═══════════════════════════════════════════════════"
+echo "  CARFIX: Bob Widget v3.1.5 Forensic Cleanup"
+echo "═══════════════════════════════════════════════════"
 
-# 2. Clear all caches
-rm -rf node_modules/.vite
-rm -rf node_modules/.cache
-rm -rf .next/cache  # If using Next.js
-rm -rf dist
+# Phase 1: Detection
+echo ""
+echo "Phase 1: Detecting previous Bob installations..."
+BOB_TRACES_FOUND=false
 
-# 3. Clear npm cache
-npm cache clean --force
+if npm ls @gymmymac/bob-widget 2>/dev/null; then
+  echo "  ✗ Package @gymmymac/bob-widget found"
+  BOB_TRACES_FOUND=true
+fi
 
-# 4. Remove lock file to ensure fresh resolution
-rm package-lock.json
+if find . -path ./node_modules -prune -o \( -name "Bob*.tsx" -o -name "useBob*.ts" \) -print 2>/dev/null | grep -q .; then
+  echo "  ✗ Bob component/hook files detected"
+  BOB_TRACES_FOUND=true
+fi
 
-# 5. Full reinstall of all dependencies
-npm install
+if grep -r "BOB_SUPABASE" .env* 2>/dev/null; then
+  echo "  ✗ Legacy BOB_ environment variables found"
+  BOB_TRACES_FOUND=true
+fi
 
-# 6. Install Bob v3.1.0
-npm install @gymmymac/bob-widget@^3.1.0
+if [ "$BOB_TRACES_FOUND" = false ]; then
+  echo "  ✓ No previous installation detected"
+fi
 
-# 7. Verify installation
+# Phase 2: Cleanup
+if [ "$BOB_TRACES_FOUND" = true ]; then
+  echo ""
+  echo "Phase 2: Forensic cleanup..."
+  
+  echo "  → Uninstalling old package..."
+  npm uninstall @gymmymac/bob-widget 2>/dev/null || true
+  
+  echo "  → Removing node_modules..."
+  rm -rf node_modules
+  
+  echo "  → Clearing caches..."
+  rm -rf node_modules/.vite node_modules/.cache .next/cache .vite dist
+  
+  echo "  → Removing lock file..."
+  rm -f package-lock.json
+  
+  echo "  → Cleaning npm cache..."
+  npm cache clean --force
+  
+  echo "  → Reinstalling dependencies..."
+  npm install
+fi
+
+# Phase 3: Install Bob
+echo ""
+echo "Phase 3: Installing Bob v3.1.5..."
+npm install @gymmymac/bob-widget@3.1.5
+
+# Phase 4: Verification
+echo ""
+echo "Phase 4: Verification..."
 npm ls @gymmymac/bob-widget
+
+echo ""
+echo "═══════════════════════════════════════════════════"
+echo "  ✓ Installation complete!"
+echo "═══════════════════════════════════════════════════"
 ```
 
-### Code Cleanup Required
+### Phase 3: Environment Criteria
+
+| Requirement | Check | Notes |
+|-------------|-------|-------|
+| Node.js | v18+ | Modern ESM support required |
+| React | ^18.0.0 | Peer dependency |
+| HTTPS | Required for PTT | Web Speech API needs secure context |
+| Container height | Calculated | Must account for header + bottom nav |
+
+### Phase 4: Code Cleanup Required
 
 #### 1. Remove Old BobWidget Configuration
 
@@ -618,18 +691,48 @@ npm ls @gymmymac/bob-widget
 />
 ```
 
-#### 2. Replace with BobStandalone (v3.1.0)
+#### 2. Replace with BobStandalone (v3.1.5)
 
 ```tsx
-// ✅ NEW CODE (v3.1.0)
+// ✅ NEW CODE (v3.1.5)
 import { BobStandalone } from '@gymmymac/bob-widget';
 
-<BobStandalone
-  partner="CARFIX"
-  sessionToken={router.query.session as string}
-  onAddToCart={(item) => addToCart(item)}
-  onNavigate={(url) => router.push(url)}
-/>
+function AskBobPage() {
+  const { addToCart } = useCart();
+  const router = useRouter();
+  const sessionToken = router.query.session as string;
+
+  return (
+    <div 
+      style={{ 
+        height: 'calc(100dvh - 144px - env(safe-area-inset-bottom, 0px))',
+        position: 'relative',
+        overflow: 'hidden',
+        width: '100%'
+      }}
+    >
+      <BobStandalone
+        partner="CARFIX"
+        sessionToken={sessionToken}
+        onAddToCart={(item) => {
+          addToCart({
+            productId: item.product_id,
+            name: item.product_name,
+            quantity: item.quantity,
+            price: item.unit_price,
+            sku: item.sku,
+            brand: item.brand,
+            imageUrl: item.image_url,
+          });
+        }}
+        onNavigate={(url) => router.push(url)}
+        onCheckout={(url) => window.location.href = url}
+      />
+    </div>
+  );
+}
+
+export default AskBobPage;
 ```
 
 #### 3. Remove Unused State Variables
@@ -648,7 +751,7 @@ const [servicePackages, setServicePackages] = useState([]);
 // onVehicleIdentified, onPartsFound, onServicePackagesFound
 ```
 
-### Environment Variables Cleanup
+### Phase 5: Environment Variables Cleanup
 
 **No longer required in CARFIX .env:**
 
@@ -660,35 +763,23 @@ BOB_API_BASE_URL=...
 BOB_PARTNER_CODE=...
 ```
 
-### Type Definition Cleanup
+### Phase 6: Verification Tests
 
-Remove any local type overrides:
+After installation, verify Bob works correctly:
 
-```tsx
-// ❌ DELETE any local BobWidget type overrides
-// The npm package provides all types
-```
-
-### Verification After Upgrade
-
-```bash
-# 1. Start dev server
-npm run dev
-
-# 2. Open browser console and verify:
-# [BobWidget] Package loaded - v3.1.0
-# [BobStandalone] Initialized { version: "3.1.0", partner: "CARFIX" }
-
-# 3. Test Bob functionality:
-# - Vehicle lookup works
-# - Service packages display
-# - Add to cart works
-# - Session handoff works (if using ?session=TOKEN)
-```
+| Test | Expected Result |
+|------|-----------------|
+| Console log | `[BobWidget] Package loaded - v3.1.5` |
+| Bob visibility | Character fully visible (not cut off at top or bottom) |
+| Text chat | Messages send and receive correctly |
+| PTT (Push-to-Talk) | Works on HTTPS with microphone permission |
+| Vehicle lookup | REGO search returns vehicle results |
+| Add to cart | Callback fires with correct product data |
+| Service packages | Display correctly for identified vehicle |
 
 ### Migration Comparison
 
-| Aspect | v3.0.x | v3.1.0 |
+| Aspect | v3.0.x | v3.1.5 |
 |--------|--------|--------|
 | Lines of code | 30+ | 4 |
 | Supabase credentials | In props | Auto-loaded |
@@ -697,12 +788,27 @@ npm run dev
 | Parts state | Host manages | Bob manages |
 | Callbacks needed | 10+ | 3 essential |
 | Environment variables | 4+ required | None required |
+| Bottom offset | 60px | 72px (corrected) |
+| Container height | `calc(100dvh - 112px)` | `calc(100dvh - 144px - env(...))` |
 
 ---
 
 ## 11. Changelog Summary
 
-### v3.1.2 (Current)
+### v3.1.5 (Current)
+- 📦 **Version Sync**: Re-released to sync package.json version with GitHub release tag
+- 📐 **Layout Corrections**: Updated CARFIX measurements to 72px header + 72px bottom nav
+
+### v3.1.4
+- 📦 **Supabase Bundling**: Removed @supabase/supabase-js from external to prevent "module not found" errors
+- 🔒 **HTTPS Validation**: Added programmatic check for PTT - warns users on HTTP connections
+- 🔧 **Debug Logging**: Consolidated all internal logs via bobLog utility respecting debug prop
+
+### v3.1.3
+- 🎨 **CSS Isolation**: Enhanced with `isolation: isolate` and `all: initial`
+- 📐 **Embedded Mode**: Added `embedded` prop for fullscreen variant in host containers
+
+### v3.1.2
 - 🔊 **Pre-recorded Audio Clips**: Fixed context property mismatch where `useSpeechSynthesis` was accessing `supabase` instead of `bobSupabase`, causing pre-recorded clips to never play
 
 ### v3.1.1
@@ -730,13 +836,14 @@ See [CHANGELOG.md](./CHANGELOG.md) for full version history.
 
 ## Dependencies
 
-Bob Widget v3.1.0 **bundles** its own dependencies. Your project only needs:
+Bob Widget v3.1.5 **bundles** its own dependencies. Your project only needs:
 
 | Dependency | Version | Required |
 |------------|---------|----------|
 | `react` | ^18.0.0 | ✅ Yes |
 | `react-dom` | ^18.0.0 | ✅ Yes |
 | `@tanstack/react-query` | any | ❌ Optional (bundled) |
+| `@supabase/supabase-js` | any | ❌ Optional (bundled) |
 
 ---
 
@@ -747,7 +854,8 @@ If you encounter any issues:
 1. Enable debug mode (`debug={true}`)
 2. Check browser console for `[BobWidget]` logs
 3. Check Network tab for API responses
-4. Contact the Bob Widget team with console logs and version info
+4. Verify HTTPS for PTT functionality
+5. Contact the Bob Widget team with console logs and version info
 
 ---
 
