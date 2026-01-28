@@ -1,6 +1,6 @@
 {
   "name": "@gymmymac/bob-widget",
-  "version": "3.1.17",
+  "version": "3.1.18",
   "description": "Bob - AI-powered automotive parts assistant widget with multi-tenant support, RAF animations, swipeable interactions, and GA4 analytics",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

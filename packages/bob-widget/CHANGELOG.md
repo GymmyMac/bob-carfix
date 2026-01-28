@@ -5,6 +5,22 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.18] - 2026-01-28
+
+### Changed
+- 🗣️ **Language Consistency**: Replaced all "CFX" references with "CARFIX" in:
+  - Database prompts (sales_flow)
+  - Edge function tool descriptions
+  - Service package descriptions in carfix-tokens.ts
+- 💬 **Bob's Recommendations**: Bob now verbally recommends "CARFIX Value" tier (was "Standard")
+- 🎨 **Button Styling**: 
+  - CARFIX Value tier: Solid green (#22C55E) button with white text
+  - Other tiers: Light background with green text
+  - Removed cart icons from all Add buttons
+- 🏷️ **Badge Update**: "RECOMMENDED" pill renamed to "CARFIX VALUE"
+
+---
+
 ## [3.1.17] - 2026-01-28
 
 ### Changed

@@ -59,21 +59,21 @@ export const QUALITY_TIER_CONFIG = {
  * Service Package Descriptions - Problem → Benefit → CFX Pack format
  */
 export const SERVICE_PACKAGE_DESCRIPTIONS: Record<string, string> = {
-  'Oil Change': 'Neglecting oil changes leads to engine wear, overheating, and catastrophic failure costing thousands. Quality oil and filters keep your engine running smoothly. Each CFX Oil Change Service Pack includes premium oil and filter matched to your engine specifications.',
-  'Front Brake Service': 'Your front brakes handle 70% of stopping power. Worn pads dangerously increase stopping distance. Quality brake components ensure confident, safe stops. Each CFX Front Brake Service Pack includes pads and rotors to restore your braking performance.',
-  'Rear Brake Service': 'Rear brakes provide stability and balance during emergency stops. Worn components cause instability and longer stopping distances. Each CFX Rear Brake Service Pack includes quality pads/shoes and rotors/drums for complete rear brake renewal.',
-  'Timing Belt Service': 'A snapped timing belt destroys engines instantly, causing $8,000+ in damage. Preventive replacement is essential for peace of mind. Each CFX Timing Belt Service Pack includes the belt, tensioner, and related components.',
-  'Wipers': 'Worn wipers reduce visibility in rain, compromising safety. Quality blades provide streak-free, clear vision. Each CFX Wipers Service Pack includes the gear you need to change all of your vehicle\'s wiper blades to restore your driving vision.',
-  'Coolant Service': 'Old coolant causes overheating, warped cylinder heads, and engine seizure. Fresh coolant protects your entire cooling system. Each CFX Coolant Service Pack includes quality coolant matched to your vehicle\'s requirements.',
-  'Air Filter Service': 'Clogged air filters reduce engine performance by 10% and increase fuel consumption. Clean filters improve power and economy. Each CFX Air Filter Service Pack includes a precision-fit filter for optimal airflow.',
-  'Spark Plug Service': 'Worn spark plugs cause misfires, poor fuel economy, and catalytic converter damage. Fresh plugs restore smooth, efficient running. Each CFX Spark Plug Service Pack includes quality plugs matched to your engine.',
-  'Battery Service': 'A failing battery leaves you stranded without warning. Reliable power is essential for starting and electronics. Each CFX Battery Service Pack includes a quality battery sized for your vehicle\'s demands.',
-  'Cabin Filter': 'Cabin filters clean the air you and your passengers breathe. Replace regularly to remove pollen, dust, and odours. Each CFX Cabin Filter Service Pack includes a quality filter for fresh, clean cabin air.',
-  'Fuel Filter Service': 'Clogged fuel filters restrict flow, causing poor performance and potential engine damage. Clean fuel is critical for efficiency. Each CFX Fuel Filter Service Pack includes a quality filter for optimal fuel delivery.',
-  'Transmission Service': 'Old transmission fluid causes rough shifting, slipping, and premature wear. Fresh fluid extends transmission life. Each CFX Transmission Service Pack includes quality fluid matched to your transmission type.',
+  'Oil Change': 'Neglecting oil changes leads to engine wear, overheating, and catastrophic failure costing thousands. Quality oil and filters keep your engine running smoothly. Each CARFIX Oil Change Service Pack includes premium oil and filter matched to your engine specifications.',
+  'Front Brake Service': 'Your front brakes handle 70% of stopping power. Worn pads dangerously increase stopping distance. Quality brake components ensure confident, safe stops. Each CARFIX Front Brake Service Pack includes pads and rotors to restore your braking performance.',
+  'Rear Brake Service': 'Rear brakes provide stability and balance during emergency stops. Worn components cause instability and longer stopping distances. Each CARFIX Rear Brake Service Pack includes quality pads/shoes and rotors/drums for complete rear brake renewal.',
+  'Timing Belt Service': 'A snapped timing belt destroys engines instantly, causing $8,000+ in damage. Preventive replacement is essential for peace of mind. Each CARFIX Timing Belt Service Pack includes the belt, tensioner, and related components.',
+  'Wipers': 'Worn wipers reduce visibility in rain, compromising safety. Quality blades provide streak-free, clear vision. Each CARFIX Wipers Service Pack includes the gear you need to change all of your vehicle\'s wiper blades to restore your driving vision.',
+  'Coolant Service': 'Old coolant causes overheating, warped cylinder heads, and engine seizure. Fresh coolant protects your entire cooling system. Each CARFIX Coolant Service Pack includes quality coolant matched to your vehicle\'s requirements.',
+  'Air Filter Service': 'Clogged air filters reduce engine performance by 10% and increase fuel consumption. Clean filters improve power and economy. Each CARFIX Air Filter Service Pack includes a precision-fit filter for optimal airflow.',
+  'Spark Plug Service': 'Worn spark plugs cause misfires, poor fuel economy, and catalytic converter damage. Fresh plugs restore smooth, efficient running. Each CARFIX Spark Plug Service Pack includes quality plugs matched to your engine.',
+  'Battery Service': 'A failing battery leaves you stranded without warning. Reliable power is essential for starting and electronics. Each CARFIX Battery Service Pack includes a quality battery sized for your vehicle\'s demands.',
+  'Cabin Filter': 'Cabin filters clean the air you and your passengers breathe. Replace regularly to remove pollen, dust, and odours. Each CARFIX Cabin Filter Service Pack includes a quality filter for fresh, clean cabin air.',
+  'Fuel Filter Service': 'Clogged fuel filters restrict flow, causing poor performance and potential engine damage. Clean fuel is critical for efficiency. Each CARFIX Fuel Filter Service Pack includes a quality filter for optimal fuel delivery.',
+  'Transmission Service': 'Old transmission fluid causes rough shifting, slipping, and premature wear. Fresh fluid extends transmission life. Each CARFIX Transmission Service Pack includes quality fluid matched to your transmission type.',
 };
 
-export const DEFAULT_SERVICE_DESCRIPTION = 'Keep your vehicle running safely and efficiently with quality parts matched to your specific make and model. Each CFX Service Pack includes everything you need for this essential maintenance.';
+export const DEFAULT_SERVICE_DESCRIPTION = 'Keep your vehicle running safely and efficiently with quality parts matched to your specific make and model. Each CARFIX Service Pack includes everything you need for this essential maintenance.';
 
 export const IMAGE_URLS = {
   storageBase: 'https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public',
