@@ -228,7 +228,18 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
         borderTop: isExpanded ? '1px solid rgba(255, 255, 255, 0.15)' : 'none'
       }}>
         {isListening && (
-          <div style={{ marginBottom: '8px', fontSize: '12px', color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ 
+            position: 'absolute',
+            top: '4px',
+            left: '12px',
+            fontSize: '12px', 
+            color: 'rgba(255,255,255,0.9)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px',
+            zIndex: 10,
+            textShadow: '0 1px 3px rgba(0,0,0,0.5)'
+          }}>
             <span style={{ display: 'inline-block', width: '8px', height: '8px', backgroundColor: '#FF9500', borderRadius: '50%', animation: 'pulse 2s infinite' }} />
             Listening...
           </div>
