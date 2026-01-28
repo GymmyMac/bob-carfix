@@ -5,6 +5,20 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.15] - 2026-01-28
+
+### Fixed
+- 🗣️ **State Terminology**: Default animation states updated to match V2 Bob:
+  - "talking" (was "talk")
+  - "researching" (was "research")
+  - "listening" (was "talk_pause")
+  - "idle" for complete state (was "complete")
+- 📐 **Chat Drawer Position**: Chat drawer now positioned at `bottom: 0` to sit below the counter overlay visually
+- 🖼️ **Counter Stretching**: Counter overlay now uses `object-fit: fill` to stretch to configured height
+- 📏 **Chat Height**: Increased collapsed chat drawer height from 70px to 90px
+
+---
+
 ## [3.1.14] - 2026-01-28
 
 ### Fixed

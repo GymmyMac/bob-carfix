@@ -138,7 +138,8 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
       ref={drawerRef}
       style={{
         position: 'fixed',
-        bottom: `calc(${counterHeightPercent}% + ${bottomOffset}px)`,
+        // v3.1.15: Position at bottom for fixed variant (includes bottomOffset for host nav)
+        bottom: bottomOffset,
         left: 0,
         right: 0,
         ...glassPanel,
@@ -146,9 +147,10 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
         borderBottom: 'none',
         transition: 'all 0.3s ease-out',
         boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.3)',
-        height: isExpanded ? '55vh' : 'auto',
+        // v3.1.15: Increased collapsed height
+        height: isExpanded ? '55vh' : '90px',
         zIndex: zIndexBase + 80,
-        paddingBottom: bottomOffset > 0 ? '8px' : 'env(safe-area-inset-bottom, 8px)'
+        paddingBottom: 'env(safe-area-inset-bottom, 8px)'
       }}
     >
       {/* Expand/Collapse Handle - Glass style */}
