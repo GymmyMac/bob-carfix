@@ -5,6 +5,16 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.9] - 2026-01-28
+
+### Changed
+- 🔧 **3-Stage Installation Process**: Complete rewrite of Section 10 with strict sequential stages:
+  - **Stage A: Forensic Removal** - Script now EXITS with error if any Bob files/imports found, forcing manual deletion
+  - **Stage B: Page Preparation** - Clear template for creating blank container page with CARFIX layout
+  - **Stage C: Install & Verify** - Fresh installation with mandatory verification checklist
+- 📖 **Documentation Restructure**: Installation and cleanup are now clearly separated into distinct, mandatory stages
+- ⚠️ **Prevents Legacy Code Interference**: Enhanced cleanup script detects Bob components, hooks, imports, and environment variables
+
 ## [3.1.8] - 2026-01-28
 
 ### Changed

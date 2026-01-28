@@ -1,6 +1,6 @@
 # Bob Widget - Complete Documentation
 
-> **Version:** 3.1.8 | **Last Updated:** January 2025
+> **Version:** 3.1.9 | **Last Updated:** January 2025
 
 AI-powered automotive parts assistant widget for seamless integration into partner websites.
 
@@ -17,7 +17,7 @@ AI-powered automotive parts assistant widget for seamless integration into partn
 7. [Bob's Behaviour Guidelines](#7-bobs-behaviour-guidelines)
 8. [API Reference](#8-api-reference)
 9. [Troubleshooting](#9-troubleshooting)
-10. [CARFIX Cleanup & Upgrade](#10-carfix-cleanup--upgrade)
+10. [CARFIX 3-Stage Installation](#10-carfix-3-stage-installation)
 11. [Changelog Summary](#11-changelog-summary)
 
 ---
@@ -26,7 +26,7 @@ AI-powered automotive parts assistant widget for seamless integration into partn
 
 Bob is a friendly Kiwi auto parts expert that helps customers find the right parts for their vehicles through natural conversation. The widget is designed as a **"black box"** that auto-configures from the database—partners only need to provide a partner code.
 
-### Key Features (v3.1.8)
+### Key Features (v3.1.9)
 
 | Feature | Description |
 |---------|-------------|
@@ -44,9 +44,9 @@ Bob is a friendly Kiwi auto parts expert that helps customers find the right par
 
 ## 2. Quick Start
 
-> ⚠️ **IMPORTANT: Before Installation**
+> ⚠️ **IMPORTANT: 3-Stage Installation Process**
 > 
-> If you are upgrading from any previous version of Bob, you **MUST** complete the [Forensic Cleanup Process](#10-carfix-cleanup--upgrade) BEFORE installing v3.1.8. Failure to do so may result in configuration conflicts and unexpected behaviour.
+> Bob v3.1.9 requires a strict 3-stage installation process: **Stage A (Forensic Removal) → Stage B (Page Preparation) → Stage C (Install & Verify)**. See [Section 10](#10-carfix-3-stage-installation) for complete instructions. Skipping stages WILL cause configuration conflicts.
 
 ### Recommended: BobStandalone (Simplest)
 
@@ -106,7 +106,7 @@ Or programmatically:
 ```tsx
 import { getBobVersion, BOB_VERSION } from '@gymmymac/bob-widget';
 
-console.log(`Bob Widget Version: ${getBobVersion()}`); // "3.1.8"
+console.log(`Bob Widget Version: ${getBobVersion()}`); // "3.1.9"
 ```
 
 ---
@@ -127,20 +127,21 @@ console.log(`Bob Widget Version: ${getBobVersion()}`); // "3.1.8"
 
 ### Pre-Installation Checklist
 
-> ⚠️ **MANDATORY: Complete these steps BEFORE installing Bob**
+> ⚠️ **MANDATORY: Complete the 3-Stage Installation Process (Section 10) BEFORE proceeding**
 
-1. ✅ Complete [Forensic Cleanup Process](#10-carfix-cleanup--upgrade) if upgrading
-2. ✅ Ensure HTTPS is enabled (required for Push-to-Talk)
-3. ✅ Verify Node.js v18+ is installed
-4. ✅ Confirm React ^18.0.0 is installed
+1. ✅ Complete **Stage A: Forensic Removal** ([Section 10](#10-carfix-3-stage-installation))
+2. ✅ Complete **Stage B: Page Preparation** ([Section 10](#10-carfix-3-stage-installation))
+3. ✅ Ensure HTTPS is enabled (required for Push-to-Talk)
+4. ✅ Verify Node.js v18+ is installed
+5. ✅ Confirm React ^18.0.0 is installed
 
-### Installation
+### Installation (Stage C)
 
 ```bash
-# Install Bob Widget
-npm install @gymmymac/bob-widget@^3.1.8
+# Install Bob Widget (Stage C - after completing Stages A and B)
+npm install @gymmymac/bob-widget@^3.1.9
 
-# If upgrading, clear cache first
+# Clear cache after installation
 rm -rf node_modules/.vite
 npm run dev
 ```
@@ -573,172 +574,307 @@ npm run dev
 
 ---
 
-## 10. CARFIX Cleanup & Upgrade
+## 10. CARFIX 3-Stage Installation
 
-> ⚠️ **MANDATORY: Complete this cleanup BEFORE installing Bob v3.1.8**
+> 🚨 **CRITICAL: This is a MANDATORY 3-stage sequential process**
 > 
-> This forensic cleanup process ensures no legacy configurations interfere with the standalone architecture. **Skipping this step may cause configuration conflicts and unexpected behaviour.**
+> Bob v3.1.9 requires completing **all three stages in order**. Each stage has verification steps that MUST pass before proceeding. Skipping stages WILL cause visual issues (blur, wrong scale, wrong position).
 
-### Overview
+### Why 3 Stages?
 
-The Bob widget v3.1.8 uses a "black box" architecture where all configuration is auto-loaded from the database. Any remnants of previous installations (environment variables, old imports, cached packages) will conflict with this architecture.
+The issues seen on previous installations (blur always applied, Bob too small, wrong position) were caused by:
+1. **Old Bob components** still in the codebase with hardcoded values
+2. **Old state management** interfering with the standalone architecture  
+3. **Cached packages** serving old versions
 
-**The cleanup process must be completed BEFORE running `npm install @gymmymac/bob-widget`.**
+The 3-stage process ensures:
+1. **Stage A**: No old code remains (forensic removal)
+2. **Stage B**: Container is correctly configured (page preparation)
+3. **Stage C**: Only the new version is installed and verified
 
-### Phase 1: Forensic Detection
+---
 
-Before installation, check for these patterns in your codebase:
+### STAGE A: Forensic Removal
 
-| Pattern | Files to Check |
-|---------|----------------|
-| Bob components | `**/Bob*.tsx`, `**/AskBob*.tsx`, `**/*bob*.tsx` |
-| Bob hooks | `**/useBob*.ts`, `**/useBob*.tsx` |
-| Type definitions | `**/bob*.d.ts` |
-| Environment variables | `.env*` containing `BOB_` |
-| Import statements | Files with `from '@gymmymac/bob-widget'` or `from 'bob-widget'` |
-| Cached packages | `node_modules/@gymmymac`, `node_modules/.vite`, `.next/cache` |
+> **Must complete BEFORE Stage B**
 
-### Phase 2: Forensic Cleanup Script
+Remove **every line** of Bob-related code from the CARFIX codebase. This is a FULL CODE AUDIT.
 
-Run this script to detect and clean previous installations:
+#### What Gets Removed
+
+| Category | Patterns |
+|----------|----------|
+| Component files | `Bob*.tsx`, `*Bob*.tsx`, `AskBob*.tsx` |
+| Hook files | `useBob*.ts`, `useBob*.tsx` |
+| Type definitions | `*bob*.d.ts` |
+| Imports | Any file with `@gymmymac/bob-widget` or `useBob` |
+| State variables | `vehicle`, `parts`, `servicePackages` managed for Bob |
+| Environment variables | Any containing `BOB_` |
+| Cached packages | `node_modules/@gymmymac`, `.vite`, `.next/cache` |
+| The npm package | `@gymmymac/bob-widget` |
+
+#### Stage A Cleanup Script
+
+> ⚠️ **This script EXITS with an error** if any Bob files or imports are found, forcing you to manually delete them. This is intentional.
 
 ```bash
 #!/bin/bash
 set -e
 
-echo "═══════════════════════════════════════════════════"
-echo "  CARFIX: Bob Widget v3.1.8 Forensic Cleanup"
-echo "═══════════════════════════════════════════════════"
-
-# Phase 1: Detection
+echo "══════════════════════════════════════════════════════════════"
+echo "  STAGE A: FORENSIC REMOVAL - Bob Widget Complete Uninstall"
+echo "══════════════════════════════════════════════════════════════"
 echo ""
-echo "Phase 1: Detecting previous Bob installations..."
-BOB_TRACES_FOUND=false
+echo "⚠️  WARNING: This will remove ALL Bob-related code from your project"
+echo ""
 
-if npm ls @gymmymac/bob-widget 2>/dev/null; then
-  echo "  ✗ Package @gymmymac/bob-widget found"
-  BOB_TRACES_FOUND=true
-fi
+# Step 1: Find and list all Bob-related files
+echo "Step 1: Scanning for Bob-related files..."
+BOB_FILES=$(find . -path ./node_modules -prune -o \( \
+  -name "Bob*.tsx" -o \
+  -name "*Bob*.tsx" -o \
+  -name "AskBob*.tsx" -o \
+  -name "useBob*.ts" -o \
+  -name "useBob*.tsx" -o \
+  -name "*bob*.d.ts" \
+\) -print 2>/dev/null | grep -v node_modules || true)
 
-if find . -path ./node_modules -prune -o \( -name "Bob*.tsx" -o -name "useBob*.ts" \) -print 2>/dev/null | grep -q .; then
-  echo "  ✗ Bob component/hook files detected"
-  BOB_TRACES_FOUND=true
-fi
-
-if grep -r "BOB_SUPABASE" .env* 2>/dev/null; then
-  echo "  ✗ Legacy BOB_ environment variables found"
-  BOB_TRACES_FOUND=true
-fi
-
-if [ "$BOB_TRACES_FOUND" = false ]; then
-  echo "  ✓ No previous installation detected"
-fi
-
-# Phase 2: Cleanup
-if [ "$BOB_TRACES_FOUND" = true ]; then
+if [ -n "$BOB_FILES" ]; then
+  echo "  ✗ Found Bob component/hook files:"
+  echo "$BOB_FILES"
   echo ""
-  echo "Phase 2: Forensic cleanup..."
-  
-  echo "  → Uninstalling old package..."
-  npm uninstall @gymmymac/bob-widget 2>/dev/null || true
-  
-  echo "  → Removing node_modules..."
-  rm -rf node_modules
-  
-  echo "  → Clearing caches..."
-  rm -rf node_modules/.vite node_modules/.cache .next/cache .vite dist
-  
-  echo "  → Removing lock file..."
-  rm -f package-lock.json
-  
-  echo "  → Cleaning npm cache..."
-  npm cache clean --force
-  
-  echo "  → Reinstalling dependencies..."
-  npm install
+  echo "  ACTION REQUIRED: Delete these files manually, then re-run this script."
+  exit 1
 fi
 
-# Phase 3: Install Bob
-echo ""
-echo "Phase 3: Installing Bob v3.1.8..."
-npm install @gymmymac/bob-widget@3.1.8
+# Step 2: Check for Bob imports in remaining files
+echo "Step 2: Scanning for Bob imports in source files..."
+BOB_IMPORTS=$(grep -rl "@gymmymac/bob-widget\|from 'bob-widget'\|useBob\|<Bob\|<BobWidget\|<BobStandalone" --include="*.tsx" --include="*.ts" --exclude-dir=node_modules . 2>/dev/null || true)
 
-# Phase 4: Verification
-echo ""
-echo "Phase 4: Verification..."
-npm ls @gymmymac/bob-widget
+if [ -n "$BOB_IMPORTS" ]; then
+  echo "  ✗ Found Bob imports in:"
+  echo "$BOB_IMPORTS"
+  echo ""
+  echo "  ACTION REQUIRED: Remove all Bob imports from these files, then re-run this script."
+  exit 1
+fi
+
+# Step 3: Check for BOB_ environment variables
+echo "Step 3: Scanning for legacy environment variables..."
+BOB_ENV=$(grep -l "BOB_SUPABASE\|BOB_API\|BOB_PARTNER" .env* 2>/dev/null || true)
+
+if [ -n "$BOB_ENV" ]; then
+  echo "  ✗ Found BOB_ variables in:"
+  echo "$BOB_ENV"
+  echo ""
+  echo "  ACTION REQUIRED: Remove all BOB_ variables from these files, then re-run this script."
+  exit 1
+fi
+
+# Step 4: Uninstall package and clear all caches
+echo "Step 4: Uninstalling Bob package..."
+npm uninstall @gymmymac/bob-widget 2>/dev/null || true
+
+echo "Step 5: Removing node_modules..."
+rm -rf node_modules
+
+echo "Step 6: Clearing all caches..."
+rm -rf node_modules/.vite node_modules/.cache .next/cache .vite dist .turbo
+
+echo "Step 7: Removing lock file..."
+rm -f package-lock.json
+
+echo "Step 8: Cleaning npm cache..."
+npm cache clean --force
+
+echo "Step 9: Reinstalling base dependencies..."
+npm install
 
 echo ""
-echo "═══════════════════════════════════════════════════"
-echo "  ✓ Installation complete!"
-echo "═══════════════════════════════════════════════════"
+echo "══════════════════════════════════════════════════════════════"
+echo "  ✓ STAGE A COMPLETE - Forensic removal successful"
+echo "══════════════════════════════════════════════════════════════"
+echo ""
+echo "NEXT: Proceed to STAGE B - Page Preparation"
 ```
 
-### Phase 3: Environment Criteria
+#### Stage A Verification
 
-| Requirement | Check | Notes |
-|-------------|-------|-------|
-| Node.js | v18+ | Modern ESM support required |
-| React | ^18.0.0 | Peer dependency |
-| HTTPS | Required for PTT | Web Speech API needs secure context |
-| Container height | Calculated | Must account for header + bottom nav |
+Before proceeding to Stage B, confirm:
 
-### Phase 4: Code Cleanup Required
+- [ ] Script completed without errors (exit code 0)
+- [ ] No `Bob*.tsx` files exist outside node_modules
+- [ ] No `useBob*.ts` files exist outside node_modules
+- [ ] No `BOB_` environment variables in `.env*` files
+- [ ] `npm ls @gymmymac/bob-widget` returns "empty" or not found
 
-#### 1. Remove Old BobWidget Configuration
+---
 
-```tsx
-// ❌ DELETE THIS OLD CODE (v3.0.x style)
-<BobWidget
-  bobConfig={{
-    supabaseUrl: 'https://gjoguxzstsihhxvdgpto.supabase.co',
-    supabaseKey: 'eyJhbGciOiJI...',
-  }}
-  hostApiConfig={{
-    baseUrl: 'https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1',
-    apiKey: 'secret_key',
-    partnerCode: 'CARFIX',
-  }}
-  hostContext={{
-    user: { email: user?.email },
-    vehicle: { selectedVehicle },
-  }}
-  callbacks={{
-    onVehicleIdentified: (v) => setVehicle(v),
-    onPartsFound: (p) => setParts(p),
-    onServicePackagesFound: (s) => setPackages(s),
-    onAddToCart: (item) => addToCart(item),
-  }}
-  variant="mobile"
-  bottomOffset={60}
-/>
+### STAGE B: Page Preparation
+
+> **Must complete AFTER Stage A, BEFORE Stage C**
+
+Create the blank page that will host Bob. **Do NOT import Bob yet** - that happens in Stage C.
+
+#### Requirements
+
+1. Page must use the standard CARFIX layout (Header + Bottom Navigation)
+2. Page must have a container BETWEEN these fixed elements
+3. Container must have the correct height calculation
+
+#### Layout Diagram
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│                  CARFIX HEADER (72px)                   │  ← Fixed position: top
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│                                                         │
+│                                                         │
+│               BOB CONTAINER (Stage B)                   │
+│     height: calc(100dvh - 144px - env(...))             │  ← position: relative
+│                                                         │
+│                                                         │
+│                                                         │
+│                                                         │
+├─────────────────────────────────────────────────────────┤
+│               BOTTOM NAVIGATION (72px)                  │  ← Fixed position: bottom
+│           + env(safe-area-inset-bottom)                 │
+└─────────────────────────────────────────────────────────┘
 ```
 
-#### 2. Replace with BobStandalone (v3.1.8)
+#### Stage B Page Template
 
 ```tsx
-// ✅ NEW CODE (v3.1.8)
-import { BobStandalone } from '@gymmymac/bob-widget';
+// pages/ask-bob.tsx (or your routing equivalent)
+// 
+// ⚠️ PREREQUISITES:
+// - STAGE A (Forensic Removal) must be complete
+// - This file should be EMPTY before starting Stage B
+// - Do NOT import Bob yet - that happens in Stage C
+
+import React from 'react';
 
 /**
- * IMPORTANT: Page Layout Context
+ * AskBob Page - Bob Widget Container
  * 
- * This page component should be rendered within your standard CARFIX layout
- * that already includes:
- * - The CARFIX Header (72px fixed at top)
- * - The CARFIX Bottom Navigation (72px fixed at bottom)
+ * This page is rendered within the CARFIX layout which provides:
+ * - Header: 72px fixed at top
+ * - Bottom Navigation: 72px fixed at bottom
  * 
- * The Bob container fits BETWEEN these elements, not replacing them.
- * The height calculation accounts for both fixed elements.
+ * The container below fits BETWEEN these elements.
  */
+export default function AskBobPage() {
+  // Placeholder container - Bob will be installed in Stage C
+  return (
+    <div 
+      id="bob-container"
+      style={{ 
+        height: 'calc(100dvh - 144px - env(safe-area-inset-bottom, 0px))',
+        position: 'relative',
+        overflow: 'hidden',
+        width: '100%',
+        backgroundColor: '#0a1628', // Placeholder background
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'white'
+      }}
+    >
+      <p>Bob Container Ready - Proceed to Stage C</p>
+    </div>
+  );
+}
+```
 
-function AskBobPage() {
+#### Stage B Verification
+
+Before proceeding to Stage C, confirm:
+
+- [ ] Page renders within CARFIX layout (header visible at top)
+- [ ] Bottom navigation is visible at bottom
+- [ ] Container shows placeholder text "Bob Container Ready"
+- [ ] Container fills space between header and bottom nav
+- [ ] No Bob imports in the file
+
+---
+
+### STAGE C: Install & Verify
+
+> **Must complete AFTER Stage B**
+
+Install Bob and run verification tests.
+
+#### Stage C Installation Script
+
+```bash
+#!/bin/bash
+set -e
+
+echo "══════════════════════════════════════════════════════════════"
+echo "  STAGE C: INSTALL & VERIFY - Bob Widget v3.1.9"
+echo "══════════════════════════════════════════════════════════════"
+
+# Check Stage A was completed
+if npm ls @gymmymac/bob-widget 2>/dev/null | grep -q "@gymmymac"; then
+  echo "  ✗ ERROR: Old Bob package still detected!"
+  echo "  ✗ Please complete STAGE A before running Stage C"
+  exit 1
+fi
+
+# Install Bob
+echo ""
+echo "Step 1: Installing @gymmymac/bob-widget@3.1.9..."
+npm install @gymmymac/bob-widget@3.1.9
+
+# Verify installation
+echo ""
+echo "Step 2: Verifying installation..."
+INSTALLED_VERSION=$(npm ls @gymmymac/bob-widget --depth=0 2>/dev/null | grep "@gymmymac/bob-widget" | sed 's/.*@//')
+
+if [ "$INSTALLED_VERSION" != "3.1.9" ]; then
+  echo "  ✗ ERROR: Expected v3.1.9 but found $INSTALLED_VERSION"
+  exit 1
+fi
+
+echo "  ✓ Package version: $INSTALLED_VERSION"
+
+echo ""
+echo "══════════════════════════════════════════════════════════════"
+echo "  ✓ STAGE C COMPLETE - Bob Widget installed successfully"
+echo "══════════════════════════════════════════════════════════════"
+echo ""
+echo "NEXT: Add BobStandalone component to your container and test"
+```
+
+#### Final Code Integration
+
+Update your page from Stage B to import and use Bob:
+
+```tsx
+// pages/ask-bob.tsx - FINAL VERSION after Stage C
+import React from 'react';
+import { BobStandalone } from '@gymmymac/bob-widget';
+import { useCart } from '@/hooks/useCart';  // Your cart hook
+import { useRouter } from 'next/router';     // Or your router
+
+/**
+ * AskBob Page - Bob Widget Container
+ * 
+ * This page is rendered within the CARFIX layout which provides:
+ * - Header: 72px fixed at top
+ * - Bottom Navigation: 72px fixed at bottom
+ * 
+ * Bob container height = 100dvh - 144px (header + nav) - safe-area
+ */
+export default function AskBobPage() {
   const { addToCart } = useCart();
   const router = useRouter();
   const sessionToken = router.query.session as string;
 
   return (
     <div 
+      id="bob-container"
       style={{ 
         height: 'calc(100dvh - 144px - env(safe-area-inset-bottom, 0px))',
         position: 'relative',
@@ -766,71 +902,51 @@ function AskBobPage() {
     </div>
   );
 }
-
-export default AskBobPage;
 ```
 
-#### 3. Remove Unused State Variables
+#### Stage C Verification Checklist (MANDATORY)
 
-```tsx
-// ❌ DELETE - No longer needed (Bob handles internally)
-const [vehicle, setVehicle] = useState(null);
-const [parts, setParts] = useState([]);
-const [servicePackages, setServicePackages] = useState([]);
-```
+| Test | How to Verify | Expected Result |
+|------|---------------|-----------------|
+| **Version** | Open browser console | `[BobWidget] Package loaded - v3.1.9` |
+| **DB Connection** | Open Network tab, filter `gjoguxzstsihhxvdgpto` | 200 responses from Supabase |
+| **Animation Data** | Check console for `[BobWidget]` logs | Animation states loaded (idle, talking, etc.) |
+| **Partner Config** | Check Network for `bob_partners` query | CARFIX config returned |
+| **Bob Visibility** | Visual check | Bob character fully visible, not cropped |
+| **No Blur** | Visual check | Background is NOT blurred (clean backdrop) |
+| **Correct Scale** | Visual check | Bob is prominently sized, not tiny |
+| **Position** | Visual check | Bob positioned above counter overlay |
+| **Chat Input** | Type a message | Message sends and Bob responds |
+| **PTT** | Click microphone (HTTPS only) | Speech recognition activates |
+| **Vehicle Lookup** | Enter REGO | Vehicle results returned |
+| **Add to Cart** | Say "add to cart" | onAddToCart callback fires |
 
-#### 4. Remove Unused Imports
-
-```tsx
-// ❌ DELETE - These callbacks are no longer needed
-// onVehicleIdentified, onPartsFound, onServicePackagesFound
-```
-
-### Phase 5: Environment Variables Cleanup
-
-**No longer required in CARFIX .env:**
-
-```bash
-# ❌ REMOVE THESE - Bob auto-loads from database
-BOB_SUPABASE_URL=...
-BOB_SUPABASE_KEY=...
-BOB_API_BASE_URL=...
-BOB_PARTNER_CODE=...
-```
-
-### Phase 6: Verification Tests
-
-After installation, verify Bob works correctly:
-
-| Test | Expected Result |
-|------|-----------------|
-| Console log | `[BobWidget] Package loaded - v3.1.8` |
-| Bob visibility | Character fully visible (not cut off at top or bottom) |
-| Text chat | Messages send and receive correctly |
-| PTT (Push-to-Talk) | Works on HTTPS with microphone permission |
-| Vehicle lookup | REGO search returns vehicle results |
-| Add to cart | Callback fires with correct product data |
-| Service packages | Display correctly for identified vehicle |
+---
 
 ### Migration Comparison
 
-| Aspect | v3.0.x | v3.1.8 |
-|--------|--------|--------|
-| Lines of code | 30+ | 4 |
-| Supabase credentials | In props | Auto-loaded |
-| API config | In props | Auto-loaded |
-| Vehicle state | Host manages | Bob manages |
-| Parts state | Host manages | Bob manages |
-| Callbacks needed | 10+ | 3 essential |
-| Environment variables | 4+ required | None required |
-| Bottom offset | 60px | 72px (corrected) |
-| Container height | `calc(100dvh - 112px)` | `calc(100dvh - 144px - env(...))` |
+| Aspect | Old Process | v3.1.9 3-Stage Process |
+|--------|-------------|------------------------|
+| Cleanup | Intermingled with install | **Stage A**: Separate, mandatory |
+| Page setup | Assumed | **Stage B**: Explicit template |
+| Installation | Single step | **Stage C**: With verification |
+| Error detection | After issues appear | Script exits on detection |
+| Verification | Optional | Mandatory checklist |
+| Success rate | Variable | High (issues caught early) |
 
 ---
 
 ## 11. Changelog Summary
 
-### v3.1.8 (Current)
+### v3.1.9 (Current)
+- 🔧 **3-Stage Installation Process**: Complete rewrite of Section 10 with strict sequential stages
+  - **Stage A: Forensic Removal** - Script now EXITS with error if any Bob files/imports found
+  - **Stage B: Page Preparation** - Clear template for creating blank container page
+  - **Stage C: Install & Verify** - Fresh installation with mandatory verification checklist
+- 📖 **Documentation Restructure**: Installation and cleanup clearly separated into distinct stages
+- ⚠️ **Prevents Legacy Code Interference**: Enhanced cleanup script with comprehensive detection
+
+### v3.1.8
 - 📖 **Documentation Clarity**: Clarified that Bob container is placed on a page WITH existing CARFIX header/bottom nav
 - ⚠️ **Pre-Install Requirements**: Emphasized mandatory forensic cleanup before installation
 - 📐 **Page Layout Context**: Added explicit guidance that Bob fits BETWEEN fixed layout elements
@@ -883,7 +999,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for full version history.
 
 ## Dependencies
 
-Bob Widget v3.1.8 **bundles** its own dependencies. Your project only needs:
+Bob Widget v3.1.9 **bundles** its own dependencies. Your project only needs:
 
 | Dependency | Version | Required |
 |------------|---------|----------|

@@ -2,7 +2,7 @@
 
 AI-powered automotive parts assistant widget for integration into partner websites.
 
-**Current Version:** 3.1.8
+**Current Version:** 3.1.9
 
 ---
 
@@ -19,7 +19,7 @@ AI-powered automotive parts assistant widget for integration into partner websit
 
 ### ⚠️ Critical Installation Notes
 
-1. **Forensic Cleanup Required**: If upgrading from v3.0.x, you MUST run the cleanup script in BOB-DOCUMENTATION.md Section 10 before installing
+1. **3-Stage Installation Process**: Bob v3.1.9 requires a strict 3-stage installation: Stage A (Forensic Removal), Stage B (Page Preparation), Stage C (Install & Verify). See BOB-DOCUMENTATION.md Section 10.
 2. **Container Height**: Bob requires `height: calc(100dvh - 144px - env(safe-area-inset-bottom, 0px))` to display correctly with CARFIX header/footer
 3. **HTTPS Required**: Push-to-Talk (PTT) requires HTTPS - will be disabled on HTTP connections
 
@@ -46,7 +46,7 @@ import { BobStandalone } from '@gymmymac/bob-widget';
 ## Installation
 
 ```bash
-npm install @gymmymac/bob-widget@^3.1.8
+npm install @gymmymac/bob-widget@^3.1.9
 ```
 
 ## What's New in v3.1.6
