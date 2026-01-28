@@ -138,42 +138,45 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
         borderBottom: 'none',
         transition: 'all 0.3s ease-out',
         boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.3)',
-        // v3.1.15: Increased collapsed height from 70px to 90px
-        height: isExpanded ? '55%' : '90px',
-        overflow: isExpanded ? 'visible' : 'hidden',
+        // v3.1.16: Increased collapsed height from 90px to 110px for more spacing
+        height: isExpanded ? '55%' : '110px',
+        overflow: 'visible',
         zIndex: zIndexBase + 30,
-        paddingBottom: 'env(safe-area-inset-bottom, 8px)'
+        paddingBottom: 'calc(8px + env(safe-area-inset-bottom, 0px))'
       }}
     >
-      {/* Expand/Collapse Handle - Glass style */}
+      {/* Expand/Collapse Handle - Glass style with full visibility */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         style={{
           position: 'absolute',
-          top: '-20px',
+          top: '-24px',
           left: '50%',
           transform: 'translateX(-50%)',
-          background: 'rgba(255, 255, 255, 0.15)',
+          background: 'rgba(0, 102, 204, 0.9)',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
-          border: '1px solid rgba(255, 255, 255, 0.25)',
+          border: '2px solid rgba(255, 255, 255, 0.35)',
           borderRadius: '9999px',
-          padding: '6px',
-          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
+          padding: '8px',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
           zIndex: zIndexBase + 40,
           cursor: 'pointer',
-          minHeight: 'unset',
-          minWidth: 'unset'
+          minHeight: '32px',
+          minWidth: '32px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
         }}
         aria-label={isExpanded ? "Collapse chat" : "Expand chat"}
       >
         {isExpanded ? (
-          <svg style={{ height: '16px', width: '16px', color: 'rgba(255,255,255,0.8)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          <svg style={{ height: '16px', width: '16px', color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
           </svg>
         ) : (
-          <svg style={{ height: '16px', width: '16px', color: 'rgba(255,255,255,0.8)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+          <svg style={{ height: '16px', width: '16px', color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
           </svg>
         )}
       </button>

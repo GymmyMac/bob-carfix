@@ -32,6 +32,8 @@ interface MobileProductColumnProps {
   counterHeightPercent?: number;
   hasVehicle?: boolean;
   onAddToCart?: (product: Product | Product[]) => void;
+  /** Vehicle make and model for header display */
+  vehicleMakeModel?: string;
 }
 
 const matchesPartType = (description: string, partType: string): boolean => {
@@ -228,8 +230,11 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
   visible = true,
   counterHeightPercent = 22,
   hasVehicle = false,
-  onAddToCart
+  onAddToCart,
+  vehicleMakeModel
 }) => {
+  // v3.1.16: Display vehicle name or fallback
+  const vehicleDisplayName = vehicleMakeModel || "Bob's Shelf";
   const viewportSize = useViewportSize();
   const factors = usePositionFactors();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -398,7 +403,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
               </div>
             )}
             <span style={{ ...glassText.primary, fontWeight: 700, fontSize: '14px', letterSpacing: '0.025em' }}>
-              {isResearching && hasContent ? 'Updating...' : "Bob's Shelf"}
+              {isResearching && hasContent ? 'Updating...' : vehicleDisplayName}
             </span>
           </div>
           <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px', fontWeight: 500 }}>
@@ -453,24 +458,9 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
       )}
 
       {/* Service Packages - CARFIX Tier Cards with Inline Accordion */}
+      {/* Service Packages - CARFIX Tier Cards with Inline Accordion */}
       {showContent && servicePackages.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2 px-1">
-            <div 
-              className="w-6 h-6 rounded-lg flex items-center justify-center"
-              style={{ 
-                background: `linear-gradient(135deg, ${CARFIX_COLORS.primary} 0%, ${CARFIX_COLORS.primaryHover} 100%)`,
-                boxShadow: `0 4px 12px ${CARFIX_COLORS.primary}66`,
-              }}
-            >
-              <svg className="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
-            <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.4)' }}>
-              CFX Service Packs
-            </span>
-          </div>
           {servicePackages.map((pkg) => {
             // Use preparedTiers from server (no fallback needed - API always provides them)
             const visibleTiers = (pkg.preparedTiers || []).filter(tier => !tier.isHidden);
@@ -566,13 +556,13 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                               }`,
                             }}
                           >
-                            {/* Recommended Badge */}
+                            {/* Carfix Value Badge */}
                             {tier.isRecommended && (
                               <div 
                                 className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide whitespace-nowrap"
-                                style={{ background: '#22C55E', color: 'white' }}
+                                style={{ background: CARFIX_COLORS.primary, color: 'white' }}
                               >
-                                Recommended
+                                Carfix Value
                               </div>
                             )}
                             
@@ -649,16 +639,14 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                                 }));
                                 onAddToCart?.(productsToAdd);
                               }}
-                              className="w-full mt-2 py-1.5 rounded-lg text-[10px] font-semibold transition-all flex items-center justify-center gap-1"
+                              className="w-full mt-2 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
                               style={{
                                 background: tier.isRecommended ? CARFIX_COLORS.primary : '#F1F5F9',
                                 color: tier.isRecommended ? 'white' : '#475569',
                                 border: tier.isRecommended ? 'none' : '1px solid #E2E8F0',
+                                textAlign: 'center',
                               }}
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                              </svg>
                               Add
                             </button>
                           </div>

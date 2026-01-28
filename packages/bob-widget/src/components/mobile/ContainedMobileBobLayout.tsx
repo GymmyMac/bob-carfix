@@ -267,6 +267,7 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
         visible={showProductColumn}
         counterHeightPercent={counterHeightPercent}
         hasVehicle={!!vehicle}
+        vehicleMakeModel={vehicle ? `${vehicle.make || ''} ${vehicle.model || ''}`.trim() : undefined}
       />
 
       {/* Product Detail View - shown when customer clicks a product */}
