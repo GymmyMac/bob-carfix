@@ -5,6 +5,16 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.11] - 2026-01-28
+
+### Added
+- 📐 **Stage B `--with-layout` Flag**: New CLI option generates CARFIX Header (72px) and Bottom Navigation (72px) components
+- 📖 **CARFIX Layout Components Section**: Documentation now explicitly provides Header and BottomNav code templates
+- 🧪 **Demo Route `/ask-bob`**: Added test route to demo repo with mock CARFIX layout for accurate local testing
+
+### Fixed
+- 📖 **Stage B Instructions**: Now include explicit layout component requirements instead of assuming they exist
+
 ## [3.1.10] - 2026-01-28
 
 ### Added

@@ -1,6 +1,6 @@
 # Bob Widget - Complete Documentation
 
-> **Version:** 3.1.10 | **Last Updated:** January 2025
+> **Version:** 3.1.11 | **Last Updated:** January 2025
 
 AI-powered automotive parts assistant widget for seamless integration into partner websites.
 
@@ -26,11 +26,12 @@ AI-powered automotive parts assistant widget for seamless integration into partn
 
 Bob is a friendly Kiwi auto parts expert that helps customers find the right parts for their vehicles through natural conversation. The widget is designed as a **"black box"** that auto-configures from the database—partners only need to provide a partner code.
 
-### Key Features (v3.1.10)
+### Key Features (v3.1.11)
 
 | Feature | Description |
 |---------|-------------|
 | **CLI Installer** | 3-stage installation via `npx @gymmymac/bob-widget carfix stage-a\|b\|c` |
+| **`--with-layout` Flag** | Stage B can generate CARFIX Header (72px) and BottomNav (72px) components |
 | **BobStandalone** | Auto-configures from database - 4 lines to integrate |
 | **No Hardcoded Blur** | Background uses CSS variable `--bob-blur-intensity` (default: 0) |
 | **Partner Config System** | All settings stored in `bob_partners` table |
@@ -732,6 +733,35 @@ Before proceeding to Stage B, confirm:
 > **Must complete AFTER Stage A, BEFORE Stage C**
 
 Create the blank page that will host Bob. **Do NOT import Bob yet** - that happens in Stage C.
+
+#### CARFIX Layout Components (Required)
+
+Before creating the Bob container, ensure your CARFIX application has:
+
+1. **Fixed Header (72px)** - Fixed to top of viewport
+2. **Fixed Bottom Navigation (72px)** - Fixed to bottom of viewport
+
+**If these elements do NOT exist**, you must create them first. The 144px height offset
+in the container formula ASSUMES both elements are present.
+
+##### Option A: Use Existing Layout
+
+If your CARFIX app already has a header and bottom nav, confirm their heights:
+- Header: Must be exactly 72px
+- Bottom Nav: Must be exactly 72px (plus safe-area-inset-bottom on mobile)
+
+##### Option B: Generate Layout Components
+
+Run Stage B with the `--with-layout` flag to generate placeholder components:
+
+```bash
+npx @gymmymac/bob-widget carfix stage-b --target next-pages --with-layout
+```
+
+This generates:
+- `components/CarfixHeader.tsx` (72px header)
+- `components/CarfixBottomNav.tsx` (72px bottom nav)
+- `pages/ask-bob.tsx` (complete page with layout)
 
 #### Requirements
 
