@@ -241,53 +241,21 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
   const groupRefs = useRef<Record<string, HTMLElement | null>>({});
   const spotlightedRef = useRef<HTMLDivElement>(null);
 
-  // Lazy loading state - initially show first batch, load more on scroll
-  const INITIAL_BATCH_SIZE = 30;
-  const LOAD_MORE_SIZE = 20;
-  const [visibleCount, setVisibleCount] = useState(INITIAL_BATCH_SIZE);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
-  
   // Service package accordion state
   const [expandedPackageId, setExpandedPackageId] = useState<string | null>(null);
   const [selectedTiers, setSelectedTiers] = useState<Record<string, string>>({});
   
-  // Reset visible count when products change
-  useEffect(() => {
-    setVisibleCount(INITIAL_BATCH_SIZE);
-  }, [products.length]);
-  
-  // Intersection observer for lazy loading
-  useEffect(() => {
-    if (!loadMoreRef.current) return;
-    
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && visibleCount < products.length) {
-          setVisibleCount(prev => Math.min(prev + LOAD_MORE_SIZE, products.length));
-        }
-      },
-      { threshold: 0.1 }
-    );
-    
-    observer.observe(loadMoreRef.current);
-    return () => observer.disconnect();
-  }, [visibleCount, products.length]);
-  
-  // Get visible products for current scroll position
-  const visibleProducts = useMemo(() => products.slice(0, visibleCount), [products, visibleCount]);
-  
+  // Full catalog display - no lazy loading, all products shown immediately
   const groupedProducts = useMemo(() => {
     const groups: Record<string, Product[]> = {};
-    
-    visibleProducts.forEach(product => {
+    products.forEach(product => {
       const key = product.partslotDescription || 'Other Parts';
       if (!groups[key]) groups[key] = [];
       groups[key].push(product);
     });
-    
     const sortedGroupNames = Object.keys(groups).sort((a, b) => a.localeCompare(b));
     return sortedGroupNames.map(name => ({ name, products: groups[name] }));
-  }, [visibleProducts]);
+  }, [products]);
 
   useEffect(() => {
     if (highlightedPartType) {
@@ -414,14 +382,9 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
 
       {/* Loading state - Glass style */}
       {showLoading && (
-        <div 
-          className="p-5"
-          style={{
-            ...glassCard,
-          }}
-        >
+        <div className="p-5">
           <div className="flex flex-col items-center gap-3 text-center">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(0, 102, 204, 0.2)' }}>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(0, 102, 204, 0.3)' }}>
               <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(255,255,255,0.8)', borderTopColor: 'transparent' }} />
             </div>
             <div>
@@ -432,15 +395,9 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
         </div>
       )}
       
-      {/* DEBUG: Empty state with glass style */}
+      {/* Empty state - transparent */}
       {!showLoading && !hasContent && (
-        <div 
-          className="p-5"
-          style={{
-            ...glassCard,
-            background: 'rgba(255, 149, 0, 0.15)',
-          }}
-        >
+        <div className="p-5">
           <div className="flex flex-col items-center gap-3 text-center">
             <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(255, 149, 0, 0.3)' }}>
               <svg className="w-5 h-5" style={{ color: '#FF9500' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -759,22 +716,22 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           <section 
             key={name}
             ref={(el) => { groupRefs.current[name] = el; }}
-            className="transition-all duration-300"
+            className="transition-all duration-300 overflow-hidden"
             style={{
-              ...(isHighlighted ? glassCardPremium : glassCard),
-              background: isHighlighted 
-                ? 'linear-gradient(135deg, rgba(0, 82, 164, 0.85) 0%, rgba(0, 51, 102, 0.9) 100%)'
-                : 'rgba(20, 30, 50, 0.75)',
+              background: 'transparent',
+              borderRadius: '24px',
             }}
           >
-            {/* Section Header - High contrast with solid colors */}
+            {/* Section Header - Standalone blue pill */}
             <div 
               className="px-3 py-2.5 flex items-center justify-between"
               style={{
                 background: isHighlighted 
-                  ? 'rgba(0, 102, 204, 0.8)'
-                  : 'rgba(0, 51, 102, 0.7)',
-                borderBottom: '1px solid rgba(255,255,255,0.1)',
+                  ? 'rgba(0, 102, 204, 0.95)'
+                  : 'rgba(0, 51, 102, 0.9)',
+                borderRadius: '16px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+                marginBottom: '8px',
               }}
             >
               <div className="flex items-center gap-2 min-w-0">
@@ -812,8 +769,8 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
               </span>
             </div>
             
-            {/* Products Grid */}
-            <div className="p-3 flex flex-col gap-3">
+            {/* Products Grid - No wrapper padding */}
+            <div className="flex flex-col gap-3">
               {groupProducts.map((product, index) => {
                 const isSpotlighted = !!(highlightedProduct && productMatchesSpotlight(product, highlightedProduct));
                 
@@ -833,18 +790,6 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
         );
       })}
       
-      {/* Lazy loading sentinel - triggers loading more products when visible */}
-      {visibleCount < products.length && (
-        <div 
-          ref={loadMoreRef}
-          className="flex items-center justify-center py-4"
-        >
-          <div className="flex items-center gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-            <span>Loading more ({visibleCount} of {products.length})...</span>
-          </div>
-        </div>
-      )}
       
       {/* Bottom padding for scroll */}
       <div className="h-4" />
