@@ -641,8 +641,8 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                               }}
                               className="w-full mt-2 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
                               style={{
-                                background: tier.isRecommended ? CARFIX_COLORS.primary : '#F1F5F9',
-                                color: tier.isRecommended ? 'white' : '#475569',
+                                background: tier.isRecommended ? CARFIX_COLORS.success : '#F1F5F9',
+                                color: tier.isRecommended ? 'white' : CARFIX_COLORS.success,
                                 border: tier.isRecommended ? 'none' : '1px solid #E2E8F0',
                                 textAlign: 'center',
                               }}

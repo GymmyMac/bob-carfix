@@ -164,9 +164,9 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
                     {tier.isRecommended && (
                       <div 
                         className="absolute top-0 left-0 right-0 px-2 py-1 text-[9px] font-bold text-white text-center"
-                        style={{ background: 'linear-gradient(135deg, #0052CC 0%, #38BDF8 100%)' }}
+                        style={{ background: CARFIX_COLORS.primary }}
                       >
-                        ★ RECOMMENDED
+                        ★ CARFIX VALUE
                       </div>
                     )}
                     
@@ -233,18 +233,15 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
                         <p className="text-[10px] text-[#64748B] hidden md:block">inc GST</p>
                       </div>
                       
-                      {/* Add to Cart button - SOLID, no glass */}
+                      {/* Add to Cart button - Green for Value tier, green text for others */}
                       <button
                         onClick={() => handleAddPreparedTierToCart(tier)}
-                        className={`mt-3 w-full px-3 py-2.5 rounded-xl text-xs font-semibold transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-1.5 ${
+                        className={`mt-3 w-full px-3 py-2.5 rounded-xl text-xs font-semibold transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center ${
                           tier.isRecommended 
-                            ? 'bg-[#0052CC] text-white shadow-md hover:bg-[#0047B3]' 
-                            : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200'
+                            ? 'bg-[#22C55E] text-white shadow-md hover:bg-[#16A34A]' 
+                            : 'bg-slate-100 text-[#22C55E] border border-slate-200 hover:bg-slate-200'
                         }`}
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
                         Add to Cart
                       </button>
                     </div>
