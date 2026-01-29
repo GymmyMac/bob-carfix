@@ -293,8 +293,9 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
   const shouldBeVisible = visible || hasContent;
   
   // Layout calculations - MAXIMIZED for full screen utilization
-  const columnWidth = viewportSize === 'mobile' ? 92 : viewportSize === 'tablet' ? 65 : 48;
-  const maxWidth = viewportSize === 'desktop' ? '580px' : viewportSize === 'tablet' ? '500px' : '100%';
+  // v3.1.19: Desktop expanded to 70% width (was 48%) for more marketing real estate
+  const columnWidth = viewportSize === 'mobile' ? 92 : viewportSize === 'tablet' ? 65 : 70;
+  const maxWidth = viewportSize === 'desktop' ? '900px' : viewportSize === 'tablet' ? '500px' : '100%';
   // Mobile: Position shelf near top, below vehicle bar if present (not wasting 22vh)
   const topOffset = viewportSize === 'mobile' 
     ? `calc(${hasVehicle ? '56px' : '8px'} + env(safe-area-inset-top, 4px))`

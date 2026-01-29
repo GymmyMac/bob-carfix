@@ -1,15 +1,13 @@
 
-# Fix Plan: Desktop View - Chat Position, Product Width & PartSlot Display
+# Fix Plan: Desktop View - COMPLETED (v3.1.19)
 
-## Summary of Issues
+## Summary
 
-Based on analysis of the screenshots and codebase, there are **3 distinct issues** on the desktop view after engaging with Bob:
-
-| # | Issue | Root Cause | Impact |
-|---|-------|------------|--------|
-| 1 | Chat bar doesn't return to bottom after closing | `MobileChatDrawer.tsx` uses `position: fixed` with `bottom: bottomOffset` but the `isExpanded` state persists; no state reset on close | Chat appears "stuck" higher on page |
-| 2 | Product column takes <50% width on desktop | `MobileProductColumn.tsx` line 296 sets desktop width to only 48% (`columnWidth = 48`) with `maxWidth: '580px'` | Wastes valuable marketing real estate |
-| 3 | PartSlot products not visible (only Service Packages shown) | The `groupedProducts` logic is correct, but `showContent` may be blocked OR the products array is empty while service packages exist | Users can't see individual part options |
+| # | Issue | Status | Fix Applied |
+|---|-------|--------|-------------|
+| 1 | Chat bar position after closing | ✅ Verified | Not a bug - drawer uses fixed `bottom: 0` position, only height changes |
+| 2 | Product column <50% width on desktop | ✅ Fixed | Updated to 70% width, 900px max (was 48%, 580px) |
+| 3 | PartSlot products not visible | ✅ Fixed | Removed duplicate `onPartsFound` call from bob_suggestions that was overwriting full 347-part catalog with 6 inline products |
 
 ---
 
