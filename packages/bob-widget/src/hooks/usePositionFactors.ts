@@ -52,7 +52,7 @@ export function getPositionFactors(viewport: ViewportSize): PositionFactors {
     case 'desktop':
       return {
         bobOffset: 0.5,
-        productWidth: 0.6,
+        productWidth: 0.7,  // v3.1.19: Aligned with MobileProductColumn 70% width
         uiScale: 1.2,
         partialLeftPosition: -5,   // Slight left shift on desktop (was 5)
         hiddenPosition: -60,       // Can still see some of Bob

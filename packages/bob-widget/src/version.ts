@@ -7,6 +7,6 @@ declare const __BOB_VERSION__: string;
 
 export const BOB_VERSION = typeof __BOB_VERSION__ !== 'undefined' 
   ? __BOB_VERSION__ 
-  : '3.1.18';
+  : '3.1.19';
 
 export const getBobVersion = () => BOB_VERSION;

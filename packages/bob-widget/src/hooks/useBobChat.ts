@@ -384,10 +384,12 @@ export const useBobChat = ({
               const parsed = JSON.parse(jsonStr);
 
               if (parsed.type === "service_packages_found" && parsed.packages) {
+                console.log('[useBobChat autoFetch] Received service_packages_found:', parsed.packages.length, 'packages');
                 callbacks.onServicePackagesFound?.(parsed.packages);
               }
 
               if (parsed.type === "parts_found" && parsed.parts) {
+                console.log('[useBobChat autoFetch] Received parts_found:', parsed.parts.length, 'parts');
                 callbacks.onPartsFound?.(parsed.parts);
                 analytics.trackPartsViewed(
                   Array.isArray(parsed.parts) ? parsed.parts.length : 0,
@@ -546,6 +548,7 @@ export const useBobChat = ({
             }
             
             if (parsed.type === "parts_found" && parsed.parts) {
+              console.log('[useBobChat] Received parts_found event:', parsed.parts.length, 'parts');
               callbacks.onPartsFound?.(parsed.parts);
               analytics.trackPartsViewed(
                 Array.isArray(parsed.parts) ? parsed.parts.length : 0,
@@ -577,12 +580,9 @@ export const useBobChat = ({
                 return updated;
               });
               
-              // Also notify host for backwards compatibility
-              callbacks.onPartsFound?.(parsed.products);
-              analytics.trackPartsViewed(
-                Array.isArray(parsed.products) ? parsed.products.length : 0,
-                identifiedVehicle?.vehicle_id?.toString()
-              );
+              // NOTE: Do NOT call onPartsFound here - let parts_found event handle full catalog
+              // bob_suggestions is for inline display only, not shelf population
+              console.log('[useBobChat] bob_suggestions processed for inline display only');
               continue;
             }
             
