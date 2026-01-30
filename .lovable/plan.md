@@ -1,200 +1,283 @@
 
-Goal
-- After a multi-variant rego lookup, Bob should verbally verify the correct variant with the user, then reliably load BOTH:
-  - full parts catalog (partslot parts on shelf)
-  - service bundles (preparedTiers service packs on shelf)
-- No vehicle “cards” UI required for variant selection.
-- Fix the “Bob behind shelf” layering regression and make layering deterministic.
+# Deep Diagnosis: Bob REGO Processing + Variant Confirmation + Vehicle Bar Regression
 
-What’s actually broken (root cause)
-1) The backend currently has no durable memory of “vehicle candidates” across messages
-- In a multi-variant flow, the candidate list is produced during Request #1 (lookup_vehicle tool call).
-- The user confirms the variant in Request #2.
-- But the edge function currently stores `_multipleVehicleCandidates` only in the in-memory `conversationMessages` array for that single request. It is NOT persisted anywhere and is NOT sent back to the client in a structured way the client can return later.
-- Result: on Request #2, the backend does not know which candidates existed, so it cannot turn the user’s “yeah the 2.0L one / 150 kW / option 2” into a numeric TecDoc `vehicle_id`, and no parts/packages fetch is triggered → stream emits `no_parts_found`.
+## What You Experienced (Failure Timeline)
 
-2) The stream always emits `no_parts_found` when `partsToEmit` is empty
-- This happens even in “waiting for variant confirmation” states, which causes the UI to clear shelves and makes debugging harder.
-- A multi-variant request should not clear shelves; it should emit “awaiting selection” state.
+### Conversation Flow
+1. **User message 1**: `" mkt21 I need some front brake pads"`
+   - ✅ Backend detected REGO pattern: `[REGO Detection] Found registration pattern in: " mkt21..."`
+   - ❌ BUT the AI (Gemini) did NOT call `lookup_vehicle` tool
+   - ❌ AI responded: `"Sweet as, mate. What's your rego so I can find the right pads for your vehicle?"`
+   - **BUG**: Even though backend detected the REGO, the AI model ignored it
 
-3) Z-layer: stacking context causes shelf to overlay Bob unexpectedly
-- Changing z-index on the column alone can be ineffective if parent stacking contexts differ (overflow/transform/isolation).
-- We need a single, deterministic stacking context for the whole Bob scene and then set z-index relative to that.
+2. **User message 2**: `"I just gave you my rego"`
+   - ❌ AI still didn't process it
+   - ❌ AI responded: `"My apologies, mate! It looks like I don't have your rego on file..."`
+   - **BUG**: AI not reading its own conversation context properly
 
-High-level corrected workflow (loops/forks + required calls)
-```text
-User message → bob-chat request
+3. **User message 3**: `"mkt21"`
+   - ✅ Backend detected REGO again
+   - ✅ AI finally called `lookup_vehicle` with `{"plate":"MKT21"}`
+   - ✅ Vehicle lookup returned 4 variants
+   - ✅ Candidates stored: `Stored 4 candidates for emission`
+   - ❌ AI confirmed verbally BUT never asked user to select variant
+   - ✅ Fallback confirmation triggered: `[Fallback Confirmation] Detected verbal confirmation`
+   - ✅ Service packages fetched: `7 packages`
+   - ❌ **Parts fetch failed**: `[retrieveParts] Failed: 500 {"error":"Vehicle not found in the database"}`
 
-A) If vehicle already confirmed (vehicleContext exists):
-   → retrieveParts(vehicleId)   (unless already loaded)
-   → calculate-service-bundles(vehicleId) (unless already loaded)
-   → stream: emit vehicle_identified + service_packages_found + parts_found
+## Root Causes Identified
 
-B) If no vehicle confirmed:
-   → AI tool loop may call lookup_vehicle
-      B1) Single match:
-          → confirm immediately (store confirmed vehicle)
-          → retrieveParts(vehicleId)
-          → calculate-service-bundles(vehicleId)
-          → stream emits all events
-      B2) Multiple matches:
-          → emit vehicle_candidates_found (structured candidates list) + multiple_vehicles_found
-          → DO NOT emit no_parts_found
-          → AI asks user to confirm variant (verbal)
-          → client stores candidates for next request
+### Issue 1: AI Model Not Calling Tools on First REGO Detection
+**Symptom**: User provides REGO in their message, backend detects it, but AI doesn't call `lookup_vehicle`
 
-C) Next user message (variant choice) + candidates returned by client:
-   → deterministic variant matcher (server-side, no AI marker reliance)
-   → pick candidate → set confirmed vehicle
-   → retrieveParts(vehicleId)
-   → calculate-service-bundles(vehicleId)
-   → stream emits all events
+**Root Cause**: The system prompt instructs the AI to call `lookup_vehicle`, but:
+- The AI (Gemini) is not reliably calling tools when REGO is embedded in a longer sentence
+- The canned response system correctly bypasses the "need_rego" canned response when REGO is detected
+- But then the AI STILL doesn't call the tool
+
+**Fix Required**: Force the tool call automatically when REGO is detected in user message BEFORE sending to AI
+
+### Issue 2: Vehicle ID Mismatch Causing Parts API Failure
+**Symptom**: `[retrieveParts] Failed: 500 {"error":"Vehicle not found in the database"}`
+
+**Root Cause**: The vehicle lookup returns variant candidates with `vehicle_id=5002`, but:
+- This ID exists in the **internal TecDoc mapping** (for service bundles)
+- But the **external CARFIX retrieve-parts API** doesn't recognize this vehicle ID
+- The retrieve-parts API at `flpzjbasdsfwoeruyxgp.supabase.co/functions/v1/retrieve-parts` expects a different vehicle identifier
+
+**Evidence from logs**:
+```
+[Fallback Confirmation] Using first stored candidate: vehicle_id=5002
+[retrieveParts] Fetching parts for vehicle: 5002 (full catalog)
+[retrieveParts] Response status: 500
+[retrieveParts] Failed: 500 {"error":"Vehicle not found in the database"}
 ```
 
-Implementation plan (what will change)
+**Fix Required**: Verify the correct vehicle ID field is being passed - may need `id` (CarJam) vs `vehicle_id` (TecDoc) reconciliation
 
-1) Backend: persist candidates across requests (without adding vehicle cards)
-1.1 Emit candidates to the client via SSE
-- In `supabase/functions/bob-chat/index.ts`, when multiple variants are detected:
-  - Keep `_multipleVehiclesFound = true`
-  - Also store a minimized candidate list in `_vehicleCandidatesToEmit` (only essential fields)
-  - Emit a new SSE event early in stream start:
-    - `{ type: "vehicle_candidates_found", candidates: [...] }`
-  - Candidate payload should be small and stable:
-    - `vehicle_id` (numeric TecDoc ID)
-    - `vehicle_name_nz` (primary display string)
-    - `make`, `model`, `start_year`, `end_year`
-    - `engine_code`, `cc_rating`, `fuel_type`, `score` (if present)
+### Issue 3: Separate Vehicle Bar (UI Regression)
+**Symptom**: A separate "1998 TOYOTA ALTEZZA" bar appears at the top instead of being integrated into the shelf header
 
-1.2 Frontend: store candidates (in memory only) and send them back on next message
-- In `packages/bob-widget/src/hooks/useBobChat.ts`:
-  - Add handling for `vehicle_candidates_found` SSE event
-  - Store candidates in a `useRef` (e.g., `vehicleCandidatesRef.current = candidates`)
-  - When calling `bob-chat`, include `vehicleCandidates: vehicleCandidatesRef.current` in request body
-  - When a vehicle gets confirmed (`vehicle_identified` event), clear the ref
+**Root Cause**: The `MobileBobLayoutCore.tsx` renders a separate Vehicle Context Bar (lines 187-232) when `vehicle && !isEmbedded`:
+```tsx
+{/* Vehicle Context Bar */}
+{vehicle && !isEmbedded && (
+  <div style={{ position: 'absolute', top: '8px', ... }}>
+```
 
-No UI changes required; this is invisible unless we optionally later add quick-reply chips.
+While the shelf ALSO has its own header showing the vehicle name (line 374-376):
+```tsx
+<span>{isResearching ? 'Updating...' : vehicleDisplayName}</span>
+```
 
-2) Backend: deterministic “variant confirmation” selection on Request #2 (no AI marker reliance)
-2.1 Add request-body support
-- Update bob-chat request parsing to accept `vehicleCandidates` (optional array)
+**Fix Required**: Remove the separate Vehicle Context Bar and rely only on the shelf header for vehicle display
 
-2.2 Before calling the AI gateway, attempt deterministic selection if:
-- There is no `vehicleContext`
-- `vehicleCandidates` exists and non-empty
-- The latest user message likely contains a selection
+### Issue 4: Multi-Variant Flow Not Prompting User to Select
+**Symptom**: When 4 variants are found, Bob confirms verbally without asking user to choose
 
-2.3 Variant selection heuristics (server-side)
-Match user input against candidates by priority:
-- Option number:
-  - If candidates were presented as “1)… 2)…”, detect `^(\d+)$` and map to index
-- Direct vehicle_id:
-  - If user types a 4-6 digit number matching a candidate `vehicle_id`
-- Engine code match:
-  - `3S-GE`, `1G-FE`, etc
-- Displacement/cc rating:
-  - detect “2.0”, “2000”, “1998cc”, “1990” and compare
-- Fuel type:
-  - petrol/diesel
-- Substring match against `vehicle_name_nz`
+**Root Cause**: 
+- The fallback confirmation regex matches Bob's verbal confirmation too eagerly
+- Patterns like `/your\s+\d{4}\s+\w+/i` (e.g., "your 1998 Toyota") trigger confirmation
+- Bob says "She's a TOYOTA ALTEZZA, sweet as" which triggers fallback
+- System uses first candidate (highest score) automatically without user selection
 
-If match confidence is low:
-- Do not fetch parts/packages yet
-- Have Bob ask a tighter question (e.g. “Is it the 3S-GE 4cyl or 1G-FE 6cyl?”)
+**Fix Required**: Tighten fallback confirmation patterns to NOT trigger when multiple vehicles are still pending
 
-2.4 Once a candidate is selected:
-- Set `_confirmedVehicle` to the matched candidate (normalize fields)
-- Set `_lookupVehicleId` to candidate.vehicle_id
-- Clear `_multipleVehiclesFound` (to stop placeholder behavior now that we have a selection)
-- Fetch:
-  - `retrieveParts(vehicle_id)`
-  - `fetchPreparedServiceBundles(vehicle_id)` (calculate-service-bundles)
-- Store results into `_partsToEmit` / `_servicePackagesToEmit`
-- Stream will then emit `vehicle_identified`, `service_packages_found`, `parts_found` immediately, independent of whether the AI emits `[VEHICLE_CONFIRMED]`
+---
 
-This ensures the shelf populates even if the AI forgets the marker.
+## Flowchart: Where Your Call Failed
 
-3) Backend: stop emitting `no_parts_found` during “awaiting variant selection”
-- In the streaming transform:
-  - If `_multipleVehiclesFound` is true AND there is no confirmed vehicle AND no parts loaded:
-    - Emit:
-      - `multiple_vehicles_found`
-      - `vehicle_candidates_found`
-    - Do NOT emit `no_parts_found`
-  - Only emit `no_parts_found` if:
-    - we attempted a parts fetch for a confirmed vehicle and got 0
-    - OR we are in autoFetchParts mode and got 0
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  USER MESSAGE: "mkt21 I need some front brake pads"                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  REGO DETECTION CHECK                                                        │
+│  containsRegoPattern(" mkt21 I need...") → TRUE ✅                          │
+│  Log: "[REGO Detection] Found registration pattern..."                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  CANNED RESPONSE CHECK                                                       │
+│  isVehicleSpecificRequest? TRUE (has "brake")                               │
+│  hasVehicleContext? FALSE                                                   │
+│  userProvidedRego? TRUE (detected above)                                    │
+│  ∴ SKIP canned "need_rego" → proceed to AI ✅                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  DETERMINISTIC VARIANT CHECK                                                 │
+│  vehicleCandidates from client? EMPTY (first message)                       │
+│  vehicleContext? NONE                                                       │
+│  ∴ No deterministic match possible ✅                                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  AI GATEWAY CALL (Gemini 2.5 Flash)                                         │
+│  System prompt includes: "Use lookup_vehicle when customer provides rego"   │
+│                                                                              │
+│  ❌ FAILURE POINT #1: AI DID NOT CALL lookup_vehicle                        │
+│  AI responded: "Sweet as, mate. What's your rego?"                          │
+│                                                                              │
+│  WHY: AI model unreliably recognizes REGO in longer sentences               │
+│       The REGO "mkt21" was embedded in " mkt21 I need some front brake..."  │
+│       Leading space and sentence context confused the model                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+                    (User had to repeat REGO twice more)
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  USER MESSAGE: "mkt21" (third attempt - standalone)                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  AI FINALLY CALLS lookup_vehicle ✅                                          │
+│  Tool call: lookup_vehicle {"plate":"MKT21"}                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  VEHICLE LOOKUP RESULT                                                       │
+│  4 variants found (Toyota Altezza SXE10 with different engine specs)        │
+│  Candidates stored in _multipleVehicleCandidates                            │
+│  _multipleVehiclesFound = true                                              │
+│  _vehicleCandidatesToEmit = [4 candidates]                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  AI FINAL RESPONSE                                                           │
+│  "She's a TOYOTA ALTEZZA, sweet as. For front brake..."                     │
+│                                                                              │
+│  ❌ FAILURE POINT #2: AI did not ask user to select variant                 │
+│  AI assumed the first/best match was correct                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  FALLBACK CONFIRMATION DETECTION                                             │
+│  Regex patterns checked against: "She's a TOYOTA ALTEZZA, sweet as..."      │
+│  /sweet\s*as/i → MATCH ✅                                                    │
+│                                                                              │
+│  ❌ FAILURE POINT #3: Fallback triggered when it shouldn't have             │
+│  Log: "[Fallback Confirmation] Detected verbal confirmation in AI response" │
+│  Using first stored candidate: vehicle_id=5002                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PARTS AND PACKAGES FETCH                                                    │
+│                                                                              │
+│  ✅ Service packages: SUCCESS (7 packages via calculate-service-bundles)    │
+│                                                                              │
+│  ❌ FAILURE POINT #4: Parts fetch failed                                     │
+│  [retrieveParts] Fetching parts for vehicle: 5002                           │
+│  [retrieveParts] Response status: 500                                       │
+│  [retrieveParts] Failed: 500 {"error":"Vehicle not found in the database"}  │
+│                                                                              │
+│  WHY: vehicle_id=5002 is TecDoc ID, not recognized by external parts API    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STREAM EMISSION                                                             │
+│  ✅ vehicle_identified: {vehicle_id: 5002, make: TOYOTA, model: ALTEZZA}    │
+│  ✅ service_packages_found: 7 packages                                       │
+│  ❌ no_parts_found (emitted because parts array is empty)                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  FRONTEND RESULT                                                             │
+│  ✅ Vehicle identified → vehicle state updated                               │
+│  ✅ Service packages displayed on shelf (if rendered)                        │
+│  ❌ No parts displayed (partsToEmit was empty)                               │
+│  ❌ Separate vehicle bar appears (duplicate UI element)                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
-This prevents the frontend from clearing shelves in the middle of the variant-selection step.
+---
 
-4) Backend: increase observability (so we stop guessing)
-Add structured logs (info-level) around the critical branches:
-- Multiple-match detection: count + top 3 candidate labels + ids
-- Candidate event emission: count
-- Deterministic selection attempt on next request:
-  - user message excerpt
-  - selection method: `index|engine_code|cc|substring|vehicle_id`
-  - selected `vehicle_id` + `vehicle_name_nz`
-- Fetch results:
-  - parts count + response status if failure
-  - packages count + (if available) first package hasPreparedTiers + tiersCount
-- Stream emission summary:
-  - emittedVehicle: yes/no
-  - emittedPackages: count
-  - emittedParts: count
-  - emittedNoPartsFound: yes/no (and why)
+## Implementation Plan
 
-5) Service packs parity: ensure we only emit displayable preparedTiers bundles
-- Confirm `fetchPreparedServiceBundles()` returns `packages` in a consistent shape.
-- Ensure we store/emit only packages with `preparedTiers`:
-  - If the bundles endpoint returns `{ data: { servicePackages: [...] } }`, ensure extraction is correct.
-  - If `preparedTiers` is missing, log and emit an empty packages array (but still emit parts).
+### Fix 1: Force Tool Call When REGO Detected
+**File: `supabase/functions/bob-chat/index.ts`**
 
-6) Z-layer fix (deterministic stacking context)
-The fix will be done in the widget layout, not by guessing z-index numbers:
-- Ensure the root scene container uses `isolation: isolate` (or equivalent) so all children share a predictable stacking context.
-- Ensure:
-  - Background layer is at the bottom
-  - Product shelf sits behind Bob’s character but remains interactive (pointer events preserved)
-  - Counter overlay sits above Bob (covering lower body)
-  - Chat drawer sits above everything
+Add automatic tool call injection when REGO is detected in user message:
 
-Concrete changes likely needed:
-- `packages/bob-widget/src/components/mobile/MobileBobLayoutCore.tsx` and/or `ContainedMobileBobLayout.tsx`
-  - Add `isolation: isolate` on the main container
-  - Confirm no parent introduces `transform`/`filter` that creates unexpected stacking contexts
-- `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`
-  - Set z-index relative to the unified context (and verify pointer events)
-- `packages/bob-widget/src/components/mobile/MobileBobCharacter.tsx`
-  - Ensure its z-index is above product shelf within the same stacking context
+Before calling the AI gateway, if `containsRegoPattern(lastUserMessage)` is TRUE and we don't have a `vehicleContext`:
+1. Extract the REGO from the message using a capture regex
+2. Execute `lookup_vehicle` directly (bypassing AI decision)
+3. Process the result and store candidates
+4. Add a system message: "Vehicle lookup completed for {REGO}"
+5. Then let AI generate the response based on the result
 
-7) Verification steps (end-to-end)
-Run these tests on /ask-bob:
-A) Multi-variant rego (e.g. “MKT21”)
-1. Enter rego
-2. Expect Bob to ask which variant
-3. Confirm with:
-   - “option 2”
-   - “the 3S-GE”
-   - “the 2.0L petrol”
-4. Expected:
-   - Shelf loads service packs + parts catalog
-   - No `no_parts_found` emitted during the “pick a variant” step
-B) Single-variant rego
-1. Enter rego that returns a single match
-2. Expected:
-   - immediate packages + parts
-C) Regression checks
-- Confirm Bob is visually in front of the shelf (head not covered)
-- Confirm counter overlay still covers Bob’s lower body correctly
-- Confirm chat still clickable and shelf scroll still works
+This removes the AI's unreliable decision-making from the REGO detection loop.
 
-Scope notes / non-goals
-- No vehicle cards UI
-- Optional later: add quick-reply “chips” for candidate options; not required for correctness
+### Fix 2: Correct Vehicle ID for Parts API
+**File: `supabase/functions/bob-chat/index.ts`**
 
-If you want me to continue in a new request after this plan is approved, I’ll implement:
-- new SSE event + client storage + deterministic selection
-- corrected no_parts_found emission logic
-- z-layer stacking context fix
-- add logs to quickly validate counts and branches
+Investigate and fix the vehicle ID mismatch:
+1. Log both `vehicle.id` (CarJam) and `vehicle.vehicle_id` (TecDoc) from lookup result
+2. Determine which ID the parts API expects (likely needs the CarJam `id`, not TecDoc `vehicle_id`)
+3. If both IDs are present, try the secondary ID on 500 error
+
+### Fix 3: Remove Duplicate Vehicle Bar
+**File: `packages/bob-widget/src/components/mobile/MobileBobLayoutCore.tsx`**
+
+Remove the standalone Vehicle Context Bar (lines 187-232) since the shelf header already displays the vehicle name. The shelf header at line 374-376 already shows the vehicle make/model.
+
+### Fix 4: Prevent False Fallback Confirmation on Multi-Variant
+**File: `supabase/functions/bob-chat/index.ts`**
+
+Tighten the fallback confirmation logic:
+1. Check if `_multipleVehiclesFound` is true AND `_multipleVehicleCandidates.length > 1`
+2. If so, ONLY trigger fallback if user explicitly selects (option number, engine code, etc.)
+3. Remove overly broad patterns like `/sweet\s*as/i`, `/nice\s*one/i` from initial confirmation
+
+Instead, require the AI to explicitly ask for variant selection when multiple matches exist, and only accept deterministic selection patterns.
+
+### Fix 5: Prompt Engineering for Multi-Variant Handling
+**File: `supabase/functions/bob-chat/index.ts`**
+
+Add explicit instruction to system prompt:
+```
+CRITICAL - MULTIPLE VEHICLE VARIANTS:
+When lookup_vehicle returns multiple matches (vehicles array > 1), you MUST:
+1. Present a numbered list of variants with key differences (engine, power, year range)
+2. Ask the customer to confirm which one is theirs
+3. DO NOT assume the first/best match is correct
+4. DO NOT say "sorted" or "sweet as" until customer confirms
+5. Wait for explicit confirmation before proceeding
+```
+
+---
+
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `supabase/functions/bob-chat/index.ts` | Force tool call on REGO detection; Fix vehicle ID; Tighten fallback patterns; Prompt engineering |
+| `packages/bob-widget/src/components/mobile/MobileBobLayoutCore.tsx` | Remove duplicate Vehicle Context Bar |
+| `packages/bob-widget/src/components/mobile/MobileBobLayout.tsx` | Same removal |
+| `packages/bob-widget/src/components/mobile/ContainedMobileBobLayout.tsx` | Same removal |
+
+---
+
+## Verification Checklist
+
+After implementation:
+- [ ] Send "mkt21 I need brake pads" as first message → Bob should immediately look up vehicle (no asking for REGO)
+- [ ] If multiple variants found → Bob presents numbered list and asks to confirm
+- [ ] User says "option 2" or "the 3S-GE" → Bob confirms THAT variant specifically
+- [ ] Parts AND service packages load correctly for the confirmed vehicle
+- [ ] Only ONE vehicle display element (the shelf header) shows the vehicle info
+- [ ] No duplicate vehicle bar at the top of the screen
