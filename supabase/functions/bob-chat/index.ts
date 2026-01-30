@@ -538,6 +538,14 @@ When a single vehicle is found OR the customer confirms a specific vehicle, emit
 [VEHICLE_CONFIRMED:{"vehicle_id":12345,"rego":"ABC123","make":"Toyota","model":"Corolla","year":"2015","variant":"GX","vehicle_name_nz":"Toyota Corolla GX 1.8L","engine_size":"1.8L","fuel_type":"petrol","vin":"JTDBU4EE7E9123456","engine_no":"2ZR-123456","cc_rating":1800}]
 
 Include the vehicle_id field AND all other available fields. Then continue with your natural response.
+
+CRITICAL - VARIANT CONFIRMATION (MUST EMIT MARKER!):
+When a customer CONFIRMS a specific variant from multiple matches (says "yes", "that's the one", "the 2L one", "mine is the diesel", etc.):
+- You MUST emit the [VEHICLE_CONFIRMED:{...}] marker at the START of your response
+- WITHOUT this marker, the parts catalog and service packages WILL NOT LOAD
+- This is REQUIRED - do not skip the marker even if you're just confirming conversationally
+- Use the vehicle_id from the lookup_vehicle result that matches their choice
+
 Emit VEHICLE_CONFIRMED when:
 - lookup_vehicle returns a SINGLE match with a valid id (auto-confirm, no customer confirmation needed)
 - Customer confirms a specific variant from multiple matches
@@ -2156,6 +2164,83 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
           }
         } catch (e) {
           console.error('Failed to parse VEHICLE_CONFIRMED marker in AI response:', e);
+        }
+      }
+      
+      // ============= FALLBACK: Verbal variant confirmation without marker =============
+      // If AI confirmed a variant conversationally but forgot to emit the marker,
+      // detect common confirmation phrases and trigger parts/packages fetch
+      const storedCandidates = (conversationMessages as unknown as { _multipleVehicleCandidates?: Array<Record<string, unknown>> })._multipleVehicleCandidates;
+      const alreadyFetchedParts = (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit;
+      const alreadyFetchedPackages = (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit;
+      
+      // Only trigger fallback if: no marker matched, we have stored candidates, and no parts loaded yet
+      if (!vehicleConfirmedMatch && storedCandidates && storedCandidates.length > 0 && !alreadyFetchedParts?.length) {
+        const confirmationPatterns = [
+          /that'?s\s+(the\s+one|correct|right|it|my\s+(car|one|vehicle))/i,
+          /got\s+it.*your\s*(car|vehicle)?/i,
+          /perfect.*let\s+me\s+(get|find|load|check)/i,
+          /confirmed?\s*(your)?/i,
+          /sorted.*your/i,
+          /sweet\s+(as)?.*your\s+\d{4}/i,  // "Sweet as, your 2011 Tiguan"
+          /\byeah\s+nah\b.*loading/i,
+          /loading\s+(the\s+)?parts/i,
+          /fetching\s+(parts|products)/i,
+          /let\s+me\s+(grab|get|pull\s+up)\s+(the\s+)?(parts|service)/i,
+          /(the|your)\s+\d{4}\s+(volkswagen|toyota|nissan|honda|ford|bmw|audi|mazda|subaru|holden|mitsubishi)/i,  // "Your 2011 Volkswagen..."
+        ];
+        
+        const isVerbalConfirmation = confirmationPatterns.some(p => p.test(aiContent));
+        
+        if (isVerbalConfirmation) {
+          console.log('[Fallback Confirmation] Detected verbal variant confirmation without marker');
+          console.log(`[Fallback Confirmation] AI response excerpt: "${aiContent.substring(0, 100)}..."`);
+          
+          // Use the first stored candidate (highest score from original lookup)
+          const fallbackVehicle = storedCandidates[0];
+          const vehicleId = (fallbackVehicle.vehicle_id || fallbackVehicle.id) as number;
+          
+          if (vehicleId && vehicleId > 0) {
+            console.log(`[Fallback Confirmation] Using first stored candidate: vehicle_id=${vehicleId}, variant=${fallbackVehicle.vehicle_name_nz || fallbackVehicle.variant}`);
+            
+            // Store confirmed vehicle for emission
+            (conversationMessages as unknown as { _confirmedVehicle?: unknown })._confirmedVehicle = {
+              vehicle_id: vehicleId,
+              make: fallbackVehicle.make,
+              model: fallbackVehicle.model,
+              year: fallbackVehicle.year || fallbackVehicle.start_year,
+              variant: fallbackVehicle.variant || fallbackVehicle.vehicle_name_nz,
+              engine_size: fallbackVehicle.engine_size || fallbackVehicle.cc_rating,
+              fuel_type: fallbackVehicle.fuel_type,
+              rego: fallbackVehicle.plate || fallbackVehicle.rego,
+            };
+            
+            // Fetch ALL parts for this vehicle
+            const allParts = await retrieveParts(vehicleId, apiConfig);
+            if (allParts.success && allParts.parts && allParts.parts.length > 0) {
+              console.log(`[Fallback Confirmation] Fetched ${allParts.parts.length} parts for vehicle_id ${vehicleId}`);
+              (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit = allParts.parts;
+            } else {
+              console.warn(`[Fallback Confirmation] Parts fetch returned empty for vehicle_id ${vehicleId}`);
+            }
+            
+            // Fetch service packages
+            if (!alreadyFetchedPackages?.length) {
+              const servicePackagesResult = await retrieveServicePackages(vehicleId, apiConfig);
+              const servicePackagesData = servicePackagesResult as { success?: boolean; packages?: unknown[] };
+              
+              if (servicePackagesData.success && servicePackagesData.packages && servicePackagesData.packages.length > 0) {
+                const displayablePackages = filterDisplayablePackages(servicePackagesData.packages);
+                console.log(`[Fallback Confirmation] Fetched ${displayablePackages.length} service packages for vehicle_id ${vehicleId}`);
+                (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = displayablePackages;
+              }
+            }
+            
+            // Store lookup ID for consistency
+            (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId = vehicleId;
+          } else {
+            console.warn('[Fallback Confirmation] First candidate has no valid vehicle_id:', fallbackVehicle);
+          }
         }
       }
       
