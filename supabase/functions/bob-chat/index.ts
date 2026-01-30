@@ -311,6 +311,38 @@ function containsRegoPattern(text: string): boolean {
   return hasRego;
 }
 
+/**
+ * Extract REGO from text - returns the first matching NZ registration plate.
+ * Used for forced tool calls when REGO is detected but AI fails to call lookup_vehicle.
+ */
+function extractRegoFromText(text: string): string | null {
+  const normalized = text.toUpperCase();
+  
+  // Capture patterns - order matters (most common first)
+  const capturePatterns = [
+    // Standard: ABC123, ABC-123
+    /\b([A-Z]{3}[\s\-]?[0-9]{3})\b/,
+    // Older: AB1234, AB-1234  
+    /\b([A-Z]{2}[\s\-]?[0-9]{4})\b/,
+    // Short personalized: ABC12
+    /\b([A-Z]{3}[\s\-]?[0-9]{2})\b/,
+    // Reverse: 123ABC
+    /\b([0-9]{2,3}[\s\-]?[A-Z]{3})\b/,
+  ];
+  
+  for (const pattern of capturePatterns) {
+    const match = normalized.match(pattern);
+    if (match) {
+      // Normalize: remove spaces and hyphens
+      const rego = match[1].replace(/[\s\-]/g, '');
+      console.log(`[REGO Extract] Extracted plate: ${rego}`);
+      return rego;
+    }
+  }
+  
+  return null;
+}
+
 // Keywords that indicate user is asking for vehicle-specific parts (need REGO)
 const VEHICLE_SPECIFIC_KEYWORDS = [
   'brake', 'pad', 'rotor', 'filter', 'oil filter', 'air filter',
@@ -1250,9 +1282,87 @@ serve(async (req) => {
       });
     }
 
+    // ============= FORCED REGO LOOKUP (BYPASS AI UNRELIABILITY) =============
+    // If user message contains a REGO and we don't have vehicle context,
+    // force the lookup_vehicle call BEFORE going to AI
+    let forcedLookupResult: {
+      success?: boolean; 
+      vehicle?: Record<string, unknown>; 
+      vehicles?: Array<Record<string, unknown>>;
+      plate?: string;
+      error?: string;
+    } | null = null;
+    let forcedCandidates: VehicleCandidate[] = [];
+    let forcedSingleVehicle: VehicleCandidate | null = null;
+    
+    const lastUserMessage = messages.filter((m: Message) => m.role === 'user').pop();
+    const lastUserContent = lastUserMessage?.content || '';
+    
+    // Only force lookup if: no vehicle context, no existing candidates, and message contains REGO
+    if (!vehicleContext && (!vehicleCandidates || vehicleCandidates.length === 0)) {
+      const extractedRego = extractRegoFromText(lastUserContent);
+      if (extractedRego) {
+        console.log(`[Forced REGO Lookup] Detected REGO in message, forcing lookup: ${extractedRego}`);
+        
+        try {
+          const lookupResult = await lookupVehicle({ plate: extractedRego }, apiConfig) as {
+            success?: boolean; 
+            vehicle?: Record<string, unknown>; 
+            vehicles?: Array<Record<string, unknown>>;
+            error?: string;
+          };
+          forcedLookupResult = lookupResult;
+          
+          if (lookupResult?.success) {
+            const vehicles = lookupResult.vehicles || [];
+            const singleVehicle = lookupResult.vehicle;
+            
+            if (vehicles.length > 1) {
+              // Multiple variants - store candidates
+              forcedCandidates = vehicles.map((v: any) => ({
+                vehicle_id: v.vehicle_id || v.id,
+                vehicle_name_nz: v.vehicle_name_nz,
+                make: v.make,
+                model: v.model,
+                start_year: v.start_year,
+                end_year: v.end_year,
+                year: v.year,
+                engine_code: v.engine_code,
+                cc_rating: v.cc_rating,
+                fuel_type: v.fuel_type,
+                variant: v.variant,
+                score: v.score,
+                plate: extractedRego,
+              }));
+              console.log(`[Forced REGO Lookup] Multiple variants found: ${forcedCandidates.length}`);
+            } else if (singleVehicle || vehicles.length === 1) {
+              // Single match - auto-confirm
+              const vehicle = singleVehicle || vehicles[0];
+              forcedSingleVehicle = {
+                vehicle_id: (vehicle.vehicle_id || vehicle.id) as number,
+                make: vehicle.make as string,
+                model: vehicle.model as string,
+                year: (vehicle.year || vehicle.start_year) as number,
+                variant: (vehicle.variant || vehicle.vehicle_name_nz) as string,
+                cc_rating: vehicle.cc_rating as number,
+                fuel_type: vehicle.fuel_type as string,
+                plate: extractedRego,
+              };
+              console.log(`[Forced REGO Lookup] Single match auto-confirmed: vehicle_id=${forcedSingleVehicle.vehicle_id}`);
+            }
+          }
+        } catch (err) {
+          console.error('[Forced REGO Lookup] Error:', err);
+        }
+      }
+    }
+
     // ============= CANNED RESPONSE SYSTEM =============
     // Check if we can bypass AI entirely for common triggers
-    const cannedResponse = await checkCannedResponse(messages, vehicleContext, customerEmail);
+    // NOTE: Only check canned response if we didn't just force a REGO lookup
+    const cannedResponse = (!forcedLookupResult && !forcedCandidates.length && !forcedSingleVehicle)
+      ? await checkCannedResponse(messages, vehicleContext, customerEmail)
+      : null;
     
     if (cannedResponse) {
       console.log(`[Canned Response] Bypassing AI with: "${cannedResponse.transcript.substring(0, 50)}..."`);
@@ -1287,17 +1397,20 @@ serve(async (req) => {
     }
 
     // ============= DETERMINISTIC VARIANT SELECTION =============
-    // If we have vehicle candidates from previous request, try to match user's selection
-    // BEFORE calling the AI - this ensures reliable parts loading
-    let deterministicVehicle: VehicleCandidate | null = null;
-    let deterministicSelectionMethod: string | null = null;
+    // If we have vehicle candidates from previous request OR from forced lookup,
+    // try to match user's selection BEFORE calling the AI
+    let deterministicVehicle: VehicleCandidate | null = forcedSingleVehicle;
+    let deterministicSelectionMethod: string | null = forcedSingleVehicle ? 'forced_single_match' : null;
     
-    const typedCandidates = vehicleCandidates as VehicleCandidate[] | undefined;
-    if (typedCandidates && typedCandidates.length > 0 && !vehicleContext) {
-      // Get the latest user message
-      const lastUserMessage = messages.filter((m: Message) => m.role === 'user').pop();
-      if (lastUserMessage?.content) {
-        const matchResult = matchUserInputToCandidate(lastUserMessage.content, typedCandidates);
+    // Combine client-provided candidates with any forced lookup candidates
+    const allCandidates = [
+      ...(vehicleCandidates as VehicleCandidate[] || []),
+      ...forcedCandidates
+    ];
+    
+    if (!deterministicVehicle && allCandidates.length > 0 && !vehicleContext) {
+      if (lastUserContent) {
+        const matchResult = matchUserInputToCandidate(lastUserContent, allCandidates);
         if (matchResult) {
           deterministicVehicle = matchResult.candidate;
           deterministicSelectionMethod = matchResult.method;
@@ -1395,12 +1508,56 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
         enhancedSystemPrompt += `\nWhen emitting VEHICLE_CONFIRMED for a garage vehicle, copy the vehicle_id EXACTLY from this list.`;
       }
     }
+    
+    // ============= MULTI-VARIANT PROMPT ENGINEERING =============
+    // Add explicit instructions for handling multiple vehicle variants
+    enhancedSystemPrompt += `\n\n## CRITICAL - MULTIPLE VEHICLE VARIANTS
+When lookup_vehicle returns multiple matches (vehicles array > 1), you MUST:
+1. Present a numbered list of variants with key differences (engine, power, year range, fuel type)
+2. Ask the customer to confirm which one is theirs (e.g., "Which one is yours - just say the number or engine type")
+3. DO NOT assume the first/best match is correct
+4. DO NOT say "sorted", "sweet as", or "loading parts" until customer explicitly selects a variant
+5. Wait for explicit confirmation before proceeding to fetch parts
+
+Example response when multiple variants found:
+"I found a few versions of that model. Which one is yours?
+1) 2.0L Petrol (150kW)
+2) 2.0L Diesel (103kW)
+3) 3.0L Petrol (180kW)
+Just say the number or engine type, mate."`;
 
     // Build conversation with system prompt
     const conversationMessages: Message[] = [
       { role: "system", content: enhancedSystemPrompt },
       ...messages,
     ];
+
+    // ============= STORE FORCED LOOKUP CANDIDATES =============
+    // If we forced a REGO lookup and got multiple variants, store them for emission
+    if (forcedCandidates.length > 0) {
+      console.log(`[Forced REGO Lookup] Storing ${forcedCandidates.length} candidates for multi-variant handling`);
+      (conversationMessages as unknown as { _multipleVehicleCandidates?: VehicleCandidate[] })._multipleVehicleCandidates = forcedCandidates;
+      (conversationMessages as unknown as { _multipleVehiclesFound?: boolean })._multipleVehiclesFound = true;
+      (conversationMessages as unknown as { _vehicleCandidatesToEmit?: VehicleCandidate[] })._vehicleCandidatesToEmit = forcedCandidates;
+      
+      // Add context message so AI knows about the variants
+      const variantList = forcedCandidates.map((c, i) => {
+        const cc = c.cc_rating ? `${(c.cc_rating / 1000).toFixed(1)}L` : '';
+        const fuel = c.fuel_type || '';
+        const eng = c.engine_code || '';
+        return `${i + 1}) ${c.vehicle_name_nz || `${c.make} ${c.model}`} ${cc} ${fuel} ${eng}`.trim();
+      }).join('\n');
+      
+      conversationMessages.push({
+        role: "system",
+        content: `[VEHICLE LOOKUP COMPLETED - MULTIPLE VARIANTS FOUND]
+The customer's REGO returned ${forcedCandidates.length} possible vehicle variants:
+${variantList}
+
+You MUST present these options to the customer and ask them to confirm which one is theirs.
+DO NOT assume any variant. DO NOT say parts are loading. Wait for their selection.`
+      });
+    }
 
     // ============= DETERMINISTIC PARTS FETCH =============
     // If we deterministically matched a vehicle, fetch parts/packages NOW
@@ -1422,6 +1579,9 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
       };
       (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId = vehicleId;
       (conversationMessages as unknown as { _deterministicMatch?: boolean })._deterministicMatch = true;
+      
+      // Clear multi-vehicle flags since we now have a confirmed selection
+      (conversationMessages as unknown as { _multipleVehiclesFound?: boolean })._multipleVehiclesFound = false;
       
       // Fetch parts and packages in parallel
       const [partsResult, packagesResult] = await Promise.all([
@@ -1672,29 +1832,30 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
       // No tool calls - we have the final response
       // ============= FALLBACK VARIANT CONFIRMATION =============
       // Check if AI verbally confirmed a variant without explicit marker
+      // CRITICAL: Only use fallback if we're NOT in multi-variant selection mode
+      // During multi-variant, we need the user to explicitly select, not Bob auto-confirming
       const storedCandidates = (conversationMessages as unknown as { _multipleVehicleCandidates?: VehicleCandidate[] })._multipleVehicleCandidates;
       const alreadyFetchedPackages = (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit;
       const alreadyConfirmed = (conversationMessages as unknown as { _confirmedVehicle?: unknown })._confirmedVehicle;
+      const multipleVehiclesPending = (conversationMessages as unknown as { _multipleVehiclesFound?: boolean })._multipleVehiclesFound;
       
       // Only try fallback if we have candidates AND haven't already confirmed
-      if (storedCandidates && storedCandidates.length > 0 && !alreadyConfirmed) {
+      // AND we're NOT in multi-variant pending state (prevents false confirmation on Bob's first response)
+      if (storedCandidates && storedCandidates.length > 0 && !alreadyConfirmed && !multipleVehiclesPending) {
         // Check AI response for confirmation patterns
+        // NOTE: These patterns are ONLY triggered when multipleVehiclesPending is false
+        // (i.e., when user has explicitly selected a variant in their message)
         const aiContent = (assistantMessage.content || "").toLowerCase();
         
+        // TIGHTENED: Only patterns that indicate explicit selection confirmation
+        // Removed broad patterns like "sweet as", "nice one", "all good" that can trigger
+        // on Bob's initial multi-variant response
         const confirmationPatterns = [
           /that'?s?\s*(the\s+one|correct|right|it)/i,
-          /got\s*(it|ya|cha)/i,
-          /perfect.*let\s*me/i,
-          /confirmed/i,
-          /sorted/i,
-          /sweet\s*as/i,
-          /nice\s*one/i,
-          /all\s*good/i,
-          /no\s*worries/i,
-          /let\s*me\s*(get|find|load|show)/i,
-          /loading.*parts/i,
+          /got\s*(it|ya|cha).*\b(parts|shelf|loading|fetching)\b/i,  // Tightened: need "parts" context
+          /confirmed.*vehicle/i,
+          /loading.*parts.*for.*your/i,
           /fetching.*parts/i,
-          /your\s+\d{4}\s+\w+/i,  // "your 2011 Tiguan"
         ];
         
         const isVerbalConfirmation = confirmationPatterns.some(p => p.test(aiContent));

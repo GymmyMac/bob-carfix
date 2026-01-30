@@ -184,53 +184,7 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
         hasArrived={bobHasArrived}
       />
 
-      {/* Vehicle Context Bar */}
-      {vehicle && !isEmbedded && (
-        <div style={{ position: 'absolute', top: '8px', left: '8px', right: '8px', zIndex: 20 }}>
-          <div 
-            style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
-              backdropFilter: 'blur(4px)',
-              WebkitBackdropFilter: 'blur(4px)',
-              borderRadius: '8px',
-              padding: '8px 12px',
-              paddingTop: 'calc(env(safe-area-inset-top, 4px) + 8px)',
-              border: '1px solid #e5e7eb',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}
-          >
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: '12px', fontWeight: 500, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {vehicle.year} {vehicle.make} {vehicle.model}
-              </p>
-              {vehicle.rego && (
-                <p style={{ fontSize: '10px', color: '#6b7280' }}>{vehicle.rego}</p>
-              )}
-            </div>
-            {onChangeVehicle && (
-              <button
-                onClick={onChangeVehicle}
-                style={{
-                  fontSize: '12px',
-                  color: '#2563eb',
-                  marginLeft: '8px',
-                  flexShrink: 0,
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  minHeight: 'unset',
-                  minWidth: 'unset'
-                }}
-              >
-                Change
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Vehicle Context Bar REMOVED - vehicle info now shown in shelf header only */}
 
       {/* Product Column - 80% width with responsive scaling */}
       <MobileProductColumn
