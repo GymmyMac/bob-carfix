@@ -1,216 +1,231 @@
 
-# Fix Plan: Variant Confirmation Flow + Speech Fallback Timeout
+# Comprehensive Fix: Data Flow + Z-Layer Issues
 
-## Problem Summary
+## Issues Identified
 
-**Issue 1: Variant confirmation doesn't trigger parts/packages fetch**
-When a REGO returns multiple vehicle variants (e.g., Toyota Altezza with 4 engine options), Bob asks the user to confirm which variant. When the user confirms (e.g., "the 2.0L one"), Bob says he's confirmed it but:
-- The `_lookupVehicleId` is never set for multi-match scenarios
-- The vehicle candidates array is not stored for later lookup
-- When the AI emits `VEHICLE_CONFIRMED`, there's no way to match the user's choice to an actual vehicle_id from the original lookup
-- Result: No parts/packages are fetched → empty shelf
+### Issue 1: Bob Behind Service Packages (Z-Layer)
+Looking at the screenshot, Bob (z-60) appears behind the product column (z-30). This is a CSS stacking context issue where the product column's parent container creates a new stacking context that places it above Bob despite lower z-index.
 
-**Issue 2: Speech fallback timeout too short**
-The `[BobWidget] Speech fallback after 2s` warning indicates the 2-second timeout may be too short for ElevenLabs TTS to respond, especially on slower connections.
+**Root Cause**: The `MobileProductColumn` is a sibling to `MobileBobCharacter` within `MobileBobLayoutCore`, but both are inside `position: absolute` containers. The product column's `overflow-y-auto` creates a new stacking context that ignores the z-index hierarchy.
+
+**Fix Required**: Increase product column z-index to z-50 to maintain proper layering while keeping it below Bob (z-60).
 
 ---
 
-## Root Cause Analysis
+### Issue 2: No Products/Packages After Variant Confirmation (CRITICAL)
 
-### Multi-Vehicle Flow Gap
-
-```text
-Current flow (BROKEN):
-┌─────────────────────────────────────────────────────────────┐
-│ lookup_vehicle returns { vehicles: [A, B, C, D] }           │
-│                                                             │
-│ ❌ vehicleId = undefined (not set for multi-match)          │
-│ ❌ _lookupVehicleId = undefined (never stored)              │
-│ ❌ _multipleVehicleCandidates = undefined (vehicles lost!)  │
-│ ✅ _multipleVehiclesFound = true                            │
-│                                                             │
-│ AI presents: "Is yours the 2.0L or the 3.0L?"               │
-└─────────────────────────────────────────────────────────────┘
-                         ↓
-┌─────────────────────────────────────────────────────────────┐
-│ User confirms: "the 2.0L one"                               │
-│ AI emits: [VEHICLE_CONFIRMED:{"vehicle_id":12345,...}]      │
-│                                                             │
-│ ❌ storedVehicleId = undefined (was never set)              │
-│ ❌ Cannot validate AI's vehicle_id against actual options   │
-│ ❌ No parts/packages fetch triggered                        │
-└─────────────────────────────────────────────────────────────┘
+**Evidence from logs:**
+```
+Stored 4 vehicle candidates for variant confirmation
+Emitted multiple_vehicles_found event
+Emitted no_parts_found event  ← PROBLEM!
 ```
 
-### Fix Required
+**Root Cause Analysis:**
+The VEHICLE_CONFIRMED marker detection happens in the **streaming phase** (after AI generates final response), but:
+1. The AI may NOT emit the marker when confirming a variant verbally
+2. Even if marker is detected, the parts/packages fetch runs but the results are NOT being stored/emitted
 
-Store the vehicle candidates when multiple matches are found, so when the AI later emits `VEHICLE_CONFIRMED`, we can:
-1. Match the AI's choice to an actual vehicle from the candidates
-2. Use the REAL vehicle_id from that candidate (not hallucinated)
-3. Trigger parts/packages fetch
+Looking at the code flow:
+
+```
+User: "I have the 2.0L one"
+     ↓
+AI processes (no tool calls - just conversational response)
+     ↓
+AI says: "Great, the 2.0L Altezza! Let me get your parts..." 
+     ↓ 
+Should emit: [VEHICLE_CONFIRMED:{"vehicle_id":12345,...}]
+     ↓
+Backend detects marker → fetches parts/packages → stores in _partsToEmit
+     ↓
+Streaming phase → emits parts_found SSE event
+```
+
+**The gap**: When AI confirms verbally without using `lookup_vehicle` tool, the variant confirmation logic runs BUT the fetched parts/packages are stored AFTER the streaming transform starts, so they're never emitted!
+
+The key issue is at lines 2120-2156 in bob-chat:
+- Parts/packages are fetched and stored in `_partsToEmit` / `_servicePackagesToEmit`
+- BUT this happens during the "No tool calls - final response" phase
+- The streaming transform was already started and `partsToEmit` variable was captured BEFORE the fetch completed
 
 ---
 
-## Implementation
+## Fix Plan
 
-### Change 1: Store Vehicle Candidates for Multi-Match Scenarios
+### File 1: `supabase/functions/bob-chat/index.ts`
 
-**File: `supabase/functions/bob-chat/index.ts`**
+**Change A: Ensure VEHICLE_CONFIRMED detection triggers parts/packages emission**
 
-**Location: Lines 1730-1736 (multi-match handling)**
+The issue is that when `VEHICLE_CONFIRMED` is detected in the final AI response, parts are fetched but stored in a way that the streaming handler can't access them. The fix is to delay streaming until after VEHICLE_CONFIRMED processing.
 
-After setting `_multipleVehiclesFound = true`, also store the actual vehicle candidates:
+Current problematic flow:
+```typescript
+// Line ~1993-2160: VEHICLE_CONFIRMED detection and parts fetch
+if (vehicleConfirmedMatch) {
+  // ... fetch parts and packages
+  (conversationMessages as { _partsToEmit })._partsToEmit = allParts.parts;
+}
+
+// Line ~2220: Start streaming
+const transformedStream = new ReadableStream({
+  async start(controller) {
+    const partsToEmit = conversationMessages._partsToEmit; // ← Captured here, but fetch not complete!
+```
+
+**Fix**: Move the `partsToEmit` capture INSIDE the streaming handler's start function, after async fetch completes:
 
 ```typescript
-// Multiple matches without a confirmed vehicle - flag for frontend to show placeholders
-else if (vehicleResult.vehicles?.length && vehicleResult.vehicles.length > 1) {
-  console.log(`Multiple vehicle candidates found (${vehicleResult.vehicles.length}), AI will present options to customer`);
-  // Flag that we have multiple matches - frontend will show placeholder service packages
-  (conversationMessages as unknown as { _multipleVehiclesFound?: boolean })._multipleVehiclesFound = true;
+// Before line 2230 (inside stream start):
+// Re-check for parts after VEHICLE_CONFIRMED processing
+const partsToEmit = (conversationMessages as { _partsToEmit?: unknown[] })._partsToEmit;
+const servicePackagesToEmit = (conversationMessages as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit;
+```
+
+Wait - looking more carefully, the `partsToEmit` is ALREADY captured correctly at line 2226 which is AFTER the VEHICLE_CONFIRMED processing block (lines 1993-2160). So the variable capture timing is correct.
+
+The REAL issue is that when the AI doesn't emit a VEHICLE_CONFIRMED marker (just confirms verbally), no parts are fetched at all!
+
+**NEW Fix Required: Prompt Engineering + Fallback Detection**
+
+Add a fallback mechanism: if AI's response mentions confirming a vehicle variant AND we have stored candidates, trigger parts/packages fetch.
+
+### File 2: `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`
+
+**Change B: Fix z-index to ensure proper layering**
+
+Line 325: Change `z-30` to `z-50` to ensure product column stays below Bob (z-60) but above background (z-0)
+
+---
+
+## Detailed Code Changes
+
+### Change 1: Add Fallback Vehicle Confirmation Detection
+**File: `supabase/functions/bob-chat/index.ts`**
+**Location: After line ~2160 (after VEHICLE_CONFIRMED block)**
+
+Add detection for verbal variant confirmation:
+```typescript
+// FALLBACK: If AI confirmed a variant verbally but didn't emit marker,
+// detect confirmation phrases and use stored candidates
+if (!vehicleConfirmedMatch && storedCandidates?.length > 0) {
+  const confirmPhrases = [
+    /that's (the one|correct|right)/i,
+    /got it.*your.*(car|vehicle)/i,
+    /perfect.*let me (get|find|load)/i,
+    /confirmed.*your/i,
+    /sorted.*your/i,
+    /your.*altezza|corolla|camry|hilux/i  // Vehicle names as confirmation
+  ];
   
-  // NEW: Store the actual vehicle candidates for later variant confirmation
-  // This enables matching the user's choice to a real vehicle_id
-  (conversationMessages as unknown as { _multipleVehicleCandidates?: unknown[] })._multipleVehicleCandidates = vehicleResult.vehicles;
-  console.log(`Stored ${vehicleResult.vehicles.length} vehicle candidates for variant confirmation`);
+  const aiContent = assistantMessage?.content || "";
+  const isVerbalConfirmation = confirmPhrases.some(p => p.test(aiContent));
   
-  // Don't set vehicleId - wait for customer to confirm
+  if (isVerbalConfirmation) {
+    console.log('[Fallback Confirmation] Detected verbal confirmation without marker');
+    // Use first candidate or try to match from AI's response
+    const fallbackVehicle = storedCandidates[0];
+    const vehicleId = fallbackVehicle.vehicle_id || fallbackVehicle.id;
+    
+    if (vehicleId) {
+      // Fetch parts and packages
+      const allParts = await retrieveParts(vehicleId, apiConfig);
+      if (allParts.success && allParts.parts?.length > 0) {
+        (conversationMessages as any)._partsToEmit = allParts.parts;
+      }
+      
+      const pkgsResult = await retrieveServicePackages(vehicleId, apiConfig);
+      if (pkgsResult.success && pkgsResult.packages?.length > 0) {
+        const displayable = filterDisplayablePackages(pkgsResult.packages);
+        (conversationMessages as any)._servicePackagesToEmit = displayable;
+      }
+      
+      // Also emit vehicle identified event
+      (conversationMessages as any)._confirmedVehicle = {
+        vehicle_id: vehicleId,
+        ...fallbackVehicle
+      };
+    }
+  }
 }
 ```
 
-### Change 2: Match Confirmed Variant to Real Vehicle ID
-
+### Change 2: Strengthen AI Prompt for VEHICLE_CONFIRMED Emission
 **File: `supabase/functions/bob-chat/index.ts`**
+**Location: System prompt section**
 
-**Location: Lines 1993-2007 (VEHICLE_CONFIRMED handling)**
-
-After extracting `vehicleId` from AI's marker, try to match against stored candidates:
-
-```typescript
-if (vehicleConfirmedMatch) {
-  try {
-    const confirmedVehicle = JSON.parse(vehicleConfirmedMatch[1]);
-    let vehicleId = confirmedVehicle.vehicle_id || confirmedVehicle.id;
-    
-    // CRITICAL: Override AI's potentially hallucinated vehicle_id with ACTUAL lookup result
-    const storedVehicleId = (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId;
-    const storedVehicleData = (conversationMessages as unknown as { _lookupVehicleData?: unknown })._lookupVehicleData;
-    
-    // NEW: For multi-match scenarios, match the AI's choice to stored candidates
-    const storedCandidates = (conversationMessages as unknown as { _multipleVehicleCandidates?: Array<Record<string, unknown>> })._multipleVehicleCandidates;
-    
-    if (!storedVehicleId && storedCandidates && storedCandidates.length > 0) {
-      console.log(`[Variant Confirmation] Matching AI's choice against ${storedCandidates.length} stored candidates`);
-      
-      // Try to match by vehicle_id first (if AI got it right)
-      let matchedCandidate = storedCandidates.find(c => 
-        (c.vehicle_id === vehicleId) || (c.id === vehicleId)
-      );
-      
-      // If no ID match, try fuzzy matching by variant/engine characteristics
-      if (!matchedCandidate && confirmedVehicle.variant) {
-        matchedCandidate = storedCandidates.find(c => 
-          String(c.variant || c.vehicle_name_nz || '').toLowerCase().includes(
-            String(confirmedVehicle.variant).toLowerCase()
-          )
-        );
-        console.log(`[Variant Confirmation] Fuzzy matched by variant: ${confirmedVehicle.variant}`);
-      }
-      
-      // If still no match, try by engine size
-      if (!matchedCandidate && confirmedVehicle.engine_size) {
-        matchedCandidate = storedCandidates.find(c => 
-          String(c.engine_size || c.cc_rating || '').includes(
-            String(confirmedVehicle.engine_size).replace(/[^\d.]/g, '')
-          )
-        );
-        console.log(`[Variant Confirmation] Fuzzy matched by engine size: ${confirmedVehicle.engine_size}`);
-      }
-      
-      // If still no match but only one candidate with matching make/model, use it
-      if (!matchedCandidate) {
-        const makeModelMatches = storedCandidates.filter(c => 
-          String(c.make || '').toLowerCase() === String(confirmedVehicle.make || '').toLowerCase() &&
-          String(c.model || '').toLowerCase() === String(confirmedVehicle.model || '').toLowerCase()
-        );
-        if (makeModelMatches.length === 1) {
-          matchedCandidate = makeModelMatches[0];
-          console.log(`[Variant Confirmation] Single make/model match found`);
-        }
-      }
-      
-      if (matchedCandidate) {
-        const realVehicleId = matchedCandidate.vehicle_id || matchedCandidate.id;
-        if (realVehicleId && realVehicleId !== vehicleId) {
-          console.warn(`[Variant Confirmation] AI used vehicle_id ${vehicleId}, actual candidate ID: ${realVehicleId}`);
-          vehicleId = realVehicleId as number;
-          confirmedVehicle.vehicle_id = realVehicleId;
-        }
-        // Merge in correct vehicle data from matched candidate
-        Object.assign(confirmedVehicle, {
-          make: matchedCandidate.make || confirmedVehicle.make,
-          model: matchedCandidate.model || confirmedVehicle.model,
-          year: matchedCandidate.year || matchedCandidate.start_year || confirmedVehicle.year,
-          variant: matchedCandidate.variant || matchedCandidate.vehicle_name_nz || confirmedVehicle.variant,
-          engine_size: matchedCandidate.engine_size || confirmedVehicle.engine_size,
-          fuel_type: matchedCandidate.fuel_type || confirmedVehicle.fuel_type,
-          cc_rating: matchedCandidate.cc_rating || confirmedVehicle.cc_rating,
-          rego: matchedCandidate.plate || matchedCandidate.rego || confirmedVehicle.rego,
-        });
-        console.log(`[Variant Confirmation] Matched to candidate:`, matchedCandidate.vehicle_name_nz || matchedCandidate.variant);
-        
-        // Store as lookup data for streaming handler
-        (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId = vehicleId;
-        (conversationMessages as unknown as { _lookupVehicleData?: unknown })._lookupVehicleData = matchedCandidate;
-      } else {
-        console.warn(`[Variant Confirmation] Could not match AI's choice to any stored candidate, using AI's ID: ${vehicleId}`);
-        // Fall back to first candidate if AI's ID seems invalid
-        if (!vehicleId || vehicleId < 1000) {
-          const fallback = storedCandidates[0];
-          vehicleId = (fallback.vehicle_id || fallback.id) as number;
-          confirmedVehicle.vehicle_id = vehicleId;
-          console.warn(`[Variant Confirmation] AI ID invalid, falling back to first candidate: ${vehicleId}`);
-        }
-      }
-    } else if (storedVehicleId && storedVehicleId !== vehicleId) {
-      // Existing single-match override logic
-      console.warn(`AI HALLUCINATED vehicle_id: ${vehicleId} - OVERRIDING with actual lookup ID: ${storedVehicleId}`);
-      vehicleId = storedVehicleId;
-      confirmedVehicle.vehicle_id = storedVehicleId;
-      if (storedVehicleData) {
-        Object.assign(confirmedVehicle, storedVehicleData);
-      }
-    }
-    
-    // ... rest of existing code (garage cross-reference, parts/packages fetch)
+Ensure AI is instructed to ALWAYS emit the marker:
+```
+CRITICAL: When a customer CONFIRMS a vehicle variant (says "yes", "that one", "the 2L", etc.), 
+you MUST emit [VEHICLE_CONFIRMED:{"vehicle_id":ID,"make":"...","model":"..."}] marker.
+This triggers the parts catalog to load. WITHOUT the marker, no parts will appear!
 ```
 
-### Change 3: Increase Speech Fallback Timeout to 5 Seconds
-
-**File: `packages/bob-widget/src/hooks/useBobChat.ts`**
-
-**Location: Lines 723-739**
-
-Change the timeout from 2000ms to 5000ms:
+### Change 3: Fix Z-Index Layering
+**File: `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`**
+**Location: Line 325**
 
 ```typescript
-fallbackTimeoutRef.current = setTimeout(() => {
-  if (!speechStartedRef.current) {
-    console.warn('[BobWidget] Speech fallback after 5s');
-    onReadyToSpeak?.();
-    
-    if (!manualMode) {
-      if (hasProductContent && onShowingProduct) {
-        onShowingProduct();
-      } else if (onStreamComplete) {
-        onStreamComplete();
-      } else {
-        safeSetState(completeState);
-        setTimeout(() => safeSetState(listenState), 3000);
-      }
-    }
-  }
-}, 5000);  // Changed from 2000 to 5000
+// Before
+className={`absolute overflow-y-auto overflow-x-hidden z-30 flex flex-col...`}
+
+// After - z-50 keeps products below Bob (z-60) but above background
+className={`absolute overflow-y-auto overflow-x-hidden z-50 flex flex-col...`}
 ```
+
+---
+
+## Process Flow Diagram
+
+```text
+┌───────────────────────────────────────────────────────────────────────────┐
+│                     VARIANT CONFIRMATION FLOW (FIXED)                      │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  1. User enters REGO (e.g., "MKT21")                                       │
+│     ↓                                                                      │
+│  2. AI calls lookup_vehicle tool                                           │
+│     ↓                                                                      │
+│  3. API returns multiple variants                                          │
+│     → Store in _multipleVehicleCandidates ✓                               │
+│     → Emit multiple_vehicles_found SSE ✓                                   │
+│     ↓                                                                      │
+│  4. AI presents variants to user                                           │
+│     ↓                                                                      │
+│  5. User confirms (e.g., "the 2.0L one")                                   │
+│     ↓                                                                      │
+│  6A. AI emits [VEHICLE_CONFIRMED:{...}] marker (PREFERRED)                 │
+│      → Match to stored candidates                                          │
+│      → Fetch parts & packages                                              │
+│      → Store in _partsToEmit & _servicePackagesToEmit                     │
+│      → Emit vehicle_identified SSE                                         │
+│      → Emit service_packages_found SSE                                     │
+│      → Emit parts_found SSE                                               │
+│                                                                            │
+│  6B. AI confirms verbally WITHOUT marker (FALLBACK) ← NEW!                 │
+│      → Detect confirmation phrases                                         │
+│      → Use first stored candidate                                          │
+│      → Fetch parts & packages                                              │
+│      → Emit same SSE events                                               │
+│     ↓                                                                      │
+│  7. Frontend receives parts_found & service_packages_found                 │
+│     → Updates displayedParts & displayedPackages state                     │
+│     → Product shelf renders with full catalog                              │
+│                                                                            │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Z-Index Layer Stack (After Fix)
+
+| Layer | Z-Index | Component | Notes |
+|-------|---------|-----------|-------|
+| Background | z-0 | Backdrop image | Shop interior |
+| Product Column | z-50 | MobileProductColumn | ← Fixed from z-30 |
+| Bob Character | z-60 | MobileBobCharacter | Stays in front of products |
+| Counter Overlay | z-70 | Counter image | Theatrical layer |
+| Chat Drawer | z-80+ | MobileChatDrawer | Always on top |
 
 ---
 
@@ -218,51 +233,19 @@ fallbackTimeoutRef.current = setTimeout(() => {
 
 | File | Change |
 |------|--------|
-| `supabase/functions/bob-chat/index.ts` | Store vehicle candidates for multi-match; Match variant confirmation to real ID |
-| `packages/bob-widget/src/hooks/useBobChat.ts` | Increase speech fallback timeout from 2s to 5s |
-
----
-
-## Expected Behavior After Fix
-
-### Multi-Vehicle Flow (FIXED)
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ lookup_vehicle returns { vehicles: [A, B, C, D] }           │
-│                                                             │
-│ ✅ _multipleVehiclesFound = true                            │
-│ ✅ _multipleVehicleCandidates = [A, B, C, D] (NEW!)         │
-│                                                             │
-│ AI presents: "Is yours the 2.0L or the 3.0L?"               │
-└─────────────────────────────────────────────────────────────┘
-                         ↓
-┌─────────────────────────────────────────────────────────────┐
-│ User confirms: "the 2.0L one"                               │
-│ AI emits: [VEHICLE_CONFIRMED:{"vehicle_id":12345,...}]      │
-│                                                             │
-│ ✅ Match "2.0L" to candidate B (engine_size: "2.0L")        │
-│ ✅ Use candidate B's real vehicle_id: 42899                 │
-│ ✅ Fetch parts for vehicle_id 42899                         │
-│ ✅ Fetch service packages for vehicle_id 42899              │
-│ ✅ Emit parts_found + service_packages_found events         │
-│ ✅ Shelf displays full catalog                              │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Speech Fallback
-
-- Before: Warning after 2s, potentially cutting off slower TTS responses
-- After: Warning after 5s, giving ElevenLabs more time to respond
+| `supabase/functions/bob-chat/index.ts` | Add fallback confirmation detection + strengthen AI prompt |
+| `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx` | Fix z-index from z-30 to z-50 |
 
 ---
 
 ## Verification Checklist
 
-- [ ] Enter a REGO that returns multiple variants (e.g., "MKT21")
-- [ ] Bob presents variant options to customer
-- [ ] Customer confirms one variant (e.g., "the 2.0L one")
-- [ ] Console shows `[Variant Confirmation] Matched to candidate: ...`
+After implementation:
+- [ ] Enter REGO with multiple variants (e.g., "MKT21")
+- [ ] Bob presents variant options
+- [ ] Confirm a variant verbally (e.g., "the 2.0L one")
+- [ ] Console shows `[Fallback Confirmation]` or `[Variant Confirmation]` log
 - [ ] Service packages appear on shelf
 - [ ] Individual parts catalog appears on shelf
-- [ ] No `[BobWidget] Speech fallback after 2s` warnings (or at least after 5s)
+- [ ] Bob character is visually IN FRONT of product cards
+- [ ] Counter overlay is IN FRONT of both Bob and products
