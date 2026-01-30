@@ -93,6 +93,195 @@ function buildSystemPromptFromDB(prompts: BobPrompt[]): string {
   return prompts.map(p => p.content).join('\n\n');
 }
 
+// ============= VEHICLE CANDIDATE TYPE =============
+interface VehicleCandidate {
+  vehicle_id: number;
+  vehicle_name_nz?: string;
+  make?: string;
+  model?: string;
+  start_year?: number;
+  end_year?: number;
+  year?: number | string;
+  engine_code?: string;
+  cc_rating?: number;
+  fuel_type?: string;
+  variant?: string;
+  score?: number;
+  plate?: string;
+  rego?: string;
+  id?: number;
+}
+
+// ============= DETERMINISTIC VARIANT SELECTION =============
+/**
+ * Attempts to match user input to a vehicle candidate without relying on AI.
+ * Returns the matched candidate or null if no confident match.
+ */
+function matchUserInputToCandidate(
+  userMessage: string,
+  candidates: VehicleCandidate[]
+): { candidate: VehicleCandidate; method: string } | null {
+  if (!candidates || candidates.length === 0) return null;
+  
+  const input = userMessage.trim().toLowerCase();
+  console.log(`[Variant Matcher] Attempting to match: "${input.slice(0, 60)}" against ${candidates.length} candidates`);
+  
+  // Method 1: Option number (e.g., "1", "2", "option 1", "the first one", "#2")
+  const optionPatterns = [
+    /^(\d+)$/,                           // Just "1" or "2"
+    /^#?(\d+)$/,                         // "#1", "#2"
+    /option\s*(\d+)/i,                   // "option 1", "option2"
+    /number\s*(\d+)/i,                   // "number 1"
+    /^the\s*(first|second|third|fourth|fifth)/i,  // "the first one"
+  ];
+  
+  const ordinalMap: Record<string, number> = {
+    'first': 1, 'second': 2, 'third': 3, 'fourth': 4, 'fifth': 5
+  };
+  
+  for (const pattern of optionPatterns) {
+    const match = input.match(pattern);
+    if (match) {
+      let index: number;
+      if (ordinalMap[match[1]?.toLowerCase()]) {
+        index = ordinalMap[match[1].toLowerCase()] - 1;
+      } else {
+        index = parseInt(match[1], 10) - 1;
+      }
+      
+      if (index >= 0 && index < candidates.length) {
+        console.log(`[Variant Matcher] Matched by option number: index=${index}, method=option_number`);
+        return { candidate: candidates[index], method: 'option_number' };
+      }
+    }
+  }
+  
+  // Method 2: Direct vehicle_id match (user types exact ID)
+  const idMatch = input.match(/^\d{4,6}$/);
+  if (idMatch) {
+    const typedId = parseInt(idMatch[0], 10);
+    const candidateById = candidates.find(c => c.vehicle_id === typedId);
+    if (candidateById) {
+      console.log(`[Variant Matcher] Matched by direct vehicle_id: ${typedId}`);
+      return { candidate: candidateById, method: 'direct_id' };
+    }
+  }
+  
+  // Method 3: Engine code match (e.g., "3S-GE", "1G-FE", "K20A")
+  const engineCodePattern = /\b([A-Z0-9]{1,4}[-]?[A-Z]{1,3})\b/gi;
+  const inputEngineCodes = [...input.matchAll(engineCodePattern)].map(m => m[1].toUpperCase().replace('-', ''));
+  
+  if (inputEngineCodes.length > 0) {
+    for (const candidate of candidates) {
+      const candidateCode = (candidate.engine_code || '').toUpperCase().replace('-', '');
+      if (candidateCode && inputEngineCodes.includes(candidateCode)) {
+        console.log(`[Variant Matcher] Matched by engine code: ${candidateCode}`);
+        return { candidate, method: 'engine_code' };
+      }
+    }
+  }
+  
+  // Method 4: CC rating / displacement (e.g., "2.0", "2.0L", "2000", "2000cc", "2 litre")
+  const ccPatterns = [
+    /(\d+(?:\.\d+)?)\s*(?:l(?:itre)?|liter)?/i,  // "2.0", "2.0L", "2 litre"
+    /(\d{3,4})\s*(?:cc)?/i,                       // "2000", "2000cc"
+  ];
+  
+  for (const pattern of ccPatterns) {
+    const match = input.match(pattern);
+    if (match) {
+      let ccValue = parseFloat(match[1]);
+      // Convert litre to cc if < 10 (e.g., 2.0 -> 2000)
+      if (ccValue < 10) ccValue *= 1000;
+      
+      // Find closest match within 100cc tolerance
+      const closestCandidate = candidates.find(c => {
+        const candidateCc = c.cc_rating || 0;
+        return Math.abs(candidateCc - ccValue) < 100;
+      });
+      
+      if (closestCandidate) {
+        console.log(`[Variant Matcher] Matched by CC rating: ${ccValue} -> ${closestCandidate.cc_rating}`);
+        return { candidate: closestCandidate, method: 'cc_rating' };
+      }
+    }
+  }
+  
+  // Method 5: Power/kW match (e.g., "150kw", "103 kW")
+  const kwPattern = /(\d{2,3})\s*(?:kw|kilowatt)/i;
+  const kwMatch = input.match(kwPattern);
+  if (kwMatch) {
+    const kw = parseInt(kwMatch[1], 10);
+    // Look for kW in vehicle_name_nz (e.g., "TDI 103KW")
+    const candidateByKw = candidates.find(c => {
+      const name = (c.vehicle_name_nz || '').toUpperCase();
+      return name.includes(`${kw}KW`) || name.includes(`${kw} KW`);
+    });
+    if (candidateByKw) {
+      console.log(`[Variant Matcher] Matched by kW rating: ${kw}kW`);
+      return { candidate: candidateByKw, method: 'kw_rating' };
+    }
+  }
+  
+  // Method 6: Fuel type match (only if single candidate of that type)
+  const fuelKeywords = ['petrol', 'diesel', 'hybrid', 'electric', 'gas', 'lpg'];
+  const inputFuel = fuelKeywords.find(f => input.includes(f));
+  if (inputFuel) {
+    const fuelCandidates = candidates.filter(c => 
+      (c.fuel_type || '').toLowerCase() === inputFuel
+    );
+    if (fuelCandidates.length === 1) {
+      console.log(`[Variant Matcher] Matched by unique fuel type: ${inputFuel}`);
+      return { candidate: fuelCandidates[0], method: 'fuel_type' };
+    }
+  }
+  
+  // Method 7: Substring match against vehicle_name_nz (fuzzy)
+  // Only if strong match (multiple keywords match)
+  const inputWords = input.split(/\s+/).filter(w => w.length > 2);
+  let bestMatch: VehicleCandidate | null = null;
+  let bestMatchScore = 0;
+  
+  for (const candidate of candidates) {
+    const vehicleName = (candidate.vehicle_name_nz || '').toLowerCase();
+    const matchingWords = inputWords.filter(w => vehicleName.includes(w));
+    const score = matchingWords.length / Math.max(inputWords.length, 1);
+    
+    if (score > bestMatchScore && matchingWords.length >= 2) {
+      bestMatchScore = score;
+      bestMatch = candidate;
+    }
+  }
+  
+  if (bestMatch && bestMatchScore >= 0.5) {
+    console.log(`[Variant Matcher] Matched by substring: score=${bestMatchScore.toFixed(2)}`);
+    return { candidate: bestMatch, method: 'substring' };
+  }
+  
+  // Method 8: Affirmative response when only 1 candidate exists OR top-scored
+  const affirmativePatterns = [
+    /^(yes|yeah|yep|yup|correct|that'?s? ?(it|right|the one)|sure|ok|okay|affirmative|confirm)/i,
+    /^(got ?it|that ?one|the one)/i,
+  ];
+  
+  const isAffirmative = affirmativePatterns.some(p => p.test(input));
+  if (isAffirmative) {
+    if (candidates.length === 1) {
+      console.log(`[Variant Matcher] Matched by affirmative (single candidate)`);
+      return { candidate: candidates[0], method: 'affirmative_single' };
+    }
+    // If there's a clear top-scored candidate, use that
+    const sortedByScore = [...candidates].sort((a, b) => (b.score || 0) - (a.score || 0));
+    if (sortedByScore[0].score && sortedByScore[0].score > (sortedByScore[1]?.score || 0)) {
+      console.log(`[Variant Matcher] Matched by affirmative (top-scored: ${sortedByScore[0].score})`);
+      return { candidate: sortedByScore[0], method: 'affirmative_top_scored' };
+    }
+  }
+  
+  console.log(`[Variant Matcher] No confident match found`);
+  return null;
+}
+
 // ============= CANNED RESPONSE SYSTEM =============
 
 // NZ Registration plate pattern detection
@@ -297,7 +486,7 @@ const tools = [
       parameters: {
         type: "object",
         properties: {
-          vehicleid: { type: "number", description: "The vehicle ID from a previous lookup_vehicle result (found in the 'id' field)" },
+          vehicleid: { type: "number", description: "The vehicle ID from a previous lookup_vehicle result (found in the 'vehicle_id' field - MUST be numeric)" },
           part_type: { type: "string", description: "DEPRECATED - Do not use. All parts are loaded on first call. Filtering replaces the full display with a subset which is undesirable." }
         },
         required: ["vehicleid"]
@@ -462,256 +651,24 @@ CRITICAL RULES:
 - Keep responses SHORT (1-3 sentences max) until you know their vehicle
 - NEVER offer to fit parts - CARFIX only sells parts for DIY or workshop fitment
 - Know the difference between VEHICLE-SPECIFIC parts and GENERAL products
-- NEVER mention stock status - all parts shown are IN STOCK and available. Never say "out of stock", "limited stock", "checking availability" etc.
 
-ANTI-HALLUCINATION RULES (MANDATORY):
-- ONLY mention products, brands, SKUs, and prices that appear in tool responses with success: true
-- If a tool returns success: false or error, DO NOT invent alternatives or make up products
-- NEVER guess or hallucinate product names, prices, or brand names from your general knowledge
-- If you don't have real product data, say: "I don't have that in my system right now - check carfix.co.nz"
-- For general products (tire shine, car wash, etc.), if search fails, direct customer to browse the website
-- ALL product recommendations MUST come from retrieve_parts, search_products, or search_general_products results
+VEHICLE IDENTIFICATION:
+- If customer mentions a NZ registration (REGO like ABC123), use lookup_vehicle with the plate
+- For vehicle-specific parts (brakes, filters, etc), ALWAYS get their REGO first
+- Once vehicle is confirmed, use retrieve_service_packages and retrieve_parts
 
-GENERAL PRODUCTS vs VEHICLE-SPECIFIC PARTS:
-GENERAL PRODUCTS (NO vehicle needed):
-- Cleaning products: tire shine, windscreen wash, car wash, polish, wax, interior cleaner
-- Accessories: air fresheners, phone holders, seat covers, floor mats (universal)
-- Chemicals: WD-40, CRC, engine degreaser, brake cleaner, rust converter
-- Tools: tool kits, jump leads, tire gauges, funnels, oil drain pans
-- Consumables: rags, microfiber cloths, masking tape
-- For these → Use search_general_products tool IMMEDIATELY. NO vehicle lookup needed!
+GENERAL PRODUCTS (no vehicle needed):
+- Tire shine, windscreen wash, car wash, polish, cleaning products
+- For these, use search_general_products directly
 
-VEHICLE-SPECIFIC PARTS (need vehicle first):
-- Filters: oil filter, air filter, cabin filter, fuel filter
-- Brakes: brake pads, brake rotors, brake fluid
-- Engine: spark plugs, timing belt, water pump, thermostat
-- Suspension: shocks, struts, control arms, ball joints
-- For these → Get vehicle details first
+KIWI STYLE:
+- Use casual NZ expressions: "sweet as", "no worries", "mate", "chur"
+- Be friendly but efficient - customers are busy`;
 
-DECISION LOGIC:
-1. Customer asks for something → Decide: general or vehicle-specific?
-2. If GENERAL → Use search_general_products immediately, no vehicle questions
-3. If VEHICLE-SPECIFIC → Get their REGO OR make/model/year/engine details
-
-VEHICLE LOOKUP WORKFLOW:
-PRIMARY: Ask for REGO (license plate) - gives exact match
-FALLBACK: If no REGO, collect make + model + year + engine size (cc) and use lookup_vehicle
-
-USING lookup_vehicle:
-- With REGO: Use plate parameter for exact match
-- Without REGO: Use make, model, year, cc_rating parameters - this returns MULTIPLE candidate vehicles
-
-HANDLING LOOKUP RESULTS:
-1. SINGLE MATCH with vehicle ID: AUTO-CONFIRM immediately!
-   - Do NOT ask customer to confirm - the rego gives an exact match
-   - Emit VEHICLE_CONFIRMED marker immediately
-   - Parts and packages are ALREADY loading in the background
-   - Just acknowledge: "Sweet, got your [Year Make Model] - what do you need today?"
-   - NEVER say "Is this your vehicle?" for single rego matches
-   
-2. MULTIPLE MATCHES (vehicles array): 
-   - For UNIVERSAL parts (wipers, cabin filters, bulbs): Pick ANY vehicle from the matches and proceed - these parts are the same across variants
-   - For CRITICAL parts (brakes, engine, suspension): Present options and ask customer to confirm which variant
-   
-3. NO vehicle ID in result: The match was too vague - ask for more details or REGO
-
-UNIVERSAL vs CRITICAL PARTS:
-UNIVERSAL (same across variants - no disambiguation needed):
-- Wiper blades, cabin/pollen filters, interior bulbs, number plate lights
-- If customer asks for these with multiple matches → Pick the first match and proceed
-
-CRITICAL (different per variant - must confirm):
-- Brake pads, brake rotors, oil filters, air filters, spark plugs, timing belts
-- Suspension parts, engine parts, clutch kits
-- If customer asks for these with multiple matches → Ask customer to confirm variant
-
-CRITICAL VEHICLE DATA ACCURACY:
-When emitting VEHICLE_CONFIRMED, you MUST copy the EXACT vehicle data from the lookup_vehicle result.
-- NEVER invent or hallucinate vehicle details (make, model, year, variant, engine)
-- NEVER confuse one vehicle lookup result with another
-- If lookup returned "BMW 335i", you MUST say "BMW 335i" - NEVER say "BMW X5" or any other model
-- The vehicle_id, rego, make, model, year, vin, engine_no MUST all come DIRECTLY from the API response fields
-- Before emitting VEHICLE_CONFIRMED, double-check the make and model match what the API returned
-
-IMPORTANT - VEHICLE CONFIRMATION:
-When a single vehicle is found OR the customer confirms a specific vehicle, emit the marker at the START of your response:
-[VEHICLE_CONFIRMED:{"vehicle_id":12345,"rego":"ABC123","make":"Toyota","model":"Corolla","year":"2015","variant":"GX","vehicle_name_nz":"Toyota Corolla GX 1.8L","engine_size":"1.8L","fuel_type":"petrol","vin":"JTDBU4EE7E9123456","engine_no":"2ZR-123456","cc_rating":1800}]
-
-Include the vehicle_id field AND all other available fields. Then continue with your natural response.
-
-CRITICAL - VARIANT CONFIRMATION (MUST EMIT MARKER!):
-When a customer CONFIRMS a specific variant from multiple matches (says "yes", "that's the one", "the 2L one", "mine is the diesel", etc.):
-- You MUST emit the [VEHICLE_CONFIRMED:{...}] marker at the START of your response
-- WITHOUT this marker, the parts catalog and service packages WILL NOT LOAD
-- This is REQUIRED - do not skip the marker even if you're just confirming conversationally
-- Use the vehicle_id from the lookup_vehicle result that matches their choice
-
-Emit VEHICLE_CONFIRMED when:
-- lookup_vehicle returns a SINGLE match with a valid id (auto-confirm, no customer confirmation needed)
-- Customer confirms a specific variant from multiple matches
-- You're proceeding with a universal part from multiple matches
-
-EXAMPLE RESPONSES:
-- "Got any tire shine?" → Use search_general_products("tire shine") immediately
-- "Need brake pads for my Toyota" → "Sweet, what's your rego? Or if you don't have it handy, the year and model?"
-- "It's a 2006 Toyota Vitz 1.3" → Use lookup_vehicle with make="Toyota", model="Vitz", year=2006, cc_rating=1.3
-- Multiple matches, customer asks for WIPERS → Pick first match, emit VEHICLE_CONFIRMED, proceed
-- Multiple matches, customer asks for BRAKE PADS → "Found a few Vitz options - is yours the SCP90 1.3L petrol or the NCP91 1.5L?"
-- Customer confirms "the 1.3L" → Emit VEHICLE_CONFIRMED with that vehicle's ID and proceed
-
-CRITICAL - INVENTORY-ONLY RECOMMENDATIONS:
-- ONLY recommend products and brands that appear in retrieve_parts results
-- NEVER suggest brands from your general automotive knowledge (no Bendix, Bosch, TRW unless they're in the results)
-- If a brand doesn't appear in the parts results, you DON'T stock it
-- All product names, SKUs, prices MUST come from retrieve_parts - never invent them
-- If customer asks about a brand not in results: "Let me check what we've got in stock for that..."
-
-ACCURACY GUARDRAIL - CRITICAL:
-- ONLY quote prices that were returned in tool results
-- ONLY mention products/packages that exist in your tool results
-- If a tool returned empty/no results, say "I couldn't find [item] for your vehicle" - don't make up alternatives
-- If you're unsure about a price, say "prices start from around $X" with a real number from results
-- NEVER invent SKUs, part numbers, or exact prices
-- Service packages displayed to customer are provided in [CUSTOMER DISPLAY STATE] context - ONLY reference those packages
-
-SMART SALES SPEECH - PRODUCT RECOMMENDATIONS:
-When presenting products, follow these rules:
-
-PRICING STRATEGY:
-- NEVER recommend the CHEAPEST option first - it has lowest margin and lowest quality
-- ALWAYS recommend a MID-PRICED product as "best value" or "good quality"
-- Structure: "Prices start from $X, go up to $Y. I'd go with the [MidBrand] at $[MidPrice] - solid quality."
-
-VERBOSITY RULES:
-- NEVER list more than 2-3 products by name in speech
-- Let the visual shelf do the work: "Check out the options on your right there"
-- If many options exist, summarize: "Got a few brands - [LIST ONLY BRANDS FROM RESULTS] - prices from $X to $Y"
-
-PARTSLOT NAMING - USE EXACT CATEGORY NAMES:
-When mentioning products, use the exact partslot category name to help customers find them:
-- "Looking at WIPER BLADE FRONT options..."
-- "For your BRAKE PAD KIT, I'd suggest..."
-- "Under OIL FILTER, you've got..."
-- "Check out AIR FILTER on the shelf..."
-This triggers auto-scroll to that section on the shelf.
-
-EXAMPLE GOOD RESPONSE:
-"Sweet as, got your wipers sorted. Prices run $20 to $78 on WIPER BLADE FRONT - I'd go with the TRICO at $69, solid brand. Have a look on the shelf there."
-
-EXAMPLE BAD RESPONSE (TOO VERBOSE - NEVER DO THIS):
-"Here's all your options: BOSCH AP600U $20, NAPA NFB24 $39, REPCO RFB24-S $50, TRICO TEC610 $78, TRICO TF610 $69..."
-
-SMART SALES WORKFLOW (after vehicle confirmed WITH vehicle_id):
-
-STEP 1 - LOAD ALL PARTS (once only):
-- Call retrieve_parts with NO filter to load ALL available parts for the vehicle
-- This happens automatically via session handoff OR when you first confirm the vehicle
-- The customer sees ALL available parts on their shelf
-
-STEP 2 - WHEN CUSTOMER ASKS ABOUT SPECIFIC PARTS (e.g., "spark plugs", "brake pads"):
-- DO NOT call retrieve_parts again - all parts are already loaded and displayed
-- The shelf auto-scrolls when you mention the partslot category name
-- Just mention the exact category name to guide them: "Looking at SPARK PLUG SET on your shelf..."
-- Recommend a MID-PRICED option, never the cheapest
-- Example: "Right there under BRAKE PAD KIT FRONT, I'd go with the [Brand] at $X"
-
-SERVICE PACKAGES - MANDATORY FIRST RECOMMENDATION:
-====================================================
-RULE: When customer asks about ANY maintenance parts (brakes, filters, oil, wipers), you MUST:
-
-STEP 1 - ALWAYS CALL retrieve_service_packages FIRST
-- This is NOT optional - do it BEFORE discussing individual parts
-- Check if a service package matches their request
-
-STEP 2 - MATCH REQUEST TO PACKAGE:
-- Brakes/brake pads/rotors → Brake Service Package
-- Oil/oil filter/oil change → Oil Service Package
-- Air filter/cabin filter → Filter Service Package  
-- Wipers/wiper blades → Wiper Service Package
-
-STEP 3 - STRUCTURE YOUR RESPONSE (packages FIRST):
-- IF matching package exists: "For that, I'd actually recommend our [Package Name] - $X gets you [contents]. Great value, mate. Or if you just want the [individual part], check the shelf there."
-- ONLY IF no package matches: Recommend individual parts
-
-NEVER skip straight to individual parts when a service package applies!
-The package recommendation MUST come first in your response.
-
-STEP 3 - CHECK SERVICE PACKAGES for better value:
-- Use retrieve_service_packages to see if a bundle covers their needs
-- Proactively recommend relevant packages
-
-CRITICAL - NEVER RE-FETCH PARTS WITH FILTER:
-- After vehicle confirmation, ALL parts are ALREADY loaded and visible on the shelf
-- NEVER call retrieve_parts with a part_type filter - it will return empty or partial results
-- The customer already sees everything - just SAY THE CATEGORY NAME to guide them
-- If you call retrieve_parts with a filter and get 0 results, you're doing it WRONG
-- Example: Customer asks for "brake pads" → Say "Looking at BRAKE PAD KIT FRONT on your shelf there, mate..."
-- DO NOT DO THIS: retrieve_parts(vehicleid: 123, part_type: "brake pads") ❌
-- CORRECT: Just mention the category name in your response to scroll them there ✓
-
-KIWI EXPRESSIONS (use naturally):
-- "mate", "sweet as", "no worries", "choice", "chur"
-- "she'll be right", "away laughing", "piece of piss"
-- "yeah nah" (means no), "nah yeah" (means yes)
-
-// SALES_SKILL: SEAMLESS CART (for session users with email)
-When customer wants to add to cart and you have their email:
-1. Confirm choice: "Sweet, the [Brand] [Product] at $X - adding that now!"
-2. Use add_to_cart tool immediately with their email
-3. Confirm success: "Done! It's in your cart. Need anything else, or ready to checkout?"
-
-// SALES_SKILL: EMAIL COLLECTION (for direct visitors without session email)
-If customer wants to add to cart but you DON'T have their email:
-1. Keep it casual: "Just need your email to save that to your cart, mate"
-2. After email provided → Proceed with cart add
-3. Never ask for email if customerEmail was provided in session context
-
-// SALES_SKILL: UPSELLING (after cart add - ONE suggestion only)
-After adding to cart, suggest ONE related item only:
-- Brake pads → "Need rotors too? They often get changed together"
-- Oil filter → "Grab the oil while you're at it?"
-- Air filter → "How about the cabin filter for inside the car?"
-- Wipers → "Windscreen wash to keep 'em working smooth?"
-Be natural, not pushy - if they decline, move on immediately.
-
-SHOPPING CART & CHECKOUT:
-- When customer says "add to cart", "I'll take it", "buy it", "purchase" → Use add_to_cart with their email
-- If customerEmail is provided in the session context, use it directly - don't ask again
-- When customer is ready to pay or says "checkout", "pay now" → Use create_checkout to generate payment link
-- To check what's in their cart → Use get_cart
-- At conversation start, if you have their email → Consider using get_customer_context to personalize
-- When checkout URL is returned, present it naturally: "Choice! Here's your checkout link: [URL]. Click through to complete payment."
-- ALWAYS confirm what was added: "Added [product] to your cart. Anything else, or ready to checkout?"
-
-VEHICLE CONTEXT RULES:
-1. If a vehicle is already in session (PRE-CONFIRMED VEHICLE SESSION exists above), use that vehicle_id directly for retrieve_parts and retrieve_service_packages
-2. If NO vehicle is known (no session vehicle, no confirmed lookup):
-   - DO NOT call lookup_vehicle until customer provides REGO OR make/model/year
-   - DO NOT call retrieve_parts or retrieve_service_packages until vehicle_id is confirmed
-   - Keep response SHORT: ask for REGO in 1-2 sentences max
-   - Example: "Just need your rego first, mate - what's the plate number?"
-3. For GENERAL products (tire shine, windscreen wash, cleaning products), you CAN use search_general_products WITHOUT a vehicle
-
-TONE: Relaxed, efficient, knowledgeable. Match their energy.`;
-
-// ============= MULTI-TENANT API CONFIGURATION =============
-// Default API config for CARFIX (fallback when no hostConfig provided)
-const DEFAULT_API_CONFIG = {
-  baseUrl: "https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1",
-  getApiKey: () => Deno.env.get("CARFIX_SERVICE_ROLE_KEY") || "",
-  partnerCode: "CARFIX",
-};
-
-interface ApiConfig {
-  baseUrl: string;
-  apiKey: string;
-  partnerCode?: string;
-  customHeaders?: Record<string, string>;
-}
-
+// ============= HOST CONFIG TYPES =============
 interface HostConfig {
-  baseUrl: string;
-  apiKey: string;
+  baseUrl?: string;
+  apiKey?: string;
   partnerCode?: string;
   customHeaders?: Record<string, string>;
 }
@@ -721,481 +678,311 @@ interface HostContext {
     id?: string;
     email?: string;
     name?: string;
-    phone?: string;
-    isAuthenticated?: boolean;
   };
   vehicle?: {
-    selectedVehicle?: Record<string, unknown>;
-    garageVehicles?: Array<Record<string, unknown>>;
-    recentSearches?: Array<Record<string, unknown>>;
+    selectedVehicle?: {
+      id?: number;
+      vehicle_id?: number;
+      make?: string;
+      model?: string;
+      year?: number | string;
+      rego?: string;
+    };
+    garageVehicles?: Array<{
+      id?: number;
+      vehicle_id?: number;
+      rego?: string;
+      make?: string;
+      model?: string;
+      year?: number | string;
+      variant?: string;
+    }>;
+    recentSearches?: string[];
   };
   cart?: {
-    items?: Array<Record<string, unknown>>;
-    savedItems?: Array<Record<string, unknown>>;
-    totalValue?: number;
     itemCount?: number;
+    totalValue?: number;
   };
   history?: {
-    purchases?: Array<Record<string, unknown>>;
     lastOrderDate?: string;
-    lifetimeSpend?: number;
+    totalOrders?: number;
+    loyaltyTier?: string;
   };
   currentPage?: string;
   metadata?: Record<string, unknown>;
 }
 
-// Build API config from hostConfig or use defaults
+// ============= API CONFIG =============
+interface ApiConfig {
+  baseUrl: string;
+  apiKey: string;
+  customHeaders: Record<string, string>;
+}
+
 function buildApiConfig(hostConfig?: HostConfig): ApiConfig {
-  if (hostConfig?.baseUrl && hostConfig?.apiKey) {
-    console.log('Using host-provided API config:', hostConfig.baseUrl, 'partner:', hostConfig.partnerCode);
-    return {
-      baseUrl: hostConfig.baseUrl,
-      apiKey: hostConfig.apiKey,
-      partnerCode: hostConfig.partnerCode,
-      customHeaders: hostConfig.customHeaders,
-    };
+  // Default CARFIX API configuration
+  const defaultConfig: ApiConfig = {
+    baseUrl: 'https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1',
+    apiKey: Deno.env.get('CARFIX_SERVICE_ROLE_KEY') || '',
+    customHeaders: {
+      'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZscHpqYmFzZHNmd29lcnV5eGdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2NTIwNzQsImV4cCI6MjA3MTIyODA3NH0.wKoJ51_VPro_BrJz-A-NRpSmUW0XBP-7TJJcrhvYwxE'
+    }
+  };
+  
+  if (!hostConfig) {
+    return defaultConfig;
   }
-  console.log('Using default CARFIX API config');
+  
   return {
-    baseUrl: DEFAULT_API_CONFIG.baseUrl,
-    apiKey: DEFAULT_API_CONFIG.getApiKey(),
-    partnerCode: DEFAULT_API_CONFIG.partnerCode,
+    baseUrl: hostConfig.baseUrl || defaultConfig.baseUrl,
+    apiKey: hostConfig.apiKey || defaultConfig.apiKey,
+    customHeaders: {
+      ...defaultConfig.customHeaders,
+      ...(hostConfig.customHeaders || {})
+    }
   };
 }
 
-async function lookupVehicle(args: Record<string, unknown>, apiConfig: ApiConfig): Promise<unknown> {
-  console.log('Looking up vehicle with args:', JSON.stringify(args));
+// ============= EXTERNAL API CALLS =============
+
+async function lookupVehicle(
+  args: { plate?: string; make?: string; model?: string; year?: number; cc_rating?: number; fuel_type?: string; body_style?: string; engine_number?: string },
+  apiConfig: ApiConfig
+): Promise<unknown> {
+  const VEHICLE_LOOKUP_URL = `${apiConfig.baseUrl}/retrieve-vehicle-info`;
   
   try {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiConfig.apiKey}`,
-      ...apiConfig.customHeaders,
-    };
+    const body: Record<string, unknown> = {};
+    if (args.plate) body.plate = args.plate.toUpperCase().replace(/[\s-]/g, '');
+    if (args.make) body.make = args.make;
+    if (args.model) body.model = args.model;
+    if (args.year) body.year = String(args.year);
+    if (args.cc_rating) body.cc_rating = String(args.cc_rating);
+    if (args.fuel_type) body.fuel_type = args.fuel_type;
+    if (args.body_style) body.body_style = args.body_style;
+    if (args.engine_number) body.engine_number = args.engine_number;
     
-    const response = await fetch(
-      `${apiConfig.baseUrl}/retrieve-vehicle-info`,
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify(args)
-      }
-    );
+    console.log('Looking up vehicle with:', JSON.stringify(body));
     
-    if (response.status === 404) {
-      console.log('Vehicle not found (404)');
-      return { success: false, error: "Vehicle not found in database" };
-    }
+    const response = await fetch(VEHICLE_LOOKUP_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiConfig.apiKey}`,
+        ...apiConfig.customHeaders
+      },
+      body: JSON.stringify(body)
+    });
     
     if (!response.ok) {
-      console.error('Vehicle lookup failed:', response.status);
-      return { success: false, error: `Lookup failed with status ${response.status}` };
+      const errorText = await response.text();
+      console.error('Vehicle lookup failed:', response.status, errorText);
+      return { error: `Vehicle lookup failed: ${response.status}` };
     }
     
     const data = await response.json();
-    console.log('Vehicle lookup result (full):', JSON.stringify(data));
-    
-    // PRIORITY ORDER: Check for confirmed single match BEFORE checking multiple matches
-    // The CARFIX API returns BOTH data.vehicle (plate info) AND data.vehicles (TecDoc variants)
-    // For REGO lookups: if there's exactly 1 variant, auto-confirm it
-    
-    // Case 1: Single vehicle variant - AUTO-CONFIRM (most common for REGO lookups)
-    if (data.vehicles && Array.isArray(data.vehicles) && data.vehicles.length === 1) {
-      const confirmedVehicle = data.vehicles[0];
-      console.log('Single vehicle variant match - AUTO-CONFIRMING:', confirmedVehicle.vehicle_id || confirmedVehicle.id);
-      return { 
-        success: true, 
-        vehicle: { ...data.vehicle, ...confirmedVehicle },
-        vehicle_id: confirmedVehicle.vehicle_id || confirmedVehicle.id,
-        auto_confirmed: true,
-        message: "Single match found - vehicle auto-confirmed for parts lookup."
-      };
-    }
-    
-    // Case 2: Multiple vehicle variants - need customer selection
-    if (data.vehicles && Array.isArray(data.vehicles) && data.vehicles.length > 1) {
-      console.log(`Found ${data.vehicles.length} vehicle candidates - needs customer selection`);
-      return { 
-        success: true, 
-        multiple_matches: true,
-        vehicles: data.vehicles,
-        plate_info: data.vehicle,
-        message: `Found ${data.vehicles.length} variants for this ${data.vehicle?.make || ''} ${data.vehicle?.model || ''}. Ask customer which one matches.`
-      };
-    }
-    
-    // Case 3: Direct vehicle object with ID (legacy format or direct match)
-    if (data.vehicle && (data.vehicle.id || data.vehicle.vehicle_id)) {
-      console.log('Direct vehicle match with ID:', data.vehicle.id || data.vehicle.vehicle_id);
-      return { 
-        success: true, 
-        vehicle: data.vehicle,
-        vehicle_id: data.vehicle.id || data.vehicle.vehicle_id
-      };
-    }
-    
-    // Case 4: Top-level vehicle data
-    if (data.id || data.vehicle_id) {
-      console.log('Top-level vehicle with ID:', data.id || data.vehicle_id);
-      return { success: true, vehicle: data, vehicle_id: data.id || data.vehicle_id };
-    }
-    
-    // Case 5: Vehicle info without usable ID - need more details
-    if (data.vehicle) {
-      console.log('Vehicle info found but no usable ID - may need more details');
-      return { 
-        success: true, 
-        vehicle: data.vehicle,
-        needs_clarification: true,
-        message: "Found vehicle info but couldn't match to specific variant. Ask for more details (engine size, year, etc)."
-      };
-    }
-    
+    console.log('Vehicle lookup raw response:', JSON.stringify(data).substring(0, 500));
     return data;
   } catch (error) {
     console.error('Vehicle lookup error:', error);
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+    return { error: error instanceof Error ? error.message : 'Vehicle lookup failed' };
   }
 }
 
 async function searchWeb(query: string): Promise<unknown> {
   console.log('Searching web for:', query);
-  
-  try {
-    // Use DuckDuckGo instant answers API (free, no API key required)
-    const response = await fetch(
-      `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`
-    );
-    
-    if (!response.ok) {
-      console.error('Web search failed:', response.status);
-      return { success: false, error: "Web search failed" };
-    }
-    
-    const data = await response.json();
-    console.log('Web search result:', JSON.stringify(data).substring(0, 500));
-    
-    // Extract useful information from DuckDuckGo response
-    const result: Record<string, unknown> = { success: true };
-    
-    if (data.Abstract) {
-      result.summary = data.Abstract;
-      result.source = data.AbstractSource;
-      result.url = data.AbstractURL;
-    }
-    
-    if (data.Answer) {
-      result.answer = data.Answer;
-    }
-    
-    if (data.RelatedTopics && data.RelatedTopics.length > 0) {
-      result.related = data.RelatedTopics.slice(0, 5).map((topic: { Text?: string; FirstURL?: string }) => ({
-        text: topic.Text,
-        url: topic.FirstURL
-      })).filter((t: { text?: string }) => t.text);
-    }
-    
-    // If no useful info found
-    if (!result.summary && !result.answer && (!result.related || (result.related as unknown[]).length === 0)) {
-      result.note = "No detailed information found. You may need to ask the customer directly.";
-    }
-    
-    return result;
-  } catch (error) {
-    console.error('Web search error:', error);
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
-  }
-}
-
-async function retrieveParts(vehicleId: number, apiConfig: ApiConfig, partType?: string): Promise<{ success: boolean; parts?: unknown[]; total_found?: number; filter_applied?: string; error?: string }> {
-  if (DEBUG) console.log('[DEBUG] Retrieving parts for vehicle:', vehicleId, 'part_type:', partType);
-  
-  try {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiConfig.apiKey}`,
-      ...apiConfig.customHeaders,
-    };
-    
-    const response = await fetch(
-      `${apiConfig.baseUrl}/retrieve-parts`,
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ 
-          vehicleid: String(vehicleId),
-          page_size: 500,  // Increased from 200 to get more parts
-          ...(partType && { part_type: partType })
-        })
-      }
-    );
-    
-    if (!response.ok) {
-      console.error('Parts lookup failed:', response.status);
-      return { success: false, error: `Parts lookup failed with status ${response.status}` };
-    }
-    
-    const data = await response.json();
-    if (DEBUG) console.log('[DEBUG] Parts lookup result:', JSON.stringify(data).substring(0, 500));
-    
-    return { 
-      success: true, 
-      parts: data.parts || [],
-      total_found: (data.parts || []).length,
-      ...(partType && { filter_applied: partType })
-    };
-  } catch (error) {
-    console.error('Parts lookup error:', error);
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
-  }
-}
-
-// Debug flag - controlled by environment variable
-const DEBUG = Deno.env.get("BOB_DEBUG") === "true";
-
-// ============= SINGLE SOURCE OF TRUTH: Package Validation =============
-// These helpers ensure AI only sees packages that will actually display to the customer
-
-function calculatePackageMinPriceEarly(partslots: any[]): number {
-  if (!partslots || !Array.isArray(partslots) || partslots.length === 0) {
-    return 0;
-  }
-  
-  let total = 0;
-  const tierOrder = ['Standard', 'Economy', 'Premium', 'Performance'];
-  
-  for (const slot of partslots) {
-    const tiers = slot?.products?.quality_tiers;
-    if (!tiers) continue;
-    
-    for (const tier of tierOrder) {
-      const products = tiers[tier];
-      if (products && Array.isArray(products) && products.length > 0) {
-        const validPrices = products.map((p: any) => p.price || 0).filter((price: number) => price > 0);
-        if (validPrices.length > 0) {
-          total += Math.min(...validPrices);
-          break;
-        }
-      }
-    }
-  }
-  
-  return total;
-}
-
-// Validate a single package - returns true if displayable
-function isPackageDisplayable(pkg: any): boolean {
-  if (!pkg || !pkg.id) return false;
-  
-  // Modern format: Check preparedTiers (from calculate-service-bundles API)
-  if (pkg.preparedTiers && Array.isArray(pkg.preparedTiers) && pkg.preparedTiers.length > 0) {
-    // Check if any tier has valid pricing
-    const hasValidTier = pkg.preparedTiers.some((tier: any) => 
-      tier.totalPrice > 0 || (tier.products && tier.products.length > 0)
-    );
-    if (hasValidTier) return true;
-  }
-  
-  // Legacy format: If from_price is set and > 0, also verify partslots have valid products
-  if (pkg.from_price && pkg.from_price > 0) {
-    if (pkg.partslots && Array.isArray(pkg.partslots)) {
-      const hasValidProducts = pkg.partslots.some((slot: any) => {
-        const tiers = slot?.products?.quality_tiers;
-        if (!tiers) return false;
-        return Object.values(tiers).some((products: any) => 
-          Array.isArray(products) && products.some((p: any) => p.price > 0)
-        );
-      });
-      return hasValidProducts;
-    }
-    return true; // Has from_price, no partslots to validate
-  }
-  
-  // No from_price - calculate from partslots
-  const calculatedPrice = calculatePackageMinPriceEarly(pkg.partslots);
-  return calculatedPrice > 0;
-}
-
-// Filter packages to only displayable ones - CRITICAL for AI/Display sync
-function filterDisplayablePackages(packages: any[]): any[] {
-  if (!packages || !Array.isArray(packages)) return [];
-  
-  return packages.filter((pkg) => {
-    const displayable = isPackageDisplayable(pkg);
-    if (!displayable) {
-      console.log(`[Package Filter] Removing "${pkg?.title}" - not displayable (no valid price/products)`);
-    } else {
-      // Ensure from_price is set for displayable packages
-      if (!pkg.from_price || pkg.from_price === 0) {
-        pkg.from_price = calculatePackageMinPriceEarly(pkg.partslots);
-      }
-    }
-    return displayable;
-  });
-}
-
-// PRIMARY SERVICE PACKAGE API: Uses calculate-service-bundles for preparedTiers format
-async function fetchPreparedServiceBundles(vehicleId: number | undefined, apiConfig: ApiConfig): Promise<unknown> {
-  console.log('[ServiceBundles] Fetching preparedTiers from calculate-service-bundles API for vehicle:', vehicleId);
-  
-  if (!vehicleId || !Number.isFinite(vehicleId) || vehicleId <= 0) {
-    console.log('[ServiceBundles] Invalid vehicleId - cannot fetch bundles without vehicle');
-    return { 
-      success: false, 
-      error: "Vehicle ID required for service package pricing",
-      packages: []
-    };
-  }
-  
-  try {
-    // Use 'vehicleId' (camelCase) as NUMBER - required by calculate-service-bundles API
-    const body = { vehicleId: vehicleId };
-    
-    // Use CARFIX anon key specifically for calculate-service-bundles endpoint
-    const CARFIX_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZscHpqYmFzZHNmd29lcnV5eGdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2NTIwNzQsImV4cCI6MjA3MTIyODA3NH0.wKoJ51_VPro_BrJz-A-NRpSmUW0XBP-7TJJcrhvYwxE";
-    
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "apikey": CARFIX_ANON_KEY,
-    };
-    
-    const response = await fetch(
-      `${apiConfig.baseUrl}/calculate-service-bundles`,
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body)
-      }
-    );
-    
-    if (!response.ok) {
-      const errorBody = await response.text();
-      console.error('[ServiceBundles] API failed:', response.status, errorBody);
-      
-      // Handle 500 errors gracefully - CARFIX API may be temporarily unavailable
-      if (response.status === 500) {
-        return { 
-          success: false, 
-          error: "Service packages temporarily unavailable. Individual parts are still available.",
-          packages: [],
-          retryable: true,
-          api_status: 500
-        };
-      }
-      
-      return { success: false, error: `Service bundles API returned ${response.status}`, packages: [] };
-    }
-    
-    const data = await response.json();
-    console.log('[ServiceBundles] API response (truncated):', JSON.stringify(data).substring(0, 500));
-    
-    // Extract packages from calculate-service-bundles response format
-    const packages = data.servicePackages || data.data?.servicePackages || [];
-    console.log('[ServiceBundles] Extracted', Array.isArray(packages) ? packages.length : 0, 'packages with preparedTiers');
-    
-    // ✅ PARITY DEBUG: Log preparedTiers structure for first package
-    const firstPackage = packages[0];
-    if (firstPackage) {
-      console.log('[ServiceBundles] First package structure:', JSON.stringify({
-        title: firstPackage.title,
-        hasPreparedTiers: !!firstPackage.preparedTiers,
-        preparedTiersCount: firstPackage.preparedTiers?.length || 0,
-        hasPartslots: !!firstPackage.partslots,
-        partslotsCount: firstPackage.partslots?.length || 0,
-        firstTierBrands: firstPackage.preparedTiers?.[0]?.brands?.map((b: any) => b.fullName || b.name),
-        firstTierPrice: firstPackage.preparedTiers?.[0]?.totalPrice,
-        firstProductName: firstPackage.preparedTiers?.[0]?.products?.[0]?.name,
-        firstProductBrand: firstPackage.preparedTiers?.[0]?.products?.[0]?.brand,
-      }));
-    }
-    
-    return { 
-      success: true, 
-      packages: packages,
-      total_found: Array.isArray(packages) ? packages.length : 0
-    };
-  } catch (error) {
-    console.error('[ServiceBundles] Error:', error);
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error", packages: [] };
-  }
-}
-
-// Backward compatibility alias
-const retrieveServicePackages = fetchPreparedServiceBundles;
-
-async function searchGeneralProducts(query: string): Promise<{ success: boolean; products?: unknown[]; total_found?: number; error?: string; ai_instruction?: string }> {
-  console.log('Searching general products for:', query);
-  
-  // Try Partner API search_products for general (non-vehicle) products
-  const partnerApiKey = Deno.env.get("CARFIX_PARTNER_API_KEY");
-  
-  if (partnerApiKey) {
-    try {
-      console.log('Attempting Partner API search for general products:', query);
-      const result = await callPartnerAPI("search_products", { 
-        query,
-        filter: "general"
-      }) as { success?: boolean; products?: unknown[]; total?: number };
-      
-      if (result && result.success && result.products && Array.isArray(result.products) && result.products.length > 0) {
-        console.log(`Partner API returned ${result.products.length} general products`);
-        return {
-          success: true,
-          products: result.products,
-          total_found: result.products.length
-        };
-      }
-      console.log('Partner API search returned no results for general products');
-    } catch (err) {
-      console.error('Partner API general products search failed:', err);
-    }
-  }
-  
-  // General products search not available - return clear anti-hallucination message
+  // For now, return a placeholder - in production this would call a real search API
   return {
-    success: false,
-    error: "General products search is not currently available through Bob.",
-    products: [],
-    total_found: 0,
-    ai_instruction: "CRITICAL: DO NOT invent or guess products. Tell the customer: 'For accessories, cleaning products, and car care items, check out carfix.co.nz directly - heaps of good stuff there.' Do NOT mention any specific product names, brands, or prices."
+    results: [
+      { title: "Web search not implemented", snippet: "This feature requires a web search API integration" }
+    ]
   };
 }
 
-// CARFIX Partner API integration for cart, checkout, and customer context
-const PARTNER_API_URL = "https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1/partner-api";
-
-async function callPartnerAPI(action: string, payload: Record<string, unknown>): Promise<unknown> {
-  const partnerApiKey = Deno.env.get("CARFIX_PARTNER_API_KEY");
-  
-  if (!partnerApiKey) {
-    console.error('CARFIX_PARTNER_API_KEY not configured');
-    return { success: false, error: "Partner API key not configured" };
-  }
+async function retrieveParts(
+  vehicleId: number | string,
+  apiConfig: ApiConfig,
+  partType?: string
+): Promise<{ success: boolean; parts: unknown[]; error?: string }> {
+  const PARTS_URL = `${apiConfig.baseUrl}/retrieve-parts`;
   
   try {
-    console.log(`Calling Partner API: ${action}`, JSON.stringify(payload));
+    const numericId = typeof vehicleId === 'string' ? parseInt(vehicleId, 10) : vehicleId;
     
-    const response = await fetch(PARTNER_API_URL, {
-      method: "POST",
+    if (!Number.isFinite(numericId) || numericId <= 0) {
+      console.error('[retrieveParts] Invalid vehicle ID:', vehicleId);
+      return { success: false, parts: [], error: 'Invalid vehicle ID' };
+    }
+    
+    // Build request body with proper casing
+    const body: Record<string, unknown> = { 
+      vehicleId: numericId,
+      page_size: 500 // Request full catalog
+    };
+    if (partType) body.part_type = partType;
+    
+    console.log('[retrieveParts] Fetching parts for vehicle:', numericId, partType ? `(filtered: ${partType})` : '(full catalog)');
+    
+    const response = await fetch(PARTS_URL, {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        "X-Partner-Key": partnerApiKey
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiConfig.apiKey}`,
+        ...apiConfig.customHeaders
       },
-      body: JSON.stringify({ action, ...payload })
+      body: JSON.stringify(body)
+    });
+    
+    console.log('[retrieveParts] Response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[retrieveParts] Failed:', response.status, errorText.substring(0, 200));
+      return { success: false, parts: [], error: `Parts lookup failed: ${response.status}` };
+    }
+    
+    const data = await response.json();
+    const parts = data.parts || data.data || [];
+    console.log('[retrieveParts] Success: received', parts.length, 'parts');
+    
+    return { success: true, parts };
+  } catch (error) {
+    console.error('[retrieveParts] Error:', error);
+    return { success: false, parts: [], error: error instanceof Error ? error.message : 'Parts lookup failed' };
+  }
+}
+
+// ============= CALCULATE SERVICE BUNDLES (preparedTiers) =============
+async function fetchPreparedServiceBundles(
+  vehicleId: number,
+  apiConfig: ApiConfig
+): Promise<{ success: boolean; packages: unknown[]; error?: string }> {
+  const BUNDLES_URL = `${apiConfig.baseUrl}/calculate-service-bundles`;
+  
+  try {
+    console.log('[ServiceBundles] Fetching bundles for vehicle:', vehicleId);
+    
+    const response = await fetch(BUNDLES_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiConfig.apiKey}`,
+        ...apiConfig.customHeaders
+      },
+      body: JSON.stringify({ vehicleId: String(vehicleId) })
+    });
+    
+    console.log('[ServiceBundles] Response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[ServiceBundles] Failed:', response.status, errorText.substring(0, 200));
+      return { success: false, packages: [], error: `Service bundles failed: ${response.status}` };
+    }
+    
+    const data = await response.json();
+    
+    // Extract packages from nested structure
+    const packages = data.data?.servicePackages || data.servicePackages || data.packages || [];
+    console.log('[ServiceBundles] Success: received', packages.length, 'packages');
+    
+    // Log first package structure for debugging
+    if (packages.length > 0) {
+      const first = packages[0];
+      console.log('[ServiceBundles] First package:', first.id, first.title, 
+        'preparedTiers:', first.preparedTiers?.length || 0,
+        'from_price:', first.from_price);
+    }
+    
+    return { success: true, packages };
+  } catch (error) {
+    console.error('[ServiceBundles] Error:', error);
+    return { success: false, packages: [], error: error instanceof Error ? error.message : 'Service bundles failed' };
+  }
+}
+
+async function retrieveServicePackages(
+  vehicleId: number | string,
+  apiConfig: ApiConfig
+): Promise<{ success: boolean; packages: unknown[]; error?: string }> {
+  const numericId = typeof vehicleId === 'string' ? parseInt(vehicleId, 10) : vehicleId;
+  
+  if (!Number.isFinite(numericId) || numericId <= 0) {
+    console.error('[retrieveServicePackages] Invalid vehicle ID:', vehicleId);
+    return { success: false, packages: [], error: 'Invalid vehicle ID' };
+  }
+  
+  // Use the calculate-service-bundles endpoint for preparedTiers data
+  return fetchPreparedServiceBundles(numericId, apiConfig);
+}
+
+/**
+ * Filter service packages to only include those with valid preparedTiers
+ * (Required for CARFIX parity - no partslots contamination)
+ */
+function filterDisplayablePackages(packages: unknown[]): unknown[] {
+  if (!packages || !Array.isArray(packages)) return [];
+  
+  return packages.filter((pkg: any) => {
+    if (!pkg || !pkg.id) return false;
+    
+    // Must have preparedTiers with at least one visible tier
+    if (!pkg.preparedTiers || !Array.isArray(pkg.preparedTiers)) {
+      console.log(`[filterDisplayable] Rejecting "${pkg.title}" - no preparedTiers`);
+      return false;
+    }
+    
+    const visibleTiers = pkg.preparedTiers.filter((t: any) => !t.isHidden);
+    if (visibleTiers.length === 0) {
+      console.log(`[filterDisplayable] Rejecting "${pkg.title}" - no visible tiers`);
+      return false;
+    }
+    
+    // Must have valid pricing
+    const hasValidPrice = visibleTiers.some((t: any) => t.totalPrice > 0);
+    if (!hasValidPrice) {
+      console.log(`[filterDisplayable] Rejecting "${pkg.title}" - no valid tier prices`);
+      return false;
+    }
+    
+    return true;
+  });
+}
+
+async function searchGeneralProducts(query: string): Promise<unknown> {
+  console.log('Searching general products for:', query);
+  // Placeholder - would call CARFIX product search API
+  return {
+    products: [],
+    message: "General product search - connect to CARFIX catalog API"
+  };
+}
+
+// ============= PARTNER API CALLS =============
+const PARTNER_API_URL = 'https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1/partner-api';
+const PARTNER_API_KEY = Deno.env.get('CARFIX_PARTNER_API_KEY') || 'bob_carfix_p4rtner_2024_x7kL9mNqR3wY5vBc';
+
+async function callPartnerAPI(action: string, params: Record<string, unknown>): Promise<unknown> {
+  try {
+    const response = await fetch(PARTNER_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Partner-Key': PARTNER_API_KEY
+      },
+      body: JSON.stringify({ action, ...params })
     });
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Partner API error (${response.status}):`, errorText);
-      return { success: false, error: `API error: ${response.status}`, details: errorText };
+      console.error(`Partner API ${action} failed:`, response.status, errorText);
+      return { error: `${action} failed: ${response.status}` };
     }
     
-    const data = await response.json();
-    console.log(`Partner API ${action} result:`, JSON.stringify(data).substring(0, 500));
-    return { success: true, ...data };
+    return response.json();
   } catch (error) {
     console.error(`Partner API ${action} error:`, error);
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+    return { error: error instanceof Error ? error.message : `${action} failed` };
   }
 }
 
@@ -1373,9 +1160,11 @@ serve(async (req) => {
       vehicleContext, 
       customerEmail, 
       autoFetchParts,
-      // NEW: Multi-tenant support
-      hostConfig,   // { baseUrl, apiKey, partnerCode, customHeaders }
-      hostContext   // { user, vehicle, cart, history, currentPage, metadata }
+      // Multi-tenant support
+      hostConfig,
+      hostContext,
+      // NEW: Vehicle candidates from previous multi-match response
+      vehicleCandidates
     } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -1402,6 +1191,9 @@ serve(async (req) => {
     }
     if (hostContext) {
       console.log('Host context provided:', JSON.stringify(hostContext));
+    }
+    if (vehicleCandidates && vehicleCandidates.length > 0) {
+      console.log(`[Variant Selection] Received ${vehicleCandidates.length} candidates from client`);
     }
 
     // Handle auto-fetch parts mode - just fetch parts and packages, no AI response
@@ -1494,6 +1286,26 @@ serve(async (req) => {
       });
     }
 
+    // ============= DETERMINISTIC VARIANT SELECTION =============
+    // If we have vehicle candidates from previous request, try to match user's selection
+    // BEFORE calling the AI - this ensures reliable parts loading
+    let deterministicVehicle: VehicleCandidate | null = null;
+    let deterministicSelectionMethod: string | null = null;
+    
+    const typedCandidates = vehicleCandidates as VehicleCandidate[] | undefined;
+    if (typedCandidates && typedCandidates.length > 0 && !vehicleContext) {
+      // Get the latest user message
+      const lastUserMessage = messages.filter((m: Message) => m.role === 'user').pop();
+      if (lastUserMessage?.content) {
+        const matchResult = matchUserInputToCandidate(lastUserMessage.content, typedCandidates);
+        if (matchResult) {
+          deterministicVehicle = matchResult.candidate;
+          deterministicSelectionMethod = matchResult.method;
+          console.log(`[Variant Selection] Deterministically matched vehicle_id=${deterministicVehicle.vehicle_id} via ${deterministicSelectionMethod}`);
+        }
+      }
+    }
+
     // Load prompts from database and build system prompt
     const dbPrompts = await fetchPromptsFromDB();
     const baseSystemPrompt = buildSystemPromptFromDB(dbPrompts);
@@ -1501,27 +1313,40 @@ serve(async (req) => {
     // Build enhanced system prompt if vehicle context is provided from session
     let enhancedSystemPrompt = baseSystemPrompt;
     
-    if (vehicleContext) {
-      const vehicleId = vehicleContext.id || vehicleContext.vehicle_id;
+    // Use deterministic vehicle if matched, otherwise use session context
+    const effectiveVehicleContext = vehicleContext || (deterministicVehicle ? {
+      vehicle_id: deterministicVehicle.vehicle_id,
+      id: deterministicVehicle.vehicle_id,
+      make: deterministicVehicle.make,
+      model: deterministicVehicle.model,
+      year: deterministicVehicle.year || deterministicVehicle.start_year,
+      variant: deterministicVehicle.variant || deterministicVehicle.vehicle_name_nz,
+      engine_size: deterministicVehicle.cc_rating,
+      fuel_type: deterministicVehicle.fuel_type,
+      rego: deterministicVehicle.plate || deterministicVehicle.rego,
+    } : null);
+    
+    if (effectiveVehicleContext) {
+      const vehicleId = effectiveVehicleContext.id || effectiveVehicleContext.vehicle_id;
       enhancedSystemPrompt += `\n\n## PRE-CONFIRMED VEHICLE SESSION
-The customer has already confirmed their vehicle on CARFIX before arriving here:
+The customer has confirmed their vehicle:
 - Vehicle ID: ${vehicleId}
-- REGO: ${vehicleContext.rego || 'Not provided'}
-- Year: ${vehicleContext.year}
-- Make: ${vehicleContext.make}
-- Model: ${vehicleContext.model}
-- Variant: ${vehicleContext.variant || 'Standard'}
-- Engine Size: ${vehicleContext.engine_size || 'Unknown'}
-- Fuel Type: ${vehicleContext.fuel_type || 'Unknown'}
-- CC Rating: ${vehicleContext.cc_rating || 'Unknown'}
-- VIN: ${vehicleContext.vin || 'Not provided'}
-- Engine Number: ${vehicleContext.engine_no || 'Not provided'}
+- REGO: ${effectiveVehicleContext.rego || 'Not provided'}
+- Year: ${effectiveVehicleContext.year}
+- Make: ${effectiveVehicleContext.make}
+- Model: ${effectiveVehicleContext.model}
+- Variant: ${effectiveVehicleContext.variant || 'Standard'}
+- Engine Size: ${effectiveVehicleContext.engine_size || 'Unknown'}
+- Fuel Type: ${effectiveVehicleContext.fuel_type || 'Unknown'}
+- CC Rating: ${effectiveVehicleContext.cc_rating || 'Unknown'}
+- VIN: ${effectiveVehicleContext.vin || 'Not provided'}
+- Engine Number: ${effectiveVehicleContext.engine_no || 'Not provided'}
 
 IMPORTANT RULES FOR THIS SESSION:
 1. Do NOT ask for vehicle details, REGO, or make/model - you already have them
 2. Skip straight to helping them find parts
 3. Use vehicle_id ${vehicleId} for retrieve_parts and retrieve_service_packages calls
-4. When mentioning their vehicle, use: "${vehicleContext.year} ${vehicleContext.make} ${vehicleContext.model}"
+4. When mentioning their vehicle, use: "${effectiveVehicleContext.year} ${effectiveVehicleContext.make} ${effectiveVehicleContext.model}"
 5. On first parts request, use retrieve_parts with vehicleid=${vehicleId}`;
     }
     
@@ -1558,7 +1383,6 @@ Do NOT ask for their email - you already have it.`;
       }
       
       // CRITICAL: Add garage vehicles with EXACT vehicle_ids to prevent AI hallucination
-      // When user references a garage vehicle, the AI must use the REAL vehicle_id listed here
       if (typedHostContext.vehicle?.garageVehicles && typedHostContext.vehicle.garageVehicles.length > 0) {
         enhancedSystemPrompt += `\n\n## CUSTOMER'S GARAGE VEHICLES (use these EXACT vehicle_ids!)
 CRITICAL: When customer mentions a REGO from their garage, you MUST use the EXACT vehicle_id listed below.
@@ -1577,6 +1401,51 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
       { role: "system", content: enhancedSystemPrompt },
       ...messages,
     ];
+
+    // ============= DETERMINISTIC PARTS FETCH =============
+    // If we deterministically matched a vehicle, fetch parts/packages NOW
+    // This happens BEFORE calling the AI, ensuring reliable data loading
+    if (deterministicVehicle && deterministicVehicle.vehicle_id) {
+      const vehicleId = deterministicVehicle.vehicle_id;
+      console.log(`[Deterministic Fetch] Fetching parts and packages for vehicle_id=${vehicleId}`);
+      
+      // Store confirmed vehicle for emission
+      (conversationMessages as unknown as { _confirmedVehicle?: unknown })._confirmedVehicle = {
+        vehicle_id: vehicleId,
+        make: deterministicVehicle.make,
+        model: deterministicVehicle.model,
+        year: deterministicVehicle.year || deterministicVehicle.start_year,
+        variant: deterministicVehicle.variant || deterministicVehicle.vehicle_name_nz,
+        engine_size: deterministicVehicle.cc_rating,
+        fuel_type: deterministicVehicle.fuel_type,
+        rego: deterministicVehicle.plate || deterministicVehicle.rego,
+      };
+      (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId = vehicleId;
+      (conversationMessages as unknown as { _deterministicMatch?: boolean })._deterministicMatch = true;
+      
+      // Fetch parts and packages in parallel
+      const [partsResult, packagesResult] = await Promise.all([
+        retrieveParts(vehicleId, apiConfig),
+        retrieveServicePackages(vehicleId, apiConfig)
+      ]);
+      
+      if (partsResult.success && partsResult.parts.length > 0) {
+        console.log(`[Deterministic Fetch] Got ${partsResult.parts.length} parts`);
+        (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit = partsResult.parts;
+      }
+      
+      if (packagesResult.success && packagesResult.packages.length > 0) {
+        const displayable = filterDisplayablePackages(packagesResult.packages);
+        console.log(`[Deterministic Fetch] Got ${displayable.length} displayable packages`);
+        (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = displayable;
+      }
+      
+      // Add context message for AI to know vehicle is confirmed
+      conversationMessages.push({
+        role: "system",
+        content: `[VEHICLE CONFIRMED AUTOMATICALLY] The customer selected the ${deterministicVehicle.year || deterministicVehicle.start_year} ${deterministicVehicle.make} ${deterministicVehicle.model} (${deterministicVehicle.variant || deterministicVehicle.vehicle_name_nz || 'variant'}). Parts and service packages are already loading on their shelf. Confirm the selection and help them find what they need.`
+      });
+    }
 
     // Tool calling loop - may require multiple iterations
     let loopCount = 0;
@@ -1625,583 +1494,220 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
       }
 
       const aiResponse: AIResponse = await response.json();
-      const assistantMessage = aiResponse.choices[0]?.message;
-      const finishReason = aiResponse.choices[0]?.finish_reason;
+      const choice = aiResponse.choices[0];
+      const assistantMessage = choice.message;
       
-      console.log('AI response finish_reason:', finishReason);
-      
-      // Check if AI wants to call tools
-      if (assistantMessage?.tool_calls && assistantMessage.tool_calls.length > 0) {
-        console.log('AI requested tool calls:', assistantMessage.tool_calls.map(tc => tc.function.name));
+      // Check if there are tool calls
+      if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+        console.log('Processing', assistantMessage.tool_calls.length, 'tool calls');
         
-        // Add assistant message with tool calls
+        // Add assistant message with tool calls to conversation
         conversationMessages.push({
           role: "assistant",
           content: assistantMessage.content,
-          tool_calls: assistantMessage.tool_calls,
+          tool_calls: assistantMessage.tool_calls
         });
         
-        // Execute each tool call and add results
-        let partsFoundResult: unknown[] | null = null;
-        let confirmedVehicleId: number | null = null;
-        
-        // Initialize array for searching events (supports multiple: vehicle + parts)
-        const searchingEventsToEmit: Array<{
-          type: string;
-          search_type: string;
-          transcript: string;
-          audio_url: string;
-          clip_key: string;
-        }> = [];
-        
+        // Process each tool call
         for (const toolCall of assistantMessage.tool_calls) {
-          console.log(`Executing tool: ${toolCall.function.name}`);
+          console.log('Tool call:', toolCall.function.name, toolCall.function.arguments);
           
-          // Queue searching event AS we execute lookup_vehicle
-          if (toolCall.function.name === "lookup_vehicle") {
+          // Check for searching audio clips before executing tool
+          if (toolCall.function.name === 'lookup_vehicle') {
             const searchingClip = await getSearchingClip('vehicle');
             if (searchingClip) {
-              searchingEventsToEmit.push({
-                type: "bob_searching",
-                search_type: "vehicle",
-                ...searchingClip
-              });
-              console.log('[Searching] Queued vehicle searching event');
+              const existingEvents = (conversationMessages as unknown as { _searchingEventsToEmit?: unknown[] })._searchingEventsToEmit || [];
+              (conversationMessages as unknown as { _searchingEventsToEmit?: unknown[] })._searchingEventsToEmit = [
+                ...existingEvents,
+                {
+                  type: 'bob_searching',
+                  search_type: 'vehicle',
+                  transcript: searchingClip.transcript,
+                  audio_url: searchingClip.audio_url,
+                  clip_key: searchingClip.clip_key
+                }
+              ];
             }
-          }
-          
-          // Queue searching event AS we execute retrieve_parts (explicit calls)
-          if (toolCall.function.name === "retrieve_parts") {
+          } else if (toolCall.function.name === 'retrieve_parts' || toolCall.function.name === 'retrieve_service_packages') {
             const searchingClip = await getSearchingClip('parts');
             if (searchingClip) {
-              searchingEventsToEmit.push({
-                type: "bob_searching",
-                search_type: "parts",
-                ...searchingClip
-              });
-              console.log('[Searching] Queued parts searching event');
+              const existingEvents = (conversationMessages as unknown as { _searchingEventsToEmit?: unknown[] })._searchingEventsToEmit || [];
+              // Only add parts searching if not already queued
+              const alreadyHasParts = existingEvents.some((e: any) => e.search_type === 'parts');
+              if (!alreadyHasParts) {
+                (conversationMessages as unknown as { _searchingEventsToEmit?: unknown[] })._searchingEventsToEmit = [
+                  ...existingEvents,
+                  {
+                    type: 'bob_searching',
+                    search_type: 'parts',
+                    transcript: searchingClip.transcript,
+                    audio_url: searchingClip.audio_url,
+                    clip_key: searchingClip.clip_key
+                  }
+                ];
+              }
             }
           }
           
           const result = await executeToolCall(toolCall, apiConfig);
           
-        // After vehicle lookup succeeds, auto-fetch ALL parts AND service packages for theatrical display
-        if (toolCall.function.name === "lookup_vehicle") {
-          const vehicleResult = result as { 
-            id?: number; 
-            vehicle_id?: number; 
-            success?: boolean;
-            multiple_matches?: boolean;
-            vehicles?: Array<{ id?: number; vehicle_id?: number }>;
-            vehicle?: { id?: number; vehicle_id?: number };
-          };
-          
-          // Extract vehicle ID from various response formats
-          // CORRECTED PRIORITY: vehicle_id (TecDoc) > id (CarJam) per CARFIX API spec
-          let vehicleId: number | null = null;
-          
-          // Debug: Log all available IDs for tracing
-          console.log('[VehicleID] Selection debug:', {
-            'result.vehicle_id': vehicleResult.vehicle_id,
-            'result.id': vehicleResult.id,
-            'vehicle.vehicle_id': vehicleResult.vehicle?.vehicle_id,
-            'vehicle.id': vehicleResult.vehicle?.id,
-            'vehicles[0].vehicle_id': vehicleResult.vehicles?.[0]?.vehicle_id,
-            'vehicles[0].id': vehicleResult.vehicles?.[0]?.id,
-          });
-          
-          // First check: Explicit vehicle_id at top level (TecDoc ID from auto-confirmed single match)
-          if (vehicleResult.vehicle_id && Number.isFinite(vehicleResult.vehicle_id)) {
-            vehicleId = vehicleResult.vehicle_id;
-            console.log('Using explicit vehicle_id from lookup result (TecDoc):', vehicleId);
-          }
-          // Second check: vehicle_id inside confirmed vehicle object (TecDoc ID preferred)
-          else if (vehicleResult.vehicle?.vehicle_id && Number.isFinite(vehicleResult.vehicle.vehicle_id)) {
-            vehicleId = vehicleResult.vehicle.vehicle_id;
-            console.log('Using vehicle.vehicle_id (TecDoc ID):', vehicleId);
-          }
-          // Third check: Single match in vehicles array - use TecDoc vehicle_id
-          else if (vehicleResult.vehicles?.length === 1 && vehicleResult.vehicles[0].vehicle_id) {
-            vehicleId = vehicleResult.vehicles[0].vehicle_id;
-            console.log('Single vehicle match in array - using TecDoc vehicle_id:', vehicleId);
-          }
-          // Fourth check: Fallback to vehicle.id only if no vehicle_id exists (CarJam ID)
-          else if (vehicleResult.vehicle?.id && Number.isFinite(vehicleResult.vehicle.id)) {
-            vehicleId = vehicleResult.vehicle.id;
-            console.log('Fallback to vehicle.id (CarJam):', vehicleId);
-          }
-          // Fifth check: Direct ID on result (legacy format)
-          else if (vehicleResult.id && Number.isFinite(vehicleResult.id)) {
-            vehicleId = vehicleResult.id;
-            console.log('Using direct ID on result:', vehicleId);
-          }
-          // Multiple matches without a confirmed vehicle - flag for frontend to show placeholders
-          else if (vehicleResult.vehicles?.length && vehicleResult.vehicles.length > 1) {
-            console.log(`Multiple vehicle candidates found (${vehicleResult.vehicles.length}), AI will present options to customer`);
-            // Flag that we have multiple matches - frontend will show placeholder service packages
-            (conversationMessages as unknown as { _multipleVehiclesFound?: boolean })._multipleVehiclesFound = true;
+          // ============= VEHICLE LOOKUP PROCESSING =============
+          // Handle vehicle lookup results - store data for validation and emit events
+          if (toolCall.function.name === "lookup_vehicle") {
+            const vehicleResult = result as { 
+              success?: boolean; 
+              vehicle?: Record<string, unknown>; 
+              vehicles?: Array<Record<string, unknown>>;
+              error?: string;
+            };
             
-            // CRITICAL: Store the actual vehicle candidates for later variant confirmation
-            // This enables matching the user's choice to a real vehicle_id when AI emits VEHICLE_CONFIRMED
-            (conversationMessages as unknown as { _multipleVehicleCandidates?: unknown[] })._multipleVehicleCandidates = vehicleResult.vehicles;
-            console.log(`Stored ${vehicleResult.vehicles.length} vehicle candidates for variant confirmation`);
-            
-            // Don't set vehicleId - wait for customer to confirm
-          }
-          
-          console.log('[VehicleID] Final selected ID:', vehicleId);
-          
-          if (vehicleId && vehicleResult.success !== false) {
-            confirmedVehicleId = vehicleId;
-            console.log('Single vehicle match with ID, auto-fetching ALL parts and service packages for vehicle:', vehicleId);
-            
-            // CRITICAL: Store the ACTUAL vehicle ID and data from API lookup
-            // This prevents AI hallucination of vehicle_ids in VEHICLE_CONFIRMED markers
-            (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId = vehicleId;
-            (conversationMessages as unknown as { _lookupVehicleData?: unknown })._lookupVehicleData = vehicleResult.vehicle || vehicleResult;
-            console.log(`Stored lookup vehicle ID for later verification: ${vehicleId}`);
-            
-            // Queue parts searching event for auto-fetch after vehicle lookup
-            const partsSearchingClip = await getSearchingClip('parts');
-            if (partsSearchingClip) {
-              searchingEventsToEmit.push({
-                type: "bob_searching",
-                search_type: "parts",
-                ...partsSearchingClip
-              });
-              console.log('[Searching] Queued parts searching event (auto-fetch after vehicle)');
-            }
-            
-            // Immediately fetch ALL parts (no filter) for impressive range display
-            const allParts = await retrieveParts(vehicleId, apiConfig);
-            
-            if (allParts.success && allParts.parts && allParts.parts.length > 0) {
-              partsFoundResult = allParts.parts;
-              console.log(`Auto-loaded ${allParts.parts.length} parts for vehicle`);
-            }
-            
-            // ALSO fetch service packages - store FULL packages for frontend display
-            const servicePackagesResult = await retrieveServicePackages(vehicleId, apiConfig);
-            const servicePackagesData = servicePackagesResult as { success?: boolean; packages?: unknown[] };
-            
-            if (servicePackagesData.success && servicePackagesData.packages && servicePackagesData.packages.length > 0) {
-              // CRITICAL: Filter packages BEFORE AI sees them - Single Source of Truth
-              const displayablePackages = filterDisplayablePackages(servicePackagesData.packages);
-              console.log(`[Service Packages] Filtered: ${servicePackagesData.packages.length} -> ${displayablePackages.length} displayable`);
+            if (vehicleResult.success) {
+              // Check for multiple matches vs single match
+              const vehicles = vehicleResult.vehicles || [];
+              const singleVehicle = vehicleResult.vehicle;
               
-              // Store FILTERED packages for emission to frontend AND AI awareness
-              (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = displayablePackages;
-              console.log(`Auto-loaded ${displayablePackages.length} displayable service packages for vehicle`);
-            }
-            
-            // Also extract parts from packages for parts display
-            const serviceParts = extractPartsFromPackages(servicePackagesResult);
-            if (serviceParts.length > 0) {
-              partsFoundResult = partsFoundResult ? [...partsFoundResult, ...serviceParts] : serviceParts;
-              console.log(`Auto-loaded ${serviceParts.length} additional parts from service packages`);
-            }
-          }
-        }
-        
-        // Capture parts results for later emission (from explicit retrieve_parts calls)
-        if (toolCall.function.name === "retrieve_parts") {
-          const partsResult = result as { success?: boolean; parts?: unknown[]; filter_applied?: string };
-          
-          // Parse args to check if filter was applied
-          let filterApplied: string | undefined;
-          try {
-            const args = JSON.parse(toolCall.function.arguments) as { part_type?: string };
-            filterApplied = args.part_type;
-          } catch { /* ignore */ }
-          
-          if (partsResult.success && partsResult.parts && partsResult.parts.length > 0) {
-            // Merge parts (don't replace - might have service package parts already)
-            partsFoundResult = partsFoundResult ? [...partsFoundResult, ...partsResult.parts] : partsResult.parts;
-            console.log(`Added ${partsResult.parts.length} parts from retrieve_parts call`);
-          } else if (filterApplied) {
-            // FALLBACK: API returned empty with filter - search already-loaded parts
-            console.log(`retrieve_parts returned 0 results for filter: "${filterApplied}"`);
-            
-            // Search already-loaded parts from _partsToEmit
-            const existingParts = (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit || [];
-            const servicePackages = (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit || [];
-            
-            // Fuzzy keyword matching
-            const filterLower = filterApplied.toLowerCase();
-            const keywords = filterLower.split(/\s+/).filter(k => k.length > 2);
-            
-            const matchingParts: unknown[] = [];
-            
-            // Search existing parts
-            if (existingParts.length > 0) {
-              for (const p of existingParts) {
-                const part = p as Record<string, unknown>;
-                const category = (part.partslot_description || part['Part Product Type'] || '').toString().toLowerCase();
-                const name = (part.web_description || part.name || '').toString().toLowerCase();
+              if (vehicles.length > 1) {
+                // MULTIPLE MATCHES - Store candidates and flag for variant selection
+                console.log(`[Vehicle Lookup] Multiple matches: ${vehicles.length} variants`);
                 
-                // Match if ALL keywords appear in category or name
-                if (keywords.every(kw => category.includes(kw) || name.includes(kw))) {
-                  matchingParts.push(part);
-                }
-              }
-            }
-            
-            // Also search parts within service packages
-            if (servicePackages.length > 0) {
-              for (const pkg of servicePackages) {
-                const pkgData = pkg as { title?: string; partslots?: Array<{ partslot_description?: string; products?: { quality_tiers?: Record<string, unknown[]> } }> };
-                const pkgTitle = (pkgData.title || '').toLowerCase();
-                
-                // Check if package title matches keywords (e.g., "Front Brake Service" for "brake pads")
-                const titleMatches = keywords.every(kw => pkgTitle.includes(kw));
-                
-                for (const slot of (pkgData.partslots || [])) {
-                  const slotDesc = (slot.partslot_description || '').toLowerCase();
-                  const slotMatches = keywords.every(kw => slotDesc.includes(kw));
-                  
-                  if (titleMatches || slotMatches) {
-                    // Extract products from this slot
-                    const tiers = slot.products?.quality_tiers;
-                    if (tiers) {
-                      for (const tier of Object.values(tiers)) {
-                        if (Array.isArray(tier)) {
-                          matchingParts.push(...tier);
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-            
-            if (matchingParts.length > 0) {
-              console.log(`Fallback search found ${matchingParts.length} matching parts from already-loaded inventory`);
-              partsFoundResult = partsFoundResult ? [...partsFoundResult, ...matchingParts] : matchingParts;
-              
-              // Update tool result so AI knows parts were found
-              (result as Record<string, unknown>).parts = matchingParts;
-              (result as Record<string, unknown>).success = true;
-              (result as Record<string, unknown>).note = `Found ${matchingParts.length} matching parts from pre-loaded inventory (filter "${filterApplied}" matched)`;
-            } else {
-              console.log(`Fallback search found no matching parts for filter: "${filterApplied}"`);
-            }
-          }
-        }
-        
-        // Also capture service packages AND extract parts from them
-        if (toolCall.function.name === "retrieve_service_packages") {
-          const packagesResult = result as { success?: boolean; packages?: unknown[] };
-
-          // Parse vehicleid from args so we can ensure the full parts catalog is loaded.
-          // NOTE: We intentionally do NOT rely on the AI to call retrieve_parts.
-          let vehicleIdFromArgs: number | null = null;
-          try {
-            const args = JSON.parse(toolCall.function.arguments) as { vehicleid?: unknown };
-            const parsedVehicleId = Number.parseInt(String(args.vehicleid ?? ''), 10);
-            if (Number.isFinite(parsedVehicleId) && parsedVehicleId > 0) {
-              vehicleIdFromArgs = parsedVehicleId;
-            }
-          } catch {
-            // ignore
-          }
-          
-          // CRITICAL: Filter packages BEFORE storing - Single Source of Truth
-          if (packagesResult.success && packagesResult.packages && packagesResult.packages.length > 0) {
-            const displayablePackages = filterDisplayablePackages(packagesResult.packages);
-            console.log(`[Service Packages] Filtered: ${packagesResult.packages.length} -> ${displayablePackages.length} displayable`);
-            
-            // Store FILTERED packages - AI and display see the same data
-            (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = displayablePackages;
-            
-            // Also update the tool result so AI knows the filtered count
-            (result as Record<string, unknown>).packages = displayablePackages;
-            (result as Record<string, unknown>).filtered_count = packagesResult.packages.length - displayablePackages.length;
-            (result as Record<string, unknown>).note = displayablePackages.length > 0 
-              ? `${displayablePackages.length} service packages available for customer`
-              : "No service packages with valid pricing available for this vehicle";
-            
-            console.log(`Stored ${displayablePackages.length} displayable service packages for emission`);
-
-            // IMPORTANT: Guarantee full catalog visibility.
-            // If the conversation doesn't go through lookup_vehicle auto-fetch (or AI never calls retrieve_parts),
-            // the customer ends up seeing service packs but no full parts catalog.
-            // Fix: when we have a valid vehicleid from retrieve_service_packages, fetch ALL parts once.
-            const alreadyHaveParts = Array.isArray(partsFoundResult) && partsFoundResult.length > 0;
-            if (!alreadyHaveParts && vehicleIdFromArgs) {
-              console.log(`[Parts] No parts loaded yet during retrieve_service_packages - fetching full catalog for vehicle_id ${vehicleIdFromArgs}...`);
-              const allParts = await retrieveParts(vehicleIdFromArgs, apiConfig);
-              if (allParts.success && allParts.parts && allParts.parts.length > 0) {
-                partsFoundResult = allParts.parts;
-                console.log(`[Parts] Loaded ${allParts.parts.length} parts for vehicle_id ${vehicleIdFromArgs} (via service_packages path)`);
-              } else {
-                console.warn(`[Parts] Full catalog fetch returned 0 parts for vehicle_id ${vehicleIdFromArgs} (via service_packages path)`);
-              }
-            }
-          }
-          
-          // Also extract parts from packages for parts display
-          const extractedParts = extractPartsFromPackages(result);
-          if (extractedParts.length > 0) {
-            console.log(`Adding ${extractedParts.length} parts from service packages to results`);
-            partsFoundResult = partsFoundResult ? [...partsFoundResult, ...extractedParts] : extractedParts;
-          }
-        }
-        
-        // Capture cart updates for emission to frontend
-        if (toolCall.function.name === "add_to_cart") {
-          const cartResult = result as { success?: boolean; items_added?: number; error?: string };
-          if (cartResult.success) {
-            // Parse the items that were added from the original args
-            try {
-              const cartArgs = JSON.parse(toolCall.function.arguments) as { items?: CartItem[] };
-              if (cartArgs.items && cartArgs.items.length > 0) {
-                const cartItems = cartArgs.items.map(item => ({
-                  productName: item.product_name,
-                  quantity: item.quantity
+                // Extract minimal candidate data for client storage
+                const candidateList: VehicleCandidate[] = vehicles.map((v: any) => ({
+                  vehicle_id: v.vehicle_id || v.id,
+                  vehicle_name_nz: v.vehicle_name_nz,
+                  make: v.make,
+                  model: v.model,
+                  start_year: v.start_year,
+                  end_year: v.end_year,
+                  year: v.year,
+                  engine_code: v.engine_code,
+                  cc_rating: v.cc_rating,
+                  fuel_type: v.fuel_type,
+                  variant: v.variant,
+                  score: v.score,
+                  plate: (vehicleResult as any).plate || (vehicleResult.vehicle as any)?.rego,
                 }));
-                (conversationMessages as unknown as { _cartItemsToEmit?: typeof cartItems })._cartItemsToEmit = cartItems;
-                console.log(`Cart updated: ${cartItems.length} items to emit`);
+                
+                // Store for fallback detection
+                (conversationMessages as unknown as { _multipleVehicleCandidates?: VehicleCandidate[] })._multipleVehicleCandidates = candidateList;
+                (conversationMessages as unknown as { _multipleVehiclesFound?: boolean })._multipleVehiclesFound = true;
+                
+                // Store candidates to emit to client
+                (conversationMessages as unknown as { _vehicleCandidatesToEmit?: VehicleCandidate[] })._vehicleCandidatesToEmit = candidateList;
+                
+                console.log(`[Vehicle Lookup] Stored ${candidateList.length} candidates for emission`);
+                
+              } else if (singleVehicle || vehicles.length === 1) {
+                // SINGLE MATCH - Auto-confirm
+                const vehicle = singleVehicle || vehicles[0];
+                const vehicleId = (vehicle.vehicle_id || vehicle.id) as number;
+                
+                console.log(`[Vehicle Lookup] Single match - auto-confirming vehicle_id=${vehicleId}`);
+                
+                // Store lookup data for validation
+                (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId = vehicleId;
+                (conversationMessages as unknown as { _lookupVehicleData?: Record<string, unknown> })._lookupVehicleData = vehicle;
+                
+                // Auto-confirm and fetch parts/packages
+                (conversationMessages as unknown as { _confirmedVehicle?: unknown })._confirmedVehicle = {
+                  vehicle_id: vehicleId,
+                  make: vehicle.make,
+                  model: vehicle.model,
+                  year: vehicle.year || vehicle.start_year,
+                  variant: vehicle.variant || vehicle.vehicle_name_nz,
+                  engine_size: vehicle.cc_rating,
+                  fuel_type: vehicle.fuel_type,
+                  rego: (vehicleResult as any).plate || vehicle.rego,
+                };
+                
+                // Fetch parts and packages
+                const [partsResult, packagesResult] = await Promise.all([
+                  retrieveParts(vehicleId, apiConfig),
+                  retrieveServicePackages(vehicleId, apiConfig)
+                ]);
+                
+                if (partsResult.success && partsResult.parts.length > 0) {
+                  console.log(`[Vehicle Lookup] Auto-fetch: ${partsResult.parts.length} parts`);
+                  (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit = partsResult.parts;
+                }
+                
+                if (packagesResult.success && packagesResult.packages.length > 0) {
+                  const displayable = filterDisplayablePackages(packagesResult.packages);
+                  console.log(`[Vehicle Lookup] Auto-fetch: ${displayable.length} packages`);
+                  (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = displayable;
+                }
               }
-            } catch (e) {
-              console.error('Failed to parse cart args for emission:', e);
             }
           }
+          
+          // ============= PARTS/PACKAGES TOOL RESULT PROCESSING =============
+          if (toolCall.function.name === "retrieve_parts") {
+            const partsResult = result as { success?: boolean; parts?: unknown[] };
+            if (partsResult.success && partsResult.parts && partsResult.parts.length > 0) {
+              console.log('Storing', partsResult.parts.length, 'parts for emission');
+              (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit = partsResult.parts;
+            }
+          }
+          
+          if (toolCall.function.name === "retrieve_service_packages") {
+            const packagesResult = result as { success?: boolean; packages?: unknown[] };
+            if (packagesResult.success && packagesResult.packages && packagesResult.packages.length > 0) {
+              const displayable = filterDisplayablePackages(packagesResult.packages);
+              console.log('Storing', displayable.length, 'service packages for emission');
+              (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = displayable;
+            }
+          }
+          
+          // Add tool result to conversation
+          conversationMessages.push({
+            role: "tool",
+            content: JSON.stringify(result),
+            tool_call_id: toolCall.id
+          });
         }
         
-        conversationMessages.push({
-          role: "tool",
-          content: JSON.stringify(result),
-          tool_call_id: toolCall.id,
-        });
-      }
-      
-      // Deduplicate parts by SKU before storing for emission
-      if (partsFoundResult && partsFoundResult.length > 0) {
-        const uniqueParts = Array.from(
-          new Map(
-            partsFoundResult.map((p: unknown, idx: number) => {
-              const rec = p as Record<string, unknown>;
-              const key =
-                (rec.SKU ?? rec.sku ?? rec.Sku ?? rec.part_number ?? rec['Part Number'] ?? `__idx_${idx}`) as unknown;
-              return [String(key), p] as const;
-            })
-          ).values()
-        );
-        console.log(`Deduplicated parts: ${partsFoundResult.length} -> ${uniqueParts.length} unique`);
-        (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit = uniqueParts;
-      }
-        
-        // Continue loop to get AI's response to tool results
+        // Continue loop to get next response
         continue;
       }
       
-      // No tool calls - AI has final response
-      // BUT FIRST: Check if the AI's response contains VEHICLE_CONFIRMED marker
-      // This happens when customer confirms a vehicle from multiple matches
-      const aiContent = assistantMessage?.content || "";
-      const vehicleConfirmedMatch = aiContent.match(/\[VEHICLE_CONFIRMED:(\{[\s\S]*?\})\]/);
-      
-      if (vehicleConfirmedMatch) {
-        try {
-          const confirmedVehicle = JSON.parse(vehicleConfirmedMatch[1]);
-          let vehicleId = confirmedVehicle.vehicle_id || confirmedVehicle.id;
-          
-          // CRITICAL: Override AI's potentially hallucinated vehicle_id with ACTUAL lookup result
-          const storedVehicleId = (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId;
-          const storedVehicleData = (conversationMessages as unknown as { _lookupVehicleData?: unknown })._lookupVehicleData;
-          
-          // NEW: For multi-match scenarios, match the AI's choice to stored candidates
-          const storedCandidates = (conversationMessages as unknown as { _multipleVehicleCandidates?: Array<Record<string, unknown>> })._multipleVehicleCandidates;
-          
-          if (!storedVehicleId && storedCandidates && storedCandidates.length > 0) {
-            console.log(`[Variant Confirmation] Matching AI's choice against ${storedCandidates.length} stored candidates`);
-            
-            // Try to match by vehicle_id first (if AI got it right)
-            let matchedCandidate = storedCandidates.find(c => 
-              (c.vehicle_id === vehicleId) || (c.id === vehicleId)
-            );
-            
-            // If no ID match, try fuzzy matching by variant/engine characteristics
-            if (!matchedCandidate && confirmedVehicle.variant) {
-              matchedCandidate = storedCandidates.find(c => 
-                String(c.variant || c.vehicle_name_nz || '').toLowerCase().includes(
-                  String(confirmedVehicle.variant).toLowerCase()
-                )
-              );
-              if (matchedCandidate) console.log(`[Variant Confirmation] Fuzzy matched by variant: ${confirmedVehicle.variant}`);
-            }
-            
-            // If still no match, try by engine size
-            if (!matchedCandidate && confirmedVehicle.engine_size) {
-              const engineSizeDigits = String(confirmedVehicle.engine_size).replace(/[^\d.]/g, '');
-              matchedCandidate = storedCandidates.find(c => 
-                String(c.engine_size || c.cc_rating || '').includes(engineSizeDigits)
-              );
-              if (matchedCandidate) console.log(`[Variant Confirmation] Fuzzy matched by engine size: ${confirmedVehicle.engine_size}`);
-            }
-            
-            // If still no match but only one candidate with matching make/model, use it
-            if (!matchedCandidate) {
-              const makeModelMatches = storedCandidates.filter(c => 
-                String(c.make || '').toLowerCase() === String(confirmedVehicle.make || '').toLowerCase() &&
-                String(c.model || '').toLowerCase() === String(confirmedVehicle.model || '').toLowerCase()
-              );
-              if (makeModelMatches.length === 1) {
-                matchedCandidate = makeModelMatches[0];
-                console.log(`[Variant Confirmation] Single make/model match found`);
-              }
-            }
-            
-            if (matchedCandidate) {
-              const realVehicleId = matchedCandidate.vehicle_id || matchedCandidate.id;
-              if (realVehicleId && realVehicleId !== vehicleId) {
-                console.warn(`[Variant Confirmation] AI used vehicle_id ${vehicleId}, actual candidate ID: ${realVehicleId}`);
-                vehicleId = realVehicleId as number;
-                confirmedVehicle.vehicle_id = realVehicleId;
-              }
-              // Merge in correct vehicle data from matched candidate
-              Object.assign(confirmedVehicle, {
-                make: matchedCandidate.make || confirmedVehicle.make,
-                model: matchedCandidate.model || confirmedVehicle.model,
-                year: matchedCandidate.year || matchedCandidate.start_year || confirmedVehicle.year,
-                variant: matchedCandidate.variant || matchedCandidate.vehicle_name_nz || confirmedVehicle.variant,
-                engine_size: matchedCandidate.engine_size || confirmedVehicle.engine_size,
-                fuel_type: matchedCandidate.fuel_type || confirmedVehicle.fuel_type,
-                cc_rating: matchedCandidate.cc_rating || confirmedVehicle.cc_rating,
-                rego: matchedCandidate.plate || matchedCandidate.rego || confirmedVehicle.rego,
-              });
-              console.log(`[Variant Confirmation] Matched to candidate:`, matchedCandidate.vehicle_name_nz || matchedCandidate.variant);
-              
-              // Store as lookup data for streaming handler
-              (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId = vehicleId;
-              (conversationMessages as unknown as { _lookupVehicleData?: unknown })._lookupVehicleData = matchedCandidate;
-            } else {
-              console.warn(`[Variant Confirmation] Could not match AI's choice to any stored candidate, using AI's ID: ${vehicleId}`);
-              // Fall back to first candidate if AI's ID seems invalid
-              if (!vehicleId || vehicleId < 1000) {
-                const fallback = storedCandidates[0];
-                vehicleId = (fallback.vehicle_id || fallback.id) as number;
-                confirmedVehicle.vehicle_id = vehicleId;
-                console.warn(`[Variant Confirmation] AI ID invalid, falling back to first candidate: ${vehicleId}`);
-              }
-            }
-          } else if (storedVehicleId && storedVehicleId !== vehicleId) {
-            // Existing single-match override logic
-            console.warn(`AI HALLUCINATED vehicle_id: ${vehicleId} - OVERRIDING with actual lookup ID: ${storedVehicleId}`);
-            vehicleId = storedVehicleId;
-            confirmedVehicle.vehicle_id = storedVehicleId;
-            // Merge in correct vehicle data from actual lookup
-            if (storedVehicleData) {
-              Object.assign(confirmedVehicle, storedVehicleData);
-            }
-          }
-          
-          // GARAGE VEHICLE CROSS-REFERENCE: If no lookup was done (AI skipped it for garage vehicles),
-          // check if the rego matches a garage vehicle and use its REAL vehicle_id
-          const garageVehicles = typedHostContext?.vehicle?.garageVehicles || [];
-          if (!storedVehicleId && !storedCandidates && confirmedVehicle.rego && garageVehicles.length > 0) {
-            const garageMatch = garageVehicles.find((gv: Record<string, unknown>) => 
-              String(gv.rego).toUpperCase() === String(confirmedVehicle.rego).toUpperCase()
-            );
-            
-            if (garageMatch) {
-              const realGarageVehicleId = garageMatch.vehicle_id || garageMatch.id;
-              if (realGarageVehicleId && realGarageVehicleId !== vehicleId) {
-                console.warn(`GARAGE OVERRIDE: AI used vehicle_id ${vehicleId}, actual garage vehicle_id: ${realGarageVehicleId}`);
-                vehicleId = realGarageVehicleId as number;
-                confirmedVehicle.vehicle_id = realGarageVehicleId;
-                // Merge correct vehicle data from garage
-                Object.assign(confirmedVehicle, {
-                  make: garageMatch.make || confirmedVehicle.make,
-                  model: garageMatch.model || confirmedVehicle.model,
-                  year: garageMatch.year || confirmedVehicle.year,
-                  variant: garageMatch.variant || confirmedVehicle.variant,
-                  engine_size: garageMatch.engine_size || confirmedVehicle.engine_size,
-                  fuel_type: garageMatch.fuel_type || confirmedVehicle.fuel_type,
-                  rego: garageMatch.rego || confirmedVehicle.rego,
-                });
-                console.log(`Using corrected garage vehicle data for ${confirmedVehicle.rego}`);
-              }
-            }
-          }
-          
-          if (vehicleId) {
-            console.log(`Detected VEHICLE_CONFIRMED in AI response, using vehicle_id: ${vehicleId}`);
-            
-            // STORE the confirmed vehicle for emission in streaming handler
-            // This ensures the same vehicle ID used for parts/packages is sent to frontend
-            (conversationMessages as unknown as { _confirmedVehicle?: unknown })._confirmedVehicle = confirmedVehicle;
-            
-            // OPTIMIZATION: Only fetch parts/packages if NOT already loaded by lookup_vehicle auto-fetch
-            const alreadyLoadedParts = (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit;
-            const alreadyLoadedPackages = (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit;
-            
-            if (alreadyLoadedParts && alreadyLoadedParts.length > 0) {
-              console.log(`Parts already loaded (${alreadyLoadedParts.length} parts) - skipping duplicate fetch`);
-            } else {
-              console.log('No parts loaded yet - fetching for confirmed vehicle...');
-              const allParts = await retrieveParts(vehicleId, apiConfig);
-              if (allParts.success && allParts.parts && allParts.parts.length > 0) {
-                console.log(`Fetched ${allParts.parts.length} parts for confirmed vehicle`);
-                (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit = allParts.parts;
-              }
-            }
-            
-            if (alreadyLoadedPackages && alreadyLoadedPackages.length > 0) {
-              console.log(`Service packages already loaded (${alreadyLoadedPackages.length}) - skipping duplicate fetch`);
-            } else {
-              console.log('No service packages loaded yet - fetching...');
-              const servicePackagesResult = await retrieveServicePackages(vehicleId, apiConfig);
-              const servicePackagesData = servicePackagesResult as { success?: boolean; packages?: unknown[] };
-              
-              if (servicePackagesData.success && servicePackagesData.packages && servicePackagesData.packages.length > 0) {
-                // CRITICAL: Filter packages BEFORE storing - Single Source of Truth
-                const displayablePackages = filterDisplayablePackages(servicePackagesData.packages);
-                console.log(`[Service Packages] Filtered: ${servicePackagesData.packages.length} -> ${displayablePackages.length} displayable`);
-                (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = displayablePackages;
-              }
-            }
-          }
-        } catch (e) {
-          console.error('Failed to parse VEHICLE_CONFIRMED marker in AI response:', e);
-        }
-      }
-      
-      // ============= FALLBACK: Verbal variant confirmation without marker =============
-      // If AI confirmed a variant conversationally but forgot to emit the marker,
-      // detect common confirmation phrases and trigger parts/packages fetch
-      const storedCandidates = (conversationMessages as unknown as { _multipleVehicleCandidates?: Array<Record<string, unknown>> })._multipleVehicleCandidates;
-      const alreadyFetchedParts = (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit;
+      // No tool calls - we have the final response
+      // ============= FALLBACK VARIANT CONFIRMATION =============
+      // Check if AI verbally confirmed a variant without explicit marker
+      const storedCandidates = (conversationMessages as unknown as { _multipleVehicleCandidates?: VehicleCandidate[] })._multipleVehicleCandidates;
       const alreadyFetchedPackages = (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit;
+      const alreadyConfirmed = (conversationMessages as unknown as { _confirmedVehicle?: unknown })._confirmedVehicle;
       
-      // Only trigger fallback if: no marker matched, we have stored candidates, and no parts loaded yet
-      if (!vehicleConfirmedMatch && storedCandidates && storedCandidates.length > 0 && !alreadyFetchedParts?.length) {
+      // Only try fallback if we have candidates AND haven't already confirmed
+      if (storedCandidates && storedCandidates.length > 0 && !alreadyConfirmed) {
+        // Check AI response for confirmation patterns
+        const aiContent = (assistantMessage.content || "").toLowerCase();
+        
         const confirmationPatterns = [
-          /that'?s\s+(the\s+one|correct|right|it|my\s+(car|one|vehicle))/i,
-          /got\s+it.*your\s*(car|vehicle)?/i,
-          /perfect.*let\s+me\s+(get|find|load|check)/i,
-          /confirmed?\s*(your)?/i,
-          /sorted.*your/i,
-          /sweet\s+(as)?.*your\s+\d{4}/i,  // "Sweet as, your 2011 Tiguan"
-          /\byeah\s+nah\b.*loading/i,
-          /loading\s+(the\s+)?parts/i,
-          /fetching\s+(parts|products)/i,
-          /let\s+me\s+(grab|get|pull\s+up)\s+(the\s+)?(parts|service)/i,
-          /(the|your)\s+\d{4}\s+(volkswagen|toyota|nissan|honda|ford|bmw|audi|mazda|subaru|holden|mitsubishi)/i,  // "Your 2011 Volkswagen..."
+          /that'?s?\s*(the\s+one|correct|right|it)/i,
+          /got\s*(it|ya|cha)/i,
+          /perfect.*let\s*me/i,
+          /confirmed/i,
+          /sorted/i,
+          /sweet\s*as/i,
+          /nice\s*one/i,
+          /all\s*good/i,
+          /no\s*worries/i,
+          /let\s*me\s*(get|find|load|show)/i,
+          /loading.*parts/i,
+          /fetching.*parts/i,
+          /your\s+\d{4}\s+\w+/i,  // "your 2011 Tiguan"
         ];
         
         const isVerbalConfirmation = confirmationPatterns.some(p => p.test(aiContent));
         
         if (isVerbalConfirmation) {
-          console.log('[Fallback Confirmation] Detected verbal variant confirmation without marker');
-          console.log(`[Fallback Confirmation] AI response excerpt: "${aiContent.substring(0, 100)}..."`);
+          console.log('[Fallback Confirmation] Detected verbal confirmation in AI response');
           
-          // Use the first stored candidate (highest score from original lookup)
+          // Use first candidate (highest scored)
           const fallbackVehicle = storedCandidates[0];
-          const vehicleId = (fallbackVehicle.vehicle_id || fallbackVehicle.id) as number;
+          const vehicleId = fallbackVehicle.vehicle_id;
           
           if (vehicleId && vehicleId > 0) {
-            console.log(`[Fallback Confirmation] Using first stored candidate: vehicle_id=${vehicleId}, variant=${fallbackVehicle.vehicle_name_nz || fallbackVehicle.variant}`);
+            console.log(`[Fallback Confirmation] Using first stored candidate: vehicle_id=${vehicleId}`);
             
             // Store confirmed vehicle for emission
             (conversationMessages as unknown as { _confirmedVehicle?: unknown })._confirmedVehicle = {
@@ -2210,42 +1716,38 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
               model: fallbackVehicle.model,
               year: fallbackVehicle.year || fallbackVehicle.start_year,
               variant: fallbackVehicle.variant || fallbackVehicle.vehicle_name_nz,
-              engine_size: fallbackVehicle.engine_size || fallbackVehicle.cc_rating,
+              engine_size: fallbackVehicle.cc_rating,
               fuel_type: fallbackVehicle.fuel_type,
               rego: fallbackVehicle.plate || fallbackVehicle.rego,
             };
             
+            // Clear the multiple vehicles flag since we now have a selection
+            (conversationMessages as unknown as { _multipleVehiclesFound?: boolean })._multipleVehiclesFound = false;
+            
             // Fetch ALL parts for this vehicle
             const allParts = await retrieveParts(vehicleId, apiConfig);
             if (allParts.success && allParts.parts && allParts.parts.length > 0) {
-              console.log(`[Fallback Confirmation] Fetched ${allParts.parts.length} parts for vehicle_id ${vehicleId}`);
+              console.log(`[Fallback Confirmation] Fetched ${allParts.parts.length} parts`);
               (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit = allParts.parts;
-            } else {
-              console.warn(`[Fallback Confirmation] Parts fetch returned empty for vehicle_id ${vehicleId}`);
             }
             
             // Fetch service packages
             if (!alreadyFetchedPackages?.length) {
               const servicePackagesResult = await retrieveServicePackages(vehicleId, apiConfig);
-              const servicePackagesData = servicePackagesResult as { success?: boolean; packages?: unknown[] };
-              
-              if (servicePackagesData.success && servicePackagesData.packages && servicePackagesData.packages.length > 0) {
-                const displayablePackages = filterDisplayablePackages(servicePackagesData.packages);
-                console.log(`[Fallback Confirmation] Fetched ${displayablePackages.length} service packages for vehicle_id ${vehicleId}`);
+              if (servicePackagesResult.success && servicePackagesResult.packages && servicePackagesResult.packages.length > 0) {
+                const displayablePackages = filterDisplayablePackages(servicePackagesResult.packages);
+                console.log(`[Fallback Confirmation] Fetched ${displayablePackages.length} service packages`);
                 (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = displayablePackages;
               }
             }
             
             // Store lookup ID for consistency
             (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId = vehicleId;
-          } else {
-            console.warn('[Fallback Confirmation] First candidate has no valid vehicle_id:', fallbackVehicle);
           }
         }
       }
       
       // ============= SINGLE SOURCE OF TRUTH: Inject Display Context into AI =============
-      // This ensures AI only references products/packages that the customer can actually see
       const displayedPackages = (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit || [];
       const displayedParts = (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit || [];
       
@@ -2264,14 +1766,13 @@ The customer's shelf currently shows:
 ${packageSummary}
 ${partsSummary}
 
-IMPORTANT: Only reference products/packages from this list with these EXACT prices. If the customer asks about something not shown above, explain it's not available for their vehicle and suggest alternatives from what IS displayed.`;
+IMPORTANT: Only reference products/packages from this list with these EXACT prices.`;
         
-        // Add as system context message right before streaming
         conversationMessages.push({
           role: "system",
           content: displayContext
         });
-        console.log(`[Display Context] Injected context: ${displayedPackages.length} packages, ${displayedParts.length} parts`);
+        console.log(`[Display Context] Injected: ${displayedPackages.length} packages, ${displayedParts.length} parts`);
       }
       
       console.log('Streaming final response');
@@ -2307,8 +1808,12 @@ IMPORTANT: Only reference products/packages from this list with these EXACT pric
         throw new Error("No response body");
       }
       
-      // Check if we have parts to emit from tool calls
+      // Check data to emit
       const partsToEmit = (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit;
+      const servicePackagesToEmit = (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit;
+      const multipleVehiclesFound = (conversationMessages as unknown as { _multipleVehiclesFound?: boolean })._multipleVehiclesFound;
+      const vehicleCandidatesToEmit = (conversationMessages as unknown as { _vehicleCandidatesToEmit?: VehicleCandidate[] })._vehicleCandidatesToEmit;
+      const confirmedVehicleStored = (conversationMessages as unknown as { _confirmedVehicle?: unknown })._confirmedVehicle;
       
       const encoder = new TextEncoder();
       const decoder = new TextDecoder();
@@ -2316,12 +1821,11 @@ IMPORTANT: Only reference products/packages from this list with these EXACT pric
       const transformedStream = new ReadableStream({
         async start(controller) {
           let buffer = "";
-          let accumulatedContent = ""; // Accumulate ALL content for marker detection
+          let accumulatedContent = "";
           let vehicleEmitted = false;
           let partsEmitted = false;
           
           // ============= EMIT SEARCHING EVENTS FIRST =============
-          // These play immediately while API calls complete in background
           const searchingEventsToEmit = (conversationMessages as unknown as { _searchingEventsToEmit?: Array<{
             type: string;
             search_type: string;
@@ -2334,108 +1838,50 @@ IMPORTANT: Only reference products/packages from this list with these EXACT pric
             for (const searchEvent of searchingEventsToEmit) {
               const event = `data: ${JSON.stringify(searchEvent)}\n\n`;
               controller.enqueue(encoder.encode(event));
-              console.log(`[Stream] Emitted bob_searching: ${searchEvent.search_type} (${searchEvent.clip_key})`);
+              console.log(`[Stream] Emitted bob_searching: ${searchEvent.search_type}`);
             }
           }
           
-          // Check if we have a confirmed vehicle stored from the first AI response
-          // This ensures the vehicle ID matches what was used for parts/packages fetch
-          const confirmedVehicleStored = (conversationMessages as unknown as { _confirmedVehicle?: unknown })._confirmedVehicle;
+          // ============= EMIT VEHICLE CANDIDATES (for client storage) =============
+          if (vehicleCandidatesToEmit && vehicleCandidatesToEmit.length > 0 && multipleVehiclesFound) {
+            const candidatesEvent = `data: ${JSON.stringify({ 
+              type: "vehicle_candidates_found", 
+              candidates: vehicleCandidatesToEmit 
+            })}\n\n`;
+            controller.enqueue(encoder.encode(candidatesEvent));
+            console.log(`[Stream] Emitted vehicle_candidates_found: ${vehicleCandidatesToEmit.length} candidates`);
+          }
           
           // Emit stored confirmed vehicle FIRST (before parts/packages)
           if (confirmedVehicleStored) {
             const vehicleEvent = `data: ${JSON.stringify({ type: "vehicle_identified", vehicle: confirmedVehicleStored })}\n\n`;
             controller.enqueue(encoder.encode(vehicleEvent));
-            console.log("Emitted vehicle_identified event from stored data:", confirmedVehicleStored);
-            vehicleEmitted = true; // Skip re-detecting from stream content
+            console.log("[Stream] Emitted vehicle_identified from stored data");
+            vehicleEmitted = true;
           }
           
-          // Check if we have service packages to emit from tool calls
-          const servicePackagesToEmit = (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit;
-          
-          // Check if multiple vehicles found (to show placeholder packages)
-          const multipleVehiclesFound = (conversationMessages as unknown as { _multipleVehiclesFound?: boolean })._multipleVehiclesFound;
-          
-          // Emit multiple_vehicles_found event so frontend shows placeholder packages
-          if (multipleVehiclesFound) {
+          // Emit multiple_vehicles_found event if applicable
+          if (multipleVehiclesFound && !confirmedVehicleStored) {
             const multipleEvent = `data: ${JSON.stringify({ type: "multiple_vehicles_found" })}\n\n`;
             controller.enqueue(encoder.encode(multipleEvent));
-            console.log("Emitted multiple_vehicles_found event");
+            console.log("[Stream] Emitted multiple_vehicles_found event");
           }
           
-          // Track emitted package IDs to prevent duplicates across emissions
+          // Track emitted package IDs to prevent duplicates
           const emittedPackageIds = new Set<string>();
           
-          // Helper to calculate minimum package price from partslots
-          const calculatePackageMinPrice = (partslots: any[]): number => {
-            if (!partslots || !Array.isArray(partslots) || partslots.length === 0) {
-              console.log('[Price Calc] Empty or invalid partslots array');
-              return 0;
-            }
-            
-            let total = 0;
-            let slotsWithProducts = 0;
-            
-            for (const slot of partslots) {
-              const tiers = slot?.products?.quality_tiers;
-              if (!tiers) {
-                console.log('[Price Calc] Slot has no quality_tiers:', slot?.partslot_description || slot?.name);
-                continue;
-              }
-              
-              // Get cheapest product from any tier (prefer Standard)
-              const tierOrder = ['Standard', 'Economy', 'Premium', 'Performance'];
-              let slotMinPrice = 0;
-              
-              for (const tier of tierOrder) {
-                const products = tiers[tier];
-                if (products && Array.isArray(products) && products.length > 0) {
-                  const validPrices = products
-                    .map((p: any) => p.price || 0)
-                    .filter((price: number) => price > 0);
-                  
-                  if (validPrices.length > 0) {
-                    slotMinPrice = Math.min(...validPrices);
-                    total += slotMinPrice;
-                    slotsWithProducts++;
-                    break; // Found price for this slot, move to next
-                  }
-                }
-              }
-              
-              if (slotMinPrice === 0) {
-                console.warn(`[Price Calc] Slot "${slot?.partslot_description || slot?.name}" has no valid products in any tier`);
-              }
-            }
-            
-            console.log(`[Price Calc] Total: $${total.toFixed(2)} from ${slotsWithProducts}/${partslots.length} slots`);
-            return total;
-          };
-
-          // Process service packages: use preparedTiers price first, fallback to partslots
+          // Process service packages
           let packagesToSend = servicePackagesToEmit;
           if (packagesToSend && packagesToSend.length > 0) {
             const packagesWithPrices = packagesToSend.map((pkg: any) => {
-              if (!pkg || !pkg.id) {
-                console.warn('[Packages] Skipping package without ID');
-                return null;
-              }
+              if (!pkg || !pkg.id) return null;
+              if (emittedPackageIds.has(pkg.id)) return null;
               
-              // Skip if already emitted (global deduplication)
-              if (emittedPackageIds.has(pkg.id)) {
-                console.log(`[Packages] Skipping duplicate package: ${pkg.id}`);
-                return null;
-              }
-              
-              // PRIORITY 1: Use preparedTiers totalPrice (server-calculated, most accurate)
-              // ✅ CARFIX PARITY: Only accept packages with preparedTiers, strip partslots
               if (pkg.preparedTiers && Array.isArray(pkg.preparedTiers)) {
                 const visibleTiers = pkg.preparedTiers.filter((t: any) => !t.isHidden);
                 if (visibleTiers.length > 0) {
                   const minPrice = Math.min(...visibleTiers.map((t: any) => t.totalPrice || 0));
                   if (minPrice > 0) {
-                    console.log(`[Packages] Using preparedTiers price for "${pkg.title}": $${minPrice.toFixed(2)}, tiers: ${visibleTiers.length}`);
-                    // ✅ CLEAN OUTPUT: Only send display-ready fields, STRIP partslots
                     return {
                       id: pkg.id,
                       title: pkg.title,
@@ -2446,111 +1892,67 @@ IMPORTANT: Only reference products/packages from this list with these EXACT pric
                       bundle_discount_percentage: pkg.bundle_discount_percentage,
                       icon_url: pkg.icon_url,
                       carfixValueTier: pkg.carfixValueTier,
-                      preparedTiers: pkg.preparedTiers  // ✅ Server-prepared, clean data
-                      // EXCLUDED: partslots (raw source data with potential contamination)
+                      preparedTiers: pkg.preparedTiers
                     };
                   }
                 }
               }
-              
-              // ❌ REJECTED: Packages without valid preparedTiers cannot achieve CARFIX parity
-              console.warn(`[Packages] Rejecting "${pkg.title}" - missing or invalid preparedTiers (required for CARFIX parity)`);
               return null;
             }).filter(Boolean);
             
-            // Mark all packages as emitted
             packagesWithPrices.forEach((pkg: any) => {
               if (pkg?.id) emittedPackageIds.add(pkg.id);
             });
             
-            console.log(`[Packages] Processed: ${packagesToSend.length} -> ${packagesWithPrices.length} (after dedup & price validation)`);
             packagesToSend = packagesWithPrices;
           }
           
-          // Emit service_packages_found event FIRST (before parts) for synchronized display
+          // Emit service_packages_found event
           if (packagesToSend && packagesToSend.length > 0) {
             const packagesEvent = `data: ${JSON.stringify({ type: "service_packages_found", packages: packagesToSend })}\n\n`;
             controller.enqueue(encoder.encode(packagesEvent));
-            console.log("Emitted service_packages_found event:", packagesToSend.length, "packages");
+            console.log("[Stream] Emitted service_packages_found:", packagesToSend.length, "packages");
           }
           
-          // Check if we have cart items to emit from add_to_cart tool call
+          // Check for cart items
           const cartItemsToEmit = (conversationMessages as unknown as { _cartItemsToEmit?: Array<{ productName: string; quantity: number }> })._cartItemsToEmit;
-          
-          // Emit cart_updated event if items were added
           if (cartItemsToEmit && cartItemsToEmit.length > 0) {
             const cartEvent = `data: ${JSON.stringify({ type: "cart_updated", items: cartItemsToEmit })}\n\n`;
             controller.enqueue(encoder.encode(cartEvent));
-            console.log("Emitted cart_updated event:", cartItemsToEmit.length, "items");
+            console.log("[Stream] Emitted cart_updated:", cartItemsToEmit.length, "items");
           }
           
-          // Emit parts_found event immediately if we have parts from tool call
+          // ============= PARTS EMISSION LOGIC =============
+          // CRITICAL: Only emit no_parts_found if we actually tried to fetch parts
+          // and got nothing - NOT during multi-vehicle selection phase
           if (partsToEmit && partsToEmit.length > 0) {
             const partsEvent = `data: ${JSON.stringify({ type: "parts_found", parts: partsToEmit })}\n\n`;
             controller.enqueue(encoder.encode(partsEvent));
-            console.log("Emitted parts_found event:", partsToEmit.length, "parts");
+            console.log("[Stream] Emitted parts_found:", partsToEmit.length, "parts");
             partsEmitted = true;
-            
-            // NEW: Also emit bob_suggestions for inline display in chat
-            // Transform parts to Product format for frontend BobSuggestions component
-            const transformPartToProduct = (part: Record<string, unknown>) => ({
-              id: (part.sku || part.SKU || `part-${Math.random()}`) as string,
-              sku: (part.sku || part.SKU) as string,
-              name: (part.name || part.web_description || 'Product') as string,
-              brand: (part.brand || part.Brand) as string,
-              price: (part.price || part.Price || part['Metro Retail Price'] || 0) as number,
-              part_number: (part.part_number || part['Part Number']) as string,
-              partNumber: (part.part_number || part['Part Number']) as string,
-              partslotDescription: (part.partslot_description || part['Part Product Type']) as string,
-              partslot_description: (part.partslot_description || part['Part Product Type']) as string,
-              image_url: `https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/product_images/${part.sku || part.SKU}.jpg`,
-              per_car_qty: (part.per_car_qty || part['Per Car Qty'] || 1) as number,
-              quantity: (part.per_car_qty || part['Per Car Qty'] || 1) as number,
-              ic3_code: (part.ic3_code || part['IC3 Code']) as string,
-              web_description: (part.web_description || part['Web Description']) as string,
-            });
-            
-            const confirmedVehicle = (conversationMessages as unknown as { _confirmedVehicle?: Record<string, unknown> })._confirmedVehicle;
-            const vehicleName = confirmedVehicle 
-              ? `${confirmedVehicle.year || ''} ${confirmedVehicle.make || ''} ${confirmedVehicle.model || ''}`.trim()
-              : 'your vehicle';
-            
-            // Determine part type from loaded parts for contextual title
-            const firstPart = partsToEmit[0] as Record<string, unknown>;
-            const partType = (firstPart?.partslot_description || firstPart?.['Part Product Type'] || 'Parts') as string;
-            
-            // Transform to Product format for BobSuggestions component
-            const transformedProducts = partsToEmit.slice(0, 6).map((p: unknown) => transformPartToProduct(p as Record<string, unknown>));
-            
-            const suggestionsEvent = `data: ${JSON.stringify({ 
-              type: "bob_suggestions", 
-              products: transformedProducts,
-              title: `${partType} for ${vehicleName}`,
-              partType: partType
-            })}\n\n`;
-            controller.enqueue(encoder.encode(suggestionsEvent));
-            console.log("Emitted bob_suggestions event:", transformedProducts.length, "products (transformed to Product format)");
-          } else {
-            // No parts found - emit event so frontend can clear loading state
+          } else if (!multipleVehiclesFound && confirmedVehicleStored) {
+            // Only emit no_parts_found if we have a confirmed vehicle but no parts
+            // This prevents clearing shelves during variant selection
             const noPartsEvent = `data: ${JSON.stringify({ type: "no_parts_found" })}\n\n`;
             controller.enqueue(encoder.encode(noPartsEvent));
-            console.log("Emitted no_parts_found event");
+            console.log("[Stream] Emitted no_parts_found (confirmed vehicle, 0 parts)");
+          } else if (multipleVehiclesFound) {
+            // During variant selection - do NOT emit no_parts_found
+            console.log("[Stream] Skipping no_parts_found - awaiting variant selection");
           }
           
           try {
             while (true) {
               const { done, value } = await reader.read();
               if (done) {
-                // Before closing, check if we have a complete vehicle marker that wasn't detected
+                // Check for complete vehicle marker at stream end
                 if (!vehicleEmitted) {
-                  // Use regex that handles nested JSON with any characters
                   const markerRegex = /\[VEHICLE_CONFIRMED:(\{[\s\S]*?\})\]/;
                   const markerMatch = accumulatedContent.match(markerRegex);
                   if (markerMatch) {
                     try {
                       let vehicleData = JSON.parse(markerMatch[1]);
                       
-                      // CRITICAL: Validate against actual lookup data to prevent hallucination (same as in-stream)
                       const storedVehicleId = (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId;
                       const storedVehicleData = (conversationMessages as unknown as { _lookupVehicleData?: Record<string, unknown> })._lookupVehicleData;
                       const preProcessedVehicle = (conversationMessages as unknown as { _confirmedVehicle?: Record<string, unknown> })._confirmedVehicle;
@@ -2570,7 +1972,7 @@ IMPORTANT: Only reference products/packages from this list with these EXACT pric
                       
                       const vehicleEvent = `data: ${JSON.stringify({ type: "vehicle_identified", vehicle: vehicleData })}\n\n`;
                       controller.enqueue(encoder.encode(vehicleEvent));
-                      console.log("Emitted vehicle_identified event (end of stream, validated):", vehicleData);
+                      console.log("[Stream End] Emitted vehicle_identified (validated)");
                       vehicleEmitted = true;
                     } catch (e) {
                       console.error("Failed to parse vehicle marker at stream end:", e);
@@ -2578,118 +1980,7 @@ IMPORTANT: Only reference products/packages from this list with these EXACT pric
                   }
                 }
                 
-                // NEW: Parse products from Bob's response text for inline display
-                // This enables inline products when Bob recalls from memory without re-fetching
-                if (!partsEmitted && accumulatedContent.length > 0) {
-                  try {
-                    // Pattern 1: **BRAND Product Name** (SKU: ABC123) - for $XX.XX
-                    const pattern1 = /\*\*([A-Z][A-Za-z0-9\s&'-]+?)\s+([^*]+?)\*\*\s*\(SKU:\s*([A-Z0-9-]+)\)\s*[-–—]\s*(?:for\s*)?\$(\d+(?:\.\d{2})?)/gi;
-                    
-                    // Pattern 2: BRAND Product Name (SKU: ABC123) - $XX.XX (without bold)
-                    const pattern2 = /(?:^|\n)\s*[-•*]?\s*([A-Z][A-Za-z0-9\s&'-]+?)\s+([A-Za-z0-9\s]+?)\s*\(SKU:\s*([A-Z0-9-]+)\)\s*[-–—]\s*\$(\d+(?:\.\d{2})?)/gi;
-                    
-                    // Pattern 3: SKU: ABC123 - BRAND Product - $XX.XX
-                    const pattern3 = /SKU:\s*([A-Z0-9-]+)\s*[-–—]\s*([A-Z][A-Za-z0-9\s&'-]+?)\s+([A-Za-z0-9\s]+?)\s*[-–—]\s*\$(\d+(?:\.\d{2})?)/gi;
-                    
-                    const parsedProducts: Array<{
-                      id: string;
-                      sku: string;
-                      name: string;
-                      brand: string;
-                      price: number;
-                      part_number: string;
-                      partslotDescription: string;
-                      image_url: string;
-                      per_car_qty: number;
-                      quantity: number;
-                    }> = [];
-                    const seenSkus = new Set<string>();
-                    
-                    // Try pattern 1 first (most common format with bold)
-                    let matches = [...accumulatedContent.matchAll(pattern1)];
-                    for (const match of matches) {
-                      const [, brand, name, sku, priceStr] = match;
-                      if (seenSkus.has(sku)) continue;
-                      seenSkus.add(sku);
-                      
-                      parsedProducts.push({
-                        id: sku,
-                        sku: sku,
-                        name: `${brand.trim()} ${name.trim()}`,
-                        brand: brand.trim(),
-                        price: parseFloat(priceStr),
-                        part_number: sku,
-                        partslotDescription: '',
-                        image_url: `https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/product_images/${sku}.jpg`,
-                        per_car_qty: 1,
-                        quantity: 1,
-                      });
-                    }
-                    
-                    // Try pattern 2 if no matches yet
-                    if (parsedProducts.length === 0) {
-                      matches = [...accumulatedContent.matchAll(pattern2)];
-                      for (const match of matches) {
-                        const [, brand, name, sku, priceStr] = match;
-                        if (seenSkus.has(sku)) continue;
-                        seenSkus.add(sku);
-                        
-                        parsedProducts.push({
-                          id: sku,
-                          sku: sku,
-                          name: `${brand.trim()} ${name.trim()}`,
-                          brand: brand.trim(),
-                          price: parseFloat(priceStr),
-                          part_number: sku,
-                          partslotDescription: '',
-                          image_url: `https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/product_images/${sku}.jpg`,
-                          per_car_qty: 1,
-                          quantity: 1,
-                        });
-                      }
-                    }
-                    
-                    // Try pattern 3 if still no matches
-                    if (parsedProducts.length === 0) {
-                      matches = [...accumulatedContent.matchAll(pattern3)];
-                      for (const match of matches) {
-                        const [, sku, brand, name, priceStr] = match;
-                        if (seenSkus.has(sku)) continue;
-                        seenSkus.add(sku);
-                        
-                        parsedProducts.push({
-                          id: sku,
-                          sku: sku,
-                          name: `${brand.trim()} ${name.trim()}`,
-                          brand: brand.trim(),
-                          price: parseFloat(priceStr),
-                          part_number: sku,
-                          partslotDescription: '',
-                          image_url: `https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/product_images/${sku}.jpg`,
-                          per_car_qty: 1,
-                          quantity: 1,
-                        });
-                      }
-                    }
-                    
-                    if (parsedProducts.length > 0) {
-                      console.log(`[Product Parse] Found ${parsedProducts.length} products in Bob's response text`);
-                      
-                      const suggestionsEvent = `data: ${JSON.stringify({ 
-                        type: "bob_suggestions", 
-                        products: parsedProducts.slice(0, 6),
-                        title: "Products",
-                        partType: "Parts"
-                      })}\n\n`;
-                      controller.enqueue(encoder.encode(suggestionsEvent));
-                      console.log("[Product Parse] Emitted bob_suggestions from parsed text:", parsedProducts.length, "products");
-                    }
-                  } catch (parseError) {
-                    console.warn('[Product Parse] Failed to parse products from response:', parseError);
-                  }
-                }
-                
-                // Flush any remaining buffer
+                // Flush remaining buffer
                 if (buffer.trim()) {
                   controller.enqueue(encoder.encode(buffer));
                 }
@@ -2721,11 +2012,9 @@ IMPORTANT: Only reference products/packages from this list with these EXACT pric
                   const content = parsed.choices?.[0]?.delta?.content as string | undefined;
                   
                   if (content) {
-                    // Accumulate content for cross-chunk marker detection
                     accumulatedContent += content;
                     
-                    // Check accumulated content for complete vehicle marker
-                    // Use regex that handles nested JSON - match from [ to ] including any characters
+                    // Check for vehicle marker
                     const markerRegex = /\[VEHICLE_CONFIRMED:(\{[\s\S]*?\})\]/;
                     const markerMatch = accumulatedContent.match(markerRegex);
                     
@@ -2733,48 +2022,35 @@ IMPORTANT: Only reference products/packages from this list with these EXACT pric
                       try {
                         let vehicleData = JSON.parse(markerMatch[1]);
                         
-                        // CRITICAL: Validate against actual lookup data to prevent hallucination
                         const storedVehicleId = (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId;
                         const storedVehicleData = (conversationMessages as unknown as { _lookupVehicleData?: Record<string, unknown> })._lookupVehicleData;
                         const preProcessedVehicle = (conversationMessages as unknown as { _confirmedVehicle?: Record<string, unknown> })._confirmedVehicle;
                         
-                        // Priority: Use pre-processed vehicle (already validated) > stored lookup data > AI's data
                         if (preProcessedVehicle) {
-                          console.log("Using pre-processed (validated) vehicle data instead of streaming marker");
                           vehicleData = preProcessedVehicle;
                         } else if (storedVehicleId) {
                           const aiVehicleId = vehicleData.vehicle_id || vehicleData.id;
                           if (aiVehicleId !== storedVehicleId) {
-                            console.warn(`STREAM HALLUCINATION BLOCKED: AI emitted vehicle_id ${aiVehicleId}, actual is ${storedVehicleId}`);
+                            console.warn(`STREAM HALLUCINATION BLOCKED: AI=${aiVehicleId}, actual=${storedVehicleId}`);
                           }
-                          // Override with actual lookup data
                           vehicleData.vehicle_id = storedVehicleId;
                           vehicleData.id = storedVehicleId;
                           if (storedVehicleData) {
-                            // Merge verified fields from actual API response
                             vehicleData.make = storedVehicleData.make || vehicleData.make;
                             vehicleData.model = storedVehicleData.model || vehicleData.model;
                             vehicleData.year = storedVehicleData.year || vehicleData.year;
                             vehicleData.variant = storedVehicleData.variant || vehicleData.variant;
                             vehicleData.rego = storedVehicleData.plate || storedVehicleData.rego || vehicleData.rego;
-                            vehicleData.engine_size = storedVehicleData.engine_size || storedVehicleData.cc_rating || vehicleData.engine_size;
-                            vehicleData.fuel_type = storedVehicleData.fuel_type || vehicleData.fuel_type;
-                            vehicleData.vin = storedVehicleData.vin || vehicleData.vin;
-                            vehicleData.engine_no = storedVehicleData.engine_no || vehicleData.engine_no;
                           }
-                          console.log("Stream vehicle data corrected with lookup data:", vehicleData);
                         }
                         
-                        // Emit vehicle_identified event with validated data
                         const vehicleEvent = `data: ${JSON.stringify({ type: "vehicle_identified", vehicle: vehicleData })}\n\n`;
                         controller.enqueue(encoder.encode(vehicleEvent));
-                        console.log("Emitted vehicle_identified event (validated):", vehicleData);
+                        console.log("[Stream] Emitted vehicle_identified (validated)");
                         vehicleEmitted = true;
                         
-                        // Remove marker from accumulated content
                         accumulatedContent = accumulatedContent.replace(markerMatch[0], "");
                         
-                        // Also remove from current chunk content if present
                         const cleanContent = content.replace(markerRegex, "");
                         if (cleanContent.trim()) {
                           parsed.choices[0].delta.content = cleanContent;
@@ -2787,7 +2063,6 @@ IMPORTANT: Only reference products/packages from this list with these EXACT pric
                     }
                   }
                   
-                  // Pass through unchanged
                   controller.enqueue(encoder.encode(line + "\n"));
                 } catch {
                   controller.enqueue(encoder.encode(line + "\n"));
