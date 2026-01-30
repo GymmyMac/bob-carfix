@@ -112,6 +112,70 @@ interface VehicleCandidate {
   id?: number;
 }
 
+// ============= CONVERSATION STATE TYPES =============
+type ConversationState = 
+  | 'AWAITING_REGO'
+  | 'AWAITING_VARIANT_SELECTION'  
+  | 'VEHICLE_CONFIRMED'
+  | 'CONVERSATION';
+
+/**
+ * Determine the current conversation state based on available context.
+ */
+function determineConversationState(
+  vehicleContext: unknown,
+  forcedCandidates: VehicleCandidate[],
+  clientCandidates: VehicleCandidate[],
+  deterministicVehicle: VehicleCandidate | null
+): ConversationState {
+  // Already have confirmed vehicle (from session or deterministic match)
+  if (vehicleContext || deterministicVehicle) {
+    return 'VEHICLE_CONFIRMED';
+  }
+  
+  // Multiple variants found - need user selection
+  if (forcedCandidates.length > 1 || clientCandidates.length > 1) {
+    return 'AWAITING_VARIANT_SELECTION';
+  }
+  
+  return 'AWAITING_REGO';
+}
+
+/**
+ * Generate a human-readable variant list for user selection.
+ */
+function generateVariantListText(candidates: VehicleCandidate[]): string {
+  return candidates.map((c, i) => {
+    const cc = c.cc_rating ? `${(c.cc_rating / 1000).toFixed(1)}L` : '';
+    const fuel = c.fuel_type || '';
+    const kw = extractKwFromVehicleName(c.vehicle_name_nz);
+    const eng = c.engine_code || '';
+    const year = c.start_year && c.end_year 
+      ? `${c.start_year}-${c.end_year}` 
+      : (c.year || c.start_year || '');
+    
+    // Build a descriptive line
+    const parts = [
+      cc,
+      fuel,
+      kw ? `${kw}kW` : '',
+      eng,
+      year ? `(${year})` : ''
+    ].filter(Boolean).join(' ');
+    
+    return `${i + 1}) ${parts || c.vehicle_name_nz || `${c.make} ${c.model}`}`;
+  }).join('\n');
+}
+
+/**
+ * Extract kW power rating from vehicle_name_nz (e.g., "TDI 103KW" -> 103)
+ */
+function extractKwFromVehicleName(name?: string): number | null {
+  if (!name) return null;
+  const match = name.match(/(\d{2,3})\s*KW/i);
+  return match ? parseInt(match[1], 10) : null;
+}
+
 // ============= DETERMINISTIC VARIANT SELECTION =============
 /**
  * Attempts to match user input to a vehicle candidate without relying on AI.
@@ -275,6 +339,25 @@ function matchUserInputToCandidate(
     if (sortedByScore[0].score && sortedByScore[0].score > (sortedByScore[1]?.score || 0)) {
       console.log(`[Variant Matcher] Matched by affirmative (top-scored: ${sortedByScore[0].score})`);
       return { candidate: sortedByScore[0], method: 'affirmative_top_scored' };
+    }
+  }
+  
+  // Method 9: Descriptive matching (e.g., "the bigger engine", "the smaller one", "newer", "older")
+  const descriptivePatterns: Array<{ pattern: RegExp; compareFn: (a: VehicleCandidate, b: VehicleCandidate) => number }> = [
+    { pattern: /big(?:ger)?|larger?|more\s*power/i, compareFn: (a, b) => (b.cc_rating || 0) - (a.cc_rating || 0) },
+    { pattern: /small(?:er)?|lighter?|less\s*power/i, compareFn: (a, b) => (a.cc_rating || 0) - (b.cc_rating || 0) },
+    { pattern: /newer|later|recent/i, compareFn: (a, b) => (b.start_year || 0) - (a.start_year || 0) },
+    { pattern: /older|earlier|original/i, compareFn: (a, b) => (a.start_year || 0) - (b.start_year || 0) },
+    { pattern: /more\s*(?:fuel\s*)?econom|efficient/i, compareFn: (a, b) => (a.cc_rating || 0) - (b.cc_rating || 0) }, // Smaller engine = more efficient
+  ];
+
+  for (const { pattern, compareFn } of descriptivePatterns) {
+    if (pattern.test(input)) {
+      const sorted = [...candidates].sort(compareFn);
+      if (sorted[0]) {
+        console.log(`[Variant Matcher] Matched by descriptive pattern: ${pattern.source}`);
+        return { candidate: sorted[0], method: 'descriptive' };
+      }
     }
   }
   
@@ -1396,17 +1479,16 @@ serve(async (req) => {
       });
     }
 
-    // ============= DETERMINISTIC VARIANT SELECTION =============
-    // If we have vehicle candidates from previous request OR from forced lookup,
-    // try to match user's selection BEFORE calling the AI
-    let deterministicVehicle: VehicleCandidate | null = forcedSingleVehicle;
-    let deterministicSelectionMethod: string | null = forcedSingleVehicle ? 'forced_single_match' : null;
-    
-    // Combine client-provided candidates with any forced lookup candidates
+    // ============= STATE-DRIVEN RESPONSE GENERATION =============
+    // Determine conversation state BEFORE deciding whether to call AI
     const allCandidates = [
       ...(vehicleCandidates as VehicleCandidate[] || []),
       ...forcedCandidates
     ];
+    
+    // Try deterministic match if we have candidates
+    let deterministicVehicle: VehicleCandidate | null = forcedSingleVehicle;
+    let deterministicSelectionMethod: string | null = forcedSingleVehicle ? 'forced_single_match' : null;
     
     if (!deterministicVehicle && allCandidates.length > 0 && !vehicleContext) {
       if (lastUserContent) {
@@ -1417,6 +1499,69 @@ serve(async (req) => {
           console.log(`[Variant Selection] Deterministically matched vehicle_id=${deterministicVehicle.vehicle_id} via ${deterministicSelectionMethod}`);
         }
       }
+    }
+    
+    // Determine current conversation state
+    const conversationState = determineConversationState(
+      vehicleContext,
+      forcedCandidates,
+      vehicleCandidates as VehicleCandidate[] || [],
+      deterministicVehicle
+    );
+    
+    console.log(`[State Machine] Determined state: ${conversationState}`, {
+      hasVehicleContext: !!vehicleContext,
+      forcedCandidatesCount: forcedCandidates.length,
+      clientCandidatesCount: (vehicleCandidates as VehicleCandidate[] || []).length,
+      deterministicMatch: deterministicSelectionMethod,
+    });
+    
+    // ============= STATE: AWAITING_VARIANT_SELECTION =============
+    // When we have multiple variants and no deterministic match, bypass AI entirely
+    // and generate a structured variant list directly
+    if (conversationState === 'AWAITING_VARIANT_SELECTION' && !deterministicVehicle) {
+      console.log(`[State Machine] AWAITING_VARIANT_SELECTION - generating deterministic variant list`);
+      
+      const variantList = generateVariantListText(allCandidates);
+      const make = allCandidates[0]?.make || '';
+      const model = allCandidates[0]?.model || '';
+      
+      const responseText = `I found ${allCandidates.length} versions of the ${make} ${model}. Which one is yours?\n\n${variantList}\n\nJust say the number or describe it (e.g., 'the diesel one'), mate.`;
+      
+      // Return deterministic response as SSE stream (no AI call)
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          // Emit conversation state event first
+          const stateEvent = `data: ${JSON.stringify({ 
+            type: "conversation_state", 
+            state: conversationState,
+            candidates: allCandidates 
+          })}\n\n`;
+          controller.enqueue(encoder.encode(stateEvent));
+          
+          // Emit vehicle candidates for client storage
+          const candidatesEvent = `data: ${JSON.stringify({ 
+            type: "vehicle_candidates_found", 
+            candidates: allCandidates 
+          })}\n\n`;
+          controller.enqueue(encoder.encode(candidatesEvent));
+          
+          // Emit the variant list text as if it were streamed
+          const textEvent = `data: ${JSON.stringify({
+            choices: [{ delta: { content: responseText } }]
+          })}\n\n`;
+          controller.enqueue(encoder.encode(textEvent));
+          
+          // End stream - no audio_hint since we want TTS for this
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+        }
+      });
+
+      return new Response(stream, {
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
+      });
     }
 
     // Load prompts from database and build system prompt
