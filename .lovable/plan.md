@@ -1,218 +1,166 @@
 
-# Fix Plan: Desktop View - COMPLETED (v3.1.19)
+# Investigation Report: Products Not Displaying After Vehicle Lookup
 
-## Summary
+## Summary of Issues
 
-| # | Issue | Status | Fix Applied |
-|---|-------|--------|-------------|
-| 1 | Chat bar position after closing | ✅ Verified | Not a bug - drawer uses fixed `bottom: 0` position, only height changes |
-| 2 | Product column <50% width on desktop | ✅ Fixed | Updated to 70% width, 900px max (was 48%, 580px) |
-| 3 | PartSlot products not visible | ✅ Fixed | Removed duplicate `onPartsFound` call from bob_suggestions that was overwriting full 347-part catalog with 6 inline products |
+After extensive code analysis and log review, I've identified the exact data flow and potential failure points:
 
----
+| Status | Component | Finding |
+|--------|-----------|---------|
+| ✅ Working | Edge Function | Emits `parts_found` with 360 parts correctly |
+| ✅ Working | SSE Handler | Receives and logs parts: `Received parts_found event: 360 parts` |
+| ✅ Working | Callback Chain | `Bob.tsx` maps products: `Products mapped and setting state: 360 products` |
+| ❌ Failing | UI Render | Products don't appear despite state being set |
 
-## Issue 1: Chat Bar Position Not Resetting
+## Data Flow Verified
 
-### Root Cause Analysis
+```text
+bob-chat edge function
+    │
+    ├── Emits: service_packages_found (6 packages) ✅ DISPLAYS
+    ├── Emits: parts_found (360 parts) ✅ RECEIVED
+    └── Emits: bob_suggestions (6 products) ✅ PROCESSED
 
-Looking at `MobileChatDrawer.tsx` (lines 136-154), the drawer uses:
+Frontend Handling:
+useBobChat.ts → callbacks.onPartsFound() → Bob.tsx setProducts() → ContainedMobileBobLayout → MobileProductColumn
 
-```typescript
-style={{
-  position: 'fixed',
-  bottom: bottomOffset,  // This is constant
-  height: isExpanded ? '55vh' : '90px',  // Height changes, not position
-}}
+Console Evidence:
+[useBobChat] Received parts_found event: 360 parts
+[Bob] Products mapped and setting state: 360 products
 ```
 
-The chat drawer **always** sits at `bottom: bottomOffset`. The perceived "moving up" in the screenshot is likely:
+## Root Cause Identified
 
-1. The drawer height increases when expanded to `55vh`
-2. When collapsed, it returns to `90px` height
-3. **The visual is correct** - the drawer IS at the bottom
+The issue is **NOT** in data fetching - the 360 parts arrive and are mapped correctly. The problem is in the **rendering chain** between `Bob.tsx` and `MobileProductColumn.tsx`.
 
-After reviewing the screenshot more carefully, the chat bar appears correctly positioned at the bottom in both images. The "moving up" may be an optical illusion due to:
-- The counter overlay being at ~12-22% height
-- The expanded state showing chat history
+### Specific Issue: `groupedProducts` Stale Closure
 
-**However**, if there IS a positioning issue, it would be in the `ContainedChatDrawer.tsx` which uses `position: absolute` with `bottom: 0` - this could behave differently when the parent container transforms.
-
-### Recommended Action
-
-Verify this is actually a bug by:
-1. Testing the collapsed state after chat closes
-2. Confirming the drawer returns to 90px/110px height
-
-**If confirmed as a bug**: Add an effect to reset `isExpanded` when appropriate or ensure consistent positioning.
-
----
-
-## Issue 2: Product Column Width on Desktop (CONFIRMED BUG)
-
-### Root Cause
-
-In `MobileProductColumn.tsx` lines 295-297:
-
-```typescript
-// Current code
-const columnWidth = viewportSize === 'mobile' ? 92 : viewportSize === 'tablet' ? 65 : 48;
-const maxWidth = viewportSize === 'desktop' ? '580px' : viewportSize === 'tablet' ? '500px' : '100%';
-```
-
-**Desktop settings:**
-- Width: 48% of viewport
-- Max-width: 580px (hard cap)
-
-**User requirement:** 70% width on desktop for better product presentation
-
-### Solution
-
-```typescript
-// Fixed code - Desktop gets 70% width
-const columnWidth = viewportSize === 'mobile' ? 92 : viewportSize === 'tablet' ? 65 : 70;
-const maxWidth = viewportSize === 'desktop' ? '900px' : viewportSize === 'tablet' ? '500px' : '100%';
-```
-
-**Changes:**
-- Desktop width: 48% → 70%
-- Desktop max-width: 580px → 900px (allows wider display)
-
----
-
-## Issue 3: PartSlot Products Not Displaying (CRITICAL)
-
-### Root Cause Analysis
-
-The screenshot shows Service Packages (Wipers, Air Filter Service, Rear Brake Service) but NO individual product cards below them.
-
-Looking at the code flow:
-
-1. **`groupedProducts` logic (lines 249-258)** - This groups `products` by `partslotDescription`:
+In `MobileProductColumn.tsx` lines 249-258:
 ```typescript
 const groupedProducts = useMemo(() => {
   const groups: Record<string, Product[]> = {};
-  products.forEach(product => {  // ← Products array must have items
+  products.forEach(product => {
     const key = product.partslotDescription || 'Other Parts';
-    ...
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(product);
   });
+  ...
+}, [products]);  // ← Dependency is correct but...
+```
+
+The `useMemo` depends on `products`, but if `products` reference doesn't change correctly (e.g., if the mapping creates an identical reference somehow), React might skip recalculating.
+
+### Fix Required
+
+1. **Add diagnostic logging** to trace the exact products count at each component level
+2. **Force unique array reference** when setting products to ensure React detects the change
+3. **Verify `products` prop is actually updating** in `ContainedMobileBobLayout`
+
+## Implementation Plan
+
+### Step 1: Add Diagnostic Logging (Debug Mode)
+
+**File: `packages/bob-widget/src/components/Bob.tsx`**
+
+Add logging after `setProducts`:
+```typescript
+callbacks.onPartsFound = (parts: unknown[]) => {
+  // ... existing mapping code ...
+  console.log('[Bob] Products mapped and setting state:', mappedProducts.length, 'products');
+  console.log('[Bob] First product:', mappedProducts[0]?.name, mappedProducts[0]?.partslotDescription);
+  setProducts(mappedProducts);
+};
+```
+
+**File: `packages/bob-widget/src/components/mobile/ContainedMobileBobLayout.tsx`**
+
+Add effect to log when products prop changes:
+```typescript
+useEffect(() => {
+  console.log('[ContainedMobileBobLayout] Products prop updated:', products.length);
 }, [products]);
 ```
 
-2. **Rendering (lines 712-791)** - Individual products render in the `showContent && groupedProducts.map(...)` block
+**File: `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`**
 
-3. **`showContent` condition (line 290)**:
+Add logging in `groupedProducts` useMemo:
 ```typescript
-const showContent = hasContent && !showLoading;
-const hasContent = products.length > 0 || servicePackages.length > 0;
+const groupedProducts = useMemo(() => {
+  console.log('[MobileProductColumn] Grouping products:', products.length);
+  const groups: Record<string, Product[]> = {};
+  products.forEach(product => {
+    const key = product.partslotDescription || 'Other Parts';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(product);
+  });
+  const sortedGroupNames = Object.keys(groups).sort((a, b) => a.localeCompare(b));
+  const result = sortedGroupNames.map(name => ({ name, products: groups[name] }));
+  console.log('[MobileProductColumn] Grouped into', result.length, 'categories');
+  return result;
+}, [products]);
 ```
 
-Since Service Packages ARE showing, `showContent` is `true` and the mapping runs.
+### Step 2: Force Array Immutability
 
-**The issue is likely that `products` array is EMPTY while `servicePackages` has items.**
+**File: `packages/bob-widget/src/components/Bob.tsx`**
 
-Looking at `Index.tsx` line 326, it passes `displayedParts` to the component:
+Ensure the products array is always a new reference:
 ```typescript
-products={displayedParts}
+callbacks.onPartsFound = (parts: unknown[]) => {
+  setIsResearching(false);
+  
+  if (!parts || parts.length === 0) {
+    console.log('[Bob] Clearing products (empty array received)');
+    setProducts([]);  // New empty array
+    originalOnPartsFound?.(parts);
+    return;
+  }
+  
+  const mappedProducts: Product[] = (parts as any[]).map((p, idx) => ({
+    // ... existing mapping
+  }));
+  
+  console.log('[Bob] Products mapped and setting state:', mappedProducts.length, 'products');
+  // Force new array reference to trigger React update
+  setProducts([...mappedProducts]);
+  originalOnPartsFound?.(parts);
+};
 ```
 
-And in `Bob.tsx` line 191-193, the service packages and products come from separate state:
+### Step 3: Add Visibility Debug to MobileProductColumn
+
+**File: `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`**
+
+Add visual debug output when products exist but aren't grouped:
 ```typescript
-products={products}
-servicePackages={servicePackages}
+// After line 290
+console.log('[MobileProductColumn] Render check:', {
+  productsLength: products.length,
+  groupedLength: groupedProducts.length,
+  showContent,
+  hasContent,
+  showLoading,
+  visible,
+});
 ```
 
-**Root cause identified:** Service packages arrive via `onServicePackagesFound` callback, but products must come via `onPartsFound` callback. The bob-chat edge function may not be triggering the parts lookup after vehicle confirmation when service packages are fetched.
+## Expected Outcome
 
-### Verification Steps
+After these changes:
+1. Console will show exactly where products are "lost" in the render chain
+2. We can identify if it's a React update issue, a useMemo caching issue, or a visibility condition issue
+3. The `[...mappedProducts]` spread ensures React always sees a new array reference
 
-1. Check if `retrieve_parts` tool is being called in bob-chat after vehicle confirmation
-2. Check console logs for `[Bob] Products mapped` message
-3. Confirm the API returns parts data
+## Verification Steps
 
-### Solution
+1. Open browser DevTools console
+2. Navigate to `/ask-bob`
+3. Enter a vehicle registration
+4. Watch console for the new logs:
+   - `[Bob] Products mapped...`
+   - `[ContainedMobileBobLayout] Products prop updated...`
+   - `[MobileProductColumn] Grouping products...`
+   - `[MobileProductColumn] Grouped into X categories`
+   - `[MobileProductColumn] Render check...`
 
-If products are NOT being fetched automatically after vehicle confirmation, we need to ensure:
-1. After `onServicePackagesFound` fires, a follow-up `retrieve_parts` call happens
-2. OR the service package flow includes auto-fetching all parts
-
-**However**, based on the memory context stating "full product catalog display" was recently fixed, this may be a regression or the fix wasn't deployed properly.
-
----
-
-## Files to Modify
-
-### File 1: `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`
-
-**Change: Desktop width from 48% to 70%**
-
-Line 296:
-```typescript
-// Before
-const columnWidth = viewportSize === 'mobile' ? 92 : viewportSize === 'tablet' ? 65 : 48;
-const maxWidth = viewportSize === 'desktop' ? '580px' : viewportSize === 'tablet' ? '500px' : '100%';
-
-// After
-const columnWidth = viewportSize === 'mobile' ? 92 : viewportSize === 'tablet' ? 65 : 70;
-const maxWidth = viewportSize === 'desktop' ? '900px' : viewportSize === 'tablet' ? '500px' : '100%';
-```
-
-### File 2: `supabase/functions/bob-chat/index.ts` (if products aren't auto-loading)
-
-Investigate why `retrieve_parts` isn't being called automatically after vehicle confirmation. This would be in the post-vehicle-confirmation flow.
-
----
-
-## Investigation Required Before Full Fix
-
-The PartSlot products issue needs debugging to confirm the root cause:
-
-1. **Check browser console** for:
-   - `[Bob] Products mapped and setting state:` log
-   - `[Index] Parts received:` log
-   - Any errors in the fetch flow
-
-2. **Check edge function logs** for:
-   - `retrieve_parts` tool calls
-   - Response data from CARFIX API
-
-3. **Check if this is a timing issue**:
-   - Products may arrive AFTER service packages
-   - The display may not update when products arrive late
-
----
-
-## Expected Behavior After Fix
-
-### Desktop Width (Issue 2)
-- Before: Product column ~48% width (580px max)
-- After: Product column 70% width (900px max) - 46% more real estate for marketing
-
-### Products Display (Issue 3)
-- Before: Only Service Packages visible
-- After: Service Packages at top PLUS all individual PartSlot product categories (Brake Pads, Air Filters, Oil Filters, etc.) displayed below
-
----
-
-## Verification Checklist
-
-- [ ] Desktop product column occupies ~70% of viewport width
-- [ ] Individual PartSlot products display below Service Packages
-- [ ] All product categories are visible (not just the first 30)
-- [ ] Chat drawer stays at bottom when collapsed after chat session
-- [ ] Scroll performance remains smooth on desktop
-
----
-
-## Technical Notes
-
-### Desktop Layout Architecture
-
-The current architecture uses the same `MobileProductColumn` component for both mobile AND desktop, switching layout based on `viewportSize`. The desktop-specific rendering is in `ResponsiveProductCard` (lines 60-122) which uses horizontal card layouts.
-
-### Position Factors
-
-The `usePositionFactors.ts` file defines:
-- Desktop `productWidth: 0.6` - but this is a MULTIPLIER, not directly used
-- The actual width percentage is hardcoded in `MobileProductColumn.tsx`
-
-The discrepancy between `productWidth: 0.6` (60%) and `columnWidth: 48` suggests these were meant to align but don't.
+If any of these show 0 products while Bob shows 360, we've found the exact breaking point.
