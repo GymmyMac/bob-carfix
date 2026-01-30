@@ -722,7 +722,7 @@ export const useBobChat = ({
         
         fallbackTimeoutRef.current = setTimeout(() => {
           if (!speechStartedRef.current) {
-            console.warn('[BobWidget] Speech fallback after 2s');
+            console.warn('[BobWidget] Speech fallback after 5s');
             onReadyToSpeak?.();
             
             if (!manualMode) {
@@ -736,7 +736,7 @@ export const useBobChat = ({
               }
             }
           }
-        }, 2000);
+        }, 5000);
       } else {
         onReadyToSpeak?.();
         
