@@ -142,7 +142,9 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
       style={{
         width: '100%',
         height: '100%',
-        touchAction: 'manipulation'
+        touchAction: 'manipulation',
+        // CRITICAL: Create single stacking context for deterministic z-index
+        isolation: 'isolate',
       }}
     >
       {/* Background - v3.1.10: Config-driven blur via CSS variable */}

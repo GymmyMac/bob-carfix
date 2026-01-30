@@ -191,6 +191,9 @@ export const useBobChat = ({
   const searchingAudioQueueRef = useRef<string[]>([]);
   const isPlayingSearchingRef = useRef(false);
   const currentSearchingAudioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // NEW: Vehicle candidates for multi-variant selection persistence
+  const vehicleCandidatesRef = useRef<unknown[]>([]);
 
   const clearFallbackTimeout = () => {
     if (fallbackTimeoutRef.current) {
@@ -478,6 +481,12 @@ export const useBobChat = ({
         requestBody.customerEmail = customerEmail;
       }
       
+      // NEW: Include stored vehicle candidates for deterministic variant selection
+      if (vehicleCandidatesRef.current.length > 0) {
+        requestBody.vehicleCandidates = vehicleCandidatesRef.current;
+        console.log('[useBobChat] Including', vehicleCandidatesRef.current.length, 'vehicle candidates in request');
+      }
+      
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
@@ -532,6 +541,8 @@ export const useBobChat = ({
             
             if (parsed.type === "vehicle_identified" && parsed.vehicle) {
               setIdentifiedVehicle(parsed.vehicle);
+              // Clear candidates when vehicle is confirmed
+              vehicleCandidatesRef.current = [];
               callbacks.onVehicleIdentified?.(parsed.vehicle);
               analytics.trackVehicleIdentified({
                 make: parsed.vehicle.make,
@@ -539,6 +550,13 @@ export const useBobChat = ({
                 year: parsed.vehicle.year,
                 rego: parsed.vehicle.rego,
               });
+              continue;
+            }
+            
+            // NEW: Handle vehicle candidates for multi-variant selection
+            if (parsed.type === "vehicle_candidates_found" && parsed.candidates) {
+              console.log('[useBobChat] Received vehicle_candidates_found:', parsed.candidates.length, 'candidates');
+              vehicleCandidatesRef.current = parsed.candidates;
               continue;
             }
             
