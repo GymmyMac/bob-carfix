@@ -1877,6 +1877,19 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
         // Also capture service packages AND extract parts from them
         if (toolCall.function.name === "retrieve_service_packages") {
           const packagesResult = result as { success?: boolean; packages?: unknown[] };
+
+          // Parse vehicleid from args so we can ensure the full parts catalog is loaded.
+          // NOTE: We intentionally do NOT rely on the AI to call retrieve_parts.
+          let vehicleIdFromArgs: number | null = null;
+          try {
+            const args = JSON.parse(toolCall.function.arguments) as { vehicleid?: unknown };
+            const parsedVehicleId = Number.parseInt(String(args.vehicleid ?? ''), 10);
+            if (Number.isFinite(parsedVehicleId) && parsedVehicleId > 0) {
+              vehicleIdFromArgs = parsedVehicleId;
+            }
+          } catch {
+            // ignore
+          }
           
           // CRITICAL: Filter packages BEFORE storing - Single Source of Truth
           if (packagesResult.success && packagesResult.packages && packagesResult.packages.length > 0) {
@@ -1894,6 +1907,22 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
               : "No service packages with valid pricing available for this vehicle";
             
             console.log(`Stored ${displayablePackages.length} displayable service packages for emission`);
+
+            // IMPORTANT: Guarantee full catalog visibility.
+            // If the conversation doesn't go through lookup_vehicle auto-fetch (or AI never calls retrieve_parts),
+            // the customer ends up seeing service packs but no full parts catalog.
+            // Fix: when we have a valid vehicleid from retrieve_service_packages, fetch ALL parts once.
+            const alreadyHaveParts = Array.isArray(partsFoundResult) && partsFoundResult.length > 0;
+            if (!alreadyHaveParts && vehicleIdFromArgs) {
+              console.log(`[Parts] No parts loaded yet during retrieve_service_packages - fetching full catalog for vehicle_id ${vehicleIdFromArgs}...`);
+              const allParts = await retrieveParts(vehicleIdFromArgs, apiConfig);
+              if (allParts.success && allParts.parts && allParts.parts.length > 0) {
+                partsFoundResult = allParts.parts;
+                console.log(`[Parts] Loaded ${allParts.parts.length} parts for vehicle_id ${vehicleIdFromArgs} (via service_packages path)`);
+              } else {
+                console.warn(`[Parts] Full catalog fetch returned 0 parts for vehicle_id ${vehicleIdFromArgs} (via service_packages path)`);
+              }
+            }
           }
           
           // Also extract parts from packages for parts display
@@ -1935,7 +1964,14 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
       // Deduplicate parts by SKU before storing for emission
       if (partsFoundResult && partsFoundResult.length > 0) {
         const uniqueParts = Array.from(
-          new Map(partsFoundResult.map((p: unknown) => [(p as Record<string, unknown>).SKU, p])).values()
+          new Map(
+            partsFoundResult.map((p: unknown, idx: number) => {
+              const rec = p as Record<string, unknown>;
+              const key =
+                (rec.SKU ?? rec.sku ?? rec.Sku ?? rec.part_number ?? rec['Part Number'] ?? `__idx_${idx}`) as unknown;
+              return [String(key), p] as const;
+            })
+          ).values()
         );
         console.log(`Deduplicated parts: ${partsFoundResult.length} -> ${uniqueParts.length} unique`);
         (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit = uniqueParts;
