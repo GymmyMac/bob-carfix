@@ -1732,6 +1732,12 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
             console.log(`Multiple vehicle candidates found (${vehicleResult.vehicles.length}), AI will present options to customer`);
             // Flag that we have multiple matches - frontend will show placeholder service packages
             (conversationMessages as unknown as { _multipleVehiclesFound?: boolean })._multipleVehiclesFound = true;
+            
+            // CRITICAL: Store the actual vehicle candidates for later variant confirmation
+            // This enables matching the user's choice to a real vehicle_id when AI emits VEHICLE_CONFIRMED
+            (conversationMessages as unknown as { _multipleVehicleCandidates?: unknown[] })._multipleVehicleCandidates = vehicleResult.vehicles;
+            console.log(`Stored ${vehicleResult.vehicles.length} vehicle candidates for variant confirmation`);
+            
             // Don't set vehicleId - wait for customer to confirm
           }
           
@@ -1996,7 +2002,83 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
           const storedVehicleId = (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId;
           const storedVehicleData = (conversationMessages as unknown as { _lookupVehicleData?: unknown })._lookupVehicleData;
           
-          if (storedVehicleId && storedVehicleId !== vehicleId) {
+          // NEW: For multi-match scenarios, match the AI's choice to stored candidates
+          const storedCandidates = (conversationMessages as unknown as { _multipleVehicleCandidates?: Array<Record<string, unknown>> })._multipleVehicleCandidates;
+          
+          if (!storedVehicleId && storedCandidates && storedCandidates.length > 0) {
+            console.log(`[Variant Confirmation] Matching AI's choice against ${storedCandidates.length} stored candidates`);
+            
+            // Try to match by vehicle_id first (if AI got it right)
+            let matchedCandidate = storedCandidates.find(c => 
+              (c.vehicle_id === vehicleId) || (c.id === vehicleId)
+            );
+            
+            // If no ID match, try fuzzy matching by variant/engine characteristics
+            if (!matchedCandidate && confirmedVehicle.variant) {
+              matchedCandidate = storedCandidates.find(c => 
+                String(c.variant || c.vehicle_name_nz || '').toLowerCase().includes(
+                  String(confirmedVehicle.variant).toLowerCase()
+                )
+              );
+              if (matchedCandidate) console.log(`[Variant Confirmation] Fuzzy matched by variant: ${confirmedVehicle.variant}`);
+            }
+            
+            // If still no match, try by engine size
+            if (!matchedCandidate && confirmedVehicle.engine_size) {
+              const engineSizeDigits = String(confirmedVehicle.engine_size).replace(/[^\d.]/g, '');
+              matchedCandidate = storedCandidates.find(c => 
+                String(c.engine_size || c.cc_rating || '').includes(engineSizeDigits)
+              );
+              if (matchedCandidate) console.log(`[Variant Confirmation] Fuzzy matched by engine size: ${confirmedVehicle.engine_size}`);
+            }
+            
+            // If still no match but only one candidate with matching make/model, use it
+            if (!matchedCandidate) {
+              const makeModelMatches = storedCandidates.filter(c => 
+                String(c.make || '').toLowerCase() === String(confirmedVehicle.make || '').toLowerCase() &&
+                String(c.model || '').toLowerCase() === String(confirmedVehicle.model || '').toLowerCase()
+              );
+              if (makeModelMatches.length === 1) {
+                matchedCandidate = makeModelMatches[0];
+                console.log(`[Variant Confirmation] Single make/model match found`);
+              }
+            }
+            
+            if (matchedCandidate) {
+              const realVehicleId = matchedCandidate.vehicle_id || matchedCandidate.id;
+              if (realVehicleId && realVehicleId !== vehicleId) {
+                console.warn(`[Variant Confirmation] AI used vehicle_id ${vehicleId}, actual candidate ID: ${realVehicleId}`);
+                vehicleId = realVehicleId as number;
+                confirmedVehicle.vehicle_id = realVehicleId;
+              }
+              // Merge in correct vehicle data from matched candidate
+              Object.assign(confirmedVehicle, {
+                make: matchedCandidate.make || confirmedVehicle.make,
+                model: matchedCandidate.model || confirmedVehicle.model,
+                year: matchedCandidate.year || matchedCandidate.start_year || confirmedVehicle.year,
+                variant: matchedCandidate.variant || matchedCandidate.vehicle_name_nz || confirmedVehicle.variant,
+                engine_size: matchedCandidate.engine_size || confirmedVehicle.engine_size,
+                fuel_type: matchedCandidate.fuel_type || confirmedVehicle.fuel_type,
+                cc_rating: matchedCandidate.cc_rating || confirmedVehicle.cc_rating,
+                rego: matchedCandidate.plate || matchedCandidate.rego || confirmedVehicle.rego,
+              });
+              console.log(`[Variant Confirmation] Matched to candidate:`, matchedCandidate.vehicle_name_nz || matchedCandidate.variant);
+              
+              // Store as lookup data for streaming handler
+              (conversationMessages as unknown as { _lookupVehicleId?: number })._lookupVehicleId = vehicleId;
+              (conversationMessages as unknown as { _lookupVehicleData?: unknown })._lookupVehicleData = matchedCandidate;
+            } else {
+              console.warn(`[Variant Confirmation] Could not match AI's choice to any stored candidate, using AI's ID: ${vehicleId}`);
+              // Fall back to first candidate if AI's ID seems invalid
+              if (!vehicleId || vehicleId < 1000) {
+                const fallback = storedCandidates[0];
+                vehicleId = (fallback.vehicle_id || fallback.id) as number;
+                confirmedVehicle.vehicle_id = vehicleId;
+                console.warn(`[Variant Confirmation] AI ID invalid, falling back to first candidate: ${vehicleId}`);
+              }
+            }
+          } else if (storedVehicleId && storedVehicleId !== vehicleId) {
+            // Existing single-match override logic
             console.warn(`AI HALLUCINATED vehicle_id: ${vehicleId} - OVERRIDING with actual lookup ID: ${storedVehicleId}`);
             vehicleId = storedVehicleId;
             confirmedVehicle.vehicle_id = storedVehicleId;
@@ -2009,7 +2091,7 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
           // GARAGE VEHICLE CROSS-REFERENCE: If no lookup was done (AI skipped it for garage vehicles),
           // check if the rego matches a garage vehicle and use its REAL vehicle_id
           const garageVehicles = typedHostContext?.vehicle?.garageVehicles || [];
-          if (!storedVehicleId && confirmedVehicle.rego && garageVehicles.length > 0) {
+          if (!storedVehicleId && !storedCandidates && confirmedVehicle.rego && garageVehicles.length > 0) {
             const garageMatch = garageVehicles.find((gv: Record<string, unknown>) => 
               String(gv.rego).toUpperCase() === String(confirmedVehicle.rego).toUpperCase()
             );
