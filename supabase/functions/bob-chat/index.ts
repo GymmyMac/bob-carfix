@@ -208,6 +208,83 @@ const MODEL_CHARACTERIZATIONS: CharacterizationRule[] = [
   { patterns: [/\bESTATE\b/i, /\bWAGON\b/i, /\bAVANT\b/i], characterization: 'practical' },
 ];
 
+// Engine code personality lookup - takes priority over generic characterizations
+// These are iconic/notable engine codes with distinct personalities
+const ENGINE_CODE_PERSONALITIES: Record<string, string> = {
+  // Toyota legendary engines
+  '3SGE': 'rev-happy',      // BEAMS engine, high-revving naturally aspirated
+  '3SGTE': 'turbocharged',  // Turbo version of 3S-GE, Celica GT-Four/MR2
+  '2JZGTE': 'legendary',    // Supra's famous inline-6 turbo
+  '2JZGE': 'smooth',        // NA version, still a great engine
+  '1JZGTE': 'punchy',       // Smaller JZ turbo
+  '1JZGE': 'refined',       // NA 2.5L inline-6
+  '1GFE': 'sensible',       // Reliable economy engine
+  '1GGTE': 'boosted',       // Turbo version
+  '4AGE': 'zingy',          // High-revving AE86 engine
+  '2AZFE': 'practical',     // Common Camry/RAV4 engine
+  '1AZFE': 'frugal',        // Smaller version
+  '1ZZFE': 'efficient',     // Corolla engine
+  '2ZZGE': 'screamer',      // High-revving Celica/Lotus engine
+  '1UZFE': 'silky',         // V8, Lexus LS400
+  '1GRFE': 'gutsy',         // V6, Land Cruiser Prado
+  
+  // Nissan legendary engines
+  'RB26DETT': 'iconic',     // GT-R's legendary twin-turbo
+  'RB26': 'iconic',         // Short form
+  'RB25DET': 'responsive',  // Single turbo RB
+  'RB20DET': 'eager',       // Smaller RB turbo
+  'SR20DET': 'tuner-favorite', // 180SX/Silvia turbo
+  'SR20DE': 'peppy',        // NA version
+  'VQ35DE': 'growly',       // 350Z/G35 V6
+  'VQ37VHR': 'muscular',    // 370Z V6
+  'VR38DETT': 'supercar',   // R35 GT-R twin-turbo V6
+  'CA18DET': 'eager',       // Early Silvia turbo
+  
+  // Honda high-revving engines
+  'K20A': 'vtec-powered',   // Type R engine
+  'K20A2': 'rev-happy',     // RSX Type S
+  'K24A': 'torquey',        // Larger K-series
+  'B18C': 'screamer',       // Integra Type R
+  'B16A': 'revvy',          // Civic Si
+  'B16B': 'race-bred',      // EK9 Type R
+  'F20C': 'legendary',      // S2000's 9000rpm engine
+  'H22A': 'vtec-punchy',    // Prelude
+  
+  // Subaru boxer engines
+  'EJ20': 'boxer-rumble',   // Classic WRX/STI
+  'EJ25': 'torquey',        // Larger boxer
+  'EJ207': 'rally-bred',    // STI spec
+  'EJ255': 'boost-ready',   // WRX turbo
+  'FA20': 'modern-flat',    // BRZ/86 engine
+  
+  // Mazda rotary and performance
+  '13BREW': 'spinning',     // RX-8 rotary
+  '13B': 'rotary',          // Generic rotary
+  '13BT': 'turbo-rotary',   // FC RX-7 turbo
+  'BPZE': 'peppy',          // MX-5 1.8
+  'LFDE': 'practical',      // Mazda 3/6
+  
+  // Mitsubishi performance
+  '4G63T': 'rally-bred',    // Evo turbo
+  '4G63': 'proven',         // NA version
+  '4B11T': 'modern-turbo',  // Evo X
+  '6G72TT': 'twin-turbo',   // 3000GT VR4
+  
+  // European performance
+  'N54': 'twin-turbo',      // BMW 335i
+  'S54': 'motorsport',      // E46 M3
+  'S65': 'v8-screamer',     // E90 M3
+  'EA888': 'turbo-torque',  // VW/Audi 2.0T
+  'M156': 'amg-power',      // AMG 6.2L V8
+  'M113K': 'supercharged',  // AMG kompressor
+  
+  // Ford/Holden Australian
+  'BARRA': 'aussie-legend', // Ford Falcon turbo 6
+  'LS1': 'v8-rumble',       // Commodore/Monaro
+  'LS2': 'v8-muscle',       // VE Commodore
+  'LS3': 'track-ready',     // HSV
+};
+
 // Make-specific characterization modifiers
 const MAKE_MODIFIERS: Record<string, { sportBias: number; luxuryBias: number }> = {
   'BMW': { sportBias: 0.3, luxuryBias: 0.3 },
@@ -231,8 +308,15 @@ const MAKE_MODIFIERS: Record<string, { sportBias: number; luxuryBias: number }> 
 };
 
 /**
+ * Normalize engine code for lookup (remove dashes, spaces, lowercase)
+ */
+function normalizeEngineCode(code: string): string {
+  return code.toUpperCase().replace(/[-\s]/g, '');
+}
+
+/**
  * Get a characterization for a vehicle based on its attributes and relative position among variants.
- * Uses model/variant keywords first, then falls back to power-based characterization.
+ * Priority: Engine code personality > Model keywords > Power-based > Fuel type > CC rating
  */
 function getVehicleCharacterization(
   candidate: VehicleCandidate,
@@ -240,11 +324,21 @@ function getVehicleCharacterization(
 ): string {
   const vehicleName = candidate.vehicle_name_nz || '';
   const make = (candidate.make || '').toUpperCase();
-  const model = (candidate.model || '').toUpperCase();
   const variant = (candidate.variant || '').toUpperCase();
   const fullText = `${vehicleName} ${variant}`.toUpperCase();
   
-  // First: Check for explicit model/variant keyword matches
+  // FIRST PRIORITY: Check for engine code personality
+  const engineCode = extractEngineCode(candidate);
+  if (engineCode) {
+    const normalizedCode = normalizeEngineCode(engineCode);
+    const personality = ENGINE_CODE_PERSONALITIES[normalizedCode];
+    if (personality) {
+      console.log(`[Characterization] Engine code ${engineCode} -> ${personality}`);
+      return personality;
+    }
+  }
+  
+  // Second: Check for explicit model/variant keyword matches
   for (const rule of MODEL_CHARACTERIZATIONS) {
     for (const pattern of rule.patterns) {
       if (pattern.test(fullText)) {
@@ -254,7 +348,7 @@ function getVehicleCharacterization(
     }
   }
   
-  // Second: Fall back to power-based characterization with make bias
+  // Third: Fall back to power-based characterization with make bias
   const kw = extractKwFromVehicleName(vehicleName);
   const allKw = allCandidates.map(c => extractKwFromVehicleName(c.vehicle_name_nz));
   const validKw = allKw.filter((k): k is number => k !== null);
@@ -270,7 +364,7 @@ function getVehicleCharacterization(
       // Apply make bias
       const makeBias = MAKE_MODIFIERS[make];
       if (makeBias) {
-        position += makeBias.sportBias * 0.2; // Slightly adjust position for sporty makes
+        position += makeBias.sportBias * 0.2;
       }
       
       // Assign characterization based on relative power
@@ -281,12 +375,12 @@ function getVehicleCharacterization(
     }
   }
   
-  // Third: Use fuel type for characterization
+  // Fourth: Use fuel type for characterization
   const fuel = (candidate.fuel_type || '').toLowerCase();
   if (fuel.includes('diesel')) return 'torquey';
   if (fuel.includes('hybrid') || fuel.includes('electric')) return 'efficient';
   
-  // Fourth: Use CC rating for basic characterization
+  // Fifth: Use CC rating for basic characterization
   const cc = candidate.cc_rating;
   if (cc) {
     if (cc >= 3000) return 'powerful';
