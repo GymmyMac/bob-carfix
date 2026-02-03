@@ -142,38 +142,133 @@ function determineConversationState(
 }
 
 /**
- * Generate a human-readable variant list for user selection.
- */
-function generateVariantListText(candidates: VehicleCandidate[]): string {
-  return candidates.map((c, i) => {
-    const cc = c.cc_rating ? `${(c.cc_rating / 1000).toFixed(1)}L` : '';
-    const fuel = c.fuel_type || '';
-    const kw = extractKwFromVehicleName(c.vehicle_name_nz);
-    const eng = c.engine_code || '';
-    const year = c.start_year && c.end_year 
-      ? `${c.start_year}-${c.end_year}` 
-      : (c.year || c.start_year || '');
-    
-    // Build a descriptive line
-    const parts = [
-      cc,
-      fuel,
-      kw ? `${kw}kW` : '',
-      eng,
-      year ? `(${year})` : ''
-    ].filter(Boolean).join(' ');
-    
-    return `${i + 1}) ${parts || c.vehicle_name_nz || `${c.make} ${c.model}`}`;
-  }).join('\n');
-}
-
-/**
  * Extract kW power rating from vehicle_name_nz (e.g., "TDI 103KW" -> 103)
  */
 function extractKwFromVehicleName(name?: string): number | null {
   if (!name) return null;
   const match = name.match(/(\d{2,3})\s*KW/i);
   return match ? parseInt(match[1], 10) : null;
+}
+
+/**
+ * Extract engine code from vehicle_name_nz (e.g., "CAMRY 2.4 2AZ-FE" -> "2AZ-FE")
+ * Engine codes are typically patterns like: 1AZ-FE, 3S-GE, K20A, etc.
+ */
+function extractEngineCode(candidate: VehicleCandidate): string | null {
+  // First check explicit engine_code field
+  if (candidate.engine_code) return candidate.engine_code;
+  
+  // Try to extract from vehicle_name_nz
+  if (candidate.vehicle_name_nz) {
+    // Common engine code patterns: 1AZ-FE, 2AZ-FE, 3S-GE, K20A, etc.
+    const match = candidate.vehicle_name_nz.match(/\b([0-9]?[A-Z]{1,3}[0-9]?[-]?[A-Z]{1,3}[A-Z]?)\b/);
+    if (match && match[1].length >= 3) return match[1];
+  }
+  
+  return null;
+}
+
+/**
+ * Get a brief characterization based on power output.
+ */
+function getPowerCharacterization(kw: number | null, allKw: (number | null)[]): string {
+  if (!kw) return '';
+  
+  // Filter out nulls and find min/max
+  const validKw = allKw.filter((k): k is number => k !== null);
+  if (validKw.length <= 1) return '';
+  
+  const maxKw = Math.max(...validKw);
+  const minKw = Math.min(...validKw);
+  
+  if (maxKw === minKw) return '';
+  
+  // Determine where this kW sits in the range
+  const range = maxKw - minKw;
+  const position = (kw - minKw) / range;
+  
+  if (position >= 0.8) return 'sporty';
+  if (position >= 0.5) return 'mid-range';
+  if (position <= 0.2) return 'economical';
+  return 'balanced';
+}
+
+/**
+ * Generate a human-readable variant list for user selection.
+ * Only shows differentiating attributes between candidates.
+ */
+function generateVariantListText(candidates: VehicleCandidate[]): string {
+  if (candidates.length === 0) return '';
+  
+  // Extract key attributes for each candidate
+  const candidateData = candidates.map(c => ({
+    candidate: c,
+    cc: c.cc_rating || null,
+    ccDisplay: c.cc_rating ? `${(c.cc_rating / 1000).toFixed(1)}L` : null,
+    fuel: c.fuel_type || null,
+    kw: extractKwFromVehicleName(c.vehicle_name_nz),
+    engineCode: extractEngineCode(c),
+    yearRange: c.start_year && c.end_year 
+      ? `${c.start_year}-${c.end_year}` 
+      : (c.year?.toString() || c.start_year?.toString() || null),
+  }));
+  
+  // Find which attributes differ between candidates
+  const allCc = candidateData.map(d => d.cc);
+  const allFuel = candidateData.map(d => d.fuel);
+  const allKw = candidateData.map(d => d.kw);
+  const allEngineCodes = candidateData.map(d => d.engineCode);
+  const allYears = candidateData.map(d => d.yearRange);
+  
+  const ccDiffers = new Set(allCc.filter(Boolean)).size > 1;
+  const fuelDiffers = new Set(allFuel.filter(Boolean)).size > 1;
+  const kwDiffers = new Set(allKw.filter(Boolean)).size > 1;
+  const engineCodeDiffers = new Set(allEngineCodes.filter(Boolean)).size > 1;
+  const yearDiffers = new Set(allYears.filter(Boolean)).size > 1;
+  
+  return candidateData.map((d, i) => {
+    const parts: string[] = [];
+    
+    // Add power characterization first if kW differs
+    if (kwDiffers && d.kw) {
+      const characterization = getPowerCharacterization(d.kw, allKw);
+      if (characterization) parts.push(`The ${characterization}`);
+    }
+    
+    // Add kW if it differs
+    if (kwDiffers && d.kw) {
+      parts.push(`${d.kw}kW`);
+    }
+    
+    // Add CC if it differs
+    if (ccDiffers && d.ccDisplay) {
+      parts.push(d.ccDisplay);
+    }
+    
+    // Add fuel type if it differs
+    if (fuelDiffers && d.fuel) {
+      parts.push(d.fuel);
+    }
+    
+    // Add engine code if it differs (key identifier!)
+    if (engineCodeDiffers && d.engineCode) {
+      parts.push(`(${d.engineCode} engine)`);
+    }
+    
+    // Add year range if it differs
+    if (yearDiffers && d.yearRange) {
+      parts.push(`[${d.yearRange}]`);
+    }
+    
+    // If no differentiating attributes found, fall back to vehicle name
+    if (parts.length === 0) {
+      const fallback = d.candidate.vehicle_name_nz || 
+                       `${d.candidate.make} ${d.candidate.model}`;
+      return `${i + 1}) ${fallback}`;
+    }
+    
+    return `${i + 1}) ${parts.join(' ')}`;
+  }).join('\n');
 }
 
 // ============= DETERMINISTIC VARIANT SELECTION =============
