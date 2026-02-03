@@ -1307,8 +1307,14 @@ serve(async (req) => {
     if (hostContext) {
       console.log('Host context provided:', JSON.stringify(hostContext));
     }
+    // DEBUG: Log vehicleCandidates regardless of whether they exist
+    console.log(`[DEBUG] vehicleCandidates in request body:`, JSON.stringify(vehicleCandidates ? vehicleCandidates.slice(0, 2) : null));
+    console.log(`[DEBUG] vehicleCandidates count:`, vehicleCandidates?.length || 0);
+    
     if (vehicleCandidates && vehicleCandidates.length > 0) {
-      console.log(`[Variant Selection] Received ${vehicleCandidates.length} candidates from client`);
+      console.log(`[Variant Selection] ✅ Received ${vehicleCandidates.length} candidates from client`);
+    } else {
+      console.log(`[Variant Selection] ⚠️ No vehicleCandidates in request body`);
     }
 
     // Handle auto-fetch parts mode - just fetch parts and packages, no AI response
