@@ -1490,15 +1490,27 @@ serve(async (req) => {
     let deterministicVehicle: VehicleCandidate | null = forcedSingleVehicle;
     let deterministicSelectionMethod: string | null = forcedSingleVehicle ? 'forced_single_match' : null;
     
-    if (!deterministicVehicle && allCandidates.length > 0 && !vehicleContext) {
-      if (lastUserContent) {
-        const matchResult = matchUserInputToCandidate(lastUserContent, allCandidates);
-        if (matchResult) {
-          deterministicVehicle = matchResult.candidate;
-          deterministicSelectionMethod = matchResult.method;
-          console.log(`[Variant Selection] Deterministically matched vehicle_id=${deterministicVehicle.vehicle_id} via ${deterministicSelectionMethod}`);
-        }
+    // CRITICAL: Only run the matcher if:
+    // 1. We don't already have a confirmed vehicle
+    // 2. Candidates exist from a PREVIOUS message (vehicleCandidates from client), not from a forced lookup in THIS message
+    // 3. forcedCandidates.length === 0 means we didn't just do a REGO lookup in this request
+    //    (if we did, the user's message IS the REGO, not a variant selection)
+    const candidatesFromPreviousMessage = vehicleCandidates as VehicleCandidate[] || [];
+    const shouldRunMatcher = !deterministicVehicle && 
+                              candidatesFromPreviousMessage.length > 0 && 
+                              forcedCandidates.length === 0 &&  // Don't match if we just looked up a REGO
+                              !vehicleContext;
+    
+    if (shouldRunMatcher && lastUserContent) {
+      console.log(`[Variant Matcher] Running matcher against ${candidatesFromPreviousMessage.length} candidates from previous message`);
+      const matchResult = matchUserInputToCandidate(lastUserContent, candidatesFromPreviousMessage);
+      if (matchResult) {
+        deterministicVehicle = matchResult.candidate;
+        deterministicSelectionMethod = matchResult.method;
+        console.log(`[Variant Selection] Deterministically matched vehicle_id=${deterministicVehicle.vehicle_id} via ${deterministicSelectionMethod}`);
       }
+    } else if (!deterministicVehicle && forcedCandidates.length > 0) {
+      console.log(`[Variant Matcher] Skipping matcher - this message contains the REGO, not a variant selection`);
     }
     
     // Determine current conversation state
