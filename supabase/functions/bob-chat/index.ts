@@ -169,33 +169,138 @@ function extractEngineCode(candidate: VehicleCandidate): string | null {
 }
 
 /**
- * Get a brief characterization based on power output.
+ * Vehicle characterization based on make/model patterns and variant keywords.
+ * This uses automotive industry knowledge to assign appropriate descriptors.
  */
-function getPowerCharacterization(kw: number | null, allKw: (number | null)[]): string {
-  if (!kw) return '';
+interface CharacterizationRule {
+  patterns: RegExp[];
+  characterization: string;
+}
+
+// Model/variant keyword patterns mapped to characterizations
+const MODEL_CHARACTERIZATIONS: CharacterizationRule[] = [
+  // Performance/Sport variants
+  { patterns: [/\bGT\b/i, /\bGTI\b/i, /\bGTS\b/i, /\bGT-R\b/i, /\bRS\b/i, /\bR\b(?!\w)/i], characterization: 'sporty' },
+  { patterns: [/\bTYPE[\s-]?R\b/i, /\bSI\b/i, /\bSS\b/i, /\bVXR\b/i, /\bOPC\b/i], characterization: 'sporty' },
+  { patterns: [/\bSTI\b/i, /\bWRX\b/i, /\bEVO\b/i, /\bNISMO\b/i, /\bTRD\b/i], characterization: 'sporty' },
+  { patterns: [/\bM\s?SPORT\b/i, /\bAMG\b/i, /\bS[\s-]?LINE\b/i, /\bN[\s-]?LINE\b/i], characterization: 'sporty' },
+  { patterns: [/SPORT/i, /\bSPORTIVO\b/i, /\bABARTH\b/i], characterization: 'sporty' },
   
-  // Filter out nulls and find min/max
+  // Luxury/Premium variants
+  { patterns: [/\bLIMITED\b/i, /\bPRIME\b/i, /\bPLATINUM\b/i, /\bPREMIUM\b/i], characterization: 'premium' },
+  { patterns: [/\bEXECUTIVE\b/i, /\bELEGANCE\b/i, /\bAVANTGARDE\b/i], characterization: 'premium' },
+  { patterns: [/\bLUXURY\b/i, /\bAMBIENTE\b/i, /\bTITANIUM\b/i], characterization: 'premium' },
+  { patterns: [/\bSEL\b/i, /\bSEL\s?PLUS\b/i, /\bALTIMA\b/i], characterization: 'premium' },
+  
+  // Economy/Efficiency variants
+  { patterns: [/\bECO\b/i, /\bBLUE\s?MOTION\b/i, /\bEFFICIENT\s?DYNAMICS\b/i], characterization: 'economical' },
+  { patterns: [/\bHYBRID\b/i, /\bEV\b/i, /\bE-TRON\b/i, /\bPLUG[\s-]?IN\b/i], characterization: 'efficient' },
+  { patterns: [/\bTDI\b/i, /\bCDI\b/i, /\bBLUE\s?HDI\b/i, /\bD4D\b/i], characterization: 'efficient' },
+  
+  // Workhorse/Utility variants
+  { patterns: [/\bUTE\b/i, /\bCAB\s?CHASSIS\b/i, /\bWORKMATE\b/i], characterization: 'workhorse' },
+  { patterns: [/\bTRADESMAN\b/i, /\b4X4\b/i, /\bALL[\s-]?WHEEL\b/i], characterization: 'capable' },
+  { patterns: [/\bHIGHRIDER\b/i, /\bRUGGED\b/i, /\bTRAIL\b/i], characterization: 'rugged' },
+  
+  // Family/Comfort variants  
+  { patterns: [/\bGLX\b/i, /\bGXL\b/i, /\bSX\b/i, /\bLX\b/i], characterization: 'well-equipped' },
+  { patterns: [/\bFAMILY\b/i, /\bTOURING\b/i, /\bGRAND\b/i], characterization: 'comfortable' },
+  { patterns: [/\bESTATE\b/i, /\bWAGON\b/i, /\bAVANT\b/i], characterization: 'practical' },
+];
+
+// Make-specific characterization modifiers
+const MAKE_MODIFIERS: Record<string, { sportBias: number; luxuryBias: number }> = {
+  'BMW': { sportBias: 0.3, luxuryBias: 0.3 },
+  'MERCEDES': { sportBias: 0.1, luxuryBias: 0.4 },
+  'MERCEDES-BENZ': { sportBias: 0.1, luxuryBias: 0.4 },
+  'AUDI': { sportBias: 0.2, luxuryBias: 0.3 },
+  'LEXUS': { sportBias: 0.1, luxuryBias: 0.4 },
+  'PORSCHE': { sportBias: 0.5, luxuryBias: 0.2 },
+  'SUBARU': { sportBias: 0.3, luxuryBias: 0 },
+  'MAZDA': { sportBias: 0.2, luxuryBias: 0.1 },
+  'TOYOTA': { sportBias: 0, luxuryBias: 0 },
+  'HONDA': { sportBias: 0.1, luxuryBias: 0 },
+  'NISSAN': { sportBias: 0.1, luxuryBias: 0 },
+  'FORD': { sportBias: 0.1, luxuryBias: 0 },
+  'HOLDEN': { sportBias: 0.2, luxuryBias: 0 },
+  'HYUNDAI': { sportBias: 0, luxuryBias: 0 },
+  'KIA': { sportBias: 0, luxuryBias: 0 },
+  'VOLKSWAGEN': { sportBias: 0.1, luxuryBias: 0.1 },
+  'MITSUBISHI': { sportBias: 0.1, luxuryBias: 0 },
+  'SUZUKI': { sportBias: 0, luxuryBias: 0 },
+};
+
+/**
+ * Get a characterization for a vehicle based on its attributes and relative position among variants.
+ * Uses model/variant keywords first, then falls back to power-based characterization.
+ */
+function getVehicleCharacterization(
+  candidate: VehicleCandidate,
+  allCandidates: VehicleCandidate[]
+): string {
+  const vehicleName = candidate.vehicle_name_nz || '';
+  const make = (candidate.make || '').toUpperCase();
+  const model = (candidate.model || '').toUpperCase();
+  const variant = (candidate.variant || '').toUpperCase();
+  const fullText = `${vehicleName} ${variant}`.toUpperCase();
+  
+  // First: Check for explicit model/variant keyword matches
+  for (const rule of MODEL_CHARACTERIZATIONS) {
+    for (const pattern of rule.patterns) {
+      if (pattern.test(fullText)) {
+        console.log(`[Characterization] Matched pattern ${pattern} -> ${rule.characterization}`);
+        return rule.characterization;
+      }
+    }
+  }
+  
+  // Second: Fall back to power-based characterization with make bias
+  const kw = extractKwFromVehicleName(vehicleName);
+  const allKw = allCandidates.map(c => extractKwFromVehicleName(c.vehicle_name_nz));
   const validKw = allKw.filter((k): k is number => k !== null);
-  if (validKw.length <= 1) return '';
   
-  const maxKw = Math.max(...validKw);
-  const minKw = Math.min(...validKw);
+  if (kw && validKw.length > 1) {
+    const maxKw = Math.max(...validKw);
+    const minKw = Math.min(...validKw);
+    
+    if (maxKw !== minKw) {
+      const range = maxKw - minKw;
+      let position = (kw - minKw) / range;
+      
+      // Apply make bias
+      const makeBias = MAKE_MODIFIERS[make];
+      if (makeBias) {
+        position += makeBias.sportBias * 0.2; // Slightly adjust position for sporty makes
+      }
+      
+      // Assign characterization based on relative power
+      if (position >= 0.75) return 'sporty';
+      if (position >= 0.5) return 'punchy';
+      if (position <= 0.25) return 'economical';
+      return 'balanced';
+    }
+  }
   
-  if (maxKw === minKw) return '';
+  // Third: Use fuel type for characterization
+  const fuel = (candidate.fuel_type || '').toLowerCase();
+  if (fuel.includes('diesel')) return 'torquey';
+  if (fuel.includes('hybrid') || fuel.includes('electric')) return 'efficient';
   
-  // Determine where this kW sits in the range
-  const range = maxKw - minKw;
-  const position = (kw - minKw) / range;
+  // Fourth: Use CC rating for basic characterization
+  const cc = candidate.cc_rating;
+  if (cc) {
+    if (cc >= 3000) return 'powerful';
+    if (cc >= 2500) return 'punchy';
+    if (cc <= 1500) return 'nimble';
+  }
   
-  if (position >= 0.8) return 'sporty';
-  if (position >= 0.5) return 'mid-range';
-  if (position <= 0.2) return 'economical';
-  return 'balanced';
+  return ''; // No characterization if we can't determine one
 }
 
 /**
  * Generate a human-readable variant list for user selection.
  * Only shows differentiating attributes between candidates.
+ * Does NOT include year ranges (we know the exact year from REGO).
  */
 function generateVariantListText(candidates: VehicleCandidate[]): string {
   if (candidates.length === 0) return '';
@@ -208,9 +313,7 @@ function generateVariantListText(candidates: VehicleCandidate[]): string {
     fuel: c.fuel_type || null,
     kw: extractKwFromVehicleName(c.vehicle_name_nz),
     engineCode: extractEngineCode(c),
-    yearRange: c.start_year && c.end_year 
-      ? `${c.start_year}-${c.end_year}` 
-      : (c.year?.toString() || c.start_year?.toString() || null),
+    characterization: getVehicleCharacterization(c, candidates),
   }));
   
   // Find which attributes differ between candidates
@@ -218,21 +321,18 @@ function generateVariantListText(candidates: VehicleCandidate[]): string {
   const allFuel = candidateData.map(d => d.fuel);
   const allKw = candidateData.map(d => d.kw);
   const allEngineCodes = candidateData.map(d => d.engineCode);
-  const allYears = candidateData.map(d => d.yearRange);
   
   const ccDiffers = new Set(allCc.filter(Boolean)).size > 1;
   const fuelDiffers = new Set(allFuel.filter(Boolean)).size > 1;
   const kwDiffers = new Set(allKw.filter(Boolean)).size > 1;
   const engineCodeDiffers = new Set(allEngineCodes.filter(Boolean)).size > 1;
-  const yearDiffers = new Set(allYears.filter(Boolean)).size > 1;
   
   return candidateData.map((d, i) => {
     const parts: string[] = [];
     
-    // Add power characterization first if kW differs
-    if (kwDiffers && d.kw) {
-      const characterization = getPowerCharacterization(d.kw, allKw);
-      if (characterization) parts.push(`The ${characterization}`);
+    // Add characterization first (e.g., "The sporty", "The economical")
+    if (d.characterization) {
+      parts.push(`The ${d.characterization}`);
     }
     
     // Add kW if it differs
@@ -253,11 +353,6 @@ function generateVariantListText(candidates: VehicleCandidate[]): string {
     // Add engine code if it differs (key identifier!)
     if (engineCodeDiffers && d.engineCode) {
       parts.push(`(${d.engineCode} engine)`);
-    }
-    
-    // Add year range if it differs
-    if (yearDiffers && d.yearRange) {
-      parts.push(`[${d.yearRange}]`);
     }
     
     // If no differentiating attributes found, fall back to vehicle name
