@@ -114,6 +114,12 @@ export const useBobChat = ({
   const searchingAudioQueueRef = useRef<string[]>([]);
   const isPlayingSearchingRef = useRef(false);
   const currentSearchingAudioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // NEW: Vehicle candidates for multi-variant selection persistence
+  const vehicleCandidatesRef = useRef<unknown[]>([]);
+  
+  // NEW: Conversation state for UI hints
+  const conversationStateRef = useRef<string>('AWAITING_REGO');
 
   const { speak, stop: stopSpeech, isSpeaking, retryPendingGreeting } = useSpeechSynthesis({
     onStart: () => {
@@ -331,6 +337,20 @@ export const useBobChat = ({
         requestBody.customerEmail = customerEmail;
       }
       
+      // DEBUG: Log vehicle candidates state BEFORE building request
+      console.log('[useBobChat DEBUG] vehicleCandidatesRef.current.length:', vehicleCandidatesRef.current?.length);
+      console.log('[useBobChat DEBUG] conversationStateRef.current:', conversationStateRef.current);
+      
+      // NEW: Include stored vehicle candidates for deterministic variant selection
+      if (vehicleCandidatesRef.current && vehicleCandidatesRef.current.length > 0) {
+        requestBody.vehicleCandidates = vehicleCandidatesRef.current;
+        console.log('[useBobChat] ✅ Including', vehicleCandidatesRef.current.length, 'vehicle candidates in request');
+      } else {
+        console.log('[useBobChat] ⚠️ No vehicle candidates to include - ref is empty');
+      }
+      
+      console.log('[useBobChat] Request body keys:', Object.keys(requestBody));
+      
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
@@ -368,8 +388,30 @@ export const useBobChat = ({
           try {
             const parsed = JSON.parse(jsonStr);
             
+            // NEW: Handle conversation_state event for UI sync
+            if (parsed.type === "conversation_state") {
+              console.log('[useBobChat] 🔄 conversation_state event received:', parsed.state);
+              conversationStateRef.current = parsed.state;
+              // Store candidates if provided
+              if (parsed.candidates && Array.isArray(parsed.candidates)) {
+                vehicleCandidatesRef.current = parsed.candidates;
+                console.log('[useBobChat] ✅ Stored', parsed.candidates.length, 'vehicle candidates from state event');
+              }
+              continue;
+            }
+            
+            // Handle vehicle candidates for multi-variant selection
+            if (parsed.type === "vehicle_candidates_found" && parsed.candidates) {
+              console.log('[useBobChat] 📦 vehicle_candidates_found event received:', parsed.candidates.length, 'candidates');
+              vehicleCandidatesRef.current = parsed.candidates;
+              continue;
+            }
+            
             if (parsed.type === "vehicle_identified" && parsed.vehicle) {
               setIdentifiedVehicle(parsed.vehicle);
+              // Clear candidates when vehicle is confirmed
+              vehicleCandidatesRef.current = [];
+              conversationStateRef.current = 'VEHICLE_CONFIRMED';
               onVehicleIdentified?.(parsed.vehicle);
               continue;
             }
