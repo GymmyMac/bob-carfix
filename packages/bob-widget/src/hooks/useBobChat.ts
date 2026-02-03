@@ -554,10 +554,18 @@ export const useBobChat = ({
         requestBody.customerEmail = customerEmail;
       }
       
+      // DEBUG: Log vehicle candidates state BEFORE building request
+      console.log('[useBobChat DEBUG] vehicleCandidatesRef.current:', 
+        JSON.stringify(vehicleCandidatesRef.current?.slice(0, 2)));
+      console.log('[useBobChat DEBUG] vehicleCandidatesRef.current.length:', vehicleCandidatesRef.current?.length);
+      console.log('[useBobChat DEBUG] conversationStateRef.current:', conversationStateRef.current);
+      
       // NEW: Include stored vehicle candidates for deterministic variant selection
-      if (vehicleCandidatesRef.current.length > 0) {
+      if (vehicleCandidatesRef.current && vehicleCandidatesRef.current.length > 0) {
         requestBody.vehicleCandidates = vehicleCandidatesRef.current;
-        console.log('[useBobChat] Including', vehicleCandidatesRef.current.length, 'vehicle candidates in request');
+        console.log('[useBobChat] ✅ Including', vehicleCandidatesRef.current.length, 'vehicle candidates in request');
+      } else {
+        console.log('[useBobChat] ⚠️ No vehicle candidates to include - ref is empty');
       }
       
       const resp = await fetch(CHAT_URL, {
@@ -614,12 +622,15 @@ export const useBobChat = ({
             
             // NEW: Handle conversation_state event for UI sync
             if (parsed.type === "conversation_state") {
-              console.log('[useBobChat] Conversation state:', parsed.state);
+              console.log('[useBobChat] 🔄 conversation_state event received:', parsed.state);
               conversationStateRef.current = parsed.state;
               // Store candidates if provided
-              if (parsed.candidates) {
+              if (parsed.candidates && Array.isArray(parsed.candidates)) {
                 vehicleCandidatesRef.current = parsed.candidates;
-                console.log('[useBobChat] Stored', parsed.candidates.length, 'vehicle candidates from state event');
+                console.log('[useBobChat] ✅ Stored', parsed.candidates.length, 'vehicle candidates from state event');
+                console.log('[useBobChat] First candidate:', JSON.stringify(parsed.candidates[0]));
+              } else {
+                console.log('[useBobChat] ⚠️ conversation_state had no candidates array');
               }
               continue;
             }
@@ -641,8 +652,9 @@ export const useBobChat = ({
             
             // Handle vehicle candidates for multi-variant selection
             if (parsed.type === "vehicle_candidates_found" && parsed.candidates) {
-              console.log('[useBobChat] Received vehicle_candidates_found:', parsed.candidates.length, 'candidates');
+              console.log('[useBobChat] 📦 vehicle_candidates_found event received:', parsed.candidates.length, 'candidates');
               vehicleCandidatesRef.current = parsed.candidates;
+              console.log('[useBobChat] ✅ Candidates stored in ref. First:', JSON.stringify(parsed.candidates[0]));
               continue;
             }
             
