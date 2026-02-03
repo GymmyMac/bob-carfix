@@ -1866,23 +1866,30 @@ DO NOT assume any variant. DO NOT say parts are loading. Wait for their selectio
               ];
             }
           } else if (toolCall.function.name === 'retrieve_parts' || toolCall.function.name === 'retrieve_service_packages') {
-            const searchingClip = await getSearchingClip('parts');
-            if (searchingClip) {
-              const existingEvents = (conversationMessages as unknown as { _searchingEventsToEmit?: unknown[] })._searchingEventsToEmit || [];
-              // Only add parts searching if not already queued
-              const alreadyHasParts = existingEvents.some((e: any) => e.search_type === 'parts');
-              if (!alreadyHasParts) {
-                (conversationMessages as unknown as { _searchingEventsToEmit?: unknown[] })._searchingEventsToEmit = [
-                  ...existingEvents,
-                  {
-                    type: 'bob_searching',
-                    search_type: 'parts',
-                    transcript: searchingClip.transcript,
-                    audio_url: searchingClip.audio_url,
-                    clip_key: searchingClip.clip_key
-                  }
-                ];
+            // Only play parts searching audio if vehicle is ALREADY confirmed
+            // (effectiveVehicleContext exists from session or previous confirmation)
+            if (effectiveVehicleContext) {
+              const searchingClip = await getSearchingClip('parts');
+              if (searchingClip) {
+                const existingEvents = (conversationMessages as unknown as { _searchingEventsToEmit?: unknown[] })._searchingEventsToEmit || [];
+                // Only add parts searching if not already queued
+                const alreadyHasParts = existingEvents.some((e: any) => e.search_type === 'parts');
+                if (!alreadyHasParts) {
+                  console.log(`[Searching Audio] Vehicle confirmed, queuing parts searching audio`);
+                  (conversationMessages as unknown as { _searchingEventsToEmit?: unknown[] })._searchingEventsToEmit = [
+                    ...existingEvents,
+                    {
+                      type: 'bob_searching',
+                      search_type: 'parts',
+                      transcript: searchingClip.transcript,
+                      audio_url: searchingClip.audio_url,
+                      clip_key: searchingClip.clip_key
+                    }
+                  ];
+                }
               }
+            } else {
+              console.log(`[Searching Audio] Vehicle NOT confirmed yet, skipping parts searching audio`);
             }
           }
           
