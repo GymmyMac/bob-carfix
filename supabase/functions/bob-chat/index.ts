@@ -190,13 +190,27 @@ function matchUserInputToCandidate(
   const input = userMessage.trim().toLowerCase();
   console.log(`[Variant Matcher] Attempting to match: "${input.slice(0, 60)}" against ${candidates.length} candidates`);
   
-  // Method 1: Option number (e.g., "1", "2", "option 1", "the first one", "#2")
+  // Word-to-number mapping for spelled-out numbers
+  const wordToNumber: Record<string, number> = {
+    'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+    'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+    '1st': 1, '2nd': 2, '3rd': 3, '4th': 4, '5th': 5,
+  };
+  
+  // Convert spelled-out numbers to digits in input for matching
+  let normalizedInput = input;
+  for (const [word, num] of Object.entries(wordToNumber)) {
+    normalizedInput = normalizedInput.replace(new RegExp(`\\b${word}\\b`, 'gi'), String(num));
+  }
+  
+  // Method 1: Option number (e.g., "1", "2", "option 1", "the first one", "#2", "number two")
   const optionPatterns = [
     /^(\d+)$/,                           // Just "1" or "2"
     /^#?(\d+)$/,                         // "#1", "#2"
     /option\s*(\d+)/i,                   // "option 1", "option2"
-    /number\s*(\d+)/i,                   // "number 1"
+    /number\s*(\d+)/i,                   // "number 1", "number 2" (after normalization)
     /^the\s*(first|second|third|fourth|fifth)/i,  // "the first one"
+    /^(\d+)\s*(?:please|bob|mate)?$/i,   // "1 please", "2 bob", "3 mate"
   ];
   
   const ordinalMap: Record<string, number> = {
@@ -204,7 +218,7 @@ function matchUserInputToCandidate(
   };
   
   for (const pattern of optionPatterns) {
-    const match = input.match(pattern);
+    const match = normalizedInput.match(pattern);
     if (match) {
       let index: number;
       if (ordinalMap[match[1]?.toLowerCase()]) {
