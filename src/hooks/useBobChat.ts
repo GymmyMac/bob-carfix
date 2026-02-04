@@ -391,6 +391,11 @@ export const useBobChat = ({
           try {
             const parsed = JSON.parse(jsonStr);
             
+            // DEBUG: Log all incoming event types to trace SSE flow
+            if (parsed.type) {
+              console.log('[useBobChat] SSE event type:', parsed.type);
+            }
+            
             // NEW: Handle conversation_state event for UI sync
             if (parsed.type === "conversation_state") {
               console.log('[useBobChat] 🔄 conversation_state event received:', parsed.state);
@@ -410,6 +415,16 @@ export const useBobChat = ({
               continue;
             }
             
+            // PRIORITY: Handle variant_selection_required for UI cards BEFORE other events
+            // This must trigger immediately when multiple variants are detected
+            if (parsed.type === "variant_selection_required") {
+              console.log('[useBobChat] 🎴 variant_selection_required event received:', parsed.candidates?.length || 0, 'cards');
+              if (parsed.candidates && Array.isArray(parsed.candidates)) {
+                onVariantSelectionRequired?.(parsed.candidates, parsed.make || '', parsed.model || '');
+              }
+              continue;
+            }
+            
             if (parsed.type === "vehicle_identified" && parsed.vehicle) {
               setIdentifiedVehicle(parsed.vehicle);
               // Clear candidates when vehicle is confirmed
@@ -421,13 +436,6 @@ export const useBobChat = ({
             
             if (parsed.type === "multiple_vehicles_found") {
               onMultipleVehiclesFound?.();
-              continue;
-            }
-            
-            // NEW: Handle variant_selection_required for UI cards
-            if (parsed.type === "variant_selection_required" && parsed.candidates) {
-              console.log('[useBobChat] 🎴 variant_selection_required event received:', parsed.candidates.length, 'cards');
-              onVariantSelectionRequired?.(parsed.candidates, parsed.make || '', parsed.model || '');
               continue;
             }
             
