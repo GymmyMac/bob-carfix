@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { MobileBobCharacter } from "./MobileBobCharacter";
-import { MobileProductColumn } from "./MobileProductColumn";
+import { MobileProductColumn, type VariantCard } from "./MobileProductColumn";
 import { MobileChatDrawer } from "./MobileChatDrawer";
 import { useViewportSize } from "../../hooks/useViewportSize";
 import type { Message } from "../../types/message";
@@ -46,6 +46,12 @@ interface MobileBobLayoutProps {
   // Vehicle
   vehicle?: Vehicle | null;
   onChangeVehicle?: () => void;
+
+  // NEW: Variant selection cards (vehicle disambiguation)
+  pendingVariants?: VariantCard[];
+  pendingVariantMake?: string;
+  pendingVariantModel?: string;
+  onVariantSelect?: (variant: VariantCard) => void;
   
   // Bob positioning from database
   bobOffset?: number;
@@ -86,6 +92,10 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
   isResearching,
   vehicle,
   onChangeVehicle,
+  pendingVariants,
+  pendingVariantMake,
+  pendingVariantModel,
+  onVariantSelect,
   bobOffset = 0,
   bobScale = 100,
   embedded = false
@@ -104,6 +114,8 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
   const [panelState, setPanelState] = useState<PanelState>('hidden');
   
   const hasProducts = products.length > 0 || servicePackages.length > 0;
+  const hasVariants = (pendingVariants?.length ?? 0) > 0;
+  const hasContent = hasProducts || hasVariants;
   
   // ============================================================================
   // BOB v2.2 - REDUCED BASE SCALE (database scale has direct effect)
@@ -128,7 +140,7 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
       if (bobPosition === 'center') {
         setBobPosition('partial-left');
       }
-    } else if (hasProducts && panelState !== 'visible') {
+    } else if (hasContent && panelState !== 'visible') {
       if (bobPosition === 'center') {
         setBobPosition('partial-left');
         setPanelState('transitioning');
@@ -141,11 +153,11 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
       } else {
         setPanelState('visible');
       }
-    } else if (!hasProducts && !isResearching && panelState !== 'hidden') {
+    } else if (!hasContent && !isResearching && panelState !== 'hidden') {
       setPanelState('hidden');
       setBobPosition('center');
     }
-  }, [hasProducts, isResearching, panelState, bobPosition]);
+  }, [hasContent, isResearching, panelState, bobPosition]);
 
   const showProductColumn = panelState !== 'hidden';
 
@@ -207,6 +219,10 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
         visible={showProductColumn}
         counterHeightPercent={counterHeightPercent}
         hasVehicle={!!vehicle}
+        pendingVariants={pendingVariants}
+        pendingVariantMake={pendingVariantMake}
+        pendingVariantModel={pendingVariantModel}
+        onVariantSelect={onVariantSelect}
       />
 
       {/* Chat Drawer */}

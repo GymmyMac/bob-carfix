@@ -5,6 +5,7 @@ import { useBobAnalytics } from "./useBobAnalytics";
 import { useReturningUser } from "./useReturningUser";
 import { BOB_VERSION } from "../version";
 import type { Vehicle } from "../types/vehicle";
+import type { VariantCard } from "../components/mobile/MobileProductColumn";
 
 import type { Message, HighlightedProduct } from "../types/message";
 
@@ -107,6 +108,8 @@ interface UseBobChatProps {
   onHighlightProduct?: (product: HighlightedProduct) => void;
   onNoPartsFound?: () => void;
   onAutoFetchComplete?: () => void;
+  /** When backend requires user to pick a vehicle variant, provide UI-ready cards for the shelf */
+  onVariantSelectionRequired?: (variants: VariantCard[], make: string, model: string) => void;
 }
 
 // Keywords that indicate Bob is recommending products
@@ -159,7 +162,8 @@ export const useBobChat = ({
   onHighlightPart,
   onHighlightProduct,
   onNoPartsFound,
-  onAutoFetchComplete
+  onAutoFetchComplete,
+  onVariantSelectionRequired
 }: UseBobChatProps) => {
   const { bobConfig, hostApiConfig, hostContext, callbacks, ga4Config, analyticsEnabled } = useBobContext();
   
@@ -631,6 +635,23 @@ export const useBobChat = ({
                 console.log('[useBobChat] First candidate:', JSON.stringify(parsed.candidates[0]));
               } else {
                 console.log('[useBobChat] ⚠️ conversation_state had no candidates array');
+              }
+              continue;
+            }
+
+            // NEW: Handle variant selection UI cards for shelf rendering
+            if (parsed.type === "variant_selection_required") {
+              const count = Array.isArray(parsed.candidates) ? parsed.candidates.length : 0;
+              console.log('[useBobChat] 🎴 variant_selection_required event received:', count, 'cards');
+
+              if (Array.isArray(parsed.candidates)) {
+                onVariantSelectionRequired?.(
+                  parsed.candidates as VariantCard[],
+                  typeof parsed.make === 'string' ? parsed.make : '',
+                  typeof parsed.model === 'string' ? parsed.model : ''
+                );
+              } else {
+                console.warn('[useBobChat] ⚠️ variant_selection_required had no candidates array');
               }
               continue;
             }
