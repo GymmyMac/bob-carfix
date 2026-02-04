@@ -1,4 +1,4 @@
-# Bob Widget v3.1.10 - Runtime Verification Checklist
+# Bob Widget v3.1.19 - Runtime Verification Checklist
 
 > Complete this checklist after Stage C to confirm Bob is working correctly.
 
@@ -6,8 +6,8 @@
 
 Open DevTools (F12) → Console tab:
 
-- [ ] `[BobWidget] Package loaded - v3.1.10`
-- [ ] `[BobStandalone] Initialized { version: "3.1.10", partner: "CARFIX", ... }`
+- [ ] `[BobWidget] Package loaded - v3.1.19`
+- [ ] `[BobStandalone] Initialized { version: "3.1.19", partner: "CARFIX", ... }`
 - [ ] `[BobWidget] Partner config loaded: { partner: "CARFIX", ... }`
 - [ ] No red error messages
 

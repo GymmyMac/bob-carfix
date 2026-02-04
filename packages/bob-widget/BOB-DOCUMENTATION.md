@@ -1,6 +1,6 @@
 # Bob Widget - Complete Documentation
 
-> **Version:** 3.1.11 | **Last Updated:** January 2025
+> **Version:** 3.1.19 | **Last Updated:** February 2026
 
 AI-powered automotive parts assistant widget for seamless integration into partner websites.
 
@@ -26,7 +26,7 @@ AI-powered automotive parts assistant widget for seamless integration into partn
 
 Bob is a friendly Kiwi auto parts expert that helps customers find the right parts for their vehicles through natural conversation. The widget is designed as a **"black box"** that auto-configures from the database—partners only need to provide a partner code.
 
-### Key Features (v3.1.11)
+### Key Features (v3.1.19)
 
 | Feature | Description |
 |---------|-------------|
