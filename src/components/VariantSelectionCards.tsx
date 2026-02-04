@@ -77,6 +77,20 @@ interface VariantCardItemProps {
 const VariantCardItem: React.FC<VariantCardItemProps> = ({ variant, onSelect }) => {
   const [isPressed, setIsPressed] = React.useState(false);
 
+  // Build a clean specs line from the structured data
+  const specsLine = [
+    variant.engineCode,
+    variant.kw ? `${variant.kw}kW` : null,
+    variant.ccDisplay || (variant.cc ? `${variant.cc}cc` : null),
+    variant.fuelType,
+  ].filter(Boolean).join(' · ');
+
+  // Use characterization as the primary title, fallback to a short summary
+  const primaryTitle = variant.characterization || specsLine || variant.displayTitle;
+  
+  // Show specs as subtitle if characterization is used as title
+  const subtitle = variant.characterization ? specsLine : null;
+
   return (
     <button
       type="button"
@@ -104,13 +118,13 @@ const VariantCardItem: React.FC<VariantCardItemProps> = ({ variant, onSelect }) 
         border: isPressed
           ? '2px solid rgba(0, 102, 204, 0.6)'
           : '1px solid rgba(255, 255, 255, 0.4)',
-        minHeight: '72px',
+        minHeight: '64px',
       }}
     >
-      <div className="flex items-center gap-3 p-4">
+      <div className="flex items-center gap-3 p-3">
         {/* Option Number Badge */}
         <div 
-          className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 font-bold text-lg text-white"
+          className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 font-bold text-base text-white"
           style={{
             background: 'linear-gradient(135deg, #0066CC 0%, #0052A3 100%)',
             boxShadow: '0 2px 8px rgba(0, 102, 204, 0.4)',
@@ -121,23 +135,23 @@ const VariantCardItem: React.FC<VariantCardItemProps> = ({ variant, onSelect }) 
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-gray-900 text-base leading-tight">
-            {variant.displayTitle}
+          <p className="font-semibold text-gray-900 text-sm leading-tight">
+            {primaryTitle}
           </p>
-          {variant.displaySubtitle && (
-            <p className="text-gray-600 text-sm mt-0.5 flex items-center gap-1.5 flex-wrap">
-              {variant.displaySubtitle}
+          {subtitle && (
+            <p className="text-gray-500 text-xs mt-0.5">
+              {subtitle}
             </p>
           )}
         </div>
 
         {/* Chevron */}
         <div 
-          className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+          className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
           style={{ background: 'rgba(0, 102, 204, 0.1)' }}
         >
           <svg 
-            className="w-4 h-4 text-blue-600" 
+            className="w-3.5 h-3.5 text-blue-600" 
             fill="none" 
             stroke="currentColor" 
             viewBox="0 0 24 24"
