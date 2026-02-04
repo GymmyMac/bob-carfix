@@ -1961,7 +1961,7 @@ serve(async (req) => {
       const variantData = generateVariantListData(allCandidates);
       const { text: variantList, cards, make, model } = variantData;
       
-      const responseText = `I found ${allCandidates.length} versions of the ${make} ${model}. Which one is yours?\n\n${variantList}\n\nJust say the number or tap your choice, mate.`;
+      const responseText = `I found ${cards.length} versions of the ${make} ${model}. Which one is yours?\n\n${variantList}\n\nJust say the number or tap your choice, mate.`;
       
       // Return deterministic response as SSE stream (no AI call)
       const encoder = new TextEncoder();
