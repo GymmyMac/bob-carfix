@@ -1398,9 +1398,11 @@ async function retrieveParts(
       return { success: false, parts: [], error: 'Invalid vehicle ID', errorType: 'invalid_input' };
     }
     
-    // Build request body with proper casing
+    // Build request body - use snake_case 'vehicle_id' for CARFIX API compatibility
+    // Also pass as string per CARFIX API pattern (matches calculate-service-bundles)
     const body: Record<string, unknown> = { 
-      vehicleId: numericId,
+      vehicle_id: numericId,  // snake_case for CARFIX retrieve-parts API
+      vehicleId: numericId,   // camelCase fallback for backward compatibility
       page_size: 500 // Request full catalog
     };
     if (partType) body.part_type = partType;
