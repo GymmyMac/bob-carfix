@@ -1,6 +1,6 @@
 # Bob's Conversation Process Flow
 
-This document defines the complete state machine for Bob's conversation flow, including all error handling scenarios.
+This document defines the complete state machine for Bob's conversation flow, including all error handling scenarios with response variety.
 
 ---
 
@@ -43,6 +43,7 @@ This document defines the complete state machine for Bob's conversation flow, in
             │            ┌─────────────────────────┐
             │            │ PARTS_FETCH_IN_PROGRESS │
             │            │ (searching animation)   │
+            │            │ (Retry x1 if error)     │
             │            └────────────┬────────────┘
             │                         │
             │      ┌──────────────────┼──────────────────┐
@@ -51,14 +52,14 @@ This document defines the complete state machine for Bob's conversation flow, in
             │ ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐
             │ │ PARTS_FOUND │  │ NO_PARTS_    │  │ PARTS_FETCH_     │
             │ │ (display    │  │ FOUND        │  │ ERROR            │
-            │ │  products)  │  │ (empty state)│  │ (API failure)    │
-            │ └──────┬──────┘  └──────┬───────┘  └────────┬─────────┘
-            │        │                │                   │
+            │ │  products)  │  │ "Head to     │  │ "Refresh or      │
+            │ └──────┬──────┘  │ carfix.co.nz"│  │  carfix.co.nz?"  │
+            │        │         └──────┬───────┘  └────────┬─────────┘
             │        ▼                ▼                   ▼
-            │ ┌──────────────────────────────────────────────────┐
-            └►│                 CONVERSATION                     │
-              │ (Ready to help, handle follow-up questions)      │
-              └──────────────────────────────────────────────────┘
+            │ ┌──────────────────────────────────────────────────────┐
+            └►│             CONVERSATION (With rephrase option)      │
+              │ Ready to help, handle follow-up questions            │
+              └──────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -93,16 +94,28 @@ This document defines the complete state machine for Bob's conversation flow, in
 
 ### 4. VEHICLE_NOT_FOUND
 **Trigger:** `retrieve-vehicle-info` returns error or no matches  
-**Bob's Response:**  
-```
-"Hmm, I couldn't find a vehicle for that rego [PLATE] in the system. 
-Could be a typo or maybe it's a newer/imported vehicle that's not 
-in the database yet. Mind double-checking the plate, or tell me the 
-make, model and year instead?"
-```
+**Response Variations (cycle for naturalness):**
+1. "Couldn't find a match for [REGO] in the system. Might be too new or an import. Try the make, model, and year?"
+2. "Hmm, [REGO] isn't showing up. Sometimes newer cars take a while to get catalogued. Got the make and model handy?"
+3. "No joy on [REGO], mate. Could be a typo, or it might be a fresh import. Mind double-checking?"
+
 **Bob's Tone:** Apologetic, helpful, offers alternative  
 **Audio:** Play "vehicle_not_found" clip  
 **Next State:** AWAITING_REGO (retry loop)  
+
+### 4a. INVALID_REGO_FORMAT ⚠️ NEW STATE
+**Trigger:** User input matches no valid NZ plate pattern  
+**Response Variations (Acknowledgment + Clarification):**
+1. "Oops, I didn't quite catch that one! I need a valid NZ plate like ABC123 or HZP550."
+2. "Hmm, that doesn't look like a Kiwi rego to me. Mind trying again? Format's usually ABC123."
+3. "No luck with that plate, mate. Double-check it's a standard NZ format like ABC123?"
+
+**Retry Limit:** After 2-3 failed attempts:
+"We're having a bit of trouble with that rego. How about you tell me the make, model, and year instead?"
+
+**Metrics:** Track retry-to-success rate (target 70%+)
+**Analytics:** Log to bob_error_logs with error_type='invalid_rego_format'
+**UX:** Consider adding input field with format hint
 
 ### 5. MULTIPLE_VARIANTS_FOUND
 **Trigger:** `retrieve-vehicle-info` returns >1 unique variants  
@@ -143,6 +156,10 @@ Pulling up what we've got for you now..."
 - Call `retrieve-parts` + `calculate-service-bundles` in parallel
 - Show "researching" or "showing_product" animation  
 **Duration:** ~2-5 seconds  
+**Retry Logic:**
+- 1 silent retry after 2s delay if first attempt fails
+- If retry fails: transition to PARTS_FETCH_ERROR
+
 **Next States:**
 - Both APIs succeed with data → PARTS_FOUND
 - APIs succeed but empty → NO_PARTS_FOUND
@@ -165,33 +182,35 @@ What are you working on today?"
 
 ### 9. NO_PARTS_FOUND
 **Trigger:** APIs succeed but return empty arrays  
-**Bob's Response:**  
-```
-"Ah, looks like we don't have specific parts catalogued for 
-your [YEAR] [MAKE] [MODEL] yet. No worries though! 
-I can help you find universal items like wipers, batteries, 
-or cleaning gear. Or if you know the part number, I can 
-search that for you. What do you need?"
-```
-**Bob's Tone:** Apologetic but helpful, offers alternatives  
+**Response Variations (cycle for naturalness) – Direct to carfix.co.nz:**
+1. "Ah, Bob's parts system isn't set up for your [VEHICLE] yet. Head over to carfix.co.nz and browse manually – the team there will sort you!"
+2. "No parts coming up for your [VEHICLE] in my system – sometimes happens with imports. Try carfix.co.nz for the full catalogue!"
+3. "Drawing a blank for your [VEHICLE], mate. Best bet is to pop over to carfix.co.nz and browse there!"
+
+**CRITICAL:** Bob does NOT offer universal products – he directs to website only
+
+**Bob's Tone:** Apologetic but helpful, directs to manual browsing  
+**Metrics:** Track drop-off rate post-message (target <20%)
+**Analytics:** Log to bob_error_logs for catalog expansion prioritization
 **Next State:** CONVERSATION  
 
-### 10. PARTS_FETCH_ERROR ⚠️ NEW STATE
+### 10. PARTS_FETCH_ERROR ⚠️ ENHANCED STATE
 **Trigger:** API returns 500, timeout, or network error  
-**Bob's Response:**  
-```
-"Aw heck, I'm having a bit of trouble connecting to the 
-parts database right now. Give me a sec to try again..."
-[Retry once after 2s delay]
+**Response Variations (cycle for naturalness, add Bob humor):**
+1. "Bob's taking a quick pit stop! Having trouble connecting – try refreshing, or hop over to carfix.co.nz while we sort this out."
+2. "Bit of a glitch on my end, mate. Give the page a refresh, or browse directly at carfix.co.nz."
+3. "She's playing up a bit – connection trouble. Try again in a tick, or carfix.co.nz has what you need!"
 
-If retry fails:
-"Still no luck, mate. There might be a glitch in the system. 
-You could try refreshing the page, or I can help you with 
-general products that don't need vehicle matching – things 
-like cleaning supplies, tools, or accessories. What do you reckon?"
-```
-**Bob's Tone:** Apologetic, transparent about the issue, offers fallback  
-**Error Logging:** Log full error for debugging  
+**CRITICAL:** Bob does NOT offer fallback products – he directs to website
+
+**Retry Logic:** 
+- 1 silent retry after 2s delay
+- If fails: transparent message with humor + website fallback
+
+**Bob's Tone:** Apologetic, transparent about the issue, offers recovery path
+**Metrics:** Track retry success rate, time to recovery
+**Analytics:** Log error type and vehicle context for uptime improvements
+**Error Logging:** Log full error to bob_error_logs for debugging  
 **Next State:** CONVERSATION (degraded mode)  
 
 ### 11. CONVERSATION
@@ -210,13 +229,14 @@ like cleaning supplies, tools, or accessories. What do you reckon?"
 
 | Error Type | API Response | Bob's Response | Audio Clip | Next Action |
 |------------|--------------|----------------|------------|-------------|
-| Invalid REGO format | N/A | "That doesn't look like a NZ plate..." | - | Re-prompt |
-| Vehicle not found | 404 or empty | "Couldn't find that rego..." | vehicle_not_found | Re-prompt |
+| Invalid REGO format | N/A | "That doesn't look like a NZ plate..." (varied) | - | Re-prompt, escalate after 3 tries |
+| Vehicle not found | 404 or empty | "Couldn't find that rego..." (varied) | vehicle_not_found | Re-prompt |
 | Multiple variants | 200 + vehicles[] | "Which version is yours?" | - | Show cards |
-| Parts API 500 | 500 | "Having trouble connecting..." | - | Retry, then fallback |
-| Parts API timeout | timeout | "Taking longer than expected..." | - | Retry, then fallback |
-| Service packages empty | 200 + [] | "No packages catalogued yet..." | - | Offer alternatives |
-| Network error | fetch fails | "Connection issue..." | - | Check internet, retry |
+| Parts not in catalog | vehicle_not_in_parts_db | "Head to carfix.co.nz..." (varied) | - | Direct to website |
+| Parts API 500 | 500 | "Bob's taking a pit stop..." (varied) | - | Retry, then fallback to website |
+| Parts API timeout | timeout | "Taking longer than expected..." | - | Retry, then fallback to website |
+| Service packages empty | 200 + [] | "No packages catalogued yet..." | - | Direct to website |
+| Network error | fetch fails | "Connection issue..." (varied) | - | Suggest refresh or website |
 | Rate limited | 429 | "Busy right now, hold on..." | - | Wait and retry |
 
 ---
@@ -242,12 +262,17 @@ like cleaning supplies, tools, or accessories. What do you reckon?"
 1. First attempt fails → Wait 2 seconds
 2. Retry with same vehicle_id
 3. Retry fails → Emit PARTS_FETCH_ERROR state
-4. Offer degraded experience (general products only)
+4. Direct to carfix.co.nz for manual browsing
 
 ### Vehicle Lookup  
-1. First attempt fails → Prompt user to re-check plate
+1. First attempt fails → Prompt user to re-check plate (varied response)
 2. User provides same plate again → Retry
 3. Still fails → Suggest make/model/year input instead
+
+### REGO Validation
+1. First invalid format → Acknowledge + clarify (varied response)
+2. Second invalid → Prompt with example format
+3. Third invalid → Escalate to make/model/year input
 
 ---
 
@@ -259,22 +284,51 @@ The widget must handle these events:
 |------------|---------|-----------|
 | vehicle_identified | { vehicle: {...} } | Show vehicle header, enable parts shelf |
 | vehicle_candidates_found | { candidates: [...] } | Display variant selection cards |
+| variant_selection_required | { candidates, make, model, promptText } | Show structured variant cards |
 | parts_found | { parts: [...] } | Populate product shelf |
 | service_packages_found | { packages: [...] } | Display service package tiles |
-| no_parts_found | {} | Show empty state with alternatives |
+| no_parts_found | { reason } | Show empty state, direct to website |
+| parts_fetch_error | { errorType, message, canRetry } | Show error + retry option |
 | multiple_vehicles_found | {} | Suppress no_parts_found, wait for selection |
 | bob_searching | { search_type, audio_url } | Play searching animation + audio |
+| audio_hint | { audio_url, clip_key } | Play pre-recorded audio |
+| cart_updated | { items: [...] } | Update cart badge |
 | error | { message } | Display error banner, log to analytics |
+
+---
+
+## ERROR ANALYTICS LOGGING
+
+All error events are logged to `bob_error_logs` table for analytics:
+
+| Field | Description |
+|-------|-------------|
+| error_type | Classification: invalid_rego_format, vehicle_not_found, vehicle_not_in_parts_db, server_error, timeout, network_error, empty_results |
+| vehicle_id | Numeric vehicle ID if available |
+| vehicle_make | Make string for catalog tracking |
+| vehicle_model | Model string for catalog tracking |
+| rego | Registration plate for lookup analysis |
+| additional_data | JSONB with context (retry count, raw error, etc.) |
+| created_at | Timestamp for time-series analysis |
+
+**Analytics Use Cases:**
+- Track which vehicles lack catalog coverage (prioritize expansion)
+- Monitor API reliability (uptime metrics)
+- Measure REGO retry-to-success rate
+- Identify drop-off patterns for UX improvements
 
 ---
 
 ## IMPLEMENTATION CHECKLIST
 
-- [ ] Add PARTS_FETCH_ERROR state handling to bob-chat
-- [ ] Add retry logic with 2s delay for parts/packages fetch
+- [x] Add PARTS_FETCH_ERROR state handling to bob-chat
+- [x] Add retry logic with 2s delay for parts/packages fetch
+- [x] Add year_of_manufacture priority in vehicle context
+- [x] Update error prompts to direct to carfix.co.nz (no universal products)
+- [x] Add response variations for naturalness
+- [x] Add error analytics logging to bob_error_logs table
 - [ ] Create "connection_error" audio clip
-- [ ] Add error analytics event tracking
-- [ ] Update frontend to handle "parts_fetch_error" event
-- [ ] Add timeout handling (15s) for API calls
+- [ ] Update frontend to handle "parts_fetch_error" event with retry button
+- [x] Add timeout handling (15s) for API calls
 - [ ] Create degraded mode UI for when parts unavailable
 - [ ] Test all error scenarios end-to-end
