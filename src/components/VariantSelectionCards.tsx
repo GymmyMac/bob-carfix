@@ -85,11 +85,9 @@ const VariantCardItem: React.FC<VariantCardItemProps> = ({ variant, onSelect }) 
     variant.fuelType,
   ].filter(Boolean).join(' · ');
 
-  // Use characterization as the primary title, fallback to a short summary
-  const primaryTitle = variant.characterization || specsLine || variant.displayTitle;
-  
-  // Show specs as subtitle if characterization is used as title
-  const subtitle = variant.characterization ? specsLine : null;
+  // Show technical differences as the primary title - no characterization
+  const primaryTitle = specsLine || variant.displayTitle;
+  const subtitle = null; // No subtitle needed - specs are the headline
 
   return (
     <button
