@@ -95,7 +95,8 @@ function buildSystemPromptFromDB(prompts: BobPrompt[]): string {
 
 // ============= VEHICLE CANDIDATE TYPE =============
 interface VehicleCandidate {
-  vehicle_id: number;
+  vehicle_id: number | null;   // TecDoc ID - null if not in catalog
+  carjam_id?: number;          // CarJam plate record ID (internal reference only)
   vehicle_name_nz?: string;
   make?: string;
   model?: string;
@@ -110,7 +111,10 @@ interface VehicleCandidate {
   score?: number;
   plate?: string;
   rego?: string;
-  id?: number;
+  power?: number;
+  body_style?: string;
+  kw?: number | null;
+  cc?: number | null;
 }
 
 // ============= CONVERSATION STATE TYPES =============
@@ -394,7 +398,7 @@ function getVehicleCharacterization(
 
 // ============= VARIANT CARD DATA FOR UI =============
 interface VariantCardData {
-  vehicle_id: number;
+  vehicle_id: number | null;   // Allow null for vehicles not in TecDoc catalog
   optionNumber: number;
   displayTitle: string;
   displaySubtitle: string;
@@ -1907,6 +1911,7 @@ serve(async (req) => {
     } | null = null;
     let forcedCandidates: VehicleCandidate[] = [];
     let forcedSingleVehicle: VehicleCandidate | null = null;
+    let noTecDocMatch = false;  // Flag for vehicles without TecDoc mapping
     
     const lastUserMessage = messages.filter((m: Message) => m.role === 'user').pop();
     const lastUserContent = lastUserMessage?.content || '';
@@ -1928,53 +1933,88 @@ serve(async (req) => {
           
           if (lookupResult?.success) {
             const vehicles = lookupResult.vehicles || [];
-            const singleVehicle = lookupResult.vehicle;
+            const carJamVehicle = lookupResult.vehicle;
+            
+            // Enhanced logging: trace CarJam vs TecDoc ID sources
+            console.log(`[Vehicle Lookup] Response structure: CarJam id=${carJamVehicle?.id}, TecDoc vehicles=${vehicles.length}`);
+            if (vehicles.length > 0) {
+              console.log(`[Vehicle Lookup] TecDoc vehicle_ids: ${vehicles.map((v: any) => v.vehicle_id).join(', ')}`);
+            }
             
             if (vehicles.length > 1) {
-              // Multiple variants - store candidates
+              // Multiple variants - store candidates using TecDoc vehicle_ids ONLY
               forcedCandidates = vehicles.map((v: any) => ({
-                vehicle_id: v.vehicle_id || v.id,
+                vehicle_id: v.vehicle_id,  // ✅ ONLY use vehicle_id from TecDoc, never fall back to id
+                carjam_id: carJamVehicle?.id as number | undefined,
                 vehicle_name_nz: v.vehicle_name_nz,
                 make: v.make,
                 model: v.model,
                 start_year: v.start_year,
                 end_year: v.end_year,
-                year: v.year,
-                year_of_manufacture: v.year_of_manufacture,
+                year: (carJamVehicle?.year_of_manufacture ?? v.year ?? v.start_year) as number,
+                year_of_manufacture: (carJamVehicle?.year_of_manufacture as number | undefined),
                 engine_code: v.engine_code,
                 cc_rating: v.cc_rating,
                 fuel_type: v.fuel_type,
                 variant: v.variant,
                 score: v.score,
                 plate: extractedRego,
-              }));
-              console.log(`[Forced REGO Lookup] Multiple variants found: ${forcedCandidates.length}`);
-            } else if (singleVehicle || vehicles.length === 1) {
-              // Single match - auto-confirm
-              const vehicle = singleVehicle || vehicles[0];
+              })) as VehicleCandidate[];
+              console.log(`[Forced REGO Lookup] Multiple TecDoc variants found: ${forcedCandidates.length}`);
               
-              // Year validation warning - detect mismatches between CarJam and CARFIX data
-              if (vehicle.year_of_manufacture && vehicle.start_year && vehicle.end_year) {
-                if (vehicle.year_of_manufacture < vehicle.start_year || vehicle.year_of_manufacture > vehicle.end_year) {
-                  console.warn(`[Year Validation] Mismatch: year_of_manufacture=${vehicle.year_of_manufacture} outside range ${vehicle.start_year}-${vehicle.end_year}`);
+            } else if (vehicles.length === 1) {
+              // ✅ Single TecDoc match - ALWAYS use vehicle_id from vehicles[] array
+              const tecDocVehicle = vehicles[0];
+              
+              // Year validation warning - detect mismatches between CarJam and TecDoc data
+              const displayYear = carJamVehicle?.year_of_manufacture || tecDocVehicle.start_year;
+              if (carJamVehicle?.year_of_manufacture && tecDocVehicle.start_year && tecDocVehicle.end_year) {
+                if (carJamVehicle.year_of_manufacture < tecDocVehicle.start_year || 
+                    carJamVehicle.year_of_manufacture > tecDocVehicle.end_year) {
+                  console.warn(`[Year Validation] Mismatch: year_of_manufacture=${carJamVehicle.year_of_manufacture} outside TecDoc range ${tecDocVehicle.start_year}-${tecDocVehicle.end_year}`);
                 }
               }
               
               forcedSingleVehicle = {
-                vehicle_id: (vehicle.vehicle_id || vehicle.id) as number,
-                make: vehicle.make as string,
-                model: vehicle.model as string,
-                // FIXED: Prioritize year_of_manufacture from CarJam for display accuracy
-                year: (vehicle.year_of_manufacture ?? vehicle.year ?? vehicle.start_year) as number,
-                year_of_manufacture: vehicle.year_of_manufacture as number | undefined,
-                start_year: vehicle.start_year as number | undefined,
-                end_year: vehicle.end_year as number | undefined,
-                variant: (vehicle.variant || vehicle.vehicle_name_nz) as string,
-                cc_rating: vehicle.cc_rating as number,
-                fuel_type: vehicle.fuel_type as string,
+                // ✅ CRITICAL: Use vehicle_id from TecDoc vehicles[] array
+                vehicle_id: tecDocVehicle.vehicle_id as number,
+                carjam_id: carJamVehicle?.id as number | undefined,
+                make: (tecDocVehicle.make || carJamVehicle?.make) as string,
+                model: (tecDocVehicle.model || carJamVehicle?.model) as string,
+                // Display year from CarJam (actual registration), internal matching from TecDoc
+                year: displayYear as number,
+                year_of_manufacture: carJamVehicle?.year_of_manufacture as number | undefined,
+                start_year: tecDocVehicle.start_year as number | undefined,
+                end_year: tecDocVehicle.end_year as number | undefined,
+                variant: (tecDocVehicle.variant || tecDocVehicle.vehicle_name_nz) as string,
+                cc_rating: (tecDocVehicle.cc_rating || carJamVehicle?.cc_rating) as number,
+                fuel_type: (tecDocVehicle.fuel_type || carJamVehicle?.fuel_type) as string,
+                engine_code: tecDocVehicle.engine_code as string | undefined,
                 plate: extractedRego,
               };
-              console.log(`[Forced REGO Lookup] Single match auto-confirmed: vehicle_id=${forcedSingleVehicle!.vehicle_id}, year=${forcedSingleVehicle!.year}`);
+              console.log(`[Forced REGO Lookup] Single TecDoc match: vehicle_id=${forcedSingleVehicle!.vehicle_id} (CarJam id=${carJamVehicle?.id})`);
+              
+            } else if (carJamVehicle && vehicles.length === 0) {
+              // ⚠️ CarJam found vehicle but NO TecDoc matches - cannot look up parts
+              console.warn(`[Forced REGO Lookup] CarJam found plate ${extractedRego} but no TecDoc matches - vehicle not in parts catalog`);
+              
+              // Still store the vehicle for display, but mark as no TecDoc ID
+              forcedSingleVehicle = {
+                vehicle_id: null, // ← Explicitly null - no TecDoc mapping
+                carjam_id: carJamVehicle.id as number,
+                make: carJamVehicle.make as string,
+                model: carJamVehicle.model as string,
+                year: carJamVehicle.year_of_manufacture as number,
+                year_of_manufacture: carJamVehicle.year_of_manufacture as number,
+                variant: carJamVehicle.submodel as string,
+                cc_rating: carJamVehicle.cc_rating as number,
+                fuel_type: carJamVehicle.fuel_type as string,
+                plate: extractedRego,
+              };
+              
+              // Flag this for error handling - skip parts fetch
+              noTecDocMatch = true;
+              console.log(`[Forced REGO Lookup] Marked noTecDocMatch=true for ${extractedRego}`);
             }
           }
         } catch (err) {
@@ -2426,6 +2466,54 @@ DO NOT suggest fallback products Bob cannot access.`;
           content: `${baseConfirmation} Parts and service packages are already loading on their shelf. Confirm the selection and help them find what they need.`
         });
       }
+    } else if (noTecDocMatch && forcedSingleVehicle) {
+      // ⚠️ CarJam found vehicle but NO TecDoc matches - skip parts fetch entirely
+      console.log(`[Deterministic Fetch] Skipping parts fetch - noTecDocMatch=true, vehicle has no TecDoc ID`);
+      
+      // Store confirmed vehicle for display even though we can't fetch parts
+      (conversationMessages as unknown as { _confirmedVehicle?: unknown })._confirmedVehicle = {
+        vehicle_id: null,
+        carjam_id: forcedSingleVehicle.carjam_id,
+        make: forcedSingleVehicle.make,
+        model: forcedSingleVehicle.model,
+        year: forcedSingleVehicle.year_of_manufacture ?? forcedSingleVehicle.year,
+        variant: forcedSingleVehicle.variant,
+        fuel_type: forcedSingleVehicle.fuel_type,
+        rego: forcedSingleVehicle.plate,
+      };
+      
+      // Store error type for appropriate response generation
+      (conversationMessages as unknown as { _partsErrorType?: string })._partsErrorType = 'vehicle_not_in_parts_db';
+      
+      // Log error for analytics
+      await logErrorEvent('vehicle_not_in_parts_db', {
+        vehicleId: forcedSingleVehicle.carjam_id,
+        make: forcedSingleVehicle.make,
+        model: forcedSingleVehicle.model,
+        rego: forcedSingleVehicle.plate,
+      }, { 
+        reason: 'no_tecdoc_mapping',
+        fetchType: 'deterministic_skip'
+      });
+      
+      // Add context message for AI explaining the situation
+      const vehicleDesc = `${forcedSingleVehicle.year_of_manufacture ?? forcedSingleVehicle.year} ${forcedSingleVehicle.make} ${forcedSingleVehicle.model}`;
+      conversationMessages.push({
+        role: "system",
+        content: `[VEHICLE IDENTIFIED BUT NOT IN PARTS CATALOG] The customer's ${vehicleDesc} was found in the registration database but is NOT in Bob's parts catalog.
+
+CRITICAL INSTRUCTIONS:
+1. Do NOT say "here are your parts" or suggest products are loading
+2. Do NOT offer "universal" products or accessories – Bob cannot access these
+3. ACKNOWLEDGE the vehicle and apologize that it's not in the system yet
+4. DIRECT them to carfix.co.nz for manual browsing
+5. Use VARIED, Kiwi-friendly phrasing – examples:
+   - "Ah, Bob's parts system isn't set up for your ${vehicleDesc} yet. Head over to carfix.co.nz and browse manually – the team there will sort you!"
+   - "She's a beauty, but I don't have her in my catalog yet, mate. Jump on carfix.co.nz and the crew will hook you up!"
+   - "No worries – bit of a gap in my database for this one. Check out carfix.co.nz – they've got the goods!"
+
+Use light humor and be helpful while being honest about the limitation.`
+      });
     }
 
     // Tool calling loop - may require multiple iterations
