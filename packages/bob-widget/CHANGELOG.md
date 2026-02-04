@@ -14,7 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - 🔢 **Speech Count Alignment**: Bob's spoken variant count now matches the deduplicated UI cards shown on screen
 - 🎴 **Variant Card Display**: Cards now show specs-first format without characterization text
-- 🐛 **ContainedChatDrawer bottomOffset**: Chat drawer now correctly applies `bottomOffset` prop to position above host navigation bars (was hardcoded to 0)
+
+### Documentation
+- 📝 **bottomOffset Clarification**: `bottomOffset` prop only applies to fixed-position variants. Contained/embedded variants position relative to their container (which should already be sized to fit between header/footer).
 
 ---
 

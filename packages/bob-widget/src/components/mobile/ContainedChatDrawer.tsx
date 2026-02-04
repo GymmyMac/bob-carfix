@@ -129,8 +129,10 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
       ref={drawerRef}
       style={{
         position: 'absolute',
-        // v3.1.19: Apply bottomOffset for host navigation bars (was hardcoded to 0)
-        bottom: bottomOffset,
+        // v3.1.19: ContainedChatDrawer uses bottom: 0 because the parent container
+        // is already sized to fit between header/footer. bottomOffset is only for
+        // fixed-position variants (MobileChatDrawer) that position relative to viewport.
+        bottom: 0,
         left: 0,
         right: 0,
         // CRITICAL: Explicitly unset top to prevent stale positioning after expand/collapse
