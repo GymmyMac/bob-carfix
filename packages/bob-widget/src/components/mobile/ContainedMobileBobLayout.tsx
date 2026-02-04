@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { MobileBobCharacter } from "./MobileBobCharacter";
-import { MobileProductColumn } from "./MobileProductColumn";
+import { MobileProductColumn, type VariantCard } from "./MobileProductColumn";
 import { ContainedChatDrawer } from "./ContainedChatDrawer";
 import { ProductDetailView } from "./ProductDetailView";
 import { ServicePackageDetailView } from "./ServicePackageDetailView";
@@ -48,6 +48,12 @@ interface ContainedMobileBobLayoutProps {
   // Vehicle
   vehicle?: Vehicle | null;
   onChangeVehicle?: () => void;
+
+  // NEW: Variant selection cards (vehicle disambiguation)
+  pendingVariants?: VariantCard[];
+  pendingVariantMake?: string;
+  pendingVariantModel?: string;
+  onVariantSelect?: (variant: VariantCard) => void;
   
   // Bob positioning from database
   bobOffset?: number;
@@ -88,6 +94,10 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
   onNavigateToProductPage,
   vehicle,
   onChangeVehicle,
+  pendingVariants,
+  pendingVariantMake,
+  pendingVariantModel,
+  onVariantSelect,
   bobOffset = 0,
   bobScale = 100
 }) => {
@@ -98,6 +108,8 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
   const [selectedPackage, setSelectedPackage] = useState<ServicePackage | null>(null);
   
   const hasProducts = products.length > 0 || servicePackages.length > 0;
+  const hasVariants = (pendingVariants?.length ?? 0) > 0;
+  const hasContent = hasProducts || hasVariants;
   
   // Dynamic Bob scale based on state (reduced base values for direct database control):
   // - Welcome state (center, no products): 100% base
@@ -105,7 +117,7 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
   // - Product detail view: 50% base
   const getBaseUIScale = () => {
     if (currentView === 'productDetail') return 70;  // 40% larger
-    if (bobPosition === 'center' && !hasProducts) return 140; // Welcome state - 40% larger
+    if (bobPosition === 'center' && !hasContent) return 140; // Welcome state - 40% larger
     return 98; // Showing products - 40% larger
   };
   const baseUIScale = getBaseUIScale();
@@ -118,7 +130,7 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
       if (bobPosition === 'center') {
         setBobPosition('partial-left');
       }
-    } else if (hasProducts && panelState !== 'visible') {
+    } else if (hasContent && panelState !== 'visible') {
       if (bobPosition === 'center') {
         setBobPosition('partial-left');
         setPanelState('transitioning');
@@ -131,11 +143,11 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
       } else {
         setPanelState('visible');
       }
-    } else if (!hasProducts && !isResearching && panelState !== 'hidden') {
+    } else if (!hasContent && !isResearching && panelState !== 'hidden') {
       setPanelState('hidden');
       setBobPosition('center');
     }
-  }, [hasProducts, isResearching, panelState, bobPosition]);
+  }, [hasContent, isResearching, panelState, bobPosition]);
 
   // Handle product click - navigate to product page or show detail view
   const handleProductClick = (product: Product) => {
@@ -223,6 +235,10 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
         counterHeightPercent={counterHeightPercent}
         hasVehicle={!!vehicle}
         vehicleMakeModel={vehicle ? `${vehicle.make || ''} ${vehicle.model || ''}`.trim() : undefined}
+        pendingVariants={pendingVariants}
+        pendingVariantMake={pendingVariantMake}
+        pendingVariantModel={pendingVariantModel}
+        onVariantSelect={onVariantSelect}
       />
 
       {/* Product Detail View - shown when customer clicks a product */}

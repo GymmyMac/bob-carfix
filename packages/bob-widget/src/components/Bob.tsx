@@ -7,6 +7,7 @@ import { BobCharacter } from "./BobCharacter";
 import { ChatInterface } from "./ChatInterface";
 import { MobileBobLayout } from "./mobile/MobileBobLayout";
 import { ContainedMobileBobLayout } from "./mobile/ContainedMobileBobLayout";
+import type { VariantCard } from "./mobile/MobileProductColumn";
 import type { Product, ServicePackage } from "../types";
 import type { HighlightedProduct } from "../types/message";
 export type BobVariant = "inline" | "floating" | "fullscreen" | "mobile";
@@ -72,6 +73,11 @@ export const Bob: React.FC<BobProps> = ({
   const [highlightedProduct, setHighlightedProduct] = useState<HighlightedProduct | null>(null);
   const [isResearching, setIsResearching] = useState(false);
 
+  // Vehicle variant selection (when multiple matches returned)
+  const [pendingVariants, setPendingVariants] = useState<VariantCard[]>([]);
+  const [pendingVariantMake, setPendingVariantMake] = useState<string>("");
+  const [pendingVariantModel, setPendingVariantModel] = useState<string>("");
+
   // Chat hook with full integration
   const bobChat = useBobChat({
     setAnimationState,
@@ -84,6 +90,18 @@ export const Bob: React.FC<BobProps> = ({
     },
     onResearchStart: () => {
       setIsResearching(true);
+
+      // Clear any previous variant selection UI when a new request starts
+      setPendingVariants([]);
+      setPendingVariantMake("");
+      setPendingVariantModel("");
+    },
+    onVariantSelectionRequired: (variants, make, model) => {
+      // Stop the loading state so the shelf can show the selection cards
+      setIsResearching(false);
+      setPendingVariants(variants);
+      setPendingVariantMake(make);
+      setPendingVariantModel(model);
     },
     onHighlightPart: (partType) => {
       setHighlightedPartType(partType);
@@ -97,6 +115,25 @@ export const Bob: React.FC<BobProps> = ({
       setIsResearching(false);
     }
   });
+
+  // Clear pending variant selection when vehicle is confirmed (tap OR voice)
+  useEffect(() => {
+    if (!bobChat.identifiedVehicle) return;
+    setPendingVariants([]);
+    setPendingVariantMake("");
+    setPendingVariantModel("");
+  }, [bobChat.identifiedVehicle?.vehicle_id, bobChat.identifiedVehicle?.id]);
+
+  const handleVariantSelect = (variantOption: VariantCard) => {
+    // Hide the list immediately for feedback; backend will confirm vehicle soon after.
+    setPendingVariants([]);
+
+    // Send a deterministic selection message the backend matcher understands.
+    bobChat.setInput(`Option ${variantOption.optionNumber}`);
+    setTimeout(() => {
+      bobChat.handleSend();
+    }, 80);
+  };
 
   // Sync isSpeaking from bobChat to animation hook
   useEffect(() => {
@@ -204,6 +241,10 @@ export const Bob: React.FC<BobProps> = ({
         onPackageSelect={(pkg) => console.log('[BobWidget] Package selected:', pkg)}
         isResearching={isResearching}
         vehicle={bobChat.identifiedVehicle}
+        pendingVariants={pendingVariants}
+        pendingVariantMake={pendingVariantMake}
+        pendingVariantModel={pendingVariantModel}
+        onVariantSelect={handleVariantSelect}
       />
     );
   }
@@ -248,6 +289,10 @@ export const Bob: React.FC<BobProps> = ({
           onPackageSelect={(pkg) => console.log('[BobWidget] Package selected:', pkg)}
           isResearching={isResearching}
           vehicle={bobChat.identifiedVehicle}
+          pendingVariants={pendingVariants}
+          pendingVariantMake={pendingVariantMake}
+          pendingVariantModel={pendingVariantModel}
+          onVariantSelect={handleVariantSelect}
         />
       </div>
     );
