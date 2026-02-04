@@ -133,10 +133,13 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
         bottom: 0,
         left: 0,
         right: 0,
+        // CRITICAL: Explicitly unset top to prevent stale positioning after expand/collapse
+        top: 'auto',
         ...glassPanel,
         borderRadius: '28px 28px 0 0',
         borderBottom: 'none',
-        transition: 'all 0.3s ease-out',
+        // v3.1.17: Only transition height, not 'all' - prevents position artifacts
+        transition: 'height 0.3s ease-out, box-shadow 0.3s ease-out',
         boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.3)',
         // v3.1.16: Increased collapsed height from 90px to 110px for more spacing
         height: isExpanded ? '55%' : '110px',
