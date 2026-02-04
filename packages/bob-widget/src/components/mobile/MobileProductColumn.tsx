@@ -476,10 +476,15 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                     {variant.optionNumber}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 text-base leading-tight">{variant.displayTitle}</p>
-                    {variant.displaySubtitle && (
-                      <p className="text-gray-600 text-sm mt-0.5">{variant.displaySubtitle}</p>
-                    )}
+                    {/* Build clean technical specs line: Engine · Power · Displacement · Fuel */}
+                    <p className="font-semibold text-gray-900 text-base leading-tight">
+                      {[
+                        variant.engineCode,
+                        variant.kw ? `${variant.kw}kW` : null,
+                        variant.ccDisplay || (variant.cc ? `${variant.cc}cc` : null),
+                        variant.fuelType,
+                      ].filter(Boolean).join(' · ') || variant.displayTitle}
+                    </p>
                   </div>
                   <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(0, 102, 204, 0.1)' }}>
                     <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
