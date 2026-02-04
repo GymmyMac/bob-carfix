@@ -1331,19 +1331,26 @@ async function searchWeb(query: string): Promise<unknown> {
   };
 }
 
+/**
+ * Fetch parts with retry logic and graceful error handling.
+ * Implements single retry with 2s delay on failure.
+ */
 async function retrieveParts(
   vehicleId: number | string,
   apiConfig: ApiConfig,
-  partType?: string
-): Promise<{ success: boolean; parts: unknown[]; error?: string }> {
+  partType?: string,
+  retryCount = 0
+): Promise<{ success: boolean; parts: unknown[]; error?: string; errorType?: string }> {
   const PARTS_URL = `${apiConfig.baseUrl}/retrieve-parts`;
+  const MAX_RETRIES = 1;
+  const RETRY_DELAY_MS = 2000;
   
   try {
     const numericId = typeof vehicleId === 'string' ? parseInt(vehicleId, 10) : vehicleId;
     
     if (!Number.isFinite(numericId) || numericId <= 0) {
       console.error('[retrieveParts] Invalid vehicle ID:', vehicleId);
-      return { success: false, parts: [], error: 'Invalid vehicle ID' };
+      return { success: false, parts: [], error: 'Invalid vehicle ID', errorType: 'invalid_input' };
     }
     
     // Build request body with proper casing
@@ -1353,7 +1360,11 @@ async function retrieveParts(
     };
     if (partType) body.part_type = partType;
     
-    console.log('[retrieveParts] Fetching parts for vehicle:', numericId, partType ? `(filtered: ${partType})` : '(full catalog)');
+    console.log('[retrieveParts] Fetching parts for vehicle:', numericId, partType ? `(filtered: ${partType})` : '(full catalog)', retryCount > 0 ? `(retry ${retryCount})` : '');
+    
+    // Add timeout for slow connections
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
     
     const response = await fetch(PARTS_URL, {
       method: 'POST',
@@ -1362,15 +1373,46 @@ async function retrieveParts(
         'Authorization': `Bearer ${apiConfig.apiKey}`,
         ...apiConfig.customHeaders
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: controller.signal
     });
     
+    clearTimeout(timeoutId);
     console.log('[retrieveParts] Response status:', response.status);
     
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[retrieveParts] Failed:', response.status, errorText.substring(0, 200));
-      return { success: false, parts: [], error: `Parts lookup failed: ${response.status}` };
+      
+      // Determine error type for appropriate user messaging
+      let errorType = 'api_error';
+      if (response.status === 500) {
+        // Check if it's a "vehicle not found in database" error
+        if (errorText.includes('Vehicle not found')) {
+          errorType = 'vehicle_not_in_parts_db';
+          console.log('[retrieveParts] Vehicle not in parts database - no parts catalogued');
+        } else {
+          errorType = 'server_error';
+        }
+      } else if (response.status === 429) {
+        errorType = 'rate_limited';
+      } else if (response.status === 404) {
+        errorType = 'not_found';
+      }
+      
+      // Retry on server errors (not on vehicle_not_in_parts_db as that's permanent)
+      if (retryCount < MAX_RETRIES && errorType === 'server_error') {
+        console.log(`[retrieveParts] Retrying in ${RETRY_DELAY_MS}ms...`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+        return retrieveParts(vehicleId, apiConfig, partType, retryCount + 1);
+      }
+      
+      return { 
+        success: false, 
+        parts: [], 
+        error: `Parts lookup failed: ${response.status}`,
+        errorType 
+      };
     }
     
     const data = await response.json();
@@ -1380,7 +1422,31 @@ async function retrieveParts(
     return { success: true, parts };
   } catch (error) {
     console.error('[retrieveParts] Error:', error);
-    return { success: false, parts: [], error: error instanceof Error ? error.message : 'Parts lookup failed' };
+    
+    // Handle specific error types
+    let errorType = 'unknown_error';
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        errorType = 'timeout';
+        console.log('[retrieveParts] Request timed out');
+      } else if (error.message.includes('fetch')) {
+        errorType = 'network_error';
+      }
+    }
+    
+    // Retry on timeout or network errors
+    if (retryCount < MAX_RETRIES && (errorType === 'timeout' || errorType === 'network_error')) {
+      console.log(`[retrieveParts] Retrying in ${RETRY_DELAY_MS}ms after ${errorType}...`);
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      return retrieveParts(vehicleId, apiConfig, partType, retryCount + 1);
+    }
+    
+    return { 
+      success: false, 
+      parts: [], 
+      error: error instanceof Error ? error.message : 'Parts lookup failed',
+      errorType 
+    };
   }
 }
 
@@ -2116,6 +2182,26 @@ Example response when multiple variants found:
 3) 3.0L Petrol (180kW)
 Just say the number or engine type, mate."`;
 
+    // ============= ERROR HANDLING PROMPT ENGINEERING =============
+    // Add instructions for graceful error handling
+    enhancedSystemPrompt += `\n\n## CRITICAL - ERROR HANDLING AND RECOVERY
+When things go wrong, you MUST respond appropriately instead of pretending everything is fine:
+
+### If retrieve_parts or retrieve_service_packages returns an error or empty result:
+- DO NOT say "here are your parts" or "loading your options" if no parts were found
+- If error contains "Vehicle not found in the database": Say "Ah, looks like we don't have specific parts catalogued for your [VEHICLE] just yet. No worries though! I can help with universal items like wipers, batteries, or cleaning gear - or if you know a part number, I can search for that."
+- If error is a server/connection issue: Say "I'm having a wee bit of trouble connecting to the parts database right now. Want me to try again, or can I help with general products in the meantime?"
+- If result is empty (no parts match vehicle): Say "Hmm, no specific parts coming up for that. This sometimes happens with newer or imported vehicles. I can still help with universal accessories and consumables though!"
+
+### If lookup_vehicle fails or returns no match:
+- Say "I couldn't find a vehicle for that rego in the system. Could be a typo, or it might be too new/imported for my database. Mind double-checking the plate, or you can tell me the make, model and year instead?"
+
+### General rules:
+- NEVER make up products or prices that weren't in tool results
+- ALWAYS acknowledge when something didn't work
+- ALWAYS offer an alternative (general products, retry, manual search)
+- Be apologetic but helpful - a Kiwi "she'll be right" attitude while actually being useful`;
+
     // Build conversation with system prompt
     const conversationMessages: Message[] = [
       { role: "system", content: enhancedSystemPrompt },
@@ -2179,22 +2265,53 @@ DO NOT assume any variant. DO NOT say parts are loading. Wait for their selectio
         retrieveServicePackages(vehicleId, apiConfig)
       ]);
       
+      // Track if we had errors for context injection
+      let fetchErrorContext = '';
+      
       if (partsResult.success && partsResult.parts.length > 0) {
         console.log(`[Deterministic Fetch] Got ${partsResult.parts.length} parts`);
         (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit = partsResult.parts;
+      } else if (!partsResult.success) {
+        // Store error type for appropriate response generation
+        console.log(`[Deterministic Fetch] Parts fetch failed: ${partsResult.errorType} - ${partsResult.error}`);
+        (conversationMessages as unknown as { _partsErrorType?: string })._partsErrorType = partsResult.errorType || 'unknown';
+        
+        if (partsResult.errorType === 'vehicle_not_in_parts_db') {
+          fetchErrorContext = `\n\n[PARTS FETCH RESULT] The parts database returned no results for this vehicle (vehicle_id ${vehicleId} not in parts catalog). This is a data limitation, NOT a user error. Acknowledge this gracefully and offer alternatives like universal products, accessories, or part number search.`;
+        } else {
+          fetchErrorContext = `\n\n[PARTS FETCH RESULT] There was a technical issue fetching parts (${partsResult.errorType}). Apologize for the trouble and offer to retry or help with general products.`;
+        }
+      } else {
+        // Success but empty
+        console.log(`[Deterministic Fetch] Parts fetch succeeded but returned 0 parts`);
+        fetchErrorContext = `\n\n[PARTS FETCH RESULT] The parts search completed but found no matching parts for this vehicle. This sometimes happens with newer or imported vehicles. Offer alternatives.`;
       }
       
       if (packagesResult.success && packagesResult.packages.length > 0) {
         const displayable = filterDisplayablePackages(packagesResult.packages);
         console.log(`[Deterministic Fetch] Got ${displayable.length} displayable packages`);
         (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = displayable;
+        
+        // If we have packages but no parts, that's still useful
+        if (fetchErrorContext && displayable.length > 0) {
+          fetchErrorContext += ` However, I do have ${displayable.length} service packages available that might help!`;
+        }
       }
       
-      // Add context message for AI to know vehicle is confirmed
-      conversationMessages.push({
-        role: "system",
-        content: `[VEHICLE CONFIRMED AUTOMATICALLY] The customer selected the ${deterministicVehicle.year || deterministicVehicle.start_year} ${deterministicVehicle.make} ${deterministicVehicle.model} (${deterministicVehicle.variant || deterministicVehicle.vehicle_name_nz || 'variant'}). Parts and service packages are already loading on their shelf. Confirm the selection and help them find what they need.`
-      });
+      // Add context message for AI to know vehicle is confirmed AND error status
+      const baseConfirmation = `[VEHICLE CONFIRMED AUTOMATICALLY] The customer selected the ${deterministicVehicle.year || deterministicVehicle.start_year} ${deterministicVehicle.make} ${deterministicVehicle.model} (${deterministicVehicle.variant || deterministicVehicle.vehicle_name_nz || 'variant'}).`;
+      
+      if (fetchErrorContext) {
+        conversationMessages.push({
+          role: "system",
+          content: `${baseConfirmation}${fetchErrorContext}\n\nCRITICAL: DO NOT say "here are your parts" or imply products are loading if the fetch failed. Acknowledge the issue honestly and offer help.`
+        });
+      } else {
+        conversationMessages.push({
+          role: "system",
+          content: `${baseConfirmation} Parts and service packages are already loading on their shelf. Confirm the selection and help them find what they need.`
+        });
+      }
     }
 
     // Tool calling loop - may require multiple iterations
@@ -2681,6 +2798,9 @@ IMPORTANT: Only reference products/packages from this list with these EXACT pric
           }
           
           // ============= PARTS EMISSION LOGIC =============
+          // Check for parts error type
+          const partsErrorType = (conversationMessages as unknown as { _partsErrorType?: string })._partsErrorType;
+          
           // CRITICAL: Only emit no_parts_found if we actually tried to fetch parts
           // and got nothing - NOT during multi-vehicle selection phase
           if (partsToEmit && partsToEmit.length > 0) {
@@ -2689,11 +2809,32 @@ IMPORTANT: Only reference products/packages from this list with these EXACT pric
             console.log("[Stream] Emitted parts_found:", partsToEmit.length, "parts");
             partsEmitted = true;
           } else if (!multipleVehiclesFound && confirmedVehicleStored) {
-            // Only emit no_parts_found if we have a confirmed vehicle but no parts
-            // This prevents clearing shelves during variant selection
-            const noPartsEvent = `data: ${JSON.stringify({ type: "no_parts_found" })}\n\n`;
-            controller.enqueue(encoder.encode(noPartsEvent));
-            console.log("[Stream] Emitted no_parts_found (confirmed vehicle, 0 parts)");
+            // Vehicle confirmed but no parts - determine the reason
+            if (partsErrorType) {
+              // Emit specific error event with context for frontend handling
+              const errorEvent = `data: ${JSON.stringify({ 
+                type: "parts_fetch_error", 
+                errorType: partsErrorType,
+                message: partsErrorType === 'vehicle_not_in_parts_db' 
+                  ? 'This vehicle is not in the parts catalog yet'
+                  : partsErrorType === 'timeout'
+                  ? 'Parts lookup timed out - try again'
+                  : partsErrorType === 'network_error'
+                  ? 'Connection issue - check your internet'
+                  : 'Unable to load parts at the moment',
+                canRetry: ['timeout', 'network_error', 'server_error'].includes(partsErrorType)
+              })}\n\n`;
+              controller.enqueue(encoder.encode(errorEvent));
+              console.log(`[Stream] Emitted parts_fetch_error: ${partsErrorType}`);
+            } else {
+              // No error type means parts fetch succeeded but returned empty
+              const noPartsEvent = `data: ${JSON.stringify({ 
+                type: "no_parts_found",
+                reason: "empty_result"
+              })}\n\n`;
+              controller.enqueue(encoder.encode(noPartsEvent));
+              console.log("[Stream] Emitted no_parts_found (confirmed vehicle, 0 parts)");
+            }
           } else if (multipleVehiclesFound) {
             // During variant selection - do NOT emit no_parts_found
             console.log("[Stream] Skipping no_parts_found - awaiting variant selection");
