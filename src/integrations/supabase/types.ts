@@ -329,6 +329,39 @@ export type Database = {
         }
         Relationships: []
       }
+      bob_error_logs: {
+        Row: {
+          additional_data: Json | null
+          created_at: string | null
+          error_type: string
+          id: string
+          rego: string | null
+          vehicle_id: number | null
+          vehicle_make: string | null
+          vehicle_model: string | null
+        }
+        Insert: {
+          additional_data?: Json | null
+          created_at?: string | null
+          error_type: string
+          id?: string
+          rego?: string | null
+          vehicle_id?: number | null
+          vehicle_make?: string | null
+          vehicle_model?: string | null
+        }
+        Update: {
+          additional_data?: Json | null
+          created_at?: string | null
+          error_type?: string
+          id?: string
+          rego?: string | null
+          vehicle_id?: number | null
+          vehicle_make?: string | null
+          vehicle_model?: string | null
+        }
+        Relationships: []
+      }
       bob_llm_config: {
         Row: {
           api_key_secret_name: string | null

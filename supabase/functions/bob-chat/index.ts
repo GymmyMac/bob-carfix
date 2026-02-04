@@ -102,6 +102,7 @@ interface VehicleCandidate {
   start_year?: number;
   end_year?: number;
   year?: number | string;
+  year_of_manufacture?: number;
   engine_code?: string;
   cc_rating?: number;
   fuel_type?: string;
@@ -853,6 +854,46 @@ const VEHICLE_SPECIFIC_KEYWORDS = [
   'muffler', 'catalytic', 'oxygen sensor', 'lambda', 'headlight', 'taillight',
   'service', 'parts for my', 'need parts', 'need a part'
 ];
+
+// ============= ERROR ANALYTICS LOGGING =============
+/**
+ * Log error events to bob_error_logs for analytics and catalog expansion tracking.
+ * Uses service role key to bypass RLS.
+ */
+async function logErrorEvent(
+  errorType: string,
+  vehicleContext: { vehicleId?: number; make?: string; model?: string; rego?: string },
+  additionalData?: Record<string, unknown>
+): Promise<void> {
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !supabaseKey) {
+      console.warn('[Error Analytics] Missing Supabase credentials, skipping log');
+      return;
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    const { error } = await supabase.from('bob_error_logs').insert({
+      error_type: errorType,
+      vehicle_id: vehicleContext.vehicleId,
+      vehicle_make: vehicleContext.make,
+      vehicle_model: vehicleContext.model,
+      rego: vehicleContext.rego,
+      additional_data: additionalData || {},
+      created_at: new Date().toISOString()
+    });
+    
+    if (error) {
+      console.warn('[Error Analytics] Failed to insert:', error);
+    } else {
+      console.log(`[Error Analytics] Logged: ${errorType} for vehicle_id=${vehicleContext.vehicleId}`);
+    }
+  } catch (e) {
+    console.warn('[Error Analytics] Exception:', e);
+  }
+}
 
 interface CannedResponseClip {
   transcript: string;
@@ -1899,6 +1940,7 @@ serve(async (req) => {
                 start_year: v.start_year,
                 end_year: v.end_year,
                 year: v.year,
+                year_of_manufacture: v.year_of_manufacture,
                 engine_code: v.engine_code,
                 cc_rating: v.cc_rating,
                 fuel_type: v.fuel_type,
@@ -1910,17 +1952,29 @@ serve(async (req) => {
             } else if (singleVehicle || vehicles.length === 1) {
               // Single match - auto-confirm
               const vehicle = singleVehicle || vehicles[0];
+              
+              // Year validation warning - detect mismatches between CarJam and CARFIX data
+              if (vehicle.year_of_manufacture && vehicle.start_year && vehicle.end_year) {
+                if (vehicle.year_of_manufacture < vehicle.start_year || vehicle.year_of_manufacture > vehicle.end_year) {
+                  console.warn(`[Year Validation] Mismatch: year_of_manufacture=${vehicle.year_of_manufacture} outside range ${vehicle.start_year}-${vehicle.end_year}`);
+                }
+              }
+              
               forcedSingleVehicle = {
                 vehicle_id: (vehicle.vehicle_id || vehicle.id) as number,
                 make: vehicle.make as string,
                 model: vehicle.model as string,
-                year: (vehicle.year || vehicle.start_year) as number,
+                // FIXED: Prioritize year_of_manufacture from CarJam for display accuracy
+                year: (vehicle.year_of_manufacture ?? vehicle.year ?? vehicle.start_year) as number,
+                year_of_manufacture: vehicle.year_of_manufacture as number | undefined,
+                start_year: vehicle.start_year as number | undefined,
+                end_year: vehicle.end_year as number | undefined,
                 variant: (vehicle.variant || vehicle.vehicle_name_nz) as string,
                 cc_rating: vehicle.cc_rating as number,
                 fuel_type: vehicle.fuel_type as string,
                 plate: extractedRego,
               };
-              console.log(`[Forced REGO Lookup] Single match auto-confirmed: vehicle_id=${forcedSingleVehicle.vehicle_id}`);
+              console.log(`[Forced REGO Lookup] Single match auto-confirmed: vehicle_id=${forcedSingleVehicle!.vehicle_id}, year=${forcedSingleVehicle!.year}`);
             }
           }
         } catch (err) {
@@ -2088,7 +2142,8 @@ serve(async (req) => {
       id: deterministicVehicle.vehicle_id,
       make: deterministicVehicle.make,
       model: deterministicVehicle.model,
-      year: deterministicVehicle.year || deterministicVehicle.start_year,
+      // FIXED: Prioritize year_of_manufacture for accurate display
+      year: (deterministicVehicle as any).year_of_manufacture ?? deterministicVehicle.year ?? deterministicVehicle.start_year,
       variant: deterministicVehicle.variant || deterministicVehicle.vehicle_name_nz,
       engine_size: deterministicVehicle.cc_rating,
       fuel_type: deterministicVehicle.fuel_type,
@@ -2183,24 +2238,47 @@ Example response when multiple variants found:
 Just say the number or engine type, mate."`;
 
     // ============= ERROR HANDLING PROMPT ENGINEERING =============
-    // Add instructions for graceful error handling
+    // Add instructions for graceful error handling with response variety
     enhancedSystemPrompt += `\n\n## CRITICAL - ERROR HANDLING AND RECOVERY
-When things go wrong, you MUST respond appropriately instead of pretending everything is fine:
 
-### If retrieve_parts or retrieve_service_packages returns an error or empty result:
-- DO NOT say "here are your parts" or "loading your options" if no parts were found
-- If error contains "Vehicle not found in the database": Say "Ah, looks like we don't have specific parts catalogued for your [VEHICLE] just yet. No worries though! I can help with universal items like wipers, batteries, or cleaning gear - or if you know a part number, I can search for that."
-- If error is a server/connection issue: Say "I'm having a wee bit of trouble connecting to the parts database right now. Want me to try again, or can I help with general products in the meantime?"
-- If result is empty (no parts match vehicle): Say "Hmm, no specific parts coming up for that. This sometimes happens with newer or imported vehicles. I can still help with universal accessories and consumables though!"
+When things go wrong, respond transparently and helpfully. Vary your phrasing for naturalness.
 
-### If lookup_vehicle fails or returns no match:
-- Say "I couldn't find a vehicle for that rego in the system. Could be a typo, or it might be too new/imported for my database. Mind double-checking the plate, or you can tell me the make, model and year instead?"
+### Invalid REGO Format (Acknowledgment + Clarification)
+Cycle these responses (vary each time):
+- "Oops, I didn't quite catch that one! I need a valid NZ plate like ABC123 or HZP550."
+- "Hmm, that doesn't look like a Kiwi rego to me. Mind trying again? Format's usually ABC123."
+- "No luck with that plate, mate. Double-check it's a standard NZ format like ABC123?"
 
-### General rules:
-- NEVER make up products or prices that weren't in tool results
-- ALWAYS acknowledge when something didn't work
-- ALWAYS offer an alternative (general products, retry, manual search)
-- Be apologetic but helpful - a Kiwi "she'll be right" attitude while actually being useful`;
+### Vehicle Not Found in Database
+Cycle these responses:
+- "Couldn't find a match for [REGO] in the system. Might be too new or an import. Try the make, model, and year?"
+- "Hmm, [REGO] isn't showing up. Sometimes newer cars take a while to get catalogued. Got the make and model handy?"
+- "No joy on [REGO], mate. Could be a typo, or it might be a fresh import. Mind double-checking?"
+
+### Parts Fetch Error (vehicle_not_in_parts_db)
+Cycle these responses - direct to carfix.co.nz:
+- "Ah, Bob's parts system isn't set up for your [VEHICLE] yet. Head over to carfix.co.nz and browse manually – the team there will sort you!"
+- "No parts coming up for your [VEHICLE] in my system – sometimes happens with imports. Try carfix.co.nz for the full catalogue!"
+- "Drawing a blank for your [VEHICLE], mate. Best bet is to pop over to carfix.co.nz and browse there!"
+
+### Parts Fetch Error (server_error/timeout/network)
+Cycle these responses (add Bob personality):
+- "Bob's taking a quick pit stop! Having trouble connecting – try refreshing, or hop over to carfix.co.nz while we sort this out."
+- "Bit of a glitch on my end, mate. Give the page a refresh, or browse directly at carfix.co.nz."
+- "She's playing up a bit – connection trouble. Try again in a tick, or carfix.co.nz has what you need!"
+
+### Empty Results (Parts search succeeded but zero results)
+Cycle these responses:
+- "Hmm, no parts showing for your [VEHICLE] in our catalogue – common with imports. Try carfix.co.nz for the full range!"
+- "Nothing coming up for that one. Head to carfix.co.nz and browse manually – they'll have it sorted!"
+
+### General Rules:
+- NEVER output "undefined", "null", or empty template variables - if a value is missing, omit it
+- NEVER invent products or prices not in tool results
+- NEVER offer "universal products" or "accessories" – Bob doesn't have this capability
+- ALWAYS empower users: provide clear next steps, suggest retry or website
+- ALWAYS direct to carfix.co.nz as the fallback recovery path
+- Kiwi-friendly tone: apologetic yet optimistic ("she'll be right" attitude)`;
 
     // Build conversation with system prompt
     const conversationMessages: Message[] = [
@@ -2247,7 +2325,8 @@ DO NOT assume any variant. DO NOT say parts are loading. Wait for their selectio
         vehicle_id: vehicleId,
         make: deterministicVehicle.make,
         model: deterministicVehicle.model,
-        year: deterministicVehicle.year || deterministicVehicle.start_year,
+        // FIXED: Prioritize year_of_manufacture for accurate year display
+        year: (deterministicVehicle as any).year_of_manufacture ?? deterministicVehicle.year ?? deterministicVehicle.start_year,
         variant: deterministicVehicle.variant || deterministicVehicle.vehicle_name_nz,
         engine_size: deterministicVehicle.cc_rating,
         fuel_type: deterministicVehicle.fuel_type,
@@ -2276,15 +2355,50 @@ DO NOT assume any variant. DO NOT say parts are loading. Wait for their selectio
         console.log(`[Deterministic Fetch] Parts fetch failed: ${partsResult.errorType} - ${partsResult.error}`);
         (conversationMessages as unknown as { _partsErrorType?: string })._partsErrorType = partsResult.errorType || 'unknown';
         
+        // Log error for analytics
+        await logErrorEvent(partsResult.errorType || 'unknown', {
+          vehicleId: vehicleId,
+          make: deterministicVehicle.make,
+          model: deterministicVehicle.model,
+          rego: deterministicVehicle.plate || deterministicVehicle.rego,
+        }, { 
+          rawError: partsResult.error,
+          fetchType: 'deterministic_fetch'
+        });
+        
         if (partsResult.errorType === 'vehicle_not_in_parts_db') {
-          fetchErrorContext = `\n\n[PARTS FETCH RESULT] The parts database returned no results for this vehicle (vehicle_id ${vehicleId} not in parts catalog). This is a data limitation, NOT a user error. Acknowledge this gracefully and offer alternatives like universal products, accessories, or part number search.`;
+          fetchErrorContext = `\n\n[PARTS FETCH RESULT] Vehicle_id ${vehicleId} not in parts catalog. 
+Direct customer to carfix.co.nz for manual browsing. 
+DO NOT offer universal products or accessories – Bob cannot access these.
+Use varied, Kiwi-friendly phrasing. Log this for catalog expansion tracking.`;
+        } else if (['server_error', 'timeout', 'network_error'].includes(partsResult.errorType || '')) {
+          fetchErrorContext = `\n\n[PARTS FETCH RESULT] Technical issue (${partsResult.errorType}). 
+Suggest page refresh or carfix.co.nz fallback. 
+Add light humor – "Bob's taking a pit stop!" 
+This is recoverable; offer retry or website.`;
         } else {
-          fetchErrorContext = `\n\n[PARTS FETCH RESULT] There was a technical issue fetching parts (${partsResult.errorType}). Apologize for the trouble and offer to retry or help with general products.`;
+          fetchErrorContext = `\n\n[PARTS FETCH RESULT] Unknown error (${partsResult.errorType}). 
+Apologize and direct to carfix.co.nz.`;
         }
       } else {
         // Success but empty
         console.log(`[Deterministic Fetch] Parts fetch succeeded but returned 0 parts`);
-        fetchErrorContext = `\n\n[PARTS FETCH RESULT] The parts search completed but found no matching parts for this vehicle. This sometimes happens with newer or imported vehicles. Offer alternatives.`;
+        
+        // Log empty results for catalog expansion tracking
+        await logErrorEvent('empty_results', {
+          vehicleId: vehicleId,
+          make: deterministicVehicle.make,
+          model: deterministicVehicle.model,
+          rego: deterministicVehicle.plate || deterministicVehicle.rego,
+        }, { 
+          fetchType: 'deterministic_fetch',
+          partsCount: 0
+        });
+        
+        fetchErrorContext = `\n\n[PARTS FETCH RESULT] Search completed, zero matches. 
+Direct to carfix.co.nz. 
+Use encouraging phrasing – "common with imports" or "catalogue is growing". 
+DO NOT suggest fallback products Bob cannot access.`;
       }
       
       if (packagesResult.success && packagesResult.packages.length > 0) {
