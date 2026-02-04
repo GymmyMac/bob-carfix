@@ -453,47 +453,69 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
 
           {/* Variant Cards */}
           <div className="flex flex-col gap-2 px-1">
-            {pendingVariants.map((variant) => (
-              <button
-                key={variant.vehicle_id}
-                type="button"
-                onClick={() => onVariantSelect(variant)}
-                className="w-full text-left transition-all duration-200 cursor-pointer rounded-2xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-[0.98]"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.85) 100%)',
-                  backdropFilter: 'blur(12px) saturate(150%)',
-                  WebkitBackdropFilter: 'blur(12px) saturate(150%)',
-                  boxShadow: '0 4px 24px rgba(0, 0, 0, 0.12)',
-                  border: '1px solid rgba(255, 255, 255, 0.4)',
-                  minHeight: '72px',
-                }}
-              >
-                <div className="flex items-center gap-3 p-4">
-                  <div 
-                    className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 font-bold text-lg text-white"
-                    style={{ background: 'linear-gradient(135deg, #0066CC 0%, #0052A3 100%)', boxShadow: '0 2px 8px rgba(0, 102, 204, 0.4)' }}
+            {(() => {
+              // Pre-compute display labels and detect duplicates
+              const labels = (pendingVariants || []).map((variant) => {
+                const specsLine = [
+                  variant.engineCode,
+                  variant.kw ? `${variant.kw}kW` : null,
+                  variant.ccDisplay || (variant.cc ? `${variant.cc}cc` : null),
+                  variant.fuelType,
+                ].filter(Boolean).join(' · ');
+                return specsLine || variant.displayTitle;
+              });
+              
+              // Find duplicates - if a label appears more than once, use displaySubtitle instead
+              const labelCounts = labels.reduce((acc, label) => {
+                acc[label] = (acc[label] || 0) + 1;
+                return acc;
+              }, {} as Record<string, number>);
+              
+              return (pendingVariants || []).map((variant, index) => {
+                const primaryLabel = labels[index];
+                // If this label is a duplicate, use displaySubtitle (the full differentiating text from backend)
+                const isDuplicate = labelCounts[primaryLabel] > 1;
+                const displayLabel = isDuplicate && variant.displaySubtitle
+                  ? variant.displaySubtitle
+                  : primaryLabel;
+                
+                return (
+                  <button
+                    key={variant.vehicle_id}
+                    type="button"
+                    onClick={() => onVariantSelect(variant)}
+                    className="w-full text-left transition-all duration-200 cursor-pointer rounded-2xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 active:scale-[0.98]"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.85) 100%)',
+                      backdropFilter: 'blur(12px) saturate(150%)',
+                      WebkitBackdropFilter: 'blur(12px) saturate(150%)',
+                      boxShadow: '0 4px 24px rgba(0, 0, 0, 0.12)',
+                      border: '1px solid rgba(255, 255, 255, 0.4)',
+                      minHeight: '72px',
+                    }}
                   >
-                    {variant.optionNumber}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    {/* Build clean technical specs line: Engine · Power · Displacement · Fuel */}
-                    <p className="font-semibold text-gray-900 text-base leading-tight">
-                      {[
-                        variant.engineCode,
-                        variant.kw ? `${variant.kw}kW` : null,
-                        variant.ccDisplay || (variant.cc ? `${variant.cc}cc` : null),
-                        variant.fuelType,
-                      ].filter(Boolean).join(' · ') || variant.displayTitle}
-                    </p>
-                  </div>
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(0, 102, 204, 0.1)' }}>
-                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </div>
-              </button>
-            ))}
+                    <div className="flex items-center gap-3 p-4">
+                      <div 
+                        className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 font-bold text-lg text-white"
+                        style={{ background: 'linear-gradient(135deg, #0066CC 0%, #0052A3 100%)', boxShadow: '0 2px 8px rgba(0, 102, 204, 0.4)' }}
+                      >
+                        {variant.optionNumber}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 text-base leading-tight">
+                          {displayLabel}
+                        </p>
+                      </div>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(0, 102, 204, 0.1)' }}>
+                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </button>
+                );
+              });
+            })()}
           </div>
         </div>
       )}
