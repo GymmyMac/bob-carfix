@@ -437,11 +437,56 @@ function generateVariantListData(candidates: VehicleCandidate[]): VariantListRes
     characterization: getVehicleCharacterization(c, candidates),
   }));
   
-  // Find which attributes differ between candidates
-  const allCc = candidateData.map(d => d.cc);
-  const allFuel = candidateData.map(d => d.fuel);
-  const allKw = candidateData.map(d => d.kw);
-  const allEngineCodes = candidateData.map(d => d.engineCode);
+  // DEDUPLICATE: Group variants by their parts-relevant specs (kW, cc, fuel, engineCode)
+  // Variants with identical specs use the same parts - only show one
+  const seenSignatures = new Set<string>();
+  const deduplicatedData = candidateData.filter(d => {
+    const signature = [
+      d.kw?.toString() || '',
+      d.cc?.toString() || '',
+      (d.fuel || '').toLowerCase(),
+      (d.engineCode || '').toUpperCase(),
+    ].join('|');
+    
+    if (seenSignatures.has(signature)) {
+      console.log(`[Variant Dedup] Skipping duplicate signature: ${signature} for vehicle_id ${d.candidate.vehicle_id}`);
+      return false;
+    }
+    seenSignatures.add(signature);
+    return true;
+  });
+  
+  console.log(`[Variant Dedup] Reduced ${candidateData.length} candidates to ${deduplicatedData.length} unique variants`);
+  
+  // If only one unique variant after dedup, return it directly (no selection needed)
+  if (deduplicatedData.length === 1) {
+    const d = deduplicatedData[0];
+    return {
+      text: '',
+      cards: [{
+        vehicle_id: d.candidate.vehicle_id,
+        optionNumber: 1,
+        displayTitle: d.candidate.vehicle_name_nz || `${d.candidate.make} ${d.candidate.model}`,
+        displaySubtitle: '',
+        characterization: d.characterization || '',
+        kw: d.kw,
+        cc: d.cc,
+        ccDisplay: d.ccDisplay,
+        fuelType: d.fuel,
+        engineCode: d.engineCode,
+        make: d.candidate.make || make,
+        model: d.candidate.model || model,
+      }],
+      make,
+      model,
+    };
+  }
+  
+  // Find which attributes differ between DEDUPLICATED candidates
+  const allCc = deduplicatedData.map(d => d.cc);
+  const allFuel = deduplicatedData.map(d => d.fuel);
+  const allKw = deduplicatedData.map(d => d.kw);
+  const allEngineCodes = deduplicatedData.map(d => d.engineCode);
   
   const ccDiffers = new Set(allCc.filter(Boolean)).size > 1;
   const fuelDiffers = new Set(allFuel.filter(Boolean)).size > 1;
@@ -451,7 +496,7 @@ function generateVariantListData(candidates: VehicleCandidate[]): VariantListRes
   const cards: VariantCardData[] = [];
   const textLines: string[] = [];
   
-  candidateData.forEach((d, i) => {
+  deduplicatedData.forEach((d, i) => {
     const textParts: string[] = [];
     const subtitleParts: string[] = [];
     
