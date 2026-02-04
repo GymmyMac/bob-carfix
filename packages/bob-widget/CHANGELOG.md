@@ -5,6 +5,18 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.19] - 2026-02-04
+
+### Added
+- 🚗 **Vehicle Variant Deduplication**: Smart filtering removes duplicate vehicle variants based on parts-relevant specs (fuel type, engine capacity, power output) rather than superficial trim differences
+- 🗣️ **REGO Terminology Alignment**: Bob now treats "registration", "rego", "plate", and "number plate" identically
+
+### Fixed
+- 🔢 **Speech Count Alignment**: Bob's spoken variant count now matches the deduplicated UI cards shown on screen
+- 🎴 **Variant Card Display**: Cards now show specs-first format without characterization text
+
+---
+
 ## [3.1.18] - 2026-01-28
 
 ### Changed
