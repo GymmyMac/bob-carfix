@@ -129,8 +129,8 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
       ref={drawerRef}
       style={{
         position: 'absolute',
-        // v3.1.15: Chat drawer sits at container bottom (below counter visually, in front via z-index)
-        bottom: 0,
+        // v3.1.19: Apply bottomOffset for host navigation bars (was hardcoded to 0)
+        bottom: bottomOffset,
         left: 0,
         right: 0,
         // CRITICAL: Explicitly unset top to prevent stale positioning after expand/collapse
