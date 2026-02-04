@@ -391,13 +391,40 @@ function getVehicleCharacterization(
   return ''; // No characterization if we can't determine one
 }
 
+// ============= VARIANT CARD DATA FOR UI =============
+interface VariantCardData {
+  vehicle_id: number;
+  optionNumber: number;
+  displayTitle: string;
+  displaySubtitle: string;
+  characterization: string;
+  kw: number | null;
+  cc: number | null;
+  ccDisplay: string | null;
+  fuelType: string | null;
+  engineCode: string | null;
+  make: string;
+  model: string;
+}
+
+interface VariantListResult {
+  text: string;
+  cards: VariantCardData[];
+  make: string;
+  model: string;
+}
+
 /**
- * Generate a human-readable variant list for user selection.
- * Only shows differentiating attributes between candidates.
- * Does NOT include year ranges (we know the exact year from REGO).
+ * Generate variant data for both text display and UI cards.
+ * Returns structured data for the shelf cards plus a readable text version.
  */
-function generateVariantListText(candidates: VehicleCandidate[]): string {
-  if (candidates.length === 0) return '';
+function generateVariantListData(candidates: VehicleCandidate[]): VariantListResult {
+  if (candidates.length === 0) {
+    return { text: '', cards: [], make: '', model: '' };
+  }
+  
+  const make = candidates[0]?.make || '';
+  const model = candidates[0]?.model || '';
   
   // Extract key attributes for each candidate
   const candidateData = candidates.map(c => ({
@@ -421,43 +448,90 @@ function generateVariantListText(candidates: VehicleCandidate[]): string {
   const kwDiffers = new Set(allKw.filter(Boolean)).size > 1;
   const engineCodeDiffers = new Set(allEngineCodes.filter(Boolean)).size > 1;
   
-  return candidateData.map((d, i) => {
-    const parts: string[] = [];
+  const cards: VariantCardData[] = [];
+  const textLines: string[] = [];
+  
+  candidateData.forEach((d, i) => {
+    const textParts: string[] = [];
+    const subtitleParts: string[] = [];
     
-    // Add characterization first (e.g., "The sporty", "The economical")
+    // Build display title with characterization
+    const displayTitle = d.characterization 
+      ? `The ${d.characterization} one`
+      : d.candidate.vehicle_name_nz || `${d.candidate.make} ${d.candidate.model}`;
+    
+    // Add characterization to text version
     if (d.characterization) {
-      parts.push(`The ${d.characterization}`);
+      textParts.push(`The ${d.characterization}`);
     }
     
     // Add kW if it differs
     if (kwDiffers && d.kw) {
-      parts.push(`${d.kw}kW`);
+      textParts.push(`${d.kw}kW`);
+      subtitleParts.push(`${d.kw}kW`);
     }
     
     // Add CC if it differs
     if (ccDiffers && d.ccDisplay) {
-      parts.push(d.ccDisplay);
+      textParts.push(d.ccDisplay);
+      subtitleParts.push(d.ccDisplay);
     }
     
     // Add fuel type if it differs
     if (fuelDiffers && d.fuel) {
-      parts.push(d.fuel);
+      textParts.push(d.fuel);
+      subtitleParts.push(d.fuel);
     }
     
     // Add engine code if it differs (key identifier!)
     if (engineCodeDiffers && d.engineCode) {
-      parts.push(`(${d.engineCode} engine)`);
+      textParts.push(`(${d.engineCode} engine)`);
+      subtitleParts.push(`${d.engineCode} engine`);
     }
     
-    // If no differentiating attributes found, fall back to vehicle name
-    if (parts.length === 0) {
-      const fallback = d.candidate.vehicle_name_nz || 
-                       `${d.candidate.make} ${d.candidate.model}`;
-      return `${i + 1}) ${fallback}`;
-    }
+    // Build text line
+    const textLine = textParts.length > 0
+      ? `${i + 1}) ${textParts.join(' ')}`
+      : `${i + 1}) ${d.candidate.vehicle_name_nz || `${d.candidate.make} ${d.candidate.model}`}`;
+    textLines.push(textLine);
     
-    return `${i + 1}) ${parts.join(' ')}`;
-  }).join('\n');
+    // Build subtitle for card
+    const displaySubtitle = subtitleParts.length > 0
+      ? subtitleParts.join(' • ')
+      : d.candidate.vehicle_name_nz || '';
+    
+    // Create card data
+    cards.push({
+      vehicle_id: d.candidate.vehicle_id,
+      optionNumber: i + 1,
+      displayTitle,
+      displaySubtitle,
+      characterization: d.characterization || '',
+      kw: d.kw,
+      cc: d.cc,
+      ccDisplay: d.ccDisplay,
+      fuelType: d.fuel,
+      engineCode: d.engineCode,
+      make: d.candidate.make || make,
+      model: d.candidate.model || model,
+    });
+  });
+  
+  return {
+    text: textLines.join('\n'),
+    cards,
+    make,
+    model,
+  };
+}
+
+/**
+ * Generate a human-readable variant list for user selection.
+ * Only shows differentiating attributes between candidates.
+ * Does NOT include year ranges (we know the exact year from REGO).
+ */
+function generateVariantListText(candidates: VehicleCandidate[]): string {
+  return generateVariantListData(candidates).text;
 }
 
 // ============= DETERMINISTIC VARIANT SELECTION =============
@@ -1836,13 +1910,13 @@ serve(async (req) => {
     // When we have multiple variants and no deterministic match, bypass AI entirely
     // and generate a structured variant list directly
     if (conversationState === 'AWAITING_VARIANT_SELECTION' && !deterministicVehicle) {
-      console.log(`[State Machine] AWAITING_VARIANT_SELECTION - generating deterministic variant list`);
+      console.log(`[State Machine] AWAITING_VARIANT_SELECTION - generating deterministic variant list with UI cards`);
       
-      const variantList = generateVariantListText(allCandidates);
-      const make = allCandidates[0]?.make || '';
-      const model = allCandidates[0]?.model || '';
+      // Generate both text and structured card data
+      const variantData = generateVariantListData(allCandidates);
+      const { text: variantList, cards, make, model } = variantData;
       
-      const responseText = `I found ${allCandidates.length} versions of the ${make} ${model}. Which one is yours?\n\n${variantList}\n\nJust say the number or describe it (e.g., 'the diesel one'), mate.`;
+      const responseText = `I found ${allCandidates.length} versions of the ${make} ${model}. Which one is yours?\n\n${variantList}\n\nJust say the number or tap your choice, mate.`;
       
       // Return deterministic response as SSE stream (no AI call)
       const encoder = new TextEncoder();
@@ -1856,14 +1930,24 @@ serve(async (req) => {
           })}\n\n`;
           controller.enqueue(encoder.encode(stateEvent));
           
-          // Emit vehicle candidates for client storage
+          // Emit vehicle candidates for client storage (backwards compatibility)
           const candidatesEvent = `data: ${JSON.stringify({ 
             type: "vehicle_candidates_found", 
             candidates: allCandidates 
           })}\n\n`;
           controller.enqueue(encoder.encode(candidatesEvent));
           
-          // Emit the variant list text as if it were streamed
+          // NEW: Emit variant_selection_required with structured card data for UI
+          const variantSelectionEvent = `data: ${JSON.stringify({
+            type: "variant_selection_required",
+            candidates: cards,
+            make,
+            model,
+            promptText: `I found ${cards.length} versions of the ${make} ${model}. Which one is yours?`
+          })}\n\n`;
+          controller.enqueue(encoder.encode(variantSelectionEvent));
+          
+          // Emit the variant list text as if it were streamed (for TTS)
           const textEvent = `data: ${JSON.stringify({
             choices: [{ delta: { content: responseText } }]
           })}\n\n`;

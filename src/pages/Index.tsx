@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { ServicePackageDetailDialog } from "@/components/ServicePackageDetailDialog";
 import { ProductConfirmDialog } from "@/components/ProductConfirmDialog";
@@ -13,7 +13,7 @@ import { useSessionHandoff } from "@/hooks/useSessionHandoff";
 import { Product, APIPart, apiPartToProduct } from "@/types/product";
 import { useBobStateTransitions } from "@/hooks/useBobStateTransitions";
 import { useBobBackdrop } from "@/hooks/useBobBackdrop";
-import { Vehicle } from "@/types/vehicle";
+import { Vehicle, VariantCard } from "@/types/vehicle";
 import { ServicePackage } from "@/types/servicePackage";
 import bobBgWall from "@/assets/bob-bg-wall.png";
 import bobCounter from "@/assets/bob-counter.png";
@@ -103,6 +103,11 @@ const Index = () => {
   // Track if we have multiple vehicle matches but no confirmed vehicle yet
   const [hasMultipleMatches, setHasMultipleMatches] = useState(false);
   
+  // NEW: Pending variant cards for selection UI
+  const [pendingVariants, setPendingVariants] = useState<VariantCard[]>([]);
+  const [pendingVariantMake, setPendingVariantMake] = useState<string>('');
+  const [pendingVariantModel, setPendingVariantModel] = useState<string>('');
+  
   // Selected service package for detail dialog
   const [selectedPackage, setSelectedPackage] = useState<ServicePackage | null>(null);
   
@@ -159,6 +164,10 @@ const Index = () => {
       setDisplayedVehicle(vehicle);
       // Vehicle is now confirmed - clear placeholder state
       setHasMultipleMatches(false);
+      // Clear variant cards since we have a confirmed vehicle
+      setPendingVariants([]);
+      setPendingVariantMake('');
+      setPendingVariantModel('');
       // Clear displayed placeholder packages - but DON'T clear pendingPackagesRef
       // Real packages arrive via SSE BEFORE vehicle_identified event
       setDisplayedPackages([]);
@@ -166,6 +175,13 @@ const Index = () => {
     onMultipleVehiclesFound: () => {
       // Multiple matches found but not yet confirmed - show placeholders
       setHasMultipleMatches(true);
+    },
+    // NEW: Handle variant selection cards for UI
+    onVariantSelectionRequired: (variants, make, model) => {
+      console.log('[Index] Variant selection required:', variants.length, 'cards for', make, model);
+      setPendingVariants(variants);
+      setPendingVariantMake(make);
+      setPendingVariantModel(model);
     },
     onPartsFound: (parts: APIPart[], isAutoFetch?: boolean) => {
       // Prevent auto-fetch from overwriting user request parts
@@ -341,9 +357,25 @@ const Index = () => {
             setDisplayedParts([]);
             setDisplayedPackages([]);
             pendingPackagesRef.current = [];
+            setPendingVariants([]);
             clearVehicle();
           }}
           bobHasArrived={bobHasArrived}
+          // NEW: Variant selection props
+          pendingVariants={pendingVariants}
+          pendingVariantMake={pendingVariantMake}
+          pendingVariantModel={pendingVariantModel}
+          onVariantSelect={(variant) => {
+            console.log('[Index] Variant selected:', variant.optionNumber, variant.displayTitle);
+            // Send selection as user message
+            setInput(`Option ${variant.optionNumber}`);
+            // Clear variants immediately to hide cards
+            setPendingVariants([]);
+            // Trigger send after a tick to ensure input is set
+            setTimeout(() => {
+              handleSend();
+            }, 100);
+          }}
         />
       </SwipeableBob>
 

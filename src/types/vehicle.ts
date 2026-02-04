@@ -24,3 +24,19 @@ export interface PastPurchase {
   price: number;
   purchased_at: string;
 }
+
+// Variant card data for vehicle selection UI
+export interface VariantCard {
+  vehicle_id: number;
+  optionNumber: number;
+  displayTitle: string;
+  displaySubtitle: string;
+  characterization: string;
+  kw?: number | null;
+  cc?: number | null;
+  ccDisplay?: string | null;
+  fuelType?: string | null;
+  engineCode?: string | null;
+  make: string;
+  model: string;
+}

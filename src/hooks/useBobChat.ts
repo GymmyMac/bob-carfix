@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSpeechSynthesis } from "./useSpeechSynthesis";
-import type { Vehicle } from "@/types/vehicle";
+import type { Vehicle, VariantCard } from "@/types/vehicle";
 import type { ServicePackage } from "@/types/servicePackage";
 
 export interface Message {
@@ -49,6 +49,8 @@ interface UseBobChatProps {
   onPartsFound?: (parts: APIPart[], isAutoFetch?: boolean) => void;
   onServicePackagesFound?: (packages: ServicePackage[]) => void;
   onCartUpdated?: (items: CartItem[]) => void;
+  // NEW: Variant selection for UI cards
+  onVariantSelectionRequired?: (variants: VariantCard[], make: string, model: string) => void;
 }
 
 // Product keywords for detecting recommendations
@@ -97,7 +99,8 @@ export const useBobChat = ({
   onMultipleVehiclesFound,
   onPartsFound,
   onServicePackagesFound,
-  onCartUpdated
+  onCartUpdated,
+  onVariantSelectionRequired
 }: UseBobChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -418,6 +421,13 @@ export const useBobChat = ({
             
             if (parsed.type === "multiple_vehicles_found") {
               onMultipleVehiclesFound?.();
+              continue;
+            }
+            
+            // NEW: Handle variant_selection_required for UI cards
+            if (parsed.type === "variant_selection_required" && parsed.candidates) {
+              console.log('[useBobChat] 🎴 variant_selection_required event received:', parsed.candidates.length, 'cards');
+              onVariantSelectionRequired?.(parsed.candidates, parsed.make || '', parsed.model || '');
               continue;
             }
             

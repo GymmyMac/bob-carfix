@@ -7,6 +7,22 @@ import type { Product, ServicePackage } from "../../types";
 import type { HighlightedProduct } from "../../types/message";
 import type { Vehicle } from "../../types/vehicle";
 
+// Variant card type for vehicle selection UI
+export interface VariantCard {
+  vehicle_id: number;
+  optionNumber: number;
+  displayTitle: string;
+  displaySubtitle: string;
+  characterization: string;
+  kw?: number | null;
+  cc?: number | null;
+  ccDisplay?: string | null;
+  fuelType?: string | null;
+  engineCode?: string | null;
+  make: string;
+  model: string;
+}
+
 type PanelState = 'hidden' | 'loading' | 'transitioning' | 'visible';
 
 interface MobileBobLayoutCoreProps {
@@ -42,6 +58,12 @@ interface MobileBobLayoutCoreProps {
   // External position control (from SwipeableBob)
   externalBobPosition?: BobPosition;
   onBobPositionChange?: (position: BobPosition) => void;
+  
+  // NEW: Variant selection props
+  pendingVariants?: VariantCard[];
+  pendingVariantMake?: string;
+  pendingVariantModel?: string;
+  onVariantSelect?: (variant: VariantCard) => void;
 }
 
 /**
@@ -71,7 +93,12 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
   bobScale = 100,
   bobHasArrived = true,
   externalBobPosition,
-  onBobPositionChange
+  onBobPositionChange,
+  // NEW: Variant selection props
+  pendingVariants,
+  pendingVariantMake,
+  pendingVariantModel,
+  onVariantSelect
 }) => {
   const isEmbedded = typeof window !== 'undefined' && window.self !== window.top;
   const viewportSize = useViewportSize();
@@ -89,6 +116,8 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
   }, [onBobPositionChange]);
   
   const hasProducts = products.length > 0 || servicePackages.length > 0;
+  const hasVariants = (pendingVariants?.length ?? 0) > 0;
+  const hasContent = hasProducts || hasVariants;
   
   // Responsive Bob scale
   // Base scale reduced so database scale of 100% = reasonable size
@@ -104,6 +133,7 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
   const finalBobScale = (baseUIScale * bobScale) / 100;
   
   // Automatic position transitions based on state
+  // Now also triggers when variant cards need to be shown
   useEffect(() => {
     if (isResearching && panelState !== 'loading' && panelState !== 'visible') {
       setPanelState('loading');
@@ -112,7 +142,7 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
       if (bobPosition === 'center') {
         setBobPosition('partial-left');
       }
-    } else if (hasProducts && panelState !== 'visible') {
+    } else if (hasContent && panelState !== 'visible') {
       if (bobPosition === 'center') {
         setBobPosition('partial-left');
         setPanelState('transitioning');
@@ -125,16 +155,16 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
       } else {
         setPanelState('visible');
       }
-    } else if (!hasProducts && !isResearching && panelState !== 'hidden') {
+    } else if (!hasContent && !isResearching && panelState !== 'hidden') {
       setPanelState('hidden');
       setBobPosition('center');
     }
-  }, [hasProducts, isResearching, panelState, bobPosition, setBobPosition]);
+  }, [hasContent, isResearching, panelState, bobPosition, setBobPosition]);
 
   const showProductColumn = panelState !== 'hidden';
   
   // Calculate blur intensity based on product visibility
-  const shouldBlur = showProductColumn && hasProducts;
+  const shouldBlur = showProductColumn && hasContent;
 
   return (
     <div 
@@ -198,6 +228,11 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
         visible={showProductColumn}
         counterHeightPercent={counterHeightPercent}
         hasVehicle={!!vehicle}
+        // NEW: Variant selection props
+        pendingVariants={pendingVariants}
+        pendingVariantMake={pendingVariantMake}
+        pendingVariantModel={pendingVariantModel}
+        onVariantSelect={onVariantSelect}
       />
     </div>
   );
