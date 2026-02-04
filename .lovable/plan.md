@@ -1,304 +1,230 @@
-# Enhanced Error Handling Integration Plan
 
-## Status: ✅ IMPLEMENTED
+# Fix Vehicle ID Selection: TecDoc vs CarJam Mapping
 
-**Implementation Date:** 2026-02-04
+## Problem Summary
 
-## Overview
+The CARFIX team has clarified the exact issue:
 
-This plan integrates the $5000/hr consultant feedback to transform Bob's error handling from basic acknowledgment into a "commerce superpower" that builds trust and prevents churn. The key improvements are:
-
-1. **Response Variety** - Cycle 2-3 phrase variations to feel natural, not robotic
-2. **User Empowerment** - Always provide actionable next steps (buttons, retry options)
-3. **Kiwi Personality** - Add light humor for animated Bob ("Bob's taking a quick pit stop!")
-4. **Analytics Logging** - Track error types for iterative improvement
-5. **REGO Validation** - Acknowledge + Clarify pattern with retry limits
-
----
-
-## Changes Summary
-
-### 1. System Prompt Error Handling (bob-chat/index.ts)
-
-**Current Problem:** Single-phrase responses, offers "universal products" Bob can't access
-
-**New Approach:**
-- Remove all references to "universal products" or "accessories"
-- Add response variations for naturalness
-- Direct to carfix.co.nz as primary recovery
-- Kiwi-friendly humour for connection issues
-
-```text
-## CRITICAL - ERROR HANDLING AND RECOVERY
-
-When things go wrong, respond transparently and helpfully:
-
-### Invalid REGO Format (Acknowledgment + Clarification)
-Cycle these responses (vary each time):
-- "Oops, I didn't quite catch that one! I need a valid NZ plate like ABC123 or HZP550."
-- "Hmm, that doesn't look like a Kiwi rego to me. Mind trying again? Format's usually ABC123."
-- "No luck with that plate, mate. Double-check it's a standard NZ format like ABC123?"
-
-After 2-3 failed attempts:
-- "We're having a bit of trouble with that rego. How about you tell me the make, model, and year instead?"
-
-### Vehicle Not Found in Database
-Cycle these responses:
-- "Couldn't find a match for [REGO] in the system. Might be too new or an import. Try the make, model, and year?"
-- "Hmm, [REGO] isn't showing up. Sometimes newer cars take a while to get catalogued. Got the make and model handy?"
-- "No joy on [REGO], mate. Could be a typo, or it might be a fresh import. Mind double-checking?"
-
-### Parts Fetch Error (vehicle_not_in_parts_db)
-Cycle these responses:
-- "Ah, Bob's parts system isn't set up for your [VEHICLE] yet. Head over to carfix.co.nz and browse manually – the team there will sort you!"
-- "No parts coming up for your [VEHICLE] in my system – sometimes happens with imports. Try carfix.co.nz for the full catalogue!"
-- "Drawing a blank for your [VEHICLE], mate. Best bet is to pop over to carfix.co.nz and browse there!"
-
-### Parts Fetch Error (server_error/timeout/network)
-Cycle these responses (add Bob personality):
-- "Bob's taking a quick pit stop! Having trouble connecting – try refreshing, or hop over to carfix.co.nz while we sort this out."
-- "Bit of a glitch on my end, mate. Give the page a refresh, or browse directly at carfix.co.nz."
-- "She's playing up a bit – connection trouble. Try again in a tick, or carfix.co.nz has what you need!"
-
-### Empty Results (Parts search succeeded but zero results)
-Cycle these responses:
-- "Hmm, no parts showing for your [VEHICLE] in our catalogue – common with imports. Try carfix.co.nz for the full range!"
-- "Nothing coming up for that one. Head to carfix.co.nz and browse manually – they'll have it sorted!"
-
-### General Rules:
-- NEVER output "undefined", "null", or empty template variables
-- NEVER invent products or prices not in tool results
-- NEVER offer "universal products" or "accessories" – Bob doesn't have this capability
-- ALWAYS empower users: provide clear next steps, suggest retry or website
-- ALWAYS direct to carfix.co.nz as the fallback recovery path
-- Track error scenarios for dev team improvements
-- Kiwi-friendly tone: apologetic yet optimistic ("she'll be right" attitude)
+### API Response Structure
+```json
+{
+  "success": true,
+  "vehicle": { "id": 12, "plate": "AMA993", "make": "TOYOTA", ... },  // ← CarJam data (id is internal row ID)
+  "vehicles": [                                                       // ← TecDoc matches (use vehicle_id from here!)
+    { "vehicle_id": 42899, "make": "TOYOTA", "model": "RAV4", "score": 85, ... }
+  ]
+}
 ```
 
----
-
-### 2. Year Field Mapping Fix (bob-chat/index.ts)
-
-**Current Bug:** Code uses `vehicle.year || vehicle.start_year`, missing `year_of_manufacture`
-
-**Fix Locations:**
-
-**Line ~1917 (forced single vehicle):**
+### The Bug Location
+**Line 1964** in `bob-chat/index.ts`:
 ```typescript
-forcedSingleVehicle = {
-  vehicle_id: (vehicle.vehicle_id || vehicle.id) as number,
-  make: vehicle.make as string,
-  model: vehicle.model as string,
-  // FIXED: Prioritize year_of_manufacture from CarJam
-  year: (vehicle.year_of_manufacture ?? vehicle.year ?? vehicle.start_year) as number,
-  year_of_manufacture: vehicle.year_of_manufacture,
-  start_year: vehicle.start_year,
-  end_year: vehicle.end_year,
-  // ... rest unchanged
-};
+vehicle_id: (vehicle.vehicle_id || vehicle.id) as number,
 ```
 
-**Line ~1894-1908 (vehicle candidates):**
+When `vehicles[]` is empty OR when the code selects from `vehicle` (CarJam object) instead of `vehicles[0]` (TecDoc match), it uses the CarJam row ID instead of the TecDoc vehicle_id.
+
+### Current Logic Flaw (Lines 1952-1954)
+```typescript
+} else if (singleVehicle || vehicles.length === 1) {
+  // Single match - auto-confirm
+  const vehicle = singleVehicle || vehicles[0];  // ← Problem: uses CarJam 'singleVehicle' first!
+```
+
+If `lookupResult.vehicle` exists (the CarJam record), it's used instead of `lookupResult.vehicles[0]` (the TecDoc match). The CarJam record has `id: 12` but no `vehicle_id`.
+
+---
+
+## Solution
+
+### 1. Prioritize TecDoc `vehicles[]` Array Over CarJam `vehicle`
+
+**File**: `supabase/functions/bob-chat/index.ts`
+
+**Lines 1952-1977 - Fix the vehicle selection logic:**
+
+```typescript
+} else if (vehicles.length === 1) {
+  // ✅ ALWAYS use the TecDoc vehicle from vehicles[] array
+  const tecDocVehicle = vehicles[0];
+  const carJamVehicle = singleVehicle; // Keep CarJam data for display fields
+  
+  // Year validation warning
+  const displayYear = carJamVehicle?.year_of_manufacture || tecDocVehicle.start_year;
+  if (carJamVehicle?.year_of_manufacture && tecDocVehicle.start_year && tecDocVehicle.end_year) {
+    if (carJamVehicle.year_of_manufacture < tecDocVehicle.start_year || 
+        carJamVehicle.year_of_manufacture > tecDocVehicle.end_year) {
+      console.warn(`[Year Validation] Mismatch: year_of_manufacture=${carJamVehicle.year_of_manufacture} outside TecDoc range ${tecDocVehicle.start_year}-${tecDocVehicle.end_year}`);
+    }
+  }
+  
+  forcedSingleVehicle = {
+    // ✅ CRITICAL: Use vehicle_id from TecDoc vehicles[] array
+    vehicle_id: tecDocVehicle.vehicle_id as number,
+    carjam_id: carJamVehicle?.id as number | undefined, // Store CarJam ID separately for reference
+    make: (tecDocVehicle.make || carJamVehicle?.make) as string,
+    model: (tecDocVehicle.model || carJamVehicle?.model) as string,
+    // Display year from CarJam (actual registration), internal matching from TecDoc
+    year: displayYear as number,
+    year_of_manufacture: carJamVehicle?.year_of_manufacture as number | undefined,
+    start_year: tecDocVehicle.start_year as number | undefined,
+    end_year: tecDocVehicle.end_year as number | undefined,
+    variant: (tecDocVehicle.variant || tecDocVehicle.vehicle_name_nz) as string,
+    cc_rating: (tecDocVehicle.cc_rating || carJamVehicle?.cc_rating) as number,
+    fuel_type: (tecDocVehicle.fuel_type || carJamVehicle?.fuel_type) as string,
+    engine_code: tecDocVehicle.engine_code as string | undefined,
+    plate: extractedRego,
+  };
+  console.log(`[Forced REGO Lookup] Single TecDoc match: vehicle_id=${forcedSingleVehicle.vehicle_id} (CarJam id=${carJamVehicle?.id})`);
+  
+} else if (singleVehicle && vehicles.length === 0) {
+  // ⚠️ CarJam found vehicle but NO TecDoc matches - cannot look up parts
+  console.warn(`[Forced REGO Lookup] CarJam found plate ${extractedRego} but no TecDoc matches - vehicle not in parts catalog`);
+  
+  // Still store the vehicle for display, but mark as no TecDoc ID
+  forcedSingleVehicle = {
+    vehicle_id: null, // ← Explicitly null - no TecDoc mapping
+    carjam_id: singleVehicle.id as number,
+    make: singleVehicle.make as string,
+    model: singleVehicle.model as string,
+    year: singleVehicle.year_of_manufacture as number,
+    year_of_manufacture: singleVehicle.year_of_manufacture as number,
+    variant: singleVehicle.submodel as string,
+    cc_rating: singleVehicle.cc_rating as number,
+    fuel_type: singleVehicle.fuel_type as string,
+    plate: extractedRego,
+  };
+  
+  // Flag this for error handling - skip parts fetch
+  (conversationMessages as unknown as { _noTecDocMatch?: boolean })._noTecDocMatch = true;
+}
+```
+
+### 2. Update `forcedCandidates` Mapping (Lines 1935-1950)
+
+Ensure `vehicle_id` is taken from the TecDoc record:
+
 ```typescript
 forcedCandidates = vehicles.map((v: any) => ({
-  vehicle_id: v.vehicle_id || v.id,
-  // ... existing fields ...
-  year_of_manufacture: v.year_of_manufacture, // ADD THIS
-  // ... rest unchanged
+  vehicle_id: v.vehicle_id,  // ← ONLY use vehicle_id from TecDoc, never fall back to id
+  vehicle_name_nz: v.vehicle_name_nz,
+  make: v.make,
+  model: v.model,
+  start_year: v.start_year,
+  end_year: v.end_year,
+  year: v.year,
+  year_of_manufacture: v.year_of_manufacture, // May be inherited from CarJam lookup
+  engine_code: v.engine_code,
+  cc_rating: v.cc_rating,
+  fuel_type: v.fuel_type,
+  variant: v.variant,
+  score: v.score,
+  plate: extractedRego,
 }));
 ```
 
-**Line ~2250 (deterministic vehicle context):**
-```typescript
-year: deterministicVehicle.year_of_manufacture ?? deterministicVehicle.year ?? deterministicVehicle.start_year,
-```
+### 3. Update VehicleCandidate Interface (Lines ~125-140)
 
-**Add Year Validation Warning (new code):**
 ```typescript
-// After vehicle lookup success, validate year consistency
-if (vehicle.year_of_manufacture && vehicle.start_year && vehicle.end_year) {
-  if (vehicle.year_of_manufacture < vehicle.start_year || vehicle.year_of_manufacture > vehicle.end_year) {
-    console.warn(`[Year Validation] Mismatch: year_of_manufacture=${vehicle.year_of_manufacture} outside range ${vehicle.start_year}-${vehicle.end_year}`);
-  }
+interface VehicleCandidate {
+  vehicle_id: number | null;   // TecDoc ID - null if not in catalog
+  carjam_id?: number;          // CarJam plate record ID (internal reference only)
+  vehicle_name_nz?: string;
+  make: string;
+  model: string;
+  start_year?: number;
+  end_year?: number;
+  year?: number;
+  year_of_manufacture?: number;
+  engine_code?: string;
+  cc_rating?: number;
+  fuel_type?: string;
+  variant?: string;
+  score?: number;
+  plate?: string;
+  power?: number;
+  body_style?: string;
+  kw?: number | null;
+  cc?: number | null;
 }
 ```
 
----
+### 4. Skip Parts Fetch When No TecDoc ID (Lines ~2480-2520)
 
-### 3. Fetch Error Context Messages (bob-chat/index.ts)
-
-**Lines ~2279-2287 – Replace with enhanced messaging:**
+Add check before attempting parts fetch:
 
 ```typescript
-if (partsResult.errorType === 'vehicle_not_in_parts_db') {
-  fetchErrorContext = `\n\n[PARTS FETCH RESULT] Vehicle_id ${vehicleId} not in parts catalog. 
-  Direct customer to carfix.co.nz for manual browsing. 
-  DO NOT offer universal products or accessories – Bob cannot access these.
-  Use varied, Kiwi-friendly phrasing. Log this for catalog expansion tracking.`;
-} else if (['server_error', 'timeout', 'network_error'].includes(partsResult.errorType)) {
-  fetchErrorContext = `\n\n[PARTS FETCH RESULT] Technical issue (${partsResult.errorType}). 
-  Suggest page refresh or carfix.co.nz fallback. 
-  Add light humor – "Bob's taking a pit stop!" 
-  This is recoverable; offer retry or website.`;
-} else {
-  fetchErrorContext = `\n\n[PARTS FETCH RESULT] Unknown error. 
-  Apologize and direct to carfix.co.nz.`;
-}
+// Check if we have a valid TecDoc vehicle_id
+const hasValidTecDocId = vehicleId && vehicleId > 0;
+const noTecDocMatch = (conversationMessages as unknown as { _noTecDocMatch?: boolean })._noTecDocMatch;
 
-// For empty results (success but zero parts):
-fetchErrorContext = `\n\n[PARTS FETCH RESULT] Search completed, zero matches. 
-Direct to carfix.co.nz. 
-Use encouraging phrasing – "common with imports" or "catalogue is growing". 
-DO NOT suggest fallback products Bob cannot access.`;
-```
-
----
-
-### 4. REGO Validation with Retry Limits (bob-chat/index.ts)
-
-**New Feature:** Track failed REGO attempts and escalate gracefully
-
-**Add conversation tracking:**
-```typescript
-// Near line 1850, before REGO extraction
-const regoAttemptCount = (conversationMessages.filter(m => 
-  m.role === 'user' && containsRegoPattern(m.content)
-).length);
-
-if (regoAttemptCount >= 3) {
-  // Escalate to make/model/year input
-  conversationMessages.push({
-    role: "system",
-    content: `[REGO VALIDATION LIMIT] User has attempted ${regoAttemptCount} REGO lookups without success. 
-    Suggest they provide make, model, and year instead. 
-    Do NOT keep asking for REGO – try alternative identification.`
-  });
-}
-```
-
----
-
-### 5. Error Analytics Logging (bob-chat/index.ts)
-
-**New Feature:** Log error events for iterative improvement
-
-**Add logging function:**
-```typescript
-async function logErrorEvent(
-  errorType: string,
-  vehicleContext: { vehicleId?: number; make?: string; model?: string; rego?: string },
-  additionalData?: Record<string, unknown>
-) {
-  try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!supabaseUrl || !supabaseKey) return;
-    
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    
-    await supabase.from('bob_error_logs').insert({
-      error_type: errorType,
-      vehicle_id: vehicleContext.vehicleId,
-      vehicle_make: vehicleContext.make,
-      vehicle_model: vehicleContext.model,
-      rego: vehicleContext.rego,
-      additional_data: additionalData,
-      created_at: new Date().toISOString()
-    });
-    
-    console.log(`[Error Analytics] Logged: ${errorType}`);
-  } catch (e) {
-    console.warn('[Error Analytics] Failed to log:', e);
-  }
-}
-```
-
-**Call logging at error points:**
-```typescript
-// In retrieveParts error handling
-if (!partsResult.success) {
-  await logErrorEvent(partsResult.errorType || 'unknown', {
-    vehicleId: vehicleId,
+if (!hasValidTecDocId || noTecDocMatch) {
+  console.log(`[Deterministic Fetch] Skipping parts fetch - no valid TecDoc vehicle_id (vehicleId=${vehicleId}, noTecDocMatch=${noTecDocMatch})`);
+  partsResult = { success: false, parts: [], errorType: 'vehicle_not_in_parts_db' };
+  packagesResult = { success: false, packages: [] };
+  
+  // Log for analytics
+  await logErrorEvent('vehicle_not_in_parts_db', {
+    vehicleId: effectiveVehicleContext?.carjam_id,
     make: effectiveVehicleContext?.make,
-    model: effectiveVehicleContext?.model
-  }, { retryCount, rawError: partsResult.error });
+    model: effectiveVehicleContext?.model,
+    rego: effectiveVehicleContext?.plate
+  }, { reason: 'no_tecdoc_mapping' });
+} else {
+  // Proceed with normal parts fetch
+  // ... existing fetch logic
+}
+```
+
+### 5. Add Enhanced Logging
+
+Add clear logging to trace the ID selection:
+
+```typescript
+// After vehicle lookup response
+console.log(`[Vehicle Lookup] Response structure: CarJam id=${singleVehicle?.id}, TecDoc vehicles=${vehicles.length}`);
+if (vehicles.length > 0) {
+  console.log(`[Vehicle Lookup] TecDoc vehicle_ids: ${vehicles.map((v: any) => v.vehicle_id).join(', ')}`);
 }
 ```
 
 ---
 
-### 6. Database Migration for Error Logging
+## Voice/Text Mismatch Fix
 
-**New table: `bob_error_logs`**
+### 6. Add Searching Transcript to Chat Messages
 
-```sql
-CREATE TABLE IF NOT EXISTS bob_error_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  error_type TEXT NOT NULL,
-  vehicle_id INTEGER,
-  vehicle_make TEXT,
-  vehicle_model TEXT,
-  rego TEXT,
-  additional_data JSONB,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+**File**: `packages/bob-widget/src/hooks/useBobChat.ts`
 
--- Index for analytics queries
-CREATE INDEX idx_bob_error_logs_type ON bob_error_logs(error_type);
-CREATE INDEX idx_bob_error_logs_created ON bob_error_logs(created_at);
+**Lines ~746-760 - Add transcript to messages when `bob_searching` event received:**
 
--- RLS: Only service role can insert/read (backend only)
-ALTER TABLE bob_error_logs ENABLE ROW LEVEL SECURITY;
-```
-
----
-
-### 7. Documentation Update (BOB-PROCESS-FLOW.md)
-
-**Update Section 9: NO_PARTS_FOUND**
-```text
-### 9. NO_PARTS_FOUND
-**Trigger:** APIs succeed but return empty arrays  
-**Response Variations (cycle for naturalness):**
-1. "Ah, Bob's parts system isn't set up for your [VEHICLE] yet. Head over to carfix.co.nz and browse manually!"
-2. "No parts coming up for your [VEHICLE] – common with imports. Try carfix.co.nz for the full catalogue!"
-3. "Drawing a blank, mate. Pop over to carfix.co.nz – they'll have what you need!"
-
-**CRITICAL:** Bob does NOT offer universal products – he directs to website only
-
-**Metrics:** Track drop-off rate post-message (target <20%)
-**Analytics:** Log to bob_error_logs for catalog expansion prioritization
-```
-
-**Update Section 10: PARTS_FETCH_ERROR**
-```text
-### 10. PARTS_FETCH_ERROR
-**Trigger:** API returns 500, timeout, or network error  
-**Response Variations (cycle for naturalness, add Bob humor):**
-1. "Bob's taking a quick pit stop! Try refreshing, or hop over to carfix.co.nz."
-2. "Bit of a glitch on my end, mate. Give it another go, or browse at carfix.co.nz."
-3. "She's playing up – try refreshing or head to the website!"
-
-**Retry Logic:** 
-- 1 silent retry after 2s delay
-- If fails: transparent message with humor + website fallback
-
-**Metrics:** Track retry success rate, time to recovery
-**Analytics:** Log error type and vehicle context for uptime improvements
-```
-
-**Add Section: Invalid REGO Handling**
-```text
-### 4a. INVALID_REGO_FORMAT
-**Trigger:** User input matches no valid NZ plate pattern  
-**Response (Acknowledgment + Clarification):**
-"Oops, I didn't quite catch that! I need a valid NZ plate like ABC123."
-
-**Retry Limit:** After 2-3 failed attempts:
-"Having trouble with the rego – how about you tell me the make, model, and year instead?"
-
-**Metrics:** Track retry-to-success rate (target 70%+)
-**UX:** Consider adding input field with format hint
+```typescript
+// Handle bob_searching event - play audio AND show transcript
+if (parsed.type === "bob_searching" && parsed.audio_url) {
+  console.log('[useBobChat] Bob searching:', parsed.search_type, parsed.clip_key);
+  
+  // ✅ ADD transcript to chat messages so text matches voice
+  if (parsed.transcript) {
+    setMessages(prev => {
+      const last = prev[prev.length - 1];
+      // Only add if not already the last message
+      if (last?.role !== "assistant" || last?.content !== parsed.transcript) {
+        return [...prev, { role: "assistant", content: parsed.transcript }];
+      }
+      return prev;
+    });
+  }
+  
+  // Queue the audio for sequential playback
+  searchingAudioQueueRef.current.push(parsed.audio_url);
+  
+  // Start playing if not already
+  if (!isPlayingSearchingRef.current && !isMuted) {
+    playNextSearchingAudio();
+  }
+  
+  continue;
+}
 ```
 
 ---
@@ -307,28 +233,33 @@ ALTER TABLE bob_error_logs ENABLE ROW LEVEL SECURITY;
 
 | File | Changes |
 |------|---------|
-| `supabase/functions/bob-chat/index.ts` | Year mapping fix, enhanced error prompts, retry limits, analytics logging |
-| `packages/bob-widget/BOB-PROCESS-FLOW.md` | Updated state documentation with variations, metrics, new states |
-| **NEW:** Database migration | Create `bob_error_logs` table |
+| `supabase/functions/bob-chat/index.ts` | Fix vehicle ID selection (TecDoc vs CarJam), update interface, add no-TecDoc handling |
+| `packages/bob-widget/src/hooks/useBobChat.ts` | Add searching transcript to chat messages |
 
 ---
 
 ## Testing Verification
 
 After implementation:
-1. **REGO "AMA993"** (Toyota RAV4) → Verify year displays correctly (not "undefined")
-2. **Parts fetch failure** → Verify Bob says "head to carfix.co.nz" (NOT "universal products")
-3. **Multiple invalid REGOs** → Verify escalation to make/model/year input after 3 attempts
-4. **Response variety** → Verify different phrases on repeated errors
-5. **Analytics** → Verify `bob_error_logs` captures error events
+
+1. **REGO "AMA993"** (Toyota RAV4):
+   - If TecDoc match exists in `vehicles[]`: Parts should load using `vehicle_id` from that array
+   - If only CarJam record exists (`vehicles[]` empty): Bob should say "not in parts catalog" and direct to website
+   - Log should show: `[Vehicle Lookup] Response structure: CarJam id=12, TecDoc vehicles=X`
+
+2. **Voice/Text Sync**:
+   - When "parts_searching" audio plays, the transcript should appear in chat
+   - Error messages appear as new message AFTER the search announcement
+
+3. **Log Verification**:
+   - `[Forced REGO Lookup] Single TecDoc match: vehicle_id=42899 (CarJam id=12)` (not `vehicle_id=12`)
 
 ---
 
-## Expected Outcomes
+## Technical Summary
 
-- **20-30% UX improvement** based on e-commerce benchmarks
-- **Trust building** through transparent acknowledgment
-- **Reduced churn** via actionable recovery paths
-- **Data-driven iteration** via error analytics
-- **Kiwi personality** with light humor on connection issues
+The CARFIX team confirmed the architecture:
+- **CarJam `id`**: Internal row identifier for NZ plate records - NEVER use for parts lookup
+- **TecDoc `vehicle_id`**: From `vehicles[]` array - ALWAYS use for parts lookup
 
+The current code incorrectly falls back to `vehicle.id` (CarJam) when `vehicle.vehicle_id` is undefined. The fix ensures we ONLY use `vehicle_id` from the `vehicles[]` array (TecDoc matches), and handle the case where no TecDoc matches exist gracefully.
