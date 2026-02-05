@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useRef as useReactRef, useCallback } from "react";
 import { useBobContext } from "../BobProvider";
 import { useBobChat } from "../hooks/useBobChat";
 import { useBobAnimation } from "../hooks/useBobAnimation";
@@ -78,6 +79,52 @@ export const Bob: React.FC<BobProps> = ({
   const [pendingVariantMake, setPendingVariantMake] = useState<string>("");
   const [pendingVariantModel, setPendingVariantModel] = useState<string>("");
 
+  // ============= STABILIZED CALLBACK REFS (Regression Prevention) =============
+  // These refs ensure callback handlers maintain stable references across re-renders,
+  // preventing state loss when products/packages are received via SSE events.
+  // See: .lovable/plan.md - "Layer 4: Architectural Fixes - Fix 1"
+  const handlePartsFoundRef = useRef<((parts: unknown[]) => void) | null>(null);
+  const handlePackagesFoundRef = useRef<((packages: unknown[]) => void) | null>(null);
+
+  // Initialize stable handlers once (empty deps)
+  useEffect(() => {
+    handlePartsFoundRef.current = (parts: unknown[]) => {
+      setIsResearching(false);
+      
+      // If empty array, clear products
+      if (!parts || parts.length === 0) {
+        console.log('[Bob] Clearing products (empty array received)');
+        setProducts([]);
+        return;
+      }
+      
+      const mappedProducts: Product[] = (parts as any[]).map((p, idx) => ({
+        id: p.SKU || p.sku || `part-${idx}`,
+        name: p["Part Product Type"] || p.partslot_description || p.name || 'Unknown Part',
+        brand: p.Brand || p.brand,
+        price: p["Metro Retail Price"] || p.price || 0,
+        sku: p.SKU || p.sku,
+        partNumber: p["Part Number"] || p.part_number,
+        partslotDescription: p["Part Product Type"] || p.partslot_description,
+        image_url: p.image_url
+      }));
+      console.log('[Bob] Products mapped via stable ref:', mappedProducts.length, 'products');
+      setProducts(mappedProducts);
+    };
+    
+    handlePackagesFoundRef.current = (packages: unknown[]) => {
+      // If empty array, clear packages
+      if (!packages || packages.length === 0) {
+        console.log('[Bob] Clearing service packages (empty array received)');
+        setServicePackages([]);
+        return;
+      }
+      
+      console.log('[Bob] Service packages received via stable ref:', (packages as any[]).length);
+      setServicePackages(packages as ServicePackage[]);
+    };
+  }, []); // Empty deps - only run once on mount
+
   // Chat hook with full integration
   const bobChat = useBobChat({
     setAnimationState,
@@ -140,47 +187,19 @@ export const Bob: React.FC<BobProps> = ({
     setIsSpeakingForAnimation(bobChat.isSpeaking);
   }, [bobChat.isSpeaking]);
 
-  // Wire up callbacks to update local state
+  // Wire up callbacks to update local state using STABLE refs
+  // This prevents callback recreation on every render which was causing state loss
   useEffect(() => {
     const originalOnPartsFound = callbacks.onPartsFound;
     const originalOnPackagesFound = callbacks.onServicePackagesFound;
 
     callbacks.onPartsFound = (parts: unknown[]) => {
-      setIsResearching(false);
-      
-      // If empty array, clear products
-      if (!parts || parts.length === 0) {
-        console.log('[Bob] Clearing products (empty array received)');
-        setProducts([]);
-        originalOnPartsFound?.(parts);
-        return;
-      }
-      
-      const mappedProducts: Product[] = (parts as any[]).map((p, idx) => ({
-        id: p.SKU || p.sku || `part-${idx}`,
-        name: p["Part Product Type"] || p.partslot_description || p.name || 'Unknown Part',
-        brand: p.Brand || p.brand,
-        price: p["Metro Retail Price"] || p.price || 0,
-        sku: p.SKU || p.sku,
-        partNumber: p["Part Number"] || p.part_number,
-        partslotDescription: p["Part Product Type"] || p.partslot_description,
-        image_url: p.image_url
-      }));
-      console.log('[Bob] Products mapped and setting state:', mappedProducts.length, 'products');
-      setProducts(mappedProducts);
+      handlePartsFoundRef.current?.(parts);
       originalOnPartsFound?.(parts);
     };
 
     callbacks.onServicePackagesFound = (packages: unknown[]) => {
-      // If empty array, clear packages
-      if (!packages || packages.length === 0) {
-        console.log('[Bob] Clearing service packages (empty array received)');
-        setServicePackages([]);
-        originalOnPackagesFound?.(packages);
-        return;
-      }
-      
-      setServicePackages(packages as ServicePackage[]);
+      handlePackagesFoundRef.current?.(packages);
       originalOnPackagesFound?.(packages);
     };
 

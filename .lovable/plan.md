@@ -246,25 +246,25 @@ toolResultContent += generateRecommendedTierSummary(packages);
 
 ### Phase 1: Testing Infrastructure (Immediate)
 
-- [ ] Create `e2e/bob-critical-flows.spec.ts` with vehicle lookup test
-- [ ] Create `vitest.config.ts` for unit test setup
-- [ ] Create `src/test/setup.ts` with required mocks
-- [ ] Add test for callback stability in Bob.tsx
-- [ ] Add test for products state persistence
+- [x] Create `e2e/bob-critical-flows.spec.ts` with vehicle lookup test
+- [x] Create `vitest.config.ts` for unit test setup
+- [x] Create `src/test/setup.ts` with required mocks
+- [x] Add test for callback stability in Bob.tsx
+- [x] Add test for products state persistence
 
 ### Phase 2: Architectural Fixes (Next)
 
-- [ ] Refactor Bob.tsx callbacks to use stable refs
-- [ ] Add `contain: layout` to ContainedChatDrawer
-- [ ] Add explicit `top: auto` in drawer styles
-- [ ] Add CSS transition scope limitation (`transition: height 0.3s, box-shadow 0.3s`)
+- [x] Refactor Bob.tsx callbacks to use stable refs
+- [x] Add `contain: layout` to ContainedChatDrawer
+- [x] Add explicit `top: auto` in drawer styles (already present, verified)
+- [x] Add CSS transition scope limitation (`transition: height 0.3s, box-shadow 0.3s`)
 
 ### Phase 3: Contract Validation (Then)
 
-- [ ] Add validateVehicleId before parts fetch
-- [ ] Add validatePreparedTiers before package emission
-- [ ] Add validatePartsPayload logging
-- [ ] Add recommended tier summary injection
+- [x] Add validateVehicleId before parts fetch (existing in codebase)
+- [x] Add validatePreparedTiers before package emission (added in display context)
+- [x] Add validatePartsPayload logging (existing in codebase)
+- [x] Add recommended tier summary injection (added to display context)
 
 ### Phase 4: CI Integration (Finally)
 
