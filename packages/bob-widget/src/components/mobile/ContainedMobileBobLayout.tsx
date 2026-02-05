@@ -189,7 +189,10 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
     <div 
       className="absolute inset-0 overflow-hidden"
       style={{
-        touchAction: 'manipulation'
+        touchAction: 'manipulation',
+        // Ensure deterministic z-layering between Bob (z-60), shelf (z-65), counter (z-70)
+        // regardless of filters/transforms creating nested stacking contexts.
+        isolation: 'isolate',
       }}
     >
       {/* Background - v3.1.10: Config-driven blur via CSS variable */}
