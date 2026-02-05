@@ -339,7 +339,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
       <div 
         ref={scrollRef}
         onScroll={handleScroll}
-        className={`absolute overflow-y-auto overflow-x-hidden z-50 flex flex-col gap-3 md:gap-4 transition-all duration-400 ease-out product-scroll ${
+        className={`absolute overflow-y-auto overflow-x-hidden flex flex-col gap-3 md:gap-4 transition-all duration-400 ease-out product-scroll ${
           shouldBeVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-12 pointer-events-none"
         }`}
         style={{
@@ -356,6 +356,8 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           paddingRight: '6px',
           paddingLeft: '12px',
           paddingBottom: '8px',
+          // z-index 65: Above Bob (z-60), below counter overlay (z-70)
+          zIndex: 65,
           // Hide default scrollbar
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
