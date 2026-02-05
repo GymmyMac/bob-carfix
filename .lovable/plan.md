@@ -1,311 +1,165 @@
 
-# Comprehensive Regression Prevention Strategy for Bob
+# Fix Four Regressions with Simplicity-First Approach
 
-## Executive Summary
-
-Bob has experienced multiple regressions affecting three critical areas:
-1. **Chat drawer positioning** - incorrect placement before/after expand/collapse
-2. **Product display** - parts not rendering despite 500 items being received
-3. **Price recommendations** - AI quoting cheapest tier instead of CARFIX VALUE tier
-
-This plan establishes a multi-layered defense strategy to eliminate future regressions through automated testing, contract enforcement, and architectural safeguards.
+## Philosophy Applied
+Following your guidance: **Simple code, not complexity. Clever solutions, not complications. Simplicity is beautiful.**
 
 ---
 
-## Current Architecture Analysis
+## Issue 1: Chat Box Moved When It Should Not Have
 
-### Critical Data Flow Paths
+### Root Cause
+The chat drawer re-renders when `messages` array changes. Looking at `ContainedChatDrawer.tsx`:
+- Line 90-96: `lastBobMessage` is computed from `messages` array on every render
+- Line 92-96: `previewText` changes when a new message arrives
 
-```text
-User Input → useBobChat → bob-chat Edge Function → CARFIX APIs
-                ↓
-     SSE Events (parts_found, service_packages_found, vehicle_identified)
-                ↓
-     Bob.tsx Callbacks → State Updates → ContainedMobileBobLayout
-                ↓
-     MobileProductColumn → Product Rendering
+When a new message is added, React re-renders the component. Even though the drawer uses `position: absolute` with `bottom: 0`, the parent component `ContainedMobileBobLayout` also re-renders, and state changes (like `panelState`) can cause layout recalculation.
+
+### Simple Fix
+**Isolate the drawer from parent state changes** by using CSS transform for GPU acceleration and preventing layout recalculation:
+
+```typescript
+// ContainedChatDrawer.tsx - Add these properties to the drawer style
+transform: 'translateZ(0)',  // Force GPU layer
+WebkitTransform: 'translateZ(0)',
 ```
 
-### Identified Regression Points
-
-| Component | Regression Type | Root Cause Pattern |
-|-----------|-----------------|-------------------|
-| Bob.tsx (L143-191) | Callback instability | useEffect recreates callbacks on re-render |
-| ContainedChatDrawer | CSS positioning drift | Implicit top values during expand/collapse |
-| bob-chat index.ts | API parameter naming | snake_case vs camelCase inconsistency |
-| AI prompt adherence | Wrong tier selection | Prompt instructions not followed strictly |
+This forces the drawer into its own compositing layer, isolating it from parent reflows.
 
 ---
 
-## Prevention Strategy: 4 Layers of Defense
+## Issue 2: Canned Audio Firing Too Late
 
-### Layer 1: End-to-End Playwright Tests
+### Root Cause
+The `bob_searching` audio event fires AFTER the SSE stream starts processing, not BEFORE. Looking at `useBobChat.ts`:
+- Line 747-771: The `bob_searching` event is processed in the SSE stream loop
+- This means audio plays when the event is received from the backend, not immediately when the request starts
 
-Create automated tests for critical user journeys that run on every deployment.
+The backend emits `bob_searching` audio AFTER the vehicle lookup completes and parts fetch begins. This creates a perceived delay.
 
-**File: `e2e/bob-critical-flows.spec.ts`**
-
-Test scenarios to implement:
-1. **Vehicle Lookup Flow**
-   - Enter REGO "AMA993" → Verify vehicle identified event
-   - Verify service packages appear on shelf
-   - Verify individual parts appear in grouped sections
-   - Assert product count matches SSE event count
-
-2. **Chat Drawer Positioning**
-   - Verify drawer bottom is at container edge when collapsed
-   - Expand drawer → verify 55% height
-   - Collapse drawer → verify returns to 110px
-   - Verify PTT button fully visible at all states
-
-3. **Service Package Tier Display**
-   - Verify "CARFIX VALUE" badge appears on recommended tier
-   - Extract displayed price from recommended tier
-   - Verify AI verbal recommendation matches displayed price
-
-4. **Product Shelf Rendering**
-   - Trigger parts_found with mock 500 items
-   - Assert all groupedProducts render
-   - Verify scroll functionality works
-
-### Layer 2: Unit Tests for State Management
-
-**File: `packages/bob-widget/src/__tests__/Bob.callbacks.test.ts`**
-
-Test callback stability and state persistence:
+### Simple Fix
+**Move searching audio trigger to frontend** - Play the audio immediately when the user sends a message that will trigger a lookup, before waiting for backend confirmation:
 
 ```typescript
-// Test 1: onPartsFound updates products state correctly
-test('onPartsFound should update products state', () => {
-  // Render Bob component
-  // Call callbacks.onPartsFound with mock parts
-  // Assert products state has correct length
-});
-
-// Test 2: Callback references remain stable across re-renders
-test('callback references should be stable', () => {
-  // Capture initial callback reference
-  // Trigger re-render
-  // Assert callback reference unchanged
-});
-
-// Test 3: Products are not cleared by subsequent empty calls
-test('products should persist when new request starts', () => {
-  // Load 500 products
-  // Trigger isResearching = true
-  // Assert products still present
-});
+// useBobChat.ts - In handleSend, detect if this is likely a vehicle/parts lookup
+// and play searching audio IMMEDIATELY (optimistic audio)
 ```
 
-### Layer 3: Contract Validation (Edge Function)
+Alternatively, emit `bob_searching` event EARLIER in the backend - right after detecting the REGO, before calling the vehicle lookup API.
 
-Add runtime validation in `bob-chat/index.ts` to catch data issues before they reach the frontend.
+---
 
-**Validation checkpoints:**
+## Issue 3: Shelves Scrolled Out of Sight
 
-1. **Vehicle ID Validation**
-```typescript
-// Before parts fetch - ENFORCE TecDoc vehicle_id
-const validateVehicleId = (vehicleId: number | null, source: string): boolean => {
-  if (vehicleId === null || vehicleId <= 0) {
-    console.error(`[VALIDATION FAIL] Invalid vehicle_id from ${source}: ${vehicleId}`);
-    return false;
-  }
-  return true;
-};
-```
+### Root Cause
+Looking at `MobileProductColumn.tsx`:
+- Lines 286-293: There's scroll behavior triggered by `highlightedPartType`
+- Lines 295-299: Additional scroll behavior for `highlightedProduct`
 
-2. **Prepared Tiers Validation**
-```typescript
-// Before emitting service_packages_found
-const validatePreparedTiers = (pkg: any): boolean => {
-  if (!pkg.preparedTiers || !Array.isArray(pkg.preparedTiers)) {
-    console.warn(`[VALIDATION] Package ${pkg.id} missing preparedTiers`);
-    return false;
-  }
-  const hasRecommended = pkg.preparedTiers.some((t: any) => t.isRecommended === true);
-  if (!hasRecommended) {
-    console.warn(`[VALIDATION] Package ${pkg.id} has no recommended tier!`);
-  }
-  return true;
-};
-```
+These auto-scroll to highlighted items. The issue is that service packages or products are triggering scroll when they shouldn't.
 
-3. **Parts Emission Validation**
-```typescript
-// Before emitting parts_found
-const validatePartsPayload = (parts: any[]): void => {
-  console.log(`[VALIDATION] Parts payload: ${parts.length} items`);
-  if (parts.length > 0) {
-    console.log(`[VALIDATION] Sample part:`, JSON.stringify(parts[0]).slice(0, 200));
-  }
-};
-```
-
-### Layer 4: Architectural Fixes
-
-#### Fix 1: Stabilize Callback References in Bob.tsx
-
-Replace mutable callback assignment with stable refs:
+### Simple Fix
+**Remove all auto-scroll behavior**. The shelf should ALWAYS start at the top. Per your specification:
+- Default: Shelf shows at top, user scrolls manually
+- Only exception: When user asks for a SERVICE PACK by name, scroll to that pack
 
 ```typescript
-// Bob.tsx - Stabilize callbacks using useRef + useCallback
-
-// Create stable refs for handlers
-const handlePartsFoundRef = useRef<((parts: unknown[]) => void) | null>(null);
-const handlePackagesFoundRef = useRef<((packages: unknown[]) => void) | null>(null);
-
-// Initialize handlers once
-useEffect(() => {
-  handlePartsFoundRef.current = (parts: unknown[]) => {
-    setIsResearching(false);
-    if (!parts || parts.length === 0) {
-      setProducts([]);
-      return;
-    }
-    const mappedProducts = /* mapping logic */;
-    setProducts(mappedProducts);
-  };
-  
-  handlePackagesFoundRef.current = (packages: unknown[]) => {
-    if (!packages || packages.length === 0) {
-      setServicePackages([]);
-      return;
-    }
-    setServicePackages(packages as ServicePackage[]);
-  };
-}, []); // Empty deps - only run once
-
-// Wire callbacks using stable refs
-useEffect(() => {
-  const originalOnPartsFound = callbacks.onPartsFound;
-  const originalOnPackagesFound = callbacks.onServicePackagesFound;
-  
-  callbacks.onPartsFound = (parts) => handlePartsFoundRef.current?.(parts);
-  callbacks.onServicePackagesFound = (packages) => handlePackagesFoundRef.current?.(packages);
-  
-  return () => {
-    callbacks.onPartsFound = originalOnPartsFound;
-    callbacks.onServicePackagesFound = originalOnPackagesFound;
-  };
-}, [callbacks]);
-```
-
-#### Fix 2: Explicit CSS Containment for Chat Drawer
-
-Add explicit positioning constraints in ContainedChatDrawer.tsx:
-
-```typescript
-style={{
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  top: 'auto',  // Explicitly unset - prevents stuck positioning
-  contain: 'layout',  // CSS containment for isolation
-  willChange: 'height',  // Optimize transitions
-  height: isExpanded ? '55%' : '110px',
-  // ... rest of styles
-}}
-```
-
-#### Fix 3: Explicit CARFIX VALUE Price in Tool Response
-
-Modify the `retrieve_service_packages` tool response processing to inject an explicit summary:
-
-```typescript
-// In bob-chat/index.ts after processing service packages
-
-// Generate explicit recommended tier summary for AI
-const generateRecommendedTierSummary = (packages: any[]): string => {
-  const summaries: string[] = [];
-  
-  for (const pkg of packages) {
-    if (pkg.preparedTiers && Array.isArray(pkg.preparedTiers)) {
-      const recommended = pkg.preparedTiers.find((t: any) => t.isRecommended === true);
-      if (recommended) {
-        summaries.push(
-          `📍 ${pkg.title}: CARFIX VALUE = ${recommended.tierName} tier at $${recommended.totalPrice.toFixed(2)}`
-        );
-      }
-    }
-  }
-  
-  return summaries.length > 0 
-    ? `\n\n=== CARFIX VALUE TIERS (SPEAK THESE PRICES) ===\n${summaries.join('\n')}\n===`
-    : '';
-};
-
-// Append to tool result
-toolResultContent += generateRecommendedTierSummary(packages);
+// MobileProductColumn.tsx - REMOVE the useEffect scroll behaviors
+// Replace with explicit "scroll to service pack by name" only when requested
 ```
 
 ---
 
-## Implementation Checklist
+## Issue 4: No PartSlot Parts Being Shown
 
-### Phase 1: Testing Infrastructure (Immediate)
+### Root Cause
+The product mapping in `Bob.tsx` (lines 101-110) expects specific field names:
+```typescript
+partslotDescription: p["Part Product Type"] || p.partslot_description
+```
 
-- [x] Create `e2e/bob-critical-flows.spec.ts` with vehicle lookup test
-- [x] Create `vitest.config.ts` for unit test setup
-- [x] Create `src/test/setup.ts` with required mocks
-- [x] Add test for callback stability in Bob.tsx
-- [x] Add test for products state persistence
+But looking at the CARFIX API documentation in custom knowledge, the API returns data with different field structures. The mapping assumes fields that may not exist.
 
-### Phase 2: Architectural Fixes (Next)
+### Simple Fix
+**Add defensive logging and flexible field mapping**:
 
-- [x] Refactor Bob.tsx callbacks to use stable refs
-- [x] Add `contain: layout` to ContainedChatDrawer
-- [x] Add explicit `top: auto` in drawer styles (already present, verified)
-- [x] Add CSS transition scope limitation (`transition: height 0.3s, box-shadow 0.3s`)
+```typescript
+// Bob.tsx - Log the actual structure received
+console.log('[Bob] First part raw structure:', Object.keys(parts[0]));
 
-### Phase 3: Contract Validation (Then)
-
-- [x] Add validateVehicleId before parts fetch (existing in codebase)
-- [x] Add validatePreparedTiers before package emission (added in display context)
-- [x] Add validatePartsPayload logging (existing in codebase)
-- [x] Add recommended tier summary injection (added to display context)
-
-### Phase 4: CI Integration (Finally)
-
-- [ ] Add Playwright tests to GitHub Actions workflow
-- [ ] Set tests as blocking for deployment
-- [ ] Add visual regression testing (optional, via Percy/Chromatic)
+// Use more flexible field extraction
+partslotDescription: 
+  p["Part Product Type"] || 
+  p.partslot_description || 
+  p.partslotDescription ||
+  p.part_type ||
+  p.description ||
+  'General Parts'  // Fallback ensures grouping always works
+```
 
 ---
 
-## Verification Criteria
+## Implementation Plan
 
-After implementation, verify:
+### File 1: `ContainedChatDrawer.tsx`
+**Goal**: Prevent position drift on message updates
 
-1. **Vehicle Lookup**: REGO "AMA993" → 500 parts + service packages visible
-2. **Chat Positioning**: Drawer anchored at container bottom at all times
-3. **PTT Button**: Fully visible (72px button not clipped by navigation)
-4. **Price Accuracy**: Bob's verbal recommendation matches "CARFIX VALUE" badge price
-5. **Products Persist**: Parts remain on shelf during new conversation turns
+Change the drawer container style to add GPU-accelerated isolation:
+- Add `transform: 'translateZ(0)'`
+- Add `backfaceVisibility: 'hidden'`
+- Keep existing `contain: 'layout'` and `top: 'auto'`
+
+### File 2: `useBobChat.ts` 
+**Goal**: Play searching audio earlier
+
+Two options (recommend Option A for simplicity):
+
+**Option A - Optimistic Audio**: 
+In `handleSend`, if vehicle is already confirmed and user is asking about parts, play `parts_searching` audio immediately before making the API call.
+
+**Option B - Backend Timing**:
+Move `bob_searching` event emission to happen immediately after REGO detection in `bob-chat/index.ts`, before the lookup_vehicle call completes.
+
+### File 3: `MobileProductColumn.tsx`
+**Goal**: Shelf always starts at top
+
+Remove the two `useEffect` blocks (lines 286-299) that auto-scroll based on `highlightedPartType` and `highlightedProduct`.
+
+Add a new, explicit scroll function that only activates when Bob explicitly mentions a service package by name (this can be called from parent via callback).
+
+### File 4: `Bob.tsx`
+**Goal**: Robust product mapping
+
+Update `handlePartsFoundRef.current` to:
+1. Log the first part's actual keys for debugging
+2. Use more flexible field extraction with multiple fallbacks
+3. Ensure `partslotDescription` always has a value (never undefined)
 
 ---
 
-## Technical Files to Modify
+## Verification Checklist
 
-| File | Changes |
-|------|---------|
-| `e2e/bob-critical-flows.spec.ts` | NEW - Playwright E2E tests |
-| `vitest.config.ts` | NEW - Unit test configuration |
-| `src/test/setup.ts` | NEW - Test setup with mocks |
-| `packages/bob-widget/src/__tests__/Bob.callbacks.test.ts` | NEW - Callback stability tests |
-| `packages/bob-widget/src/components/Bob.tsx` | Stabilize callback references |
-| `packages/bob-widget/src/components/mobile/ContainedChatDrawer.tsx` | Explicit CSS containment |
-| `supabase/functions/bob-chat/index.ts` | Add validation + tier summary injection |
-| `.github/workflows/playwright.yml` | NEW - CI integration for tests |
+After implementation:
+
+| Test | Expected Result |
+|------|-----------------|
+| Send message | Chat drawer position unchanged |
+| Enter REGO | Searching audio plays immediately as vehicle lookup starts |
+| Products load | Shelf visible at top of scroll area |
+| Scroll down | Manual scroll works, position maintained |
+| Ask about service pack | Only then scroll to that pack |
+| Check shelf | PartSlot groups appear with headers |
 
 ---
 
-## Long-Term Maintenance
+## Code Simplification Observations
 
-1. **Before any Bob changes**: Run full E2E test suite locally
-2. **PR requirements**: All tests must pass before merge
-3. **Regression detected**: Add new test case covering the scenario
-4. **Monthly review**: Audit test coverage against critical paths
+During this investigation, I noticed several areas of over-engineering:
 
-This multi-layered approach ensures that regressions are caught at multiple stages - from unit tests catching callback issues, to E2E tests catching rendering problems, to runtime validation catching data issues before they corrupt the frontend state.
+1. **Audio Controller**: The global audio priority queue (`audioControllerRef`) has 7 state properties and complex queue management. Could be simplified to a single `currentlyPlaying` ref.
+
+2. **Panel State Machine**: `ContainedMobileBobLayout` has a 4-state machine (`hidden` | `loading` | `transitioning` | `visible`) that could be reduced to 2 states (`visible` | `hidden`).
+
+3. **Callback Refs Pattern**: While the stable ref pattern is good, the dual useEffect (one to set handler, one to wire callbacks) adds complexity. Could be a single hook.
+
+These are technical debt items for future simplification.
