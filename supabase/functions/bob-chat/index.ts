@@ -2831,8 +2831,44 @@ Use light humor and be helpful while being honest about the limitation.`
       const displayedParts = (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit || [];
       
       if (displayedPackages.length > 0 || displayedParts.length > 0) {
+        // ============= CARFIX VALUE TIER SUMMARY (Regression Prevention) =============
+        // Generate explicit recommended tier summary to ensure AI quotes correct prices
+        // See: .lovable/plan.md - "Layer 4: Fix 3 - Explicit CARFIX VALUE Price"
+        const generateRecommendedTierSummary = (packages: any[]): string => {
+          const summaries: string[] = [];
+          
+          for (const pkg of packages) {
+            if (pkg.preparedTiers && Array.isArray(pkg.preparedTiers)) {
+              // Validate tiers have isRecommended flag
+              const hasRecommended = pkg.preparedTiers.some((t: any) => t.isRecommended === true);
+              if (!hasRecommended) {
+                console.warn(`[VALIDATION] Package ${pkg.id} has no recommended tier!`);
+              }
+              
+              const recommended = pkg.preparedTiers.find((t: any) => t.isRecommended === true);
+              if (recommended) {
+                summaries.push(
+                  `📍 ${pkg.title}: CARFIX VALUE = ${recommended.tierName} tier at $${recommended.totalPrice.toFixed(2)}`
+                );
+              }
+            }
+          }
+          
+          return summaries.length > 0 
+            ? `\n\n=== CARFIX VALUE TIERS (SPEAK THESE PRICES) ===\n${summaries.join('\n')}\n===`
+            : '';
+        };
+        
+        const carfixValueSummary = generateRecommendedTierSummary(displayedPackages as any[]);
+        
         const packageSummary = displayedPackages.length > 0 
-          ? `SERVICE PACKAGES (${displayedPackages.length}):\n${(displayedPackages as any[]).map(p => `- ${p.title}: $${p.from_price}`).join('\n')}`
+          ? `SERVICE PACKAGES (${displayedPackages.length}):\n${(displayedPackages as any[]).map(p => {
+              // Include tier breakdown for AI context
+              const tierInfo = p.preparedTiers?.filter((t: any) => !t.isHidden)?.map((t: any) => 
+                `  - ${t.tierName}: $${t.totalPrice?.toFixed(2) || 'N/A'}${t.isRecommended ? ' (CARFIX VALUE)' : ''}`
+              ).join('\n') || '';
+              return `- ${p.title}: from $${p.from_price}\n${tierInfo}`;
+            }).join('\n')}${carfixValueSummary}`
           : 'No service packages displayed.';
         
         const partsSummary = displayedParts.length > 0 
@@ -2845,7 +2881,11 @@ The customer's shelf currently shows:
 ${packageSummary}
 ${partsSummary}
 
-IMPORTANT: Only reference products/packages from this list with these EXACT prices.`;
+IMPORTANT: 
+1. Only reference products/packages from this list
+2. When recommending a service package, ALWAYS quote the CARFIX VALUE tier price (marked above)
+3. DO NOT quote the cheapest (Economy) price - quote the recommended tier price
+4. The recommended tier is what appears as "CARFIX VALUE" on the customer's screen`;
         
         conversationMessages.push({
           role: "system",
