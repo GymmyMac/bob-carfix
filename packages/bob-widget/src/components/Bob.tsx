@@ -98,6 +98,10 @@ export const Bob: React.FC<BobProps> = ({
         return;
       }
       
+      // v3.2.1: Debug logging - show actual field names from API
+      const firstPart = (parts as any[])[0];
+      console.log('[Bob] First part raw keys:', Object.keys(firstPart));
+      
       const mappedProducts: Product[] = (parts as any[]).map((p, idx) => ({
         id: p.SKU || p.sku || `part-${idx}`,
         name: p["Part Product Type"] || p.partslot_description || p.name || 'Unknown Part',
@@ -105,10 +109,19 @@ export const Bob: React.FC<BobProps> = ({
         price: p["Metro Retail Price"] || p.price || 0,
         sku: p.SKU || p.sku,
         partNumber: p["Part Number"] || p.part_number,
-        partslotDescription: p["Part Product Type"] || p.partslot_description,
+        // v3.2.1: Robust field extraction with multiple fallbacks - NEVER undefined
+        partslotDescription: 
+          p["Part Product Type"] || 
+          p.partslot_description || 
+          p.partslotDescription ||
+          p.part_type ||
+          p.category ||
+          'General Parts',
         image_url: p.image_url
       }));
-      console.log('[Bob] Products mapped via stable ref:', mappedProducts.length, 'products');
+      console.log('[Bob] Products mapped:', mappedProducts.length, 'items');
+      console.log('[Bob] Sample partslotDescriptions:', 
+        [...new Set(mappedProducts.slice(0, 10).map(p => p.partslotDescription))]);
       setProducts(mappedProducts);
     };
     

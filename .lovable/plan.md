@@ -154,6 +154,19 @@ After implementation:
 
 ## Code Simplification Observations
 
+---
+
+## Implementation Status ✅
+
+All four fixes have been implemented:
+
+| Issue | File | Fix Applied |
+|-------|------|-------------|
+| Chat drawer drift | `ContainedChatDrawer.tsx` | Added `transform: translateZ(0)`, `backfaceVisibility: hidden`, `isolation: isolate` |
+| Audio timing | `useBobChat.ts` | Optimistic audio plays immediately in `streamChat` when vehicle confirmed + parts request |
+| Shelf scrolling | `MobileProductColumn.tsx` | Removed auto-scroll `useEffect` blocks - shelf stays at top |
+| PartSlot mapping | `Bob.tsx` | Added flexible field extraction with 6 fallback keys |
+
 During this investigation, I noticed several areas of over-engineering:
 
 1. **Audio Controller**: The global audio priority queue (`audioControllerRef`) has 7 state properties and complex queue management. Could be simplified to a single `currentlyPlaying` ref.
