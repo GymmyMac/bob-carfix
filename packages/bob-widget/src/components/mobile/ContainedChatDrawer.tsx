@@ -129,25 +129,23 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
       ref={drawerRef}
       style={{
         position: 'absolute',
-        // v3.1.19: ContainedChatDrawer uses bottom: 0 because the parent container
-        // is already sized to fit between header/footer. bottomOffset is only for
-        // fixed-position variants (MobileChatDrawer) that position relative to viewport.
         bottom: 0,
         left: 0,
         right: 0,
-        // CRITICAL: Explicitly unset top to prevent stale positioning after expand/collapse
         top: 'auto',
-        // v3.2.0: CSS containment for layout isolation - prevents position drift
         contain: 'layout',
-        // Optimize height transitions for smoother animations
-        willChange: 'height',
+        // v3.2.1: GPU-accelerated isolation - prevents position drift during message updates
+        transform: 'translateZ(0)',
+        WebkitTransform: 'translateZ(0)',
+        backfaceVisibility: 'hidden',
+        WebkitBackfaceVisibility: 'hidden',
+        isolation: 'isolate',
         ...glassPanel,
         borderRadius: '28px 28px 0 0',
         borderBottom: 'none',
-        // v3.2.0: Strictly scoped transitions - prevents position artifacts during expand/collapse
-        transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease-out',
+        // v3.2.1: Strictly scoped transitions - only height changes, no position animation
+        transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.3)',
-        // v3.1.16: Increased collapsed height from 90px to 110px for more spacing
         height: isExpanded ? '55%' : '110px',
         overflow: 'visible',
         zIndex: zIndexBase + 30,
