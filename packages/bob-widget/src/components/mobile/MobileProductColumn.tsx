@@ -359,6 +359,10 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           // z-index 75: Above Bob (z-60) and counter overlay (z-70), below chat drawer (z-130)
           zIndex: 75,
           pointerEvents: 'auto' as const,
+          // Ensure touch scroll works on mobile - prevent scroll chaining to parent
+          touchAction: 'pan-y',
+          overscrollBehavior: 'contain',
+          WebkitOverflowScrolling: 'touch',
           // Hide default scrollbar
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
