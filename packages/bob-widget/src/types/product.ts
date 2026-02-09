@@ -15,6 +15,12 @@ export interface Product {
   image_url?: string;
   image?: string; // Alias for demo compatibility
   quantity?: number;
+  webDescription?: string;
+  brandDescription?: string;
+  perCarQty?: number;
+  volume?: string;
+  viscosity?: string;
+  brandImageUrl?: string;
 }
 
 /**

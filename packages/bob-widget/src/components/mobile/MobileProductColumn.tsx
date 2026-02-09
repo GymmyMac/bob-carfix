@@ -101,11 +101,7 @@ const ResponsiveProductCard: React.FC<{
         {isSpotlighted && <SpotlightBadge variant="horizontal" />}
         
         <div className="w-36 shrink-0 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
-          {product.image_url ? (
-            <img src={product.image_url} alt={product.name} className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-300" />
-          ) : (
-            <NoImagePlaceholder size="lg" />
-          )}
+          <FallbackImage product={product} className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-300" />
         </div>
         
         <div className="flex-1 p-4 flex flex-col justify-between">
@@ -157,11 +153,7 @@ const ResponsiveProductCard: React.FC<{
         {isSpotlighted && <SpotlightBadge />}
         
         <div className="aspect-[4/3] bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
-          {product.image_url ? (
-            <img src={product.image_url} alt={product.name} className="w-full h-full object-contain p-4" />
-          ) : (
-            <NoImagePlaceholder size="md" />
-          )}
+          <FallbackImage product={product} className="w-full h-full object-contain p-4" />
         </div>
         
         <div className="p-4">
@@ -233,6 +225,28 @@ const NoImagePlaceholder: React.FC<{ size: 'sm' | 'md' | 'lg' }> = ({ size }) =>
       </svg>
       <span className="text-xs font-medium uppercase tracking-wide mt-1">No Image</span>
     </div>
+  );
+};
+
+/** Fallback Image - tries product image, then brand logo, then NoImage placeholder */
+const FallbackImage: React.FC<{ product: Product; className?: string }> = ({ product, className }) => {
+  const [stage, setStage] = useState<0 | 1 | 2>(0);
+  const src = stage === 0 ? product.image_url : stage === 1 ? product.brandImageUrl : undefined;
+  
+  if (!src || stage >= 2) {
+    return <NoImagePlaceholder size="md" />;
+  }
+  
+  return (
+    <img
+      src={src}
+      alt={product.name}
+      className={className}
+      onError={() => {
+        if (stage === 0 && product.brandImageUrl) setStage(1);
+        else setStage(2);
+      }}
+    />
   );
 };
 

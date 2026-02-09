@@ -102,23 +102,32 @@ export const Bob: React.FC<BobProps> = ({
       const firstPart = (parts as any[])[0];
       console.log('[Bob] First part raw keys:', Object.keys(firstPart));
       
-      const mappedProducts: Product[] = (parts as any[]).map((p, idx) => ({
-        id: p.SKU || p.sku || `part-${idx}`,
-        name: p["Part Product Type"] || p.partslot_description || p.name || 'Unknown Part',
-        brand: p.Brand || p.brand,
-        price: p["Metro Retail Price"] || p.price || 0,
-        sku: p.SKU || p.sku,
-        partNumber: p["Part Number"] || p.part_number,
-        // v3.2.1: Robust field extraction with multiple fallbacks - NEVER undefined
-        partslotDescription: 
-          p["Part Product Type"] || 
-          p.partslot_description || 
-          p.partslotDescription ||
-          p.part_type ||
-          p.category ||
-          'General Parts',
-        image_url: p.image_url
-      }));
+      const mappedProducts: Product[] = (parts as any[]).map((p, idx) => {
+        const brand = p.Brand || p.brand || '';
+        return {
+          id: p.SKU || p.sku || `part-${idx}`,
+          name: p["Part Product Type"] || p.partslot_description || p.name || 'Unknown Part',
+          brand,
+          price: p["Metro Retail Price"] || p.price || 0,
+          sku: p.SKU || p.sku,
+          partNumber: p["Part Number"] || p.part_number || null,
+          // v3.2.1: Robust field extraction with multiple fallbacks - NEVER undefined
+          partslotDescription: 
+            p["Part Product Type"] || 
+            p.partslot_description || 
+            p.partslotDescription ||
+            p.part_type ||
+            p.category ||
+            'General Parts',
+          image_url: p.image_url,
+          webDescription: p["Web Part Description"] || p.web_description || null,
+          brandDescription: p["Brand Description"] || p.brand_description || null,
+          perCarQty: p["Per Car Qty"] || p.per_car_qty || 1,
+          volume: p.volume || null,
+          viscosity: p.viscosity || null,
+          brandImageUrl: brand ? `https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/brand_images/${brand.replace(/\\s+/g, '')}.jpg` : undefined,
+        };
+      });
       console.log('[Bob] Products mapped:', mappedProducts.length, 'items');
       console.log('[Bob] First partslotDescriptions:', 
         [...new Set(mappedProducts.slice(0, 10).map(p => p.partslotDescription))]);

@@ -19,11 +19,10 @@ interface ProductTileProps {
 /**
  * ProductTile - Premium Glassmorphism Product Cards
  * 
- * iOS 26-inspired liquid glass design:
- * - Frosted translucent glass with backdrop blur
- * - Sharp white text with high contrast
- * - CARFIX orange price highlights
- * - Hover: scale(1.04), translateY(-4px), enhanced glow
+ * Image fallback chain:
+ * 1. product.image_url (product photo)
+ * 2. product.brandImageUrl (brand logo)
+ * 3. "No Image" placeholder
  */
 export const ProductTile: React.FC<ProductTileProps> = ({
   product,
@@ -32,6 +31,8 @@ export const ProductTile: React.FC<ProductTileProps> = ({
   onAddToCart
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [imgFallbackStage, setImgFallbackStage] = useState<0 | 1 | 2>(0);
+  // 0 = product image, 1 = brand logo, 2 = no image
   
   const handleClick = () => {
     onProductClick?.(product);
@@ -42,9 +43,25 @@ export const ProductTile: React.FC<ProductTileProps> = ({
     onAddToCart?.(product);
   };
 
-  // Base glass style or premium variant
+  const handleImgError = () => {
+    if (imgFallbackStage === 0 && product.brandImageUrl) {
+      setImgFallbackStage(1);
+    } else {
+      setImgFallbackStage(2);
+    }
+  };
+
+  const currentImgSrc = imgFallbackStage === 0 
+    ? product.image_url 
+    : imgFallbackStage === 1 
+      ? product.brandImageUrl 
+      : undefined;
+
   const baseGlass = isSpotlighted ? glassCardPremium : glassCard;
 
+  // Display name: prefer webDescription, fall back to name
+  const displayName = product.webDescription || product.name;
+  
   return (
     <div
       onClick={handleClick}
@@ -54,7 +71,6 @@ export const ProductTile: React.FC<ProductTileProps> = ({
       style={{
         ...baseGlass,
         padding: '16px',
-        // Hover transform
         transform: isHovered ? 'scale(1.04) translateY(-4px)' : 'scale(1) translateY(0)',
         boxShadow: isHovered 
           ? '0 16px 56px rgba(0, 0, 0, 0.4), 0 0 24px rgba(255,255,255,0.08)'
@@ -62,7 +78,7 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease-out',
       }}
     >
-      {/* Bob's Pick Badge - Premium glass badge */}
+      {/* Bob's Pick Badge */}
       {isSpotlighted && (
         <div 
           className="absolute -top-2.5 -right-2.5 z-10 flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold"
@@ -84,7 +100,7 @@ export const ProductTile: React.FC<ProductTileProps> = ({
       )}
 
       <div className="flex items-center gap-4">
-        {/* Product Image - Inner glass container */}
+        {/* Product Image with fallback chain */}
         <div 
           className="flex-shrink-0 flex items-center justify-center overflow-hidden"
           style={{
@@ -93,12 +109,13 @@ export const ProductTile: React.FC<ProductTileProps> = ({
             height: '92px',
           }}
         >
-          {product.image_url ? (
+          {currentImgSrc && imgFallbackStage < 2 ? (
             <img 
-              src={product.image_url} 
+              src={currentImgSrc} 
               alt={product.name}
               className="w-full h-full object-contain p-2"
               loading="lazy"
+              onError={handleImgError}
             />
           ) : (
             <div className="flex flex-col items-center justify-center" style={{ color: 'rgba(255,255,255,0.4)' }}>
@@ -111,21 +128,28 @@ export const ProductTile: React.FC<ProductTileProps> = ({
 
         {/* Product Details */}
         <div className="flex-1 min-w-0">
-          {/* Product Name - Sharp white text */}
+          {/* Product Name - use webDescription if available */}
           <p 
             className="font-bold line-clamp-2 leading-tight"
             style={{ 
-              fontSize: '16px',
+              fontSize: '15px',
               letterSpacing: '-0.01em',
               ...glassText.primary,
             }}
           >
-            {product.name}
+            {displayName}
           </p>
           
-          {/* Brand Badge - Glass style */}
-          {product.brand && (
-            <div className="flex items-center gap-1.5 mt-1.5">
+          {/* Part Number */}
+          {product.partNumber && (
+            <p className="mt-0.5 text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              {product.partNumber}
+            </p>
+          )}
+
+          {/* Brand + Qty badges row */}
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            {product.brand && (
               <span 
                 className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5"
                 style={{
@@ -138,10 +162,28 @@ export const ProductTile: React.FC<ProductTileProps> = ({
                 </svg>
                 {product.brand}
               </span>
-            </div>
+            )}
+            {product.perCarQty && product.perCarQty > 1 && (
+              <span 
+                className="inline-flex items-center text-xs font-semibold px-2 py-0.5"
+                style={{
+                  ...glassBadge,
+                  color: 'rgba(255, 200, 50, 0.95)',
+                }}
+              >
+                Qty: {product.perCarQty}
+              </span>
+            )}
+          </div>
+
+          {/* Oil specs */}
+          {(product.viscosity || product.volume) && (
+            <p className="mt-1 text-xs font-medium" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+              {[product.viscosity, product.volume].filter(Boolean).join(' / ')}
+            </p>
           )}
           
-          {/* Price - Gold for high contrast on dark glass */}
+          {/* Price */}
           <p 
             className="font-extrabold mt-2"
             style={{ 
@@ -155,7 +197,7 @@ export const ProductTile: React.FC<ProductTileProps> = ({
           </p>
         </div>
 
-        {/* Add Button - Premium glass with orange glow */}
+        {/* Add Button */}
         <button
           onClick={handleAddClick}
           className="flex-shrink-0 flex items-center justify-center glass-button"
@@ -180,7 +222,7 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         </button>
       </div>
 
-      {/* Part Type Tag - Subtle glass divider */}
+      {/* Part Type Tag */}
       {product.partslotDescription && (
         <div 
           className="mt-3 pt-3"
