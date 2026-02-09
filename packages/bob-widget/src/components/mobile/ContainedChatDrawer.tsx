@@ -149,7 +149,9 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
         height: isExpanded ? '55%' : '110px',
         overflow: 'visible',
         zIndex: zIndexBase + 30,
-        paddingBottom: 'calc(8px + env(safe-area-inset-bottom, 0px))'
+        paddingBottom: 'calc(8px + env(safe-area-inset-bottom, 0px))',
+        // Passthrough: glass background doesn't intercept touch; children re-enable
+        pointerEvents: 'none' as const
       }}
     >
       {/* Expand/Collapse Handle - Glass style with full visibility */}
@@ -173,7 +175,8 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
           minWidth: '32px',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          pointerEvents: 'auto' as const
         }}
         aria-label={isExpanded ? "Collapse chat" : "Expand chat"}
       >
@@ -192,7 +195,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
       {!isExpanded && (
         <div 
           onClick={() => setIsExpanded(true)}
-          style={{ padding: '6px 12px 4px 12px', height: '26px', overflow: 'hidden', cursor: 'pointer' }}
+          style={{ padding: '6px 12px 4px 12px', height: '26px', overflow: 'hidden', cursor: 'pointer', pointerEvents: 'auto' as const }}
         >
           <p style={{ 
             fontSize: '12px', 
@@ -208,7 +211,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
 
       {/* Expanded Chat History */}
       {isExpanded && (
-        <div style={{ height: 'calc(100% - 100px)', overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }} className="glass-scroll">
+        <div style={{ height: 'calc(100% - 100px)', overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', pointerEvents: 'auto' as const }} className="glass-scroll">
           {[...messages].reverse().map((msg, idx) => (
             <div key={idx} style={{ display: 'flex', justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
               <div style={{
@@ -235,7 +238,8 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
       {/* Input Area - Glass style */}
       <div style={{
         padding: isExpanded ? '8px 12px 4px 12px' : '4px 12px 4px 12px',
-        borderTop: isExpanded ? '1px solid rgba(255, 255, 255, 0.15)' : 'none'
+        borderTop: isExpanded ? '1px solid rgba(255, 255, 255, 0.15)' : 'none',
+        pointerEvents: 'auto' as const
       }}>
         {isListening && (
           <div style={{ 
