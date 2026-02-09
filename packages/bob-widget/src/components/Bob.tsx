@@ -120,7 +120,7 @@ export const Bob: React.FC<BobProps> = ({
         image_url: p.image_url
       }));
       console.log('[Bob] Products mapped:', mappedProducts.length, 'items');
-      console.log('[Bob] Sample partslotDescriptions:', 
+      console.log('[Bob] First partslotDescriptions:', 
         [...new Set(mappedProducts.slice(0, 10).map(p => p.partslotDescription))]);
       setProducts(mappedProducts);
     };
