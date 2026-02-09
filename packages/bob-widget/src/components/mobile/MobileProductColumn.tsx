@@ -356,8 +356,9 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           paddingRight: '6px',
           paddingLeft: '12px',
           paddingBottom: '8px',
-          // z-index 65: Above Bob (z-60), below counter overlay (z-70)
-          zIndex: 65,
+          // z-index 75: Above Bob (z-60) and counter overlay (z-70), below chat drawer (z-130)
+          zIndex: 75,
+          pointerEvents: 'auto' as const,
           // Hide default scrollbar
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
@@ -841,6 +842,8 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           >
             {/* Section Header - Standalone blue pill */}
             <div 
+              data-testid="partslot-header"
+              data-partslot-name={name}
               className="px-3 py-2.5 flex items-center justify-between"
               style={{
                 background: isHighlighted 
@@ -892,14 +895,15 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                 const isSpotlighted = !!(highlightedProduct && productMatchesSpotlight(product, highlightedProduct));
                 
                 return (
+                  <div key={`${product.id}-${index}`} data-testid="partslot-product">
                   <ResponsiveProductCard
-                    key={`${product.id}-${index}`}
                     product={product}
                     isSpotlighted={isSpotlighted}
                     spotlightedRef={spotlightedRef}
                     onProductClick={onProductClick}
                     viewportSize={viewportSize}
                   />
+                  </div>
                 );
               })}
             </div>
