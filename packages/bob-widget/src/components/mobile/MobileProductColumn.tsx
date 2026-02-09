@@ -356,8 +356,9 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           paddingRight: '6px',
           paddingLeft: '12px',
           paddingBottom: '8px',
-          // z-index 75: Above Bob (z-60) and counter overlay (z-70), below chat drawer (z-130)
-          zIndex: 75,
+          // z-index 55: Below Bob (z-60) and counter (z-70) for visual layering
+          // Touch still reaches here because Bob's wrapper has pointer-events: none
+          zIndex: 55,
           pointerEvents: 'auto' as const,
           // Ensure touch scroll works on mobile - prevent scroll chaining to parent
           touchAction: 'pan-y',
