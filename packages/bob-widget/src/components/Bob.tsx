@@ -125,7 +125,7 @@ export const Bob: React.FC<BobProps> = ({
           perCarQty: p["Per Car Qty"] || p.per_car_qty || 1,
           volume: p.volume || null,
           viscosity: p.viscosity || null,
-          brandImageUrl: brand ? `https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/brand_images/${brand.replace(/\\s+/g, '')}.jpg` : undefined,
+          brandImageUrl: brand ? `https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/brand_images/${brand.replace(/\s+/g, '')}.jpg` : undefined,
         };
       });
       console.log('[Bob] Products mapped:', mappedProducts.length, 'items');
