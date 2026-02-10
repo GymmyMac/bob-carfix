@@ -3,7 +3,6 @@ import type { Product } from "../types";
 import { 
   glassCard, 
   glassCardPremium, 
-  glassButtonPrimary, 
   glassImageContainer,
   glassBadge,
   glassText 
@@ -131,7 +130,7 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         <div className="flex-1 min-w-0">
           {/* Product Name - use webDescription if available */}
           <p 
-            className="font-bold line-clamp-2 leading-tight"
+            className="font-bold leading-tight"
             style={{ 
               fontSize: '15px',
               letterSpacing: '-0.01em',
@@ -201,20 +200,23 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         {/* Add Button */}
         <button
           onClick={handleAddClick}
-          className="flex-shrink-0 flex items-center justify-center glass-button"
+          className="flex-shrink-0 flex items-center justify-center"
           style={{
-            ...glassButtonPrimary,
+            background: 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.35)',
+            borderRadius: '24px',
+            boxShadow: '0 10px 40px rgba(34, 197, 94, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)',
             width: '56px',
             height: '56px',
             transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease-out',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'scale(1.08) translateY(-2px)';
-            e.currentTarget.style.boxShadow = '0 14px 48px rgba(255, 149, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.4)';
+            e.currentTarget.style.boxShadow = '0 14px 48px rgba(34, 197, 94, 0.5), inset 0 1px 0 rgba(255,255,255,0.4)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'scale(1) translateY(0)';
-            e.currentTarget.style.boxShadow = glassButtonPrimary.boxShadow as string;
+            e.currentTarget.style.boxShadow = '0 10px 40px rgba(34, 197, 94, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)';
           }}
         >
           <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
