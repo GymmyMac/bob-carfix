@@ -119,7 +119,7 @@ export const Bob: React.FC<BobProps> = ({
             p.part_type ||
             p.category ||
             'General Parts',
-          image_url: p.image_url,
+          image_url: p.image_url || ((p.SKU || p.sku) ? `https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/product_images/${(p.SKU || p.sku)}.jpg` : undefined),
           webDescription: p["Web Part Description"] || p.web_description || null,
           brandDescription: p["Brand Description"] || p.brand_description || null,
           perCarQty: p["Per Car Qty"] || p.per_car_qty || 1,
