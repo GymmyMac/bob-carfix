@@ -70,6 +70,8 @@ export const ProductTile: React.FC<ProductTileProps> = ({
       style={{
         ...baseGlass,
         padding: '16px',
+        paddingBottom: '60px',
+        position: 'relative' as const,
         transform: isHovered ? 'scale(1.04) translateY(-4px)' : 'scale(1) translateY(0)',
         boxShadow: isHovered 
           ? '0 16px 56px rgba(0, 0, 0, 0.4), 0 0 24px rgba(255,255,255,0.08)'
@@ -98,7 +100,7 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         </div>
       )}
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-start gap-4">
         {/* Product Image with fallback chain */}
         <div 
           className="flex-shrink-0 flex items-center justify-center overflow-hidden"
@@ -196,34 +198,36 @@ export const ProductTile: React.FC<ProductTileProps> = ({
             {product.price > 0 ? `$${product.price.toFixed(2)}` : 'POA'}
           </p>
         </div>
-
-        {/* Add Button */}
-        <button
-          onClick={handleAddClick}
-          className="flex-shrink-0 flex items-center justify-center"
-          style={{
-            background: 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)',
-            border: '1px solid rgba(255, 255, 255, 0.35)',
-            borderRadius: '24px',
-            boxShadow: '0 10px 40px rgba(34, 197, 94, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)',
-            width: '56px',
-            height: '56px',
-            transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease-out',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'scale(1.08) translateY(-2px)';
-            e.currentTarget.style.boxShadow = '0 14px 48px rgba(34, 197, 94, 0.5), inset 0 1px 0 rgba(255,255,255,0.4)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1) translateY(0)';
-            e.currentTarget.style.boxShadow = '0 10px 40px rgba(34, 197, 94, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)';
-          }}
-        >
-          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-          </svg>
-        </button>
       </div>
+
+      {/* Add Button - absolute bottom-right */}
+      <button
+        onClick={handleAddClick}
+        className="absolute flex items-center justify-center cursor-pointer"
+        style={{
+          bottom: '12px',
+          right: '12px',
+          background: 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)',
+          border: '1px solid rgba(255, 255, 255, 0.35)',
+          borderRadius: '22px',
+          boxShadow: '0 10px 40px rgba(34, 197, 94, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)',
+          width: '44px',
+          height: '44px',
+          transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease-out',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'scale(1.08) translateY(-2px)';
+          e.currentTarget.style.boxShadow = '0 14px 48px rgba(34, 197, 94, 0.5), inset 0 1px 0 rgba(255,255,255,0.4)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1) translateY(0)';
+          e.currentTarget.style.boxShadow = '0 10px 40px rgba(34, 197, 94, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)';
+        }}
+      >
+        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
 
       {/* Part Type Tag */}
       {product.partslotDescription && (
