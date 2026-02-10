@@ -106,16 +106,29 @@ const ResponsiveProductCard: React.FC<{
         
         <div className="flex-1 p-4 flex flex-col justify-between">
           <div>
-            <p className="text-base font-semibold text-gray-900 line-clamp-2 mb-1 group-hover:text-blue-700 transition-colors">{product.name}</p>
-            {product.brand && (
-              <div className="flex items-center gap-2 mb-2">
+            <p className="text-base font-semibold text-gray-900 line-clamp-2 mb-1 group-hover:text-blue-700 transition-colors">{product.webDescription || product.name}</p>
+            {product.partNumber && (
+              <p className="text-xs text-gray-500 mb-1">{product.partNumber}</p>
+            )}
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              {product.brand && (
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
                   <svg className="w-3 h-3 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                   {product.brand}
                 </span>
-              </div>
+              )}
+              {product.perCarQty && product.perCarQty > 1 && (
+                <span className="inline-flex items-center text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
+                  Qty: {product.perCarQty}
+                </span>
+              )}
+            </div>
+            {(product.viscosity || product.volume) && (
+              <p className="text-xs font-medium text-gray-500 mb-1">
+                {[product.viscosity, product.volume].filter(Boolean).join(' / ')}
+              </p>
             )}
           </div>
           
@@ -157,11 +170,26 @@ const ResponsiveProductCard: React.FC<{
         </div>
         
         <div className="p-4">
-          <p className="text-base font-semibold text-gray-900 line-clamp-2 mb-1">{product.name}</p>
-          {product.brand && (
-            <p className="text-sm text-gray-600 font-medium mb-2 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-              {product.brand}
+          <p className="text-base font-semibold text-gray-900 line-clamp-2 mb-1">{product.webDescription || product.name}</p>
+          {product.partNumber && (
+            <p className="text-xs text-gray-500 mb-1">{product.partNumber}</p>
+          )}
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            {product.brand && (
+              <span className="text-sm text-gray-600 font-medium flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                {product.brand}
+              </span>
+            )}
+            {product.perCarQty && product.perCarQty > 1 && (
+              <span className="inline-flex items-center text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
+                Qty: {product.perCarQty}
+              </span>
+            )}
+          </div>
+          {(product.viscosity || product.volume) && (
+            <p className="text-xs font-medium text-gray-500 mb-1">
+              {[product.viscosity, product.volume].filter(Boolean).join(' / ')}
             </p>
           )}
           <div className="flex items-center justify-between">
