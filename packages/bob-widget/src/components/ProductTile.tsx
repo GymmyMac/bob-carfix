@@ -107,6 +107,7 @@ export const ProductTile: React.FC<ProductTileProps> = ({
             ...glassImageContainer,
             width: '92px',
             height: '92px',
+            backgroundColor: '#ffffff',
           }}
         >
           {currentImgSrc && imgFallbackStage < 2 ? (
