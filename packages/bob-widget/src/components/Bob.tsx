@@ -128,10 +128,15 @@ export const Bob: React.FC<BobProps> = ({
           brandImageUrl: brand ? `https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/brand_images/${brand.replace(/\s+/g, '')}.jpg` : undefined,
         };
       });
-      console.log('[Bob] Products mapped:', mappedProducts.length, 'items');
-      console.log('[Bob] First partslotDescriptions:', 
-        [...new Set(mappedProducts.slice(0, 10).map(p => p.partslotDescription))]);
-      setProducts(mappedProducts);
+      // Deduplicate by SKU - API may return the same part multiple times
+      const seen = new Set<string>();
+      const dedupedProducts = mappedProducts.filter(p => {
+        if (!p.sku || seen.has(p.sku)) return false;
+        seen.add(p.sku);
+        return true;
+      });
+      console.log('[Bob] Products mapped:', mappedProducts.length, '-> deduped:', dedupedProducts.length);
+      setProducts(dedupedProducts);
     };
     
     handlePackagesFoundRef.current = (packages: unknown[]) => {
