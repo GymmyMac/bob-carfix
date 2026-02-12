@@ -7,6 +7,7 @@ import {
   getServicePackageDescription
 } from "../../styles/carfix-tokens";
 import type { PreparedTier, PreparedTierProduct } from "../../types/product";
+import { isRearBrakePackage, filterByBrakeType, recalcTierTotal, type RearBrakeType } from "../../utils/rearBrakeFilter";
 
 /**
  * Service package interface - preparedTiers is the ONLY source of truth
@@ -43,16 +44,25 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
   onNavigateToProductPage
 }) => {
   const [showDetails, setShowDetails] = useState(false);
+  const [rearBrakeType, setRearBrakeType] = useState<RearBrakeType>('disc');
+  
+  const isRearBrake = useMemo(() => isRearBrakePackage(pkg), [pkg.id, pkg.title]);
   
   // Filter visible tiers (not hidden) - preparedTiers is the ONLY source
   const visiblePreparedTiers = useMemo(() => {
     if (!pkg.preparedTiers || pkg.preparedTiers.length === 0) return [];
-    return pkg.preparedTiers.filter(tier => !tier.isHidden);
-  }, [pkg.preparedTiers]);
+    const visible = pkg.preparedTiers.filter(tier => !tier.isHidden);
+    if (!isRearBrake) return visible;
+    // Apply brake type filter and recalculate prices
+    return visible.map(tier => {
+      const filtered = filterByBrakeType(tier.products, rearBrakeType);
+      return { ...tier, products: filtered, totalPrice: recalcTierTotal(filtered), productCount: filtered.length };
+    });
+  }, [pkg.preparedTiers, isRearBrake, rearBrakeType]);
   
   const hasTiers = visiblePreparedTiers.length > 0;
   
-  // Handle add to cart using preparedTiers
+  // Handle add to cart using preparedTiers (filtered products)
   const handleAddPreparedTierToCart = (tier: PreparedTier) => {
     onAddToCart?.(tier.products);
   };
@@ -135,8 +145,37 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
           
           {/* Description - Problem → Benefit → CFX Pack */}
           <p className="text-sm text-[#64748B] mt-3 leading-relaxed">
-            {packageDescription}
+          {packageDescription}
           </p>
+          
+          {/* Disc / Drum brake type toggle - only for Rear Brake Service */}
+          {isRearBrake && (
+            <div className="mt-3">
+              <p className="text-[11px] text-[#94A3B8] mb-1.5">Select your vehicle's rear brake type</p>
+              <div className="flex rounded-xl overflow-hidden border border-[#E2E8F0] bg-white">
+                <button
+                  onClick={() => setRearBrakeType('disc')}
+                  className="flex-1 py-2 px-3 text-xs font-semibold transition-all"
+                  style={{
+                    background: rearBrakeType === 'disc' ? CARFIX_COLORS.primary : 'transparent',
+                    color: rearBrakeType === 'disc' ? '#FFFFFF' : '#64748B',
+                  }}
+                >
+                  Disc Brakes (Pads + Rotors)
+                </button>
+                <button
+                  onClick={() => setRearBrakeType('drum')}
+                  className="flex-1 py-2 px-3 text-xs font-semibold transition-all"
+                  style={{
+                    background: rearBrakeType === 'drum' ? CARFIX_COLORS.primary : 'transparent',
+                    color: rearBrakeType === 'drum' ? '#FFFFFF' : '#64748B',
+                  }}
+                >
+                  Drum Brakes (Shoes + Drums)
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Choose Your Value Level Header */}
