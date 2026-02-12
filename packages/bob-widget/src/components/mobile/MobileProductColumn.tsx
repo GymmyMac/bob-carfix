@@ -4,6 +4,7 @@ import { usePositionFactors } from "../../hooks/usePositionFactors";
 import { ProductTile } from "../ProductTile";
 import type { Product, ServicePackage, PreparedTierProduct } from "../../types";
 import type { HighlightedProduct } from "../../types/message";
+import { isRearBrakePackage, filterByBrakeType, recalcTierTotal, type RearBrakeType } from "../../utils/rearBrakeFilter";
 import { 
   glassCard, 
   glassCardPremium,
@@ -185,6 +186,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
   // Service package accordion state
   const [expandedPackageId, setExpandedPackageId] = useState<string | null>(null);
   const [selectedTiers, setSelectedTiers] = useState<Record<string, string>>({});
+  const [brakeTypes, setBrakeTypes] = useState<Record<string, RearBrakeType>>({});
   
   // Full catalog display - no lazy loading, all products shown immediately
   const groupedProducts = useMemo(() => {
@@ -458,7 +460,15 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
         <div className="space-y-4">
           {servicePackages.map((pkg) => {
             // Use preparedTiers from server (no fallback needed - API always provides them)
-            const visibleTiers = (pkg.preparedTiers || []).filter(tier => !tier.isHidden);
+            const isRearBrake = isRearBrakePackage(pkg);
+            const brakeType = brakeTypes[pkg.id] || 'disc';
+            let visibleTiers = (pkg.preparedTiers || []).filter(tier => !tier.isHidden);
+            if (isRearBrake) {
+              visibleTiers = visibleTiers.map(tier => {
+                const filtered = filterByBrakeType(tier.products, brakeType);
+                return { ...tier, products: filtered, totalPrice: recalcTierTotal(filtered), productCount: filtered.length };
+              });
+            }
             
             // Track selected tier for this package (default to recommended or first)
             const defaultTier = visibleTiers.find(t => t.isRecommended)?.tierName || visibleTiers[0]?.tierName || '';
@@ -517,6 +527,35 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                   <p className="text-sm leading-relaxed" style={{ color: CARFIX_COLORS.mutedForeground }}>
                     {shortDescription}
                   </p>
+                  
+                  {/* Disc / Drum brake type toggle - only for Rear Brake Service */}
+                  {isRearBrake && (
+                    <div className="mt-2 mb-1">
+                      <p className="text-[11px] mb-1.5" style={{ color: CARFIX_COLORS.mutedForeground }}>Select your vehicle's rear brake type</p>
+                      <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: CARFIX_COLORS.border }}>
+                        <button
+                          onClick={() => setBrakeTypes(prev => ({ ...prev, [pkg.id]: 'disc' }))}
+                          className="flex-1 py-2 px-3 text-xs font-semibold transition-all"
+                          style={{
+                            background: brakeType === 'disc' ? CARFIX_COLORS.primary : 'transparent',
+                            color: brakeType === 'disc' ? '#FFFFFF' : CARFIX_COLORS.mutedForeground,
+                          }}
+                        >
+                          Disc Brakes (Pads + Rotors)
+                        </button>
+                        <button
+                          onClick={() => setBrakeTypes(prev => ({ ...prev, [pkg.id]: 'drum' }))}
+                          className="flex-1 py-2 px-3 text-xs font-semibold transition-all"
+                          style={{
+                            background: brakeType === 'drum' ? CARFIX_COLORS.primary : 'transparent',
+                            color: brakeType === 'drum' ? '#FFFFFF' : CARFIX_COLORS.mutedForeground,
+                          }}
+                        >
+                          Drum Brakes (Shoes + Drums)
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Tier Selection Cards - Vertical Brand Logo, Add to Cart per tier */}
