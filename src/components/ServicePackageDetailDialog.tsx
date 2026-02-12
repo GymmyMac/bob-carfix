@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, Wrench, Package, Star, Zap, DollarSign, Award, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMemo, useState } from "react";
+import { isRearBrakePackage, filterByBrakeType, recalcTierTotal, type RearBrakeType } from "@/utils/rearBrakeFilter";
 
 interface ServicePackageDetailDialogProps {
   package_: ServicePackage | null;
@@ -71,12 +72,20 @@ export const ServicePackageDetailDialog = ({
   onAddToCart
 }: ServicePackageDetailDialogProps) => {
   const [selectedTier, setSelectedTier] = useState<TierName | null>(null);
+  const [rearBrakeType, setRearBrakeType] = useState<RearBrakeType>('disc');
+
+  const isRearBrake = useMemo(() => package_ ? isRearBrakePackage(package_) : false, [package_?.id, package_?.title]);
 
   // Filter visible tiers (not hidden) - preparedTiers is the ONLY source
   const visibleTiers = useMemo(() => {
     if (!package_?.preparedTiers || package_.preparedTiers.length === 0) return [];
-    return package_.preparedTiers.filter(tier => !tier.isHidden);
-  }, [package_?.preparedTiers]);
+    const visible = package_.preparedTiers.filter(tier => !tier.isHidden);
+    if (!isRearBrake) return visible;
+    return visible.map(tier => {
+      const filtered = filterByBrakeType(tier.products, rearBrakeType);
+      return { ...tier, products: filtered, totalPrice: recalcTierTotal(filtered), productCount: filtered.length };
+    });
+  }, [package_?.preparedTiers, isRearBrake, rearBrakeType]);
 
   // Set default selected tier to recommended or first visible
   const defaultTier = useMemo(() => {
@@ -106,11 +115,40 @@ export const ServicePackageDetailDialog = ({
               </div>
               <div>
                 <DialogTitle className="text-xl font-bold">{package_.title}</DialogTitle>
-                <p className="text-sm text-muted-foreground mt-1">{package_.description}</p>
+              <p className="text-sm text-muted-foreground mt-1">{package_.description}</p>
               </div>
             </div>
           </div>
           
+          {/* Disc / Drum brake type toggle - only for Rear Brake Service */}
+          {isRearBrake && (
+            <div className="mt-3">
+              <p className="text-xs text-muted-foreground mb-1.5">Select your vehicle's rear brake type</p>
+              <div className="flex rounded-lg overflow-hidden border">
+                <button
+                  onClick={() => setRearBrakeType('disc')}
+                  className={`flex-1 py-2 px-3 text-xs font-semibold transition-all ${
+                    rearBrakeType === 'disc'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-background text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  Disc Brakes (Pads + Rotors)
+                </button>
+                <button
+                  onClick={() => setRearBrakeType('drum')}
+                  className={`flex-1 py-2 px-3 text-xs font-semibold transition-all ${
+                    rearBrakeType === 'drum'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-background text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  Drum Brakes (Shoes + Drums)
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Package meta info */}
           <div className="flex flex-wrap gap-3 mt-4">
             {package_.estimated_time && (
