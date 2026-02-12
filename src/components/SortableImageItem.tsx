@@ -182,7 +182,7 @@ export const SortableImageItem = memo(({
           <GripVertical className="w-5 h-5 text-muted-foreground" />
         </button>
 
-        <div className="w-40 h-40 bg-muted rounded-md overflow-hidden flex-shrink-0 relative group">
+        <div className="w-40 h-40 rounded-md overflow-hidden flex-shrink-0 relative group" style={{ backgroundColor: '#444' }}>
           <img
             src={assignment.image_url}
             alt={`${state} ${assignment.sequence_order}`}
