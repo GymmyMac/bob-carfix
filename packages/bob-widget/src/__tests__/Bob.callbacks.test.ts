@@ -17,18 +17,18 @@
    { SKU: "TEST-003", "Part Product Type": "AIR FILTER", Brand: "K&N", "Metro Retail Price": 35.99 },
  ];
  
- const mockServicePackages = [
-   {
-     id: "brake-service",
-     title: "Front Brake Service",
-     from_price: 185.50,
-     preparedTiers: [
-       { tierName: "Economy", totalPrice: 150, isRecommended: false, isHidden: false },
-       { tierName: "Standard", totalPrice: 220, isRecommended: true, isHidden: false },
-       { tierName: "Premium", totalPrice: 320, isRecommended: false, isHidden: false },
-     ],
-   },
- ];
+  const mockServicePackages = [
+    {
+      id: "brake-service",
+      title: "Front Brake Service",
+      from_price: 185.50,
+      preparedTiers: [
+        { tierName: "Economy", totalPrice: 135, originalTotalPrice: 150, savingsAmount: 15, bundleDiscountPercentage: 10, isRecommended: false, isHidden: false },
+        { tierName: "Standard", totalPrice: 198, originalTotalPrice: 220, savingsAmount: 22, bundleDiscountPercentage: 10, isRecommended: true, isHidden: false },
+        { tierName: "Premium", totalPrice: 288, originalTotalPrice: 320, savingsAmount: 32, bundleDiscountPercentage: 10, isRecommended: false, isHidden: false },
+      ],
+    },
+  ];
  
  describe("Bob Callback Stability", () => {
    
@@ -75,8 +75,8 @@
        const recommendedTier = pkg.preparedTiers.find(t => t.isRecommended === true);
        
        expect(recommendedTier).toBeDefined();
-       expect(recommendedTier?.tierName).toBe("Standard");
-       expect(recommendedTier?.totalPrice).toBe(220);
+        expect(recommendedTier?.tierName).toBe("Standard");
+        expect(recommendedTier?.totalPrice).toBe(198);
      });
      
      it("should filter hidden tiers", () => {
@@ -124,9 +124,9 @@
        const recommended = pkg.preparedTiers.find(t => t.isRecommended === true);
        
        if (recommended) {
-         const summary = `📍 ${pkg.title}: CARFIX VALUE = ${recommended.tierName} tier at $${recommended.totalPrice.toFixed(2)}`;
-         expect(summary).toBe("📍 Front Brake Service: CARFIX VALUE = Standard tier at $220.00");
-       }
+          const summary = `📍 ${pkg.title}: CARFIX VALUE = ${recommended.tierName} tier at $${recommended.totalPrice.toFixed(2)}`;
+          expect(summary).toBe("📍 Front Brake Service: CARFIX VALUE = Standard tier at $198.00");
+        }
      });
      
      it("should include all packages in summary", () => {
@@ -139,8 +139,8 @@
        }).filter(Boolean);
        
        expect(summaries.length).toBe(1);
-       expect(summaries[0]).toContain("Standard");
-       expect(summaries[0]).toContain("$220.00");
+        expect(summaries[0]).toContain("Standard");
+        expect(summaries[0]).toContain("$198.00");
      });
    });
  });

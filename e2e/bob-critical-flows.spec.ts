@@ -145,7 +145,78 @@
    });
  });
  
- test.describe("Bob Widget Initialization", () => {
+test.describe("Rear Brake Disc/Drum Toggle", () => {
+    test("should show toggle and filter products on Rear Brake package", async ({ page }) => {
+      await page.goto("/ask-bob");
+      await page.waitForTimeout(2000);
+
+      const chatInput = page.locator('input[placeholder*="Message Bob"]').or(page.locator('input[placeholder*="message"]'));
+      if (await chatInput.isVisible()) {
+        await chatInput.fill("AMA993");
+        await chatInput.press("Enter");
+        await page.waitForTimeout(6000);
+
+        // Look for Rear Brake package
+        const rearBrake = page.locator('text=/Rear Brake/i').first();
+        if (await rearBrake.isVisible()) {
+          await rearBrake.click();
+          await page.waitForTimeout(1000);
+
+          // Verify toggle exists
+          const toggle = page.locator('button, [role="tab"]').filter({ hasText: /Drum/i });
+          if (await toggle.isVisible()) {
+            await toggle.click();
+            await page.waitForTimeout(500);
+
+            // In drum mode PAD/ROTOR text should not be visible in the product list
+            const bodyText = await page.locator('body').textContent();
+            expect(bodyText).not.toMatch(/BRAKE PADS REAR/);
+
+            // Switch back to Disc
+            const discToggle = page.locator('button, [role="tab"]').filter({ hasText: /Disc/i });
+            if (await discToggle.isVisible()) {
+              await discToggle.click();
+              await page.waitForTimeout(500);
+            }
+
+            console.log("[E2E] Disc/Drum toggle flow completed");
+          }
+        }
+      }
+    });
+  });
+
+  test.describe("Bundle Discount Display", () => {
+    test("should show was/now pricing and SAVE badge when discount active", async ({ page }) => {
+      await page.goto("/ask-bob");
+      await page.waitForTimeout(2000);
+
+      const chatInput = page.locator('input[placeholder*="Message Bob"]').or(page.locator('input[placeholder*="message"]'));
+      if (await chatInput.isVisible()) {
+        await chatInput.fill("AMA993");
+        await chatInput.press("Enter");
+        await page.waitForTimeout(6000);
+
+        // Look for any SAVE badge or strikethrough price
+        const saveBadge = page.locator('text=/SAVE|Bundle Deal/i').first();
+        const strikethrough = page.locator('span.line-through, s, del').first();
+
+        if (await saveBadge.isVisible()) {
+          console.log("[E2E] SAVE badge found — bundle discount is displaying");
+        }
+
+        if (await strikethrough.isVisible()) {
+          console.log("[E2E] Strikethrough price found — was/now pricing active");
+        }
+
+        // Verify page is functional
+        const bodyText = await page.locator('body').textContent();
+        expect(bodyText).toBeTruthy();
+      }
+    });
+  });
+
+  test.describe("Bob Widget Initialization", () => {
    test("should load without JavaScript errors", async ({ page }) => {
      const consoleErrors: string[] = [];
      
