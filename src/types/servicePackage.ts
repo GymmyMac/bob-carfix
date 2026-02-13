@@ -44,6 +44,9 @@ export interface PreparedTier {
   isRecommended: boolean;
   isHidden: boolean;
   totalPrice: number;
+  originalTotalPrice?: number;
+  savingsAmount?: number;
+  bundleDiscountPercentage?: number;
   productCount: number;
   dominantBrand: string | null;
   brands: PreparedTierBrand[];

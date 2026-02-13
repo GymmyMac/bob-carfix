@@ -64,7 +64,17 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
   
   // Handle add to cart using preparedTiers (filtered products)
   const handleAddPreparedTierToCart = (tier: PreparedTier) => {
-    onAddToCart?.(tier.products);
+    const discountPct = tier.bundleDiscountPercentage || 0;
+    if (discountPct > 0) {
+      const multiplier = 1 - (discountPct / 100);
+      const discounted = tier.products.map(p => ({
+        ...p,
+        displayPrice: Math.round(p.displayPrice * multiplier * 100) / 100,
+      }));
+      onAddToCart?.(discounted);
+    } else {
+      onAddToCart?.(tier.products);
+    }
   };
 
   // Get grid columns class based on tier count
@@ -261,15 +271,34 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
                         {tier.productCount} part{tier.productCount !== 1 ? 's' : ''} included
                       </p>
                       
-                      {/* Price - Use server-provided totalPrice (includes rotor pair pricing) */}
+                      {/* Price with bundle discount display */}
                       <div className="mt-auto">
-                        <p 
-                          className="text-xl font-bold"
-                          style={{ color: tier.isRecommended ? '#0052CC' : '#0F172A' }}
-                        >
-                          {formatNZD(tier.totalPrice)}
-                        </p>
-                        <p className="text-[10px] text-[#64748B] hidden md:block">inc GST</p>
+                        {tier.savingsAmount && tier.savingsAmount > 0 ? (
+                          <>
+                            <p className="text-xs line-through text-[#94A3B8]">
+                              {formatNZD(tier.originalTotalPrice!)}
+                            </p>
+                            <p 
+                              className="text-xl font-bold"
+                              style={{ color: '#22C55E' }}
+                            >
+                              {formatNZD(tier.totalPrice)}
+                            </p>
+                            <p className="text-[10px] font-semibold text-[#22C55E] bg-[#22C55E]/10 inline-block px-1.5 py-0.5 rounded-full mt-0.5">
+                              SAVE {formatNZD(tier.savingsAmount)} — {tier.bundleDiscountPercentage}% Bundle Deal
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p 
+                              className="text-xl font-bold"
+                              style={{ color: tier.isRecommended ? '#0052CC' : '#0F172A' }}
+                            >
+                              {formatNZD(tier.totalPrice)}
+                            </p>
+                            <p className="text-[10px] text-[#64748B] hidden md:block">inc GST</p>
+                          </>
+                        )}
                       </div>
                       
                       {/* Add to Cart button - Green for Value tier, green text for others */}

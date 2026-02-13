@@ -89,7 +89,10 @@ export interface PreparedTier {
   description: string;        // "Smart savings without compromise", etc.
   isRecommended: boolean;     // true for CARFIX Value tier (highlight this!)
   isHidden: boolean;          // true if duplicate price - FILTER THESE OUT
-  totalPrice: number;         // Bundle total WITH rotor pair pricing applied
+  totalPrice: number;         // Bundle total (discounted if bundle deal active)
+  originalTotalPrice?: number; // Full price before bundle discount
+  savingsAmount?: number;      // Dollar amount saved (originalTotalPrice - totalPrice)
+  bundleDiscountPercentage?: number; // Discount % applied (0-50)
   productCount: number;       // Number of partslots (NOT alternatives)
   dominantBrand: string | null;
   brands: PreparedTierBrand[];

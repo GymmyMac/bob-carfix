@@ -649,22 +649,39 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                               {tier.productCount} {tier.productCount === 1 ? 'part' : 'parts'}
                             </p>
                             
-                            {/* Price - LARGER for better readability */}
-                            <p className="text-base font-bold mt-1" style={{ color: CARFIX_COLORS.foreground }}>
-                              {formatNZD(tier.totalPrice)}
-                            </p>
+                            {/* Price with bundle discount display */}
+                            {tier.savingsAmount && tier.savingsAmount > 0 ? (
+                              <>
+                                <p className="text-[11px] line-through" style={{ color: CARFIX_COLORS.mutedForeground }}>
+                                  {formatNZD(tier.originalTotalPrice!)}
+                                </p>
+                                <p className="text-base font-bold" style={{ color: CARFIX_COLORS.success }}>
+                                  {formatNZD(tier.totalPrice)}
+                                </p>
+                                <p className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full mt-0.5" style={{ background: `${CARFIX_COLORS.success}15`, color: CARFIX_COLORS.success }}>
+                                  SAVE {formatNZD(tier.savingsAmount)} — {tier.bundleDiscountPercentage}% Bundle Deal
+                                </p>
+                              </>
+                            ) : (
+                              <p className="text-base font-bold mt-1" style={{ color: CARFIX_COLORS.foreground }}>
+                                {formatNZD(tier.totalPrice)}
+                              </p>
+                            )}
                             <p className="text-[10px]" style={{ color: CARFIX_COLORS.mutedForeground }}>inc GST</p>
                             
                             {/* Add to Cart button per tier */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                // Convert PreparedTierProduct[] to Product[] for onAddToCart
+                                const discountPct = tier.bundleDiscountPercentage || 0;
+                                const discountMultiplier = 1 - (discountPct / 100);
                                 const productsToAdd: Product[] = tier.products.map(p => ({
                                   id: p.sku,
                                   name: p.name,
                                   brand: p.brand,
-                                  price: p.displayPrice,
+                                  price: discountPct > 0
+                                    ? Math.round(p.displayPrice * discountMultiplier * 100) / 100
+                                    : p.displayPrice,
                                   sku: p.sku,
                                   partNumber: p.partNumber || undefined,
                                   image_url: p.productImageUrl,
