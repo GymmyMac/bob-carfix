@@ -5,6 +5,20 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.20] - 2026-02-13
+
+### Added
+- 📦 **CARFIX Installation Brief**: README.md now serves as the comprehensive installation document with full container preparation requirements, anti-patterns table, pre-mount checklist, and layout diagram
+- 🧪 **Quality Baseline Tests**: 36 unit tests locked in across rear brake filter, bundle discount pricing, and callback stability
+- 💰 **Bundle Discount Display**: Was/Now pricing with savings badges for service package tiers when `savingsAmount > 0`
+- 🛒 **Bundle Cart Metadata**: Cart items from service packages now include `is_bundle_item`, `bundle_discount_percentage`, `service_package_name`, and `quality_tier`
+
+### Changed
+- 📖 **README Overhaul**: Full installation brief is now front-and-center — visible on npm, GitHub, and in `node_modules`
+- 📐 **Container Anti-Patterns**: Documented all prohibited CSS properties (`overflow: hidden`, `transform`, etc.) that break Bob's layering
+
+---
+
 ## [3.1.19] - 2026-02-04
 
 ### Added

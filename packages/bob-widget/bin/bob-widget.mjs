@@ -18,7 +18,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const INSTALL_DIR = join(__dirname, '..', 'install', 'carfix');
 
-const VERSION = '3.1.19';
+const VERSION = '3.1.20';
 
 const COLORS = {
   reset: '\x1b[0m',
