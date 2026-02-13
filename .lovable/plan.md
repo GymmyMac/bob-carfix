@@ -1,66 +1,87 @@
-## Rear Brake Service: Disc vs Drum Toggle
-
-### The Problem
-
-The Rear Brake Service package includes parts for **both** disc brakes (pads + rotors) **and** drum brakes (shoes + drums). No vehicle has both -- it's always one or the other. Currently all parts show together, which is confusing.
-
-### The Solution
-
-Add a simple **Disc / Drum toggle switch** in the Rear Brake Service package header area (below the description text). This toggle:
-
-- Defaults to **Disc Brakes** (the more common modern setup)
-- Filters the product list in each tier to show only the relevant parts
-- Recalculates the tier total price to reflect only the filtered products
-- Only appears for the "Rear Brake Service" package (detected by `pkg.id` or `pkg.title`)
-
-### How It Works (Data Analysis)
-
-The `partslotName` field on each product cleanly identifies which brake type it belongs to:
 
 
-| partslotName          | Brake Type | Keep when...  |
-| --------------------- | ---------- | ------------- |
-| BRAKE PADS REAR       | Disc       | Toggle = Disc |
-| DISC BRAKE ROTOR REAR | Disc       | Toggle = Disc |
-| BRAKE SHOE REAR       | Drum       | Toggle = Drum |
-| BRAKE DRUM REAR       | Drum       | Toggle = Drum |
-| BRAKE FLUID           | Both       | Always show   |
+## Establishing Bob's Quality Baseline
 
+### Current State
 
-Any product whose `partslotName` doesn't match the drum-specific keywords (SHOE, DRUM) passes through for Disc mode, and vice versa. Brake Fluid and any other non-brake-type-specific parts always show.
+Bob has a four-layer regression prevention strategy, but the test coverage has gaps that should be filled now while everything is working well:
 
-### UI Design
+| Layer | Status | Coverage |
+|---|---|---|
+| E2E (Playwright) | 6 tests exist | Vehicle lookup, drawer position, PTT, tier display, init |
+| Unit (Vitest) | 1 test file exists | Callback mapping, tier validation, empty states |
+| Runtime contracts | In edge functions | vehicleId, preparedTiers validation |
+| Architectural | In code | useRef callbacks, CSS containment |
 
-Below the package description, a compact toggle strip:
+**What's missing from the baseline:**
+- No unit tests for the rear brake Disc/Drum filter (newly added)
+- No unit tests for bundle discount pricing logic (newly added)
+- No E2E test for the Disc/Drum toggle interaction
+- No E2E test for bundle discount display (was/now pricing)
+- The existing unit test file doesn't cover the new `PreparedTier` fields (`originalTotalPrice`, `savingsAmount`, `bundleDiscountPercentage`)
 
-```text
-[Disc Brakes (Pads + Rotors)]  |  [Drum Brakes (Shoes + Drums)]
-```
+### Plan: Lock In the Baseline
 
-- Styled as a segmented control with CARFIX blue for the active selection
-- Small helper text: "Select your vehicle's rear brake type"
+#### 1. New Unit Test File: Rear Brake Filter (`rearBrakeFilter.test.ts`)
 
-### Technical Changes
+Test the pure utility functions in `packages/bob-widget/src/utils/rearBrakeFilter.ts`:
 
-**File: `packages/bob-widget/src/components/mobile/ServicePackageDetailView.tsx**`
+- `isRearBrakePackage` correctly identifies rear brake packages by id and title
+- `isRearBrakePackage` returns false for "Front Brake Service", "Oil Service", etc.
+- `filterByBrakeType('disc')` removes SHOE and DRUM products, keeps PAD and ROTOR
+- `filterByBrakeType('drum')` removes PAD and ROTOR products, keeps SHOE and DRUM
+- Both modes keep neutral products like BRAKE FLUID
+- `recalcTierTotal` correctly sums displayPrice of filtered products
+- Edge case: empty product array returns 0 total
 
-1. Add state: `const [rearBrakeType, setRearBrakeType] = useState<'disc' | 'drum'>('disc')`
-2. Detect if this is a rear brake package: check if `pkg.id` contains "rear-brake" or `pkg.title` contains "Rear Brake"
-3. Filter function applied to each tier's `products` array:
-  - Disc mode: exclude products where `partslotName` includes "SHOE" or "DRUM" (but not "BRAKE DRUM" vs "DRUM BRAKE" -- we match on the word)
-  - Drum mode: exclude products where `partslotName` includes "PAD" or "ROTOR"
-4. Recalculate `totalPrice` as the sum of filtered products' `displayPrice` values
-5. Render the toggle UI between the description and "Choose Your Value Level" header
-6. Pass filtered products to the Add to Cart handler
+#### 2. New Unit Test File: Bundle Discount Pricing (`bundleDiscount.test.ts`)
 
-**File: `src/components/ServicePackageDetailDialog.tsx**` (desktop version)
+Test the rendering logic for the new PreparedTier discount fields:
 
-Same logic applied to the desktop dialog for consistency.
+- When `savingsAmount > 0`: verify was/now values are correct
+- When `savingsAmount === 0`: verify no discount display needed
+- Cart discount multiplier: `1 - (bundleDiscountPercentage / 100)` produces correct discounted unit prices
+- Rounding: `Math.round(displayPrice * multiplier * 100) / 100` handles cents correctly
+- Edge cases: 0% discount, 50% discount (max), fractional percentages
 
-### Safety
+#### 3. Update Existing Unit Tests: Add New Tier Fields
 
-- This is purely a **frontend filter** -- no API or data changes
-- The toggle only appears on the Rear Brake Service package
-- All original data remains intact; toggling between the two states shows the relevant products
-- The filter uses `partslotName` string matching which is stable server-side data
-- Brake Fluid and any future non-type-specific parts are never filtered out
+Update `Bob.callbacks.test.ts` mock data to include `originalTotalPrice`, `savingsAmount`, and `bundleDiscountPercentage` so the existing tier validation tests cover the complete data shape.
+
+#### 4. New E2E Test: Disc/Drum Toggle
+
+Add to `e2e/bob-critical-flows.spec.ts`:
+
+- Look up rego AMA993
+- Navigate to Rear Brake Service package
+- Verify toggle is visible
+- Switch to Drum mode -- verify product list changes (no PAD/ROTOR text visible)
+- Switch back to Disc mode -- verify PAD/ROTOR products return
+- Verify price updates on toggle switch
+
+#### 5. New E2E Test: Bundle Discount Display
+
+Add to `e2e/bob-critical-flows.spec.ts`:
+
+- Look up rego AMA993
+- Open a service package with a bundle discount
+- Verify strikethrough price is visible (original price)
+- Verify "SAVE" badge text is present
+- Verify the bold price (discounted) is lower than the struck-through price
+
+### Technical Details
+
+**Files to create:**
+- `packages/bob-widget/src/__tests__/rearBrakeFilter.test.ts` -- pure function unit tests
+- `packages/bob-widget/src/__tests__/bundleDiscount.test.ts` -- discount logic unit tests
+
+**Files to modify:**
+- `packages/bob-widget/src/__tests__/Bob.callbacks.test.ts` -- add new tier fields to mock data
+- `e2e/bob-critical-flows.spec.ts` -- add Disc/Drum toggle and bundle discount E2E tests
+
+**No production code changes.** This is purely additive test coverage to snapshot Bob's current working state.
+
+### Outcome
+
+After this work, the test suite becomes a **locked baseline** -- any future change that breaks vehicle lookup, tier rendering, brake type filtering, or bundle discount display will fail a specific, named test. Running the full suite before any Bob change gives confidence that nothing has regressed.
+
