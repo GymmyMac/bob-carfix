@@ -101,7 +101,17 @@ export const ServicePackageDetailDialog = ({
   if (!package_) return null;
 
   const handleAddToCart = (tier: PreparedTier) => {
-    onAddToCart?.(tier.products);
+    const discountPct = tier.bundleDiscountPercentage || 0;
+    if (discountPct > 0) {
+      const multiplier = 1 - (discountPct / 100);
+      const discounted = tier.products.map(p => ({
+        ...p,
+        displayPrice: Math.round(p.displayPrice * multiplier * 100) / 100,
+      }));
+      onAddToCart?.(discounted);
+    } else {
+      onAddToCart?.(tier.products);
+    }
   };
 
   return (
@@ -218,8 +228,18 @@ export const ServicePackageDetailDialog = ({
                       ))}
                     </div>
                     
-                    {/* Price - Use server-provided totalPrice */}
-                    <div className="font-bold text-lg">{formatPrice(tier.totalPrice)}</div>
+                    {/* Price with bundle discount display */}
+                    {tier.savingsAmount && tier.savingsAmount > 0 ? (
+                      <div>
+                        <div className="text-sm line-through text-muted-foreground">{formatPrice(tier.originalTotalPrice!)}</div>
+                        <div className="font-bold text-lg text-green-600">{formatPrice(tier.totalPrice)}</div>
+                        <div className="text-[10px] font-semibold text-green-600 bg-green-50 inline-block px-1.5 py-0.5 rounded-full">
+                          SAVE {formatPrice(tier.savingsAmount)} — {tier.bundleDiscountPercentage}% Bundle Deal
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="font-bold text-lg">{formatPrice(tier.totalPrice)}</div>
+                    )}
                     <div className="text-xs text-muted-foreground">
                       {tier.productCount} part{tier.productCount !== 1 ? 's' : ''} • inc GST
                     </div>
