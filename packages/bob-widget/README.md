@@ -94,21 +94,137 @@ function AskBobPage() {
 
 ---
 
-## 4. Layout Constraints
+## 4. Host Container Preparation (MANDATORY)
+
+> ⚠️ **Bob will not render correctly if the host container is misconfigured.** Complete ALL items below before mounting `<BobStandalone>`.
+
+### 4.1 Container Requirements
+
+The CARFIX page that hosts Bob **must** provide a container element with these exact properties:
+
+```css
+/* The Bob container — EVERY property is required */
+.bob-container {
+  height: calc(100dvh - 144px - env(safe-area-inset-bottom, 0px));
+  position: relative;
+  width: 100%;
+
+  /* ❌ PROHIBITED — these WILL break Bob */
+  /* overflow: hidden;    ← Clips PTT button, chat drawer, and expand handle */
+  /* overflow: clip;      ← Same issue on WebKit */
+  /* overflow: auto;      ← Creates nested scroll context, breaks shelf scrolling */
+  /* overflow: scroll;    ← Same as above */
+  /* transform: ...;      ← Creates new stacking context, breaks z-index layering */
+}
+```
+
+```tsx
+// ✅ Correct JSX
+<div style={{
+  height: 'calc(100dvh - 144px - env(safe-area-inset-bottom, 0px))',
+  position: 'relative',
+  width: '100%',
+}}>
+  <BobStandalone partner="CARFIX" ... />
+</div>
+
+// ❌ WRONG — overflow hidden clips Bob's interactive elements
+<div style={{ height: '100%', overflow: 'hidden' }}>
+  <BobStandalone partner="CARFIX" ... />
+</div>
+```
+
+### 4.2 Height Calculation Breakdown
+
+| Component | Height | Notes |
+|---|---|---|
+| CARFIX Header | 72px | `position: fixed; top: 0; z-index: 40` |
+| CARFIX Bottom Nav | 72px | `position: fixed; bottom: 0; z-index: 30` |
+| **Total chrome** | **144px** | Subtracted from viewport |
+| Safe area inset | Variable | For notched devices (iPhone, etc.) |
+| **Bob container** | `100dvh - 144px - safe-area` | Everything between header and nav |
+
+### 4.3 Header & Bottom Nav Requirements
+
+Bob's UI layers (chat drawer at z-130, PTT at z-145) must sit **above** CARFIX navigation:
+
+```css
+/* CARFIX Header */
+.carfix-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 72px;
+  z-index: 40;    /* Bob uses zIndexBase=100, so Bob layers above this */
+}
+
+/* CARFIX Bottom Nav */
+.carfix-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 72px;
+  z-index: 30;    /* Must be BELOW Bob's z-base of 100 */
+}
+```
+
+> **If your header or nav use `z-index: 50` or higher**, increase Bob's `zIndexBase` prop accordingly (e.g., `zIndexBase={150}`).
+
+### 4.4 Container Anti-Patterns (WILL CAUSE BUGS)
+
+| ❌ Don't Do This | Why It Breaks |
+|---|---|
+| `overflow: hidden` on container | Clips PTT button, chat drawer, and expand handle |
+| `overflow: auto/scroll` on container | Creates nested scroll context — product shelf scroll breaks |
+| `transform` on container or ancestors | Creates new stacking context — z-index layering fails |
+| `isolation: isolate` on container | Same stacking context issue (Bob manages its own isolation) |
+| Container height as `%` without parent height | Bob collapses to 0px |
+| Missing `position: relative` | Absolutely-positioned Bob layers escape the container |
+| Wrapping Bob in a scrollable parent | Bob has its own scroll management — nesting causes conflicts |
+
+### 4.5 Pre-Mount Checklist
+
+Before writing any integration code, verify:
+
+```
+□ Header is position: fixed, 72px tall, z-index ≤ 49
+□ Bottom nav is position: fixed, 72px tall, z-index ≤ 49
+□ Bob container uses calc(100dvh - 144px - env(safe-area-inset-bottom, 0px))
+□ Bob container has position: relative
+□ Bob container has NO overflow property set
+□ Bob container has NO transform property set
+□ No ancestor element between <body> and Bob container has overflow: hidden
+□ No ancestor element has a transform that creates a stacking context
+□ Container renders at correct height (inspect element in DevTools)
+□ HTTPS is enabled (required for Push-to-Talk microphone access)
+```
+
+---
+
+### 4.6 Layout Diagram
 
 ```
 ┌──────────────────────────────┐
-│  CARFIX Header (72px, z-40)  │
+│  CARFIX Header (72px, z-40)  │  ← position: fixed; top: 0
 ├──────────────────────────────┤
 │                              │
-│  Bob Container               │
-│  height: calc(100dvh - 144px │
-│          - safe-area-inset)  │
-│  position: relative          │
-│  NO overflow: hidden!        │
+│  Bob Container               │  ← position: relative
+│  height: calc(100dvh - 144px │     NO overflow property
+│          - safe-area-inset)  │     NO transform property
+│                              │
+│  ┌─ Bob Internal Layers ───┐ │
+│  │ PTT Button      z-145   │ │
+│  │ Chat Drawer     z-130   │ │
+│  │ Counter Overlay z-70    │ │
+│  │ Bob Character   z-60    │ │
+│  │ Product Shelf   z-55    │ │
+│  │ Backdrop        z-10    │ │
+│  └─────────────────────────┘ │
 │                              │
 ├──────────────────────────────┤
-│  Bottom Nav (72px, z-30)     │
+│  Bottom Nav (72px, z-30)     │  ← position: fixed; bottom: 0
 └──────────────────────────────┘
 ```
 
