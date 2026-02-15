@@ -319,7 +319,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
               onBlur={onInputBlur}
               placeholder="Message Bob..."
               disabled={pttState !== 'idle'}
-              className="high-contrast-input"
+              className="high-contrast-input bob-chat-input"
               style={{
                 width: '100%',
                 height: '40px',
@@ -337,7 +337,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
             
             {/* State overlay on chat bar */}
             {pttState !== 'idle' && (
-              <div style={{
+              <div className="bob-state-overlay" style={{
                 position: 'absolute',
                 inset: 0,
                 background: '#FFFFFF',
@@ -450,7 +450,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
                 onMouseLeave={handlePTTEnd}
                 disabled={pttState === 'processing'}
                 aria-label="Hold to talk to Bob"
-                className="glass-button"
+                className="glass-button bob-ptt-btn"
                 style={{
                   position: 'relative',
                   flexShrink: 0,
@@ -458,21 +458,24 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
                   width: '72px',
                   minHeight: 'unset',
                   minWidth: 'unset',
-                  borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   userSelect: 'none',
                   touchAction: 'none',
                   color: 'white',
-                  border: 'none',
                   cursor: pttState === 'processing' ? 'not-allowed' : 'pointer',
                   opacity: pttState === 'processing' ? 0.6 : 1,
                   transform: pttState === 'listening' ? 'scale(1.08)' : 'scale(1)',
                   transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background 0.3s ease',
                   zIndex: zIndexBase + 45,
-                  ...currentPttStyle
-                }}
+                  backdropFilter: currentPttStyle.backdropFilter,
+                  WebkitBackdropFilter: currentPttStyle.WebkitBackdropFilter,
+                  '--bob-ptt-bg': currentPttStyle.background,
+                  '--bob-ptt-shadow': currentPttStyle.boxShadow,
+                  '--bob-ptt-border': currentPttStyle.border,
+                  '--bob-ptt-radius': '50%',
+                } as React.CSSProperties}
                 title="Hold to talk"
               >
                 {/* Microphone icon */}
