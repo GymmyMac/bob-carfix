@@ -321,7 +321,7 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
             onClick={isListening ? handlePTTEnd : undefined}
             disabled={pttState === 'processing'}
             aria-label="Hold to talk to Bob"
-            className="glass-button"
+            className="glass-button bob-ptt-btn"
             style={{
               width: '200px',
               height: '64px',
@@ -336,8 +336,13 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
               opacity: pttState === 'processing' ? 0.6 : 1,
               transform: pttState === 'listening' ? 'scale(1.04)' : 'scale(1)',
               transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background 0.3s ease',
-              ...currentTalkStyle
-            }}
+              backdropFilter: currentTalkStyle.backdropFilter,
+              WebkitBackdropFilter: currentTalkStyle.WebkitBackdropFilter,
+              '--bob-ptt-bg': currentTalkStyle.background,
+              '--bob-ptt-shadow': currentTalkStyle.boxShadow,
+              '--bob-ptt-border': currentTalkStyle.border,
+              '--bob-ptt-radius': '32px',
+            } as React.CSSProperties}
             title="Hold to talk"
           >
             <span style={{
@@ -409,7 +414,7 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
               onBlur={onInputBlur}
               placeholder="Message Bob..."
               disabled={pttState !== 'idle'}
-              className="high-contrast-input"
+              className="high-contrast-input bob-chat-input"
               style={{
                 width: '100%',
                 height: '40px',
@@ -427,7 +432,7 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
             
             {/* State overlay on chat bar */}
             {pttState !== 'idle' && (
-              <div style={{
+              <div className="bob-state-overlay" style={{
                 position: 'absolute',
                 inset: 0,
                 background: '#FFFFFF',

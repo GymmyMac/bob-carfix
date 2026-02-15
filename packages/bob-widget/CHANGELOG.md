@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - 🟢 **PTT Idle Button Colour**: Changed from blue to green to match the breathing idle ring
 
+### Fixed
+- 🛡️ **Host CSS Override Protection**: PTT button, chat bar input, and state overlay styles now resist host-site CSS overrides via scoped `!important` rules with CSS Custom Properties
+- 🎨 **Keyframe Colour Correction**: `ptt-pulse` and `ring-breathe` animations updated from blue to green
+
 ---
 
 ## [v3.2.0] - 2026-02-15

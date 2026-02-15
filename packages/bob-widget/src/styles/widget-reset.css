@@ -138,13 +138,13 @@
    Mechanic's Radio Button - Industrial Style
    ============================================ */
 
-/* Idle pulse glow - CARFIX Blue breathing effect */
+/* Idle pulse glow - Green breathing effect */
 @keyframes ptt-pulse {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(0, 102, 204, 0.5);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
   }
   50% {
-    box-shadow: 0 0 0 16px rgba(0, 102, 204, 0);
+    box-shadow: 0 0 0 16px rgba(34, 197, 94, 0);
   }
 }
 
@@ -177,15 +177,15 @@
    Rings visible around finger during press
    ============================================ */
 
-/* Idle: Blue breathing ring */
+/* Idle: Green breathing ring */
 @keyframes ring-breathe {
   0%, 100% {
     transform: translate(-50%, -50%) scale(1);
-    box-shadow: 0 0 0 0 rgba(0, 102, 204, 0.4);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
   }
   50% {
     transform: translate(-50%, -50%) scale(1.15);
-    box-shadow: 0 0 20px 4px rgba(0, 102, 204, 0.2);
+    box-shadow: 0 0 20px 4px rgba(34, 197, 94, 0.2);
   }
 }
 
@@ -357,4 +357,33 @@
 .bob-widget-root,
 .bob-widget-root * {
   max-width: none;
+}
+
+/* ============================================
+   Host CSS Override Protection
+   CSS Custom Properties + !important to beat
+   host-site rules targeting generic elements
+   ============================================ */
+
+/* PTT button: consume CSS vars with !important to beat host */
+.bob-widget-root .bob-ptt-btn {
+  background: var(--bob-ptt-bg) !important;
+  box-shadow: var(--bob-ptt-shadow) !important;
+  border: var(--bob-ptt-border) !important;
+  border-radius: var(--bob-ptt-radius) !important;
+}
+
+/* Chat bar input: force white background regardless of host */
+.bob-widget-root .bob-chat-input {
+  background: #FFFFFF !important;
+  color: #0F172A !important;
+  border: 2px solid rgba(15, 23, 42, 0.15) !important;
+  border-radius: 20px !important;
+}
+
+/* State overlay: force white background regardless of host */
+.bob-widget-root .bob-state-overlay {
+  background: #FFFFFF !important;
+  border: 2px solid rgba(15, 23, 42, 0.15) !important;
+  border-radius: 20px !important;
 }
