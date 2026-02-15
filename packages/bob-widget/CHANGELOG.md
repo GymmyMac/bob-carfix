@@ -5,7 +5,7 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.2.0] - 2026-02-15
+## [v3.2.0] - 2026-02-15
 
 ### Added
 - 🎯 **PTT 4-State Visual Feedback**: Push-to-Talk button now provides visual cues via circumference rings and chat bar overlays across four states (idle, listening, processing, speaking)
