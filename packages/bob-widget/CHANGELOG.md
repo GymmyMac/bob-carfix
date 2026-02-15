@@ -5,6 +5,25 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2026-02-15
+
+### Added
+- 🎯 **PTT 4-State Visual Feedback**: Push-to-Talk button now provides visual cues via circumference rings and chat bar overlays across four states (idle, listening, processing, speaking)
+- 🟢 **Green Idle PTT**: Idle state uses green button and breathing green ring to indicate "action required"
+- 🟠 **Orange Listening State**: Expanding orange wave rings around PTT + pulsing dot in chat bar
+- ⚙️ **Processing Overlay**: Grey contracting ring + "Bob is researching your input." message in chat bar
+- 🔊 **Speaking Waveform**: Green glowing ring + 5-bar CSS waveform visualizer in chat bar with muted warning icon
+
+### Changed
+- 🎨 **Chat Bar**: White background (#FFFFFF) with Deep Navy text (#0F172A) for high contrast — enforced via `!important` overrides to prevent host-site bleeding
+- 🔤 **Processing Text**: Changed from "Bob is thinking..." to "Bob is researching your input."
+- 🟢 **PTT Button Colour**: Idle state changed from blue to green to match the idle ring
+
+### Fixed
+- 🎨 **Chat Bar Dark Blue Override**: Fixed `widget-reset.css` forcing dark blue background on inputs — now forces white
+
+---
+
 ## [3.1.20] - 2026-02-13
 
 ### Added
