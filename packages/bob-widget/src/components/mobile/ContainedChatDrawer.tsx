@@ -141,7 +141,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
 
   // Ring animation config per state
   const ringConfig = {
-    idle: { border: '2px solid rgba(0, 102, 204, 0.5)', animation: 'ring-breathe 2s ease-in-out infinite' },
+    idle: { border: '2px solid rgba(34, 197, 94, 0.5)', animation: 'ring-breathe 2s ease-in-out infinite' },
     listening: null, // uses existing ptt-wave rings
     processing: { border: '2px solid rgba(156, 163, 175, 0.6)', animation: 'ring-processing 1.5s ease-in-out infinite' },
     speaking: { border: '2px solid rgba(34, 197, 94, 0.5)', animation: 'ring-speaking 1.8s ease-in-out infinite' },
@@ -366,7 +366,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
                       borderRadius: '50%',
                       animation: 'processing-spin 0.8s linear infinite',
                     }} />
-                    <span style={{ fontSize: '14px', color: '#0F172A', fontWeight: 500 }}>Bob is thinking...</span>
+                    <span style={{ fontSize: '14px', color: '#0F172A', fontWeight: 500 }}>Bob is researching your input.</span>
                   </>
                 )}
 
