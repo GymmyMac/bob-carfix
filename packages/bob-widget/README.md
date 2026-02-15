@@ -2,7 +2,7 @@
 
 AI-powered automotive parts assistant widget for partner websites.
 
-**Current Version:** 3.1.20 | **36 unit tests** | **8+ E2E scenarios** | Production-ready
+**Current Version:** 3.2.0 | **36 unit tests** | **8+ E2E scenarios** | Production-ready
 
 ---
 
