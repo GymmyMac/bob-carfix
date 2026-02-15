@@ -200,10 +200,20 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
     return sortedGroupNames.map(name => ({ name, products: groups[name] }));
   }, [products]);
 
-  // v3.2.1 REMOVED: Auto-scroll for highlightedPartType and highlightedProduct
-  // Per spec: Shelf always starts at top. User scrolls manually.
-  // Only exception: Explicit scroll to SERVICE PACK when Bob mentions it by name.
-  // This is now handled via explicit callback from parent, not via useEffect.
+  // v3.2.1: Auto-scroll to highlighted partslot category when Bob mentions a part type
+  useEffect(() => {
+    if (!highlightedPartType) return;
+    const timer = setTimeout(() => {
+      const entries = Object.entries(groupRefs.current);
+      for (const [name, el] of entries) {
+        if (el && matchesPartType(name, highlightedPartType)) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          break;
+        }
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [highlightedPartType]);
 
   // Scroll tracking for custom indicator
   const [scrollProgress, setScrollProgress] = useState(0);
