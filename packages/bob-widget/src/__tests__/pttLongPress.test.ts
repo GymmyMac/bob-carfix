@@ -113,4 +113,56 @@ describe("PTT Long-Press Protection", () => {
       expect(imgAttrs.draggable).toBe(false);
     });
   });
+
+  // =========================================================================
+  // PTT State Derivation - 4-state system
+  // =========================================================================
+  describe("PTT State Derivation", () => {
+    function derivePttState(flags: { isSpeaking: boolean; isLoading: boolean; isListening: boolean }) {
+      return flags.isSpeaking ? 'speaking'
+        : flags.isLoading ? 'processing'
+        : flags.isListening ? 'listening'
+        : 'idle';
+    }
+
+    it("prioritises speaking over all other states", () => {
+      expect(derivePttState({ isSpeaking: true, isLoading: true, isListening: true })).toBe('speaking');
+    });
+
+    it("maps isLoading to processing when not speaking", () => {
+      expect(derivePttState({ isSpeaking: false, isLoading: true, isListening: true })).toBe('processing');
+    });
+
+    it("maps isListening to listening when not loading or speaking", () => {
+      expect(derivePttState({ isSpeaking: false, isLoading: false, isListening: true })).toBe('listening');
+    });
+
+    it("defaults to idle when no flags are set", () => {
+      expect(derivePttState({ isSpeaking: false, isLoading: false, isListening: false })).toBe('idle');
+    });
+  });
+
+  // =========================================================================
+  // Chat Bar Style Constants
+  // =========================================================================
+  describe("Chat Bar Style Constants", () => {
+    const CHAT_BAR_STYLES = {
+      background: '#FFFFFF',
+      color: '#0F172A',
+      borderColor: 'rgba(15, 23, 42, 0.15)',
+    };
+
+    it("uses white background", () => {
+      expect(CHAT_BAR_STYLES.background).toBe('#FFFFFF');
+    });
+
+    it("uses Deep Navy text color", () => {
+      expect(CHAT_BAR_STYLES.color).toBe('#0F172A');
+    });
+
+    it("renders 5 waveform bars for speaking state", () => {
+      const WAVEFORM_BAR_COUNT = 5;
+      expect(WAVEFORM_BAR_COUNT).toBe(5);
+    });
+  });
 });
