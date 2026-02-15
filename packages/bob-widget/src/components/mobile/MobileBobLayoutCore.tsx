@@ -186,10 +186,11 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
             className="absolute inset-0 z-0 w-full h-full object-cover object-center transition-all duration-500"
             style={{ 
               pointerEvents: 'none',
-              // Use CSS variable for blur - defaults to 0 (no blur) for CARFIX
               filter: shouldBlur ? 'blur(var(--bob-blur-intensity, 0px))' : 'none',
               transform: shouldBlur ? 'scale(1.02)' : 'scale(1)',
-            }}
+              WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none',
+            } as React.CSSProperties}
+            draggable={false}
           />
           {/* Overlay when products shown - uses CSS variable for opacity */}
           <div 

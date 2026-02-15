@@ -107,7 +107,8 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
           src={currentImage} 
           alt={`Bob ${animationState}`} 
           className="w-full h-auto object-contain"
-          style={{ display: 'block', maxHeight: '100%' }}
+          style={{ display: 'block', maxHeight: '100%', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' } as React.CSSProperties}
+          draggable={false}
         />
       </div>
 
@@ -124,7 +125,8 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
             src={counterOverlayUrl} 
             alt="Shop counter" 
             className="w-full h-full"
-            style={{ objectFit: 'fill' }}
+            style={{ objectFit: 'fill', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' } as React.CSSProperties}
+            draggable={false}
           />
         </div>
       )}
