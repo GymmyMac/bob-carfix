@@ -190,10 +190,9 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
       className="absolute inset-0"
       style={{
         overflow: 'clip',
-        // Ensure deterministic z-layering between Bob (z-60), shelf (z-55), counter (z-70)
-        // regardless of filters/transforms creating nested stacking contexts.
         isolation: 'isolate',
       }}
+      onContextMenu={(e) => e.preventDefault()}
     >
       {/* Background - v3.1.10: Config-driven blur via CSS variable */}
       {backdropUrl && (
@@ -203,12 +202,12 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
             backgroundImage: `url(${backdropUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center bottom',
-            // Use CSS variable for blur - defaults to 0 (no blur) for CARFIX
             filter: shouldBlurBackground 
               ? 'blur(var(--bob-blur-intensity, 0px)) brightness(0.95)' 
               : 'none',
-            transform: shouldBlurBackground ? 'scale(1.02)' : 'scale(1)'
-          }}
+            transform: shouldBlurBackground ? 'scale(1.02)' : 'scale(1)',
+            WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none',
+          } as React.CSSProperties}
         />
       )}
 

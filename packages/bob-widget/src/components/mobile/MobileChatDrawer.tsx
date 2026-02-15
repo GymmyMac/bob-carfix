@@ -68,10 +68,10 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
     }
   }, [interimTranscript, setInput]);
 
-  const handlePTTStart = useCallback(() => {
+  const handlePTTStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
     if (isLoading || pttActiveRef.current) return;
     pttActiveRef.current = true;
-    // Stronger haptic for mechanic feel
     if (navigator.vibrate) {
       navigator.vibrate(30);
     }

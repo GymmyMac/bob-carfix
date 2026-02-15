@@ -66,7 +66,8 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
     }
   }, [interimTranscript, setInput]);
 
-  const handlePTTStart = useCallback(() => {
+  const handlePTTStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
     if (isLoading || pttActiveRef.current) return;
     pttActiveRef.current = true;
     if (navigator.vibrate) {
