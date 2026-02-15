@@ -1,54 +1,39 @@
 
-
-# Chat Bar White Background Fix + Idle Green Ring + Processing Text Update
-
-## Problem
-
-Three issues to address:
-
-1. **Chat bar defaults to dark blue** -- The `widget-reset.css` has aggressive `!important` overrides on `input[type="text"]` forcing `background: rgba(0, 51, 102, 0.85) !important` and `color: white !important`. These override the inline white background styles set in the drawers.
-
-2. **Idle PTT ring should be green** -- When the PTT button is prompting for use (idle state), the ring should pulse green (fading light/dark) to indicate "action required", not blue.
-
-3. **Processing text says "Bob is thinking..."** -- Should read "Bob is researching your input."
+# v3.2.1 Release: Auto-Scroll to Highlighted Part Category
 
 ## Changes
 
-### File 1: `packages/bob-widget/src/styles/widget-reset.css`
+### 1. Re-enable auto-scroll for `highlightedPartType` in MobileProductColumn
+**File:** `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`
 
-- **Update the global `input[type="text"]` override** (line 305) to use white background and navy text instead of dark blue. This ensures the chat bar is always white regardless of host site interference.
-- **Update the `.high-contrast-input::placeholder`** colour from white/semi-transparent to navy/semi-transparent to match the white background.
+Replace the removed comment block (lines 203-206) with a `useEffect` that scrolls to the matching partslot group when `highlightedPartType` changes. Uses existing `groupRefs` and `matchesPartType()` with a 300ms delay for animation safety. Does NOT affect initial scroll position, sort order, or individual product highlights.
 
-Before:
-```css
-background: rgba(0, 51, 102, 0.85) !important;
-color: white !important;
-border: 2px solid rgba(255, 255, 255, 0.35) !important;
+### 2. Version bump to v3.2.1
+Update version references across:
+- `packages/bob-widget/package.json` -- `"version": "3.2.1"`
+- `packages/bob-widget/src/version.ts` -- `'3.2.1'`
+- `packages/bob-widget/bin/bob-widget.mjs` -- `VERSION = '3.2.1'`
+- `packages/bob-widget/README.md` -- `v3.2.1`
+
+### 3. Changelog entry
+**File:** `packages/bob-widget/CHANGELOG.md`
+
+Add new `[v3.2.1]` section before v3.2.0:
+
+```
+## [v3.2.1] - 2026-02-15
+
+### Added
+- Auto-scroll to highlighted partslot category on mobile/tablet when Bob mentions a specific part type (e.g. "front pads"), bringing parity with desktop behaviour
+
+### Changed
+- PTT idle button colour changed from blue to green to match the breathing idle ring
 ```
 
-After:
-```css
-background: #FFFFFF !important;
-color: #0F172A !important;
-border: 2px solid rgba(15, 23, 42, 0.15) !important;
-```
+## Safety
 
-### File 2: `packages/bob-widget/src/components/mobile/ContainedChatDrawer.tsx`
-
-- **Update idle ring config** (line 144): Change from blue (`rgba(0, 102, 204, 0.5)`) to green (`rgba(34, 197, 94, 0.5)`) and use the `ring-speaking` animation (which already has green glow) or a dedicated green breathing animation.
-- **Update processing text** (line 369): Change "Bob is thinking..." to "Bob is researching your input."
-
-### File 3: `packages/bob-widget/src/components/mobile/MobileChatDrawer.tsx`
-
-- **Same idle ring colour change** to green.
-- **Same processing text update** (line 456): "Bob is thinking..." to "Bob is researching your input."
-
-### File 4: `packages/bob-widget/src/__tests__/pttLongPress.test.ts`
-
-- Update any test assertions that reference "Bob is thinking" to match the new text.
-
-## Technical Notes
-
-- The `!important` overrides in `widget-reset.css` are necessary for host-site isolation (they prevent CARFIX's own styles from bleeding in). Changing them to white/navy is safe because both chat drawers already set white inline styles -- the CSS just needs to agree.
-- The idle green ring reuses the existing `ring-breathe` keyframe animation but changes the border colour from blue to green. The effect is a gentle green fading pulse that says "press me".
-- The `high-contrast-input` class placeholder colours will flip from white-on-dark to navy-on-white for consistency.
+- Only fires on `highlightedPartType` changes (not on mount or manual scroll)
+- Uses existing proven utilities (`groupRefs`, `matchesPartType`)
+- Desktop already works this way -- no changes needed there
+- Sort order, initial position, and 8-second highlight timer are untouched
+- Existing 52+ unit tests and E2E suite will validate no regressions
