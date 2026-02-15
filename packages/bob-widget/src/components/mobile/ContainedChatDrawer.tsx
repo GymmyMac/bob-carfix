@@ -99,7 +99,12 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
   // Premium Glass PTT button styles
   const pttButtonStyles = {
     idle: {
-      ...glassButtonBlue,
+      background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.9) 0%, rgba(22, 163, 74, 0.95) 100%)',
+      backdropFilter: 'blur(16px) saturate(180%)',
+      WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+      border: '1px solid rgba(255, 255, 255, 0.4)',
+      borderRadius: '50%',
+      boxShadow: '0 8px 32px rgba(34, 197, 94, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)',
     },
     active: {
       background: 'linear-gradient(135deg, rgba(255, 149, 0, 0.95) 0%, rgba(230, 134, 0, 1) 100%)',
