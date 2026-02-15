@@ -1,89 +1,54 @@
 
 
-# Enhanced PTT Experience: Ring Animations + Chat Bar Feedback
+# Chat Bar White Background Fix + Idle Green Ring + Processing Text Update
 
-## Core Insight
+## Problem
 
-The user's finger covers the PTT button face during use, making any icon animations or labels invisible. The solution splits feedback across two surfaces:
+Three issues to address:
 
-1. **PTT button circumference** -- animated rings that extend beyond the finger's touch area
-2. **Chat input bar** -- repurposed as a status display with waveform visualizer when Bob speaks
+1. **Chat bar defaults to dark blue** -- The `widget-reset.css` has aggressive `!important` overrides on `input[type="text"]` forcing `background: rgba(0, 51, 102, 0.85) !important` and `color: white !important`. These override the inline white background styles set in the drawers.
 
-## Chat Bar Redesign
+2. **Idle PTT ring should be green** -- When the PTT button is prompting for use (idle state), the ring should pulse green (fading light/dark) to indicate "action required", not blue.
 
-The chat input bar switches to **white background with CARFIX Deep Navy text** (`#0F172A`). This creates a high-contrast, clean surface that doubles as a feedback display during non-typing states.
+3. **Processing text says "Bob is thinking..."** -- Should read "Bob is researching your input."
 
-## Four States
-
-```text
-+---------------------+-----------------------------+-------------------------------+
-| State               | PTT Ring (around button)    | Chat Bar                      |
-+---------------------+-----------------------------+-------------------------------+
-| Idle                | Blue breathing pulse ring   | White bar, navy placeholder   |
-|                     | (existing, slightly larger) | "Message Bob..."              |
-+---------------------+-----------------------------+-------------------------------+
-| Listening (PTT held)| Orange expanding rings      | White bar shows pulsing       |
-|                     | (existing waves, enhanced)  | orange dot + "Listening..."   |
-+---------------------+-----------------------------+-------------------------------+
-| Processing          | Grey contracting ring       | White bar shows spinning      |
-|                     | (slow inward pulse)         | dots + "Bob is thinking..."   |
-+---------------------+-----------------------------+-------------------------------+
-| Bob Speaking        | Green soft glow ring        | White bar replaced by         |
-|                     | (steady outward pulse)      | 5-bar waveform visualizer     |
-|                     |                             | + "Bob is talking..."         |
-|                     |                             | If muted: red X icon shown    |
-+---------------------+-----------------------------+-------------------------------+
-```
-
-## Implementation Details
+## Changes
 
 ### File 1: `packages/bob-widget/src/styles/widget-reset.css`
 
-Add new CSS keyframes:
+- **Update the global `input[type="text"]` override** (line 305) to use white background and navy text instead of dark blue. This ensures the chat bar is always white regardless of host site interference.
+- **Update the `.high-contrast-input::placeholder`** colour from white/semi-transparent to navy/semi-transparent to match the white background.
 
-- `@keyframes ring-breathe` -- scale 1.0 to 1.2 on a 72px ring, 2s cycle (idle)
-- `@keyframes ring-processing` -- scale 1.1 to 0.95, 1.5s cycle (processing)
-- `@keyframes ring-speaking` -- scale 1.0 to 1.15 with green glow, 1.8s cycle
-- `@keyframes waveform-bar-1` through `waveform-bar-5` -- staggered height oscillation (4px to 20px) for the speaking visualizer in the chat bar
-- `@keyframes dot-pulse` -- opacity 0.3 to 1.0 for the listening indicator dot in chat bar
+Before:
+```css
+background: rgba(0, 51, 102, 0.85) !important;
+color: white !important;
+border: 2px solid rgba(255, 255, 255, 0.35) !important;
+```
+
+After:
+```css
+background: #FFFFFF !important;
+color: #0F172A !important;
+border: 2px solid rgba(15, 23, 42, 0.15) !important;
+```
 
 ### File 2: `packages/bob-widget/src/components/mobile/ContainedChatDrawer.tsx`
 
-Changes to the input area (lines 240-448):
-
-1. **Chat input bar** -- change background to white (`#FFFFFF`), text color to Deep Navy (`#0F172A`), border to `rgba(15, 23, 42, 0.15)`, placeholder color to `rgba(15, 23, 42, 0.5)`
-2. **State overlay on chat bar** -- when `isListening`, `isLoading`, or `isSpeaking`, overlay the input with a status display:
-   - Listening: orange pulsing dot + "Listening..." in navy text on white
-   - Processing: animated dots + "Bob is thinking..." in navy text on white
-   - Speaking: 5 vertical bars animating heights (CSS-only staggered sine) + "Bob is talking..." -- if `isMuted`, show a red muted-speaker icon as a warning
-3. **PTT ring animations** -- the existing ring divs around the PTT button are updated:
-   - Idle: keep blue pulse but use `ring-breathe` keyframe (slightly larger radius)
-   - Listening: keep orange waves (existing `ptt-wave`), no change needed
-   - Processing: swap to grey ring with `ring-processing` (contracting pulse)
-   - Speaking: green ring with `ring-speaking` (gentle glow expansion)
+- **Update idle ring config** (line 144): Change from blue (`rgba(0, 102, 204, 0.5)`) to green (`rgba(34, 197, 94, 0.5)`) and use the `ring-speaking` animation (which already has green glow) or a dedicated green breathing animation.
+- **Update processing text** (line 369): Change "Bob is thinking..." to "Bob is researching your input."
 
 ### File 3: `packages/bob-widget/src/components/mobile/MobileChatDrawer.tsx`
 
-Same state-driven changes applied to:
-
-1. The text input bar (lines 340-364): white background, navy text
-2. A new status overlay component that replaces the input visually during active states
-3. The TALK button area: add ring divs for processing and speaking states (currently only has idle/listening rings)
+- **Same idle ring colour change** to green.
+- **Same processing text update** (line 456): "Bob is thinking..." to "Bob is researching your input."
 
 ### File 4: `packages/bob-widget/src/__tests__/pttLongPress.test.ts`
 
-Extend with tests for:
-
-- State derivation logic: `isSpeaking > isLoading > isListening > idle` priority
-- Chat bar style constants: white background and navy text values
-- Waveform bar count (5 bars for speaking state)
+- Update any test assertions that reference "Bob is thinking" to match the new text.
 
 ## Technical Notes
 
-- All animations are CSS `@keyframes` only -- no JS animation loops or Web Audio API
-- The waveform bars are decorative (CSS timing offsets), not driven by real audio analysis
-- The chat input remains fully functional -- the status overlay only appears when the user is NOT typing (i.e., during PTT hold, processing, or Bob speaking). If the user taps the input field, the overlay dismisses immediately
-- The muted warning (red speaker-X icon) only shows during the "speaking" state when `isMuted=true`, prompting the user to unmute or turn volume up
-- Ring animations use `pointer-events: none` so they never interfere with touch targets
-- The white chat bar uses the widget-reset CSS override to ensure host styles don't bleed in
-
+- The `!important` overrides in `widget-reset.css` are necessary for host-site isolation (they prevent CARFIX's own styles from bleeding in). Changing them to white/navy is safe because both chat drawers already set white inline styles -- the CSS just needs to agree.
+- The idle green ring reuses the existing `ring-breathe` keyframe animation but changes the border colour from blue to green. The effect is a gentle green fading pulse that says "press me".
+- The `high-contrast-input` class placeholder colours will flip from white-on-dark to navy-on-white for consistency.
