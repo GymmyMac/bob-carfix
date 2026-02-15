@@ -127,11 +127,32 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
     }
   };
 
-  const currentTalkStyle = isLoading 
-    ? talkButtonStyles.disabled 
-    : isListening 
-      ? talkButtonStyles.active 
-      : talkButtonStyles.idle;
+  // 4-state derivation: isSpeaking > isLoading > isListening > idle
+  const pttState: 'speaking' | 'processing' | 'listening' | 'idle' = 
+    isSpeaking ? 'speaking' : isLoading ? 'processing' : isListening ? 'listening' : 'idle';
+
+  const talkStyleMap = {
+    idle: talkButtonStyles.idle,
+    listening: talkButtonStyles.active,
+    processing: talkButtonStyles.disabled,
+    speaking: {
+      background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.95) 0%, rgba(22, 163, 74, 1) 100%)',
+      backdropFilter: 'blur(16px) saturate(180%)',
+      WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+      border: '1px solid rgba(255, 255, 255, 0.4)',
+      borderRadius: '32px',
+      boxShadow: '0 12px 48px rgba(34, 197, 94, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)',
+    }
+  };
+
+  const currentTalkStyle = talkStyleMap[pttState];
+
+  const ringConfig = {
+    idle: { border: '2px solid rgba(0, 102, 204, 0.5)', animation: 'ring-breathe 2s ease-in-out infinite' },
+    listening: null,
+    processing: { border: '2px solid rgba(156, 163, 175, 0.6)', animation: 'ring-processing 1.5s ease-in-out infinite' },
+    speaking: { border: '2px solid rgba(34, 197, 94, 0.5)', animation: 'ring-speaking 1.8s ease-in-out infinite' },
+  };
 
   return (
     <div 
@@ -243,13 +264,48 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
         </div>
       )}
 
-      {/* Floating TALK Button - Premium glass style */}
+      {/* Floating TALK Button with 4-state rings */}
       {isSupported && (
         <div style={{
           display: 'flex',
           justifyContent: 'center',
           padding: '12px 16px 8px 16px',
+          position: 'relative',
         }}>
+          {/* Listening: Orange wave rings */}
+          {pttState === 'listening' && (
+            <>
+              <div style={{
+                position: 'absolute', top: '50%', left: '50%',
+                width: '220px', height: '80px', borderRadius: '40px',
+                border: '2px solid #FF9500',
+                transform: 'translate(-50%, -50%)',
+                animation: 'ptt-wave 1.5s ease-out infinite',
+                opacity: 0, pointerEvents: 'none'
+              }} />
+              <div style={{
+                position: 'absolute', top: '50%', left: '50%',
+                width: '220px', height: '80px', borderRadius: '40px',
+                border: '2px solid #FF9500',
+                transform: 'translate(-50%, -50%)',
+                animation: 'ptt-wave 1.5s ease-out infinite 0.5s',
+                opacity: 0, pointerEvents: 'none'
+              }} />
+            </>
+          )}
+
+          {/* Idle / Processing / Speaking: animated ring */}
+          {pttState !== 'listening' && ringConfig[pttState] && (
+            <div style={{
+              position: 'absolute', top: '50%', left: '50%',
+              width: '220px', height: '80px', borderRadius: '40px',
+              border: ringConfig[pttState]!.border,
+              transform: 'translate(-50%, -50%)',
+              animation: ringConfig[pttState]!.animation,
+              pointerEvents: 'none'
+            }} />
+          )}
+
           <button
             onTouchStart={handlePTTStart}
             onTouchEnd={handlePTTEnd}
@@ -258,7 +314,7 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
             onMouseUp={handlePTTEnd}
             onMouseLeave={handlePTTEnd}
             onClick={isListening ? handlePTTEnd : undefined}
-            disabled={isLoading}
+            disabled={pttState === 'processing'}
             aria-label="Hold to talk to Bob"
             className="glass-button"
             style={{
@@ -271,10 +327,10 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
               justifyContent: 'center',
               userSelect: 'none',
               touchAction: 'none',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              opacity: isLoading ? 0.6 : 1,
-              transform: isListening ? 'scale(1.04)' : 'scale(1)',
-              transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background 0.15s ease',
+              cursor: pttState === 'processing' ? 'not-allowed' : 'pointer',
+              opacity: pttState === 'processing' ? 0.6 : 1,
+              transform: pttState === 'listening' ? 'scale(1.04)' : 'scale(1)',
+              transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background 0.3s ease',
               ...currentTalkStyle
             }}
             title="Hold to talk"
@@ -287,7 +343,7 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
               textTransform: 'uppercase',
               fontFamily: 'system-ui, -apple-system, sans-serif',
             }}>
-              {isListening ? 'LISTENING' : 'TALK'}
+              {pttState === 'listening' ? 'LISTENING' : pttState === 'processing' ? 'THINKING' : pttState === 'speaking' ? 'PLAYING' : 'TALK'}
             </span>
           </button>
         </div>
@@ -337,31 +393,92 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
             </button>
           )}
           
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={onKeyPress}
-            onFocus={onInputFocus}
-            onBlur={onInputBlur}
-            placeholder="Or type here..."
-            disabled={isLoading}
-            className="high-contrast-input"
-            style={{
-              flex: 1,
-              height: '40px',
-              fontSize: '16px',
-              padding: '0 14px',
-              background: 'rgba(0, 51, 102, 0.85)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-              border: '2px solid rgba(255, 255, 255, 0.35)',
-              borderRadius: '20px',
-              color: 'white',
-              outline: 'none',
-              opacity: isLoading ? 0.5 : 1
-            }}
-          />
+          {/* Chat bar: white bg with navy text + state overlays */}
+          <div style={{ flex: 1, position: 'relative', height: '40px' }}>
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={onKeyPress}
+              onFocus={onInputFocus}
+              onBlur={onInputBlur}
+              placeholder="Message Bob..."
+              disabled={pttState !== 'idle'}
+              className="high-contrast-input"
+              style={{
+                width: '100%',
+                height: '40px',
+                fontSize: '16px',
+                padding: '0 14px',
+                background: '#FFFFFF',
+                border: '2px solid rgba(15, 23, 42, 0.15)',
+                borderRadius: '20px',
+                color: '#0F172A',
+                outline: 'none',
+                opacity: pttState !== 'idle' ? 0 : 1,
+                transition: 'opacity 0.15s ease',
+              }}
+            />
+            
+            {/* State overlay on chat bar */}
+            {pttState !== 'idle' && (
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: '#FFFFFF',
+                border: '2px solid rgba(15, 23, 42, 0.15)',
+                borderRadius: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 14px',
+                gap: '8px',
+              }}>
+                {pttState === 'listening' && (
+                  <>
+                    <span style={{
+                      width: '10px', height: '10px', borderRadius: '50%',
+                      backgroundColor: '#FF8C00',
+                      animation: 'dot-pulse 1s ease-in-out infinite',
+                      flexShrink: 0,
+                    }} />
+                    <span style={{ fontSize: '14px', color: '#0F172A', fontWeight: 500 }}>Listening...</span>
+                  </>
+                )}
+                {pttState === 'processing' && (
+                  <>
+                    <div style={{
+                      width: '18px', height: '18px', flexShrink: 0,
+                      border: '2px solid rgba(15, 23, 42, 0.15)',
+                      borderTop: '2px solid #0F172A',
+                      borderRadius: '50%',
+                      animation: 'processing-spin 0.8s linear infinite',
+                    }} />
+                    <span style={{ fontSize: '14px', color: '#0F172A', fontWeight: 500 }}>Bob is thinking...</span>
+                  </>
+                )}
+                {pttState === 'speaking' && (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px', height: '20px', flexShrink: 0 }}>
+                      {[0, 0.15, 0.3, 0.45, 0.6].map((delay, i) => (
+                        <div key={i} style={{
+                          width: '3px', height: '4px',
+                          backgroundColor: '#22c55e', borderRadius: '2px',
+                          animation: `waveform-bar 0.8s ease-in-out ${delay}s infinite`,
+                        }} />
+                      ))}
+                    </div>
+                    <span style={{ fontSize: '14px', color: '#0F172A', fontWeight: 500 }}>Bob is talking...</span>
+                    {isMuted && (
+                      <svg style={{ height: '16px', width: '16px', color: '#ef4444', marginLeft: 'auto', flexShrink: 0 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                      </svg>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

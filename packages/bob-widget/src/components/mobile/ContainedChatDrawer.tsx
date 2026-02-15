@@ -119,11 +119,33 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
     }
   };
 
-  const currentPttStyle = isLoading 
-    ? pttButtonStyles.disabled 
-    : isListening 
-      ? pttButtonStyles.active 
-      : pttButtonStyles.idle;
+  // 4-state derivation: isSpeaking > isLoading > isListening > idle
+  const pttState: 'speaking' | 'processing' | 'listening' | 'idle' = 
+    isSpeaking ? 'speaking' : isLoading ? 'processing' : isListening ? 'listening' : 'idle';
+
+  const pttStyleMap = {
+    idle: pttButtonStyles.idle,
+    listening: pttButtonStyles.active,
+    processing: pttButtonStyles.disabled,
+    speaking: {
+      background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.9) 0%, rgba(22, 163, 74, 0.95) 100%)',
+      backdropFilter: 'blur(16px) saturate(180%)',
+      WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+      border: '1px solid rgba(255, 255, 255, 0.4)',
+      borderRadius: '50%',
+      boxShadow: '0 12px 48px rgba(34, 197, 94, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)',
+    }
+  };
+
+  const currentPttStyle = pttStyleMap[pttState];
+
+  // Ring animation config per state
+  const ringConfig = {
+    idle: { border: '2px solid rgba(0, 102, 204, 0.5)', animation: 'ring-breathe 2s ease-in-out infinite' },
+    listening: null, // uses existing ptt-wave rings
+    processing: { border: '2px solid rgba(156, 163, 175, 0.6)', animation: 'ring-processing 1.5s ease-in-out infinite' },
+    speaking: { border: '2px solid rgba(34, 197, 94, 0.5)', animation: 'ring-speaking 1.8s ease-in-out infinite' },
+  };
 
   return (
     <div 
@@ -236,30 +258,12 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
         </div>
       )}
 
-      {/* Input Area - Glass style */}
+      {/* Input Area + Status Feedback */}
       <div style={{
         padding: isExpanded ? '8px 12px 4px 12px' : '4px 12px 4px 12px',
         borderTop: isExpanded ? '1px solid rgba(255, 255, 255, 0.15)' : 'none',
         pointerEvents: 'auto' as const
       }}>
-        {isListening && (
-          <div style={{ 
-            position: 'absolute',
-            top: '4px',
-            left: '12px',
-            fontSize: '12px', 
-            color: 'rgba(255,255,255,0.9)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px',
-            zIndex: 10,
-            textShadow: '0 1px 3px rgba(0,0,0,0.5)'
-          }}>
-            <span style={{ display: 'inline-block', width: '8px', height: '8px', backgroundColor: '#FF9500', borderRadius: '50%', animation: 'pulse 2s infinite' }} />
-            Listening...
-          </div>
-        )}
-        
         {sttError && (
           <div style={{ marginBottom: '8px', fontSize: '12px', color: '#FF9500' }}>{sttError}</div>
         )}
@@ -278,7 +282,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
                 borderRadius: '10px',
                 background: 'rgba(255, 255, 255, 0.1)',
                 backdropFilter: 'blur(8px)',
-                color: isSpeaking ? '#0066CC' : 'rgba(255,255,255,0.7)',
+                color: isSpeaking ? '#22c55e' : 'rgba(255,255,255,0.7)',
                 cursor: 'pointer',
                 border: '1px solid rgba(255, 255, 255, 0.2)',
                 minHeight: 'unset',
@@ -299,78 +303,135 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
             </button>
           )}
           
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={onKeyPress}
-            onFocus={onInputFocus}
-            onBlur={onInputBlur}
-            placeholder="Message Bob..."
-            disabled={isLoading}
-            className="high-contrast-input"
-            style={{
-              flex: 1,
-              height: '40px',
-              fontSize: '16px',
-              padding: '0 14px',
-              background: 'rgba(0, 51, 102, 0.85)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-              border: '2px solid rgba(255, 255, 255, 0.35)',
-              borderRadius: '20px',
-              color: 'white',
-              outline: 'none',
-              opacity: isLoading ? 0.5 : 1
-            }}
-          />
+          {/* Chat bar: white bg with navy text + state overlays */}
+          <div style={{ flex: 1, position: 'relative', height: '40px' }}>
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={onKeyPress}
+              onFocus={onInputFocus}
+              onBlur={onInputBlur}
+              placeholder="Message Bob..."
+              disabled={pttState !== 'idle'}
+              className="high-contrast-input"
+              style={{
+                width: '100%',
+                height: '40px',
+                fontSize: '16px',
+                padding: '0 14px',
+                background: '#FFFFFF',
+                border: '2px solid rgba(15, 23, 42, 0.15)',
+                borderRadius: '20px',
+                color: '#0F172A',
+                outline: 'none',
+                opacity: pttState !== 'idle' ? 0 : 1,
+                transition: 'opacity 0.15s ease',
+              }}
+            />
+            
+            {/* State overlay on chat bar */}
+            {pttState !== 'idle' && (
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: '#FFFFFF',
+                border: '2px solid rgba(15, 23, 42, 0.15)',
+                borderRadius: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 14px',
+                gap: '8px',
+              }}>
+                {/* Listening: pulsing orange dot */}
+                {pttState === 'listening' && (
+                  <>
+                    <span style={{
+                      width: '10px', height: '10px', borderRadius: '50%',
+                      backgroundColor: '#FF8C00',
+                      animation: 'dot-pulse 1s ease-in-out infinite',
+                      flexShrink: 0,
+                    }} />
+                    <span style={{ fontSize: '14px', color: '#0F172A', fontWeight: 500 }}>Listening...</span>
+                  </>
+                )}
+
+                {/* Processing: spinning dots */}
+                {pttState === 'processing' && (
+                  <>
+                    <div style={{
+                      width: '18px', height: '18px', flexShrink: 0,
+                      border: '2px solid rgba(15, 23, 42, 0.15)',
+                      borderTop: '2px solid #0F172A',
+                      borderRadius: '50%',
+                      animation: 'processing-spin 0.8s linear infinite',
+                    }} />
+                    <span style={{ fontSize: '14px', color: '#0F172A', fontWeight: 500 }}>Bob is thinking...</span>
+                  </>
+                )}
+
+                {/* Speaking: waveform bars + muted warning */}
+                {pttState === 'speaking' && (
+                  <>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: '2px', height: '20px', flexShrink: 0,
+                    }}>
+                      {[0, 0.15, 0.3, 0.45, 0.6].map((delay, i) => (
+                        <div key={i} style={{
+                          width: '3px',
+                          height: '4px',
+                          backgroundColor: '#22c55e',
+                          borderRadius: '2px',
+                          animation: `waveform-bar 0.8s ease-in-out ${delay}s infinite`,
+                        }} />
+                      ))}
+                    </div>
+                    <span style={{ fontSize: '14px', color: '#0F172A', fontWeight: 500 }}>Bob is talking...</span>
+                    {isMuted && (
+                      <svg style={{ height: '16px', width: '16px', color: '#ef4444', marginLeft: 'auto', flexShrink: 0 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                      </svg>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           
-          {/* Mechanic's Radio PTT Button - Premium glass */}
+          {/* Mechanic's Radio PTT Button with 4-state rings */}
           {isSupported && (
             <div style={{ position: 'relative', marginLeft: '4px' }}>
-              {/* Radio wave animations when active */}
-              {isListening && (
+              {/* Listening: Orange wave rings (existing) */}
+              {pttState === 'listening' && (
                 <>
                   <div style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    width: '72px',
-                    height: '72px',
-                    borderRadius: '50%',
+                    position: 'absolute', top: '50%', left: '50%',
+                    width: '84px', height: '84px', borderRadius: '50%',
                     border: '2px solid #FF9500',
                     transform: 'translate(-50%, -50%)',
                     animation: 'ptt-wave 1.5s ease-out infinite',
-                    opacity: 0,
-                    pointerEvents: 'none'
+                    opacity: 0, pointerEvents: 'none'
                   }} />
                   <div style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    width: '72px',
-                    height: '72px',
-                    borderRadius: '50%',
+                    position: 'absolute', top: '50%', left: '50%',
+                    width: '84px', height: '84px', borderRadius: '50%',
                     border: '2px solid #FF9500',
                     transform: 'translate(-50%, -50%)',
                     animation: 'ptt-wave 1.5s ease-out infinite 0.5s',
-                    opacity: 0,
-                    pointerEvents: 'none'
+                    opacity: 0, pointerEvents: 'none'
                   }} />
                 </>
               )}
               
-              {/* Idle pulse glow */}
-              {!isListening && !isLoading && (
+              {/* Idle / Processing / Speaking: single animated ring */}
+              {pttState !== 'listening' && ringConfig[pttState] && (
                 <div style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  width: '72px',
-                  height: '72px',
-                  borderRadius: '50%',
+                  position: 'absolute', top: '50%', left: '50%',
+                  width: '84px', height: '84px', borderRadius: '50%',
+                  border: ringConfig[pttState]!.border,
                   transform: 'translate(-50%, -50%)',
-                  animation: 'ptt-pulse 2s ease-in-out infinite',
+                  animation: ringConfig[pttState]!.animation,
                   pointerEvents: 'none'
                 }} />
               )}
@@ -382,7 +443,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
                 onMouseDown={handlePTTStart}
                 onMouseUp={handlePTTEnd}
                 onMouseLeave={handlePTTEnd}
-                disabled={isLoading}
+                disabled={pttState === 'processing'}
                 aria-label="Hold to talk to Bob"
                 className="glass-button"
                 style={{
@@ -400,10 +461,10 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
                   touchAction: 'none',
                   color: 'white',
                   border: 'none',
-                  cursor: isLoading ? 'not-allowed' : 'pointer',
-                  opacity: isLoading ? 0.6 : 1,
-                  transform: isListening ? 'scale(1.08)' : 'scale(1)',
-                  transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease',
+                  cursor: pttState === 'processing' ? 'not-allowed' : 'pointer',
+                  opacity: pttState === 'processing' ? 0.6 : 1,
+                  transform: pttState === 'listening' ? 'scale(1.08)' : 'scale(1)',
+                  transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background 0.3s ease',
                   zIndex: zIndexBase + 45,
                   ...currentPttStyle
                 }}
@@ -429,7 +490,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
                 </svg>
                 
                 {/* Active indicator */}
-                {isListening && (
+                {pttState === 'listening' && (
                   <div style={{
                     position: 'absolute',
                     top: '8px',
