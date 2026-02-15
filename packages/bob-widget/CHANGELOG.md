@@ -5,6 +5,16 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.1] - 2026-02-15
+
+### Added
+- 📜 **Auto-Scroll to Highlighted Category**: Mobile/tablet product shelf now auto-scrolls to the matching partslot group when Bob mentions a specific part type (e.g. "front pads"), bringing parity with desktop behaviour
+
+### Changed
+- 🟢 **PTT Idle Button Colour**: Changed from blue to green to match the breathing idle ring
+
+---
+
 ## [v3.2.0] - 2026-02-15
 
 ### Added
