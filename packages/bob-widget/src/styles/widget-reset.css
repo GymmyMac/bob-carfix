@@ -286,11 +286,11 @@
    High Contrast Input Placeholder Styling
    ============================================ */
 .bob-widget-root .high-contrast-input::placeholder {
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(15, 23, 42, 0.5);
 }
 
 .bob-widget-root .high-contrast-input:focus::placeholder {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(15, 23, 42, 0.4);
 }
 
 /* ============================================
@@ -302,9 +302,9 @@
 .bob-widget-root input[type="text"],
 .bob-widget-root input[type="search"],
 .bob-widget-root textarea {
-  background: rgba(0, 51, 102, 0.85) !important;
-  color: white !important;
-  border: 2px solid rgba(255, 255, 255, 0.35) !important;
+  background: #FFFFFF !important;
+  color: #0F172A !important;
+  border: 2px solid rgba(15, 23, 42, 0.15) !important;
   border-radius: 12px !important;
   padding: 12px 16px !important;
   font-size: 16px !important;
