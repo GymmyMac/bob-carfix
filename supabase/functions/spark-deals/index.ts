@@ -55,7 +55,7 @@ serve(async (req) => {
     console.log(`Fetching spark deals: limit=${limit}, category=${category || 'all'}`);
 
     // Call CARFIX Partner API for spark deals
-    const partnerApiUrl = 'https://carfix-dev.mypartsit.com/api/partner/v2';
+    const partnerApiUrl = 'https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1/partner-api';
     
     const response = await fetch(partnerApiUrl, {
       method: 'POST',
