@@ -26,6 +26,7 @@ import { ThemeSettingsPanel } from "@/components/ThemeSettingsPanel";
 import { SparkDealsSettings } from "@/components/SparkDealsSettings";
 import { TenantManager } from "@/components/TenantManager";
 import { AudioClipsManager } from "@/components/AudioClipsManager";
+import { LLMModelSelector } from "@/components/LLMModelSelector";
 import { useBobAnimationConfig, AnimationState as AnimationStateType } from "@/hooks/useBobAnimationConfig";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
 import { useBobBackdrop } from "@/hooks/useBobBackdrop";
@@ -420,6 +421,7 @@ const Admin = () => {
 
               {/* SETTINGS TAB */}
               <TabsContent value="settings" className="space-y-6 mt-6">
+                <LLMModelSelector />
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
