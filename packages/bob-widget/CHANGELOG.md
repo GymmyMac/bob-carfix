@@ -5,6 +5,13 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.3] - 2026-02-16
+
+### Fixed
+- 🎨 **Chat Drawer Background Bleed-Through**: Increased chat drawer background opacity to `rgba(15, 23, 42, 0.92)` in both `ContainedChatDrawer` and `MobileChatDrawer` — prevents host-site orange/coloured backgrounds from bleeding through and tinting the PTT button and chat input
+
+---
+
 ## [v3.2.2] - 2026-02-15
 
 ### Fixed
