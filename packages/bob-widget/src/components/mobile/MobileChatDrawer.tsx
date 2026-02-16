@@ -169,6 +169,8 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
         left: 0,
         right: 0,
         ...glassPanel,
+        // v3.2.2: Opaque dark background to prevent backdrop bleed-through
+        background: 'rgba(15, 23, 42, 0.92)',
         borderRadius: '28px 28px 0 0',
         borderBottom: 'none',
         transition: 'all 0.3s ease-out',

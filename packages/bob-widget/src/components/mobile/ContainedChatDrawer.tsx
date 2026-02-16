@@ -169,6 +169,8 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
         WebkitBackfaceVisibility: 'hidden',
         isolation: 'isolate',
         ...glassPanel,
+        // v3.2.2: Opaque dark background to prevent backdrop bleed-through (orange shelf behind)
+        background: 'rgba(15, 23, 42, 0.92)',
         borderRadius: '28px 28px 0 0',
         borderBottom: 'none',
         // v3.2.1: Strictly scoped transitions - only height changes, no position animation
