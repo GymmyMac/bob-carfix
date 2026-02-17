@@ -618,10 +618,14 @@ export const useBobChat = ({
   }, []);
 
   // Send a message directly without relying on input state (for programmatic sends like variant selection)
+  // NOTE: Does NOT check isLoading - variant selection must always go through even mid-stream
   const sendDirectMessage = useCallback((content: string) => {
-    if (!content.trim() || isLoading) return;
+    if (!content.trim()) return;
     
     console.log('[useBobChat] sendDirectMessage:', content);
+    // Clear any stale input and force-reset loading state so we never get blocked
+    setInput("");
+    setIsLoading(false);
     onResearchStart?.();
     if (!manualMode) safeSetState(thinkingState);
     onStreamStart?.();
@@ -631,7 +635,7 @@ export const useBobChat = ({
     setIsLoading(true);
     
     streamChat(userMessage).finally(() => setIsLoading(false));
-  }, [isLoading, manualMode, thinkingState, onResearchStart, onStreamStart]);
+  }, [manualMode, thinkingState, onResearchStart, onStreamStart]);
 
   return {
     messages,
