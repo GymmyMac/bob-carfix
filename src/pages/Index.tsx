@@ -159,12 +159,14 @@ const Index = () => {
       pendingPartsRef.current = [];
       setHighlightedPartType(null);
       setHighlightedProduct(null);
+      // NOTE: Do NOT clear pendingVariants here - keep cards visible while Bob is speaking
+      // Variants are only cleared when vehicle_identified event is received
     },
     onVehicleIdentified: (vehicle) => {
       setDisplayedVehicle(vehicle);
       // Vehicle is now confirmed - clear placeholder state
       setHasMultipleMatches(false);
-      // Clear variant cards since we have a confirmed vehicle
+      // Clear variant cards NOW that we have a confirmed vehicle
       setPendingVariants([]);
       setPendingVariantMake('');
       setPendingVariantModel('');
@@ -367,14 +369,12 @@ const Index = () => {
           pendingVariantModel={pendingVariantModel}
           onVariantSelect={(variant) => {
             console.log('[Index] Variant selected:', variant.optionNumber, variant.displayTitle);
-            // Send selection as user message
+            // Send selection as user message - do NOT clear variants yet
+            // Cards remain visible until vehicle_identified SSE event confirms the selection
             setInput(`Option ${variant.optionNumber}`);
-            // Clear variants immediately to hide cards
-            setPendingVariants([]);
-            // Trigger send after a tick to ensure input is set
             setTimeout(() => {
               handleSend();
-            }, 100);
+            }, 50);
           }}
         />
       </SwipeableBob>

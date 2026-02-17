@@ -136,6 +136,12 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
   // Now also triggers when variant cards need to be shown
   useEffect(() => {
     if (isResearching && panelState !== 'loading' && panelState !== 'visible') {
+      // If we have variant cards showing, keep panel visible — don't drop to 'loading'
+      if (hasVariants) {
+        // Already showing variants — stay visible, keep Bob partial-left
+        if (bobPosition === 'center') setBobPosition('partial-left');
+        return;
+      }
       setPanelState('loading');
       
       // Move to partial-left when researching starts
@@ -156,12 +162,15 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
         setPanelState('visible');
       }
     } else if (!hasContent && !isResearching && panelState !== 'hidden') {
-      setPanelState('hidden');
-      setBobPosition('center');
+      // Only hide if there are no variants pending either
+      if (!hasVariants) {
+        setPanelState('hidden');
+        setBobPosition('center');
+      }
     }
-  }, [hasContent, isResearching, panelState, bobPosition, setBobPosition]);
+  }, [hasContent, hasVariants, isResearching, panelState, bobPosition, setBobPosition]);
 
-  const showProductColumn = panelState !== 'hidden';
+  const showProductColumn = panelState !== 'hidden' || hasVariants;
   
   // Calculate blur intensity based on product visibility
   const shouldBlur = showProductColumn && hasContent;
