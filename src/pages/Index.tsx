@@ -136,7 +136,8 @@ const Index = () => {
     toggleMute,
     isSpeaking,
     identifiedVehicle,
-    clearVehicle
+    clearVehicle,
+    stopSpeech,
   } = useBobChat({
     setAnimationState, 
     manualMode,
@@ -369,6 +370,8 @@ const Index = () => {
           pendingVariantModel={pendingVariantModel}
           onVariantSelect={(variant) => {
             console.log('[Index] Variant selected:', variant.optionNumber, variant.displayTitle);
+            // INTERRUPT Bob immediately - stop any speech in progress
+            stopSpeech();
             // Send selection as user message - do NOT clear variants yet
             // Cards remain visible until vehicle_identified SSE event confirms the selection
             setInput(`Option ${variant.optionNumber}`);
