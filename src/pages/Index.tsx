@@ -138,6 +138,7 @@ const Index = () => {
     identifiedVehicle,
     clearVehicle,
     stopSpeech,
+    sendDirectMessage,
   } = useBobChat({
     setAnimationState, 
     manualMode,
@@ -370,14 +371,10 @@ const Index = () => {
           pendingVariantModel={pendingVariantModel}
           onVariantSelect={(variant) => {
             console.log('[Index] Variant selected:', variant.optionNumber, variant.displayTitle);
-            // INTERRUPT Bob immediately - stop any speech in progress
+            // INTERRUPT Bob immediately - stop speech and trigger onEnd so animation resets
             stopSpeech();
-            // Send selection as user message - do NOT clear variants yet
-            // Cards remain visible until vehicle_identified SSE event confirms the selection
-            setInput(`Option ${variant.optionNumber}`);
-            setTimeout(() => {
-              handleSend();
-            }, 50);
+            // Send directly without going through input state (avoids stale closure bug)
+            sendDirectMessage(`Option ${variant.optionNumber}`);
           }}
         />
       </SwipeableBob>

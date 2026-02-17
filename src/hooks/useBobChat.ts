@@ -617,6 +617,22 @@ export const useBobChat = ({
     autoFetchTriggeredRef.current = false;
   }, []);
 
+  // Send a message directly without relying on input state (for programmatic sends like variant selection)
+  const sendDirectMessage = useCallback((content: string) => {
+    if (!content.trim() || isLoading) return;
+    
+    console.log('[useBobChat] sendDirectMessage:', content);
+    onResearchStart?.();
+    if (!manualMode) safeSetState(thinkingState);
+    onStreamStart?.();
+    
+    const userMessage: Message = { role: "user", content };
+    setMessages(prev => [...prev, userMessage]);
+    setIsLoading(true);
+    
+    streamChat(userMessage).finally(() => setIsLoading(false));
+  }, [isLoading, manualMode, thinkingState, onResearchStart, onStreamStart]);
+
   return {
     messages,
     input,
@@ -634,5 +650,6 @@ export const useBobChat = ({
     identifiedVehicle,
     clearVehicle,
     stopSpeech,
+    sendDirectMessage,
   };
 };
