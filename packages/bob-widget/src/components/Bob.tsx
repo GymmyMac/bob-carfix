@@ -164,11 +164,8 @@ export const Bob: React.FC<BobProps> = ({
     },
     onResearchStart: () => {
       setIsResearching(true);
-
-      // Clear any previous variant selection UI when a new request starts
-      setPendingVariants([]);
-      setPendingVariantMake("");
-      setPendingVariantModel("");
+      // NOTE: Do NOT clear pendingVariants here - variant cards must stay visible
+      // while Bob processes the selection. They are cleared only when identifiedVehicle is set.
     },
     onVariantSelectionRequired: (variants, make, model) => {
       // Stop the loading state so the shelf can show the selection cards
@@ -199,14 +196,9 @@ export const Bob: React.FC<BobProps> = ({
   }, [bobChat.identifiedVehicle?.vehicle_id, bobChat.identifiedVehicle?.id]);
 
   const handleVariantSelect = (variantOption: VariantCard) => {
-    // Hide the list immediately for feedback; backend will confirm vehicle soon after.
-    setPendingVariants([]);
-
-    // Send a deterministic selection message the backend matcher understands.
-    bobChat.setInput(`Option ${variantOption.optionNumber}`);
-    setTimeout(() => {
-      bobChat.handleSend();
-    }, 80);
+    // Keep variant cards visible until vehicle_identified SSE fires (cleared in useEffect above).
+    // Use sendDirectMessage which bypasses isLoading and stops speech immediately.
+    bobChat.sendDirectMessage(`Option ${variantOption.optionNumber}`);
   };
 
   // Sync isSpeaking from bobChat to animation hook

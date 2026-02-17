@@ -320,16 +320,23 @@ export const useSpeechSynthesis = ({
     }
   }, [speak]);
 
-  const stop = useCallback(() => {
+  const stop = useCallback((suppressCallbacks = false) => {
     clearTtsTimeout();
     speechQueueRef.current = []; // Clear queue
     if (audioRef.current) {
+      // Remove listeners BEFORE pausing so onended doesn't fire
+      audioRef.current.onended = null;
+      audioRef.current.onerror = null;
       audioRef.current.pause();
       audioRef.current = null;
     }
     setIsSpeaking(false);
     greetingPlayingRef.current = false;
     isProcessingRef.current = false;
+    // Fire onEnd so the animation state machine exits TALK state immediately
+    if (!suppressCallbacks) {
+      onEndRef.current?.();
+    }
   }, [clearTtsTimeout]);
 
   const pause = useCallback(() => {

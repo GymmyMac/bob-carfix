@@ -1013,6 +1013,31 @@ export const useBobChat = ({
     setIdentifiedVehicle(null);
   };
 
+  // Send a message directly without relying on input state.
+  // Does NOT check isLoading - used for programmatic sends like variant selection
+  // that must go through even while Bob is mid-stream or mid-speech.
+  const sendDirectMessage = (content: string) => {
+    if (!content.trim()) return;
+
+    console.log('[BobWidget] sendDirectMessage:', content);
+
+    // Stop any ongoing speech immediately
+    stopSpeech();
+
+    // Force-clear loading state so streamChat is not blocked
+    setIsLoading(false);
+    setInput("");
+
+    const userMessage: Message = { role: "user", content };
+    setMessages(prev => [...prev, userMessage]);
+
+    onResearchStart?.();
+    if (!manualMode) safeSetState(thinkingState);
+
+    setIsLoading(true);
+    streamChat(userMessage).finally(() => setIsLoading(false));
+  };
+
   return {
     messages,
     input,
@@ -1028,6 +1053,7 @@ export const useBobChat = ({
     toggleMute,
     isSpeaking,
     identifiedVehicle,
-    clearVehicle
+    clearVehicle,
+    sendDirectMessage,
   };
 };
