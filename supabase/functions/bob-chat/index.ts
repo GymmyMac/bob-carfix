@@ -1211,6 +1211,23 @@ const tools = [
         required: ["sku", "vehicle_id"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "diagnose_symptom",
+      description: "Consult the CARFIX Expert Brain for technical analysis of vehicle symptoms or failures. Use when a customer describes a problem (e.g., 'brakes feel spongy', 'engine overheating', 'rattling noise'). Returns physics-based diagnosis with confidence tiers and optional commercial fix SKUs.",
+      parameters: {
+        type: "object",
+        properties: {
+          user_query: {
+            type: "string",
+            description: "The exact symptom description provided by the user."
+          }
+        },
+        required: ["user_query"]
+      }
+    }
   }
 ];
 
@@ -1237,6 +1254,12 @@ VEHICLE IDENTIFICATION:
 GENERAL PRODUCTS (no vehicle needed):
 - Tire shine, windscreen wash, car wash, polish, cleaning products
 - For these, use search_general_products directly
+
+SYMPTOM DIAGNOSIS:
+- If a user reports a vehicle symptom (noise, vibration, warning light, performance issue), use diagnose_symptom with their exact description
+- Present the physics logic in plain language, then recommend the fix part with pricing if available
+- Use confidence_tier to calibrate language: "high" = definitive ("that's"), "medium" = likely ("sounds like"), "low" = possible ("could be")
+- If no_match, acknowledge you couldn't find a specific bulletin and suggest they describe it differently or visit carfix.co.nz
 
 KIWI STYLE:
 - Use casual NZ expressions: "sweet as", "no worries", "mate", "chur"
@@ -1676,6 +1699,70 @@ async function checkVehicleFitment(sku: string, vehicleId: string): Promise<unkn
   return callPartnerAPI("check_vehicle_fitment", { sku, vehicle_id: vehicleId });
 }
 
+// ============= BRAIN DIAGNOSTIC API =============
+const CARFIX_BRAIN_BASE = 'https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1';
+const CARFIX_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZscHpqYmFzZHNmd29lcnV5eGdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2NTIwNzQsImV4cCI6MjA3MTIyODA3NH0.wKoJ51_VPro_BrJz-A-NRpSmUW0XBP-7TJJcrhvYwxE';
+
+async function diagnoseBrainSymptom(userQuery: string): Promise<unknown> {
+  console.log('[Brain] Diagnosing symptom:', userQuery);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+  try {
+    const response = await fetch(`${CARFIX_BRAIN_BASE}/query-brain`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': CARFIX_ANON_KEY,
+        'x-partner-key': PARTNER_API_KEY,
+      },
+      body: JSON.stringify({ user_query: userQuery }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('[Brain] query-brain failed:', response.status, errText.substring(0, 200));
+      return { error: `Brain diagnosis failed: ${response.status}`, no_match: true };
+    }
+
+    const data = await response.json();
+    console.log('[Brain] Response:', JSON.stringify(data).substring(0, 500));
+    return data;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    const isTimeout = error instanceof Error && error.name === 'AbortError';
+    console.error('[Brain] Error:', isTimeout ? 'Timeout after 10s' : error);
+    return { error: isTimeout ? 'Brain diagnosis timed out' : 'Brain diagnosis failed', no_match: true };
+  }
+}
+
+async function lookupPartBySku(sku: string): Promise<unknown> {
+  console.log('[Brain] Looking up SKU:', sku);
+  try {
+    const response = await fetch(`${CARFIX_BRAIN_BASE}/lookup-part-sku`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': CARFIX_ANON_KEY,
+        'x-partner-key': PARTNER_API_KEY,
+      },
+      body: JSON.stringify({ sku }),
+    });
+
+    if (!response.ok) {
+      console.error('[Brain] lookup-part-sku failed:', response.status);
+      return { error: `SKU lookup failed: ${response.status}` };
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('[Brain] SKU lookup error:', error);
+    return { error: 'SKU lookup failed' };
+  }
+}
+
 async function executeToolCall(toolCall: { function: { name: string; arguments: string }; id: string }, apiConfig: ApiConfig): Promise<unknown> {
   const { name, arguments: argsString } = toolCall.function;
   
@@ -1746,6 +1833,34 @@ async function executeToolCall(toolCall: { function: { name: string; arguments: 
         return await searchProducts(args.query, args.vehicle_id);
       case "check_vehicle_fitment":
         return await checkVehicleFitment(args.sku, args.vehicle_id);
+      case "diagnose_symptom": {
+        const brainResult = await diagnoseBrainSymptom(args.user_query) as any;
+
+        // If no match or error, return as-is for the AI to handle gracefully
+        if (brainResult.no_match || brainResult.error) {
+          console.log('[Brain] No diagnosis found or error');
+          return { no_match: true, message: brainResult.error || 'No matching diagnosis found', raw: brainResult };
+        }
+
+        // Enrich any commercial SKUs with catalog pricing
+        const diagnosisTrace = brainResult.diagnosis_trace || brainResult.results || [];
+        const enrichedTrace = await Promise.all(
+          diagnosisTrace.map(async (entry: any) => {
+            if (entry.commercial_sku) {
+              const partData = await lookupPartBySku(String(entry.commercial_sku));
+              return { ...entry, catalog_part: partData };
+            }
+            return entry;
+          })
+        );
+
+        return {
+          no_match: false,
+          confidence_tier: brainResult.confidence_tier || brainResult.confidence || 'unknown',
+          diagnosis_trace: enrichedTrace,
+          summary: brainResult.summary || null,
+        };
+      }
       default:
         return { error: `Unknown tool: ${name}` };
     }
