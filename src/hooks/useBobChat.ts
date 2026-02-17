@@ -632,6 +632,7 @@ export const useBobChat = ({
     toggleMute,
     isSpeaking,
     identifiedVehicle,
-    clearVehicle
+    clearVehicle,
+    stopSpeech,
   };
 };

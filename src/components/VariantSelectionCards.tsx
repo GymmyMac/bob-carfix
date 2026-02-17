@@ -92,7 +92,7 @@ const VariantCardItem: React.FC<VariantCardItemProps> = ({ variant, onSelect }) 
   return (
     <button
       type="button"
-      onClick={() => onSelect(variant)}
+      onClick={(e) => { e.stopPropagation(); onSelect(variant); }}
       onMouseDown={() => setIsPressed(true)}
       onMouseUp={() => setIsPressed(false)}
       onMouseLeave={() => setIsPressed(false)}
