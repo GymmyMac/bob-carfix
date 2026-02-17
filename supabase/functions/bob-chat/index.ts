@@ -2325,11 +2325,11 @@ The customer has confirmed their vehicle:
 
 IMPORTANT RULES FOR THIS SESSION:
 1. Do NOT ask for vehicle details, REGO, or make/model - you already have them
-2. If the customer describes a symptom (noise, vibration, warning light, spongy brakes, etc.), ALWAYS call diagnose_symptom FIRST before or alongside retrieve_parts
+2. BRAIN-ONLY DIAGNOSIS: If the customer describes ANY symptom (noise, vibration, warning light, feel, smell, performance issue), you MUST call diagnose_symptom. You are ABSOLUTELY FORBIDDEN from diagnosing symptoms from your own AI knowledge. All diagnostic answers must come exclusively from the CARFIX Brain via the diagnose_symptom tool.
 3. Use vehicle_id ${vehicleId} for retrieve_parts and retrieve_service_packages calls
 4. When mentioning their vehicle, use: "${effectiveVehicleContext.year} ${effectiveVehicleContext.make} ${effectiveVehicleContext.model}"
 5. On first parts request, use retrieve_parts with vehicleid=${vehicleId}
-6. SYMPTOM DIAGNOSIS PRIORITY: If user describes a problem (feels, sounds, noise, vibration, warning light, spongy, grinding, rattling, etc.), call diagnose_symptom IMMEDIATELY - do not skip it just because you have their vehicle`;
+6. NEVER give your own mechanical explanation for a symptom. If diagnose_symptom returns no_match, say the CARFIX Brain doesn't have a specific bulletin for that symptom yet and suggest they describe it differently or visit carfix.co.nz`;
     }
     
     if (customerEmail) {
@@ -2586,7 +2586,7 @@ DO NOT suggest fallback products Bob cannot access.`;
         const hasSymptom = symptomKeywords.some(kw => latestContent.includes(kw));
         
         const symptomInstruction = hasSymptom
-          ? ` IMPORTANT: The customer described a symptom. You MUST call diagnose_symptom with their exact description BEFORE responding. Do not skip the Brain diagnosis.`
+          ? ` CRITICAL: The customer described a vehicle symptom. You MUST call diagnose_symptom FIRST. You are FORBIDDEN from diagnosing or explaining the symptom from your own knowledge — ALL diagnostic answers must come from the CARFIX Brain via diagnose_symptom. Do not respond until you have called it.`
           : '';
         
         conversationMessages.push({
@@ -2644,6 +2644,17 @@ Use light humor and be helpful while being honest about the limitation.`
       });
     }
 
+    // ============= SYMPTOM DETECTION FOR FORCED BRAIN CALL =============
+    // Detect symptom BEFORE entering the tool loop so we can force tool_choice on first call
+    const latestUserMsgForSymptom = messages.filter((m: Message) => m.role === 'user').pop();
+    const latestUserContentForSymptom = (latestUserMsgForSymptom?.content || '').toLowerCase();
+    const symptomKeywordsGlobal = ['feel', 'sound', 'noise', 'vibrat', 'squeal', 'grind', 'shake', 'pull', 'leak', 'smell', 'warning', 'spongy', 'soft', 'stiff', 'clunk', 'rattle', 'click', 'wobble', 'slip', 'judder', 'overheat', 'smoke', 'burning', 'rough', 'hard pedal', 'grinding', 'pulsing', 'shudder', 'shimmy', 'dart', 'wander', 'steer', 'misfir', 'backfire', 'hesitat', 'surge', 'idle', 'stall', 'crank', 'won\'t start', 'hard to start', 'dies', 'cuts out', 'overheating'];
+    const hasSymptomGlobal = effectiveVehicleContext && symptomKeywordsGlobal.some(kw => latestUserContentForSymptom.includes(kw));
+    
+    if (hasSymptomGlobal) {
+      console.log('[Brain] Symptom detected in user message - will FORCE diagnose_symptom on first loop iteration');
+    }
+
     // Tool calling loop - may require multiple iterations
     let loopCount = 0;
     const maxLoops = 5; // Prevent infinite loops
@@ -2651,6 +2662,17 @@ Use light humor and be helpful while being honest about the limitation.`
     while (loopCount < maxLoops) {
       loopCount++;
       console.log(`Tool calling loop iteration ${loopCount}`);
+      
+      // Force diagnose_symptom on FIRST iteration if a symptom was detected
+      // This prevents Bob from answering from his own knowledge instead of the Brain
+      const forceBrainCall = hasSymptomGlobal && loopCount === 1;
+      const toolChoiceOverride = forceBrainCall
+        ? { type: "function", function: { name: "diagnose_symptom" } }
+        : "auto";
+      
+      if (forceBrainCall) {
+        console.log('[Brain] FORCING tool_choice=diagnose_symptom to prevent AI self-answer');
+      }
       
       // Make non-streaming request to check for tool calls
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -2663,6 +2685,7 @@ Use light humor and be helpful while being honest about the limitation.`
           model: "google/gemini-2.5-flash",
           messages: conversationMessages,
           tools: tools,
+          tool_choice: toolChoiceOverride,
           stream: false,
         }),
       });
