@@ -317,16 +317,24 @@ export const useSpeechSynthesis = ({
     }
   }, [speak]);
 
-  const stop = useCallback(() => {
+  const stop = useCallback((suppressCallbacks = false) => {
     clearTtsTimeout();
     speechQueueRef.current = [];
     isProcessingRef.current = false;
     
     if (audioRef.current) {
+      // Remove event listeners before pausing to prevent onended firing
+      audioRef.current.onended = null;
+      audioRef.current.onerror = null;
       audioRef.current.pause();
       audioRef.current = null;
     }
     setIsSpeaking(false);
+    
+    // Fire onEnd so animation state machine knows speech stopped
+    if (!suppressCallbacks) {
+      onEndRef.current?.();
+    }
   }, [clearTtsTimeout]);
 
   const pause = useCallback(() => {
