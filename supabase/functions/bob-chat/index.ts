@@ -2325,10 +2325,11 @@ The customer has confirmed their vehicle:
 
 IMPORTANT RULES FOR THIS SESSION:
 1. Do NOT ask for vehicle details, REGO, or make/model - you already have them
-2. Skip straight to helping them find parts
+2. If the customer describes a symptom (noise, vibration, warning light, spongy brakes, etc.), ALWAYS call diagnose_symptom FIRST before or alongside retrieve_parts
 3. Use vehicle_id ${vehicleId} for retrieve_parts and retrieve_service_packages calls
 4. When mentioning their vehicle, use: "${effectiveVehicleContext.year} ${effectiveVehicleContext.make} ${effectiveVehicleContext.model}"
-5. On first parts request, use retrieve_parts with vehicleid=${vehicleId}`;
+5. On first parts request, use retrieve_parts with vehicleid=${vehicleId}
+6. SYMPTOM DIAGNOSIS PRIORITY: If user describes a problem (feels, sounds, noise, vibration, warning light, spongy, grinding, rattling, etc.), call diagnose_symptom IMMEDIATELY - do not skip it just because you have their vehicle`;
     }
     
     if (customerEmail) {
@@ -2578,9 +2579,19 @@ DO NOT suggest fallback products Bob cannot access.`;
           content: `${baseConfirmation}${fetchErrorContext}\n\nCRITICAL: DO NOT say "here are your parts" or imply products are loading if the fetch failed. Acknowledge the issue honestly and offer help.`
         });
       } else {
+        // Check if the user's latest message sounds like a symptom description
+        const latestUserMsg = messages.filter((m: Message) => m.role === 'user').pop();
+        const latestContent = (latestUserMsg?.content || '').toLowerCase();
+        const symptomKeywords = ['feel', 'sound', 'noise', 'vibrat', 'squeal', 'grind', 'shake', 'pull', 'leak', 'smell', 'light', 'warning', 'spongy', 'soft', 'hard', 'stiff', 'rough', 'rough', 'clunk', 'rattle', 'click', 'wobble', 'slip', 'judder', 'overheat', 'smoke', 'burning'];
+        const hasSymptom = symptomKeywords.some(kw => latestContent.includes(kw));
+        
+        const symptomInstruction = hasSymptom
+          ? ` IMPORTANT: The customer described a symptom. You MUST call diagnose_symptom with their exact description BEFORE responding. Do not skip the Brain diagnosis.`
+          : '';
+        
         conversationMessages.push({
           role: "system",
-          content: `${baseConfirmation} Parts and service packages are already loading on their shelf. Confirm the selection and help them find what they need.`
+          content: `${baseConfirmation} Parts and service packages are already loading on their shelf. Confirm the selection and help them find what they need.${symptomInstruction}`
         });
       }
     } else if (noTecDocMatch && forcedSingleVehicle) {
