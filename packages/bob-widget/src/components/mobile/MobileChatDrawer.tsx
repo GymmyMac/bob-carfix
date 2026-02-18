@@ -21,6 +21,8 @@ interface MobileChatDrawerProps {
   isSpeaking?: boolean;
   onAddToCart?: (product: Product) => void;
   onProductClick?: (product: Product) => void;
+  /** Called when a quick-reply CTA button is tapped — fires onNavigate(url), no chat message sent */
+  onQuickReply?: (url: string) => void;
   /** Counter height as percentage of container - chat positions above this */
   counterHeightPercent?: number;
 }
@@ -40,6 +42,7 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
   isSpeaking = false,
   onAddToCart,
   onProductClick,
+  onQuickReply,
   counterHeightPercent = 22
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -263,6 +266,37 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
                     onAddToCart={onAddToCart}
                     onProductClick={onProductClick}
                   />
+                )}
+
+                {/* Quick-Reply Navigation Buttons — tap calls onQuickReply(url), no chat message sent */}
+                {msg.role === "assistant" && msg.quickReplies && msg.quickReplies.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
+                    {msg.quickReplies.map((qr, i) => (
+                      <button
+                        key={i}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onQuickReply?.(qr.url);
+                        }}
+                        style={{
+                          padding: '6px 14px',
+                          borderRadius: '20px',
+                          border: '1px solid rgba(0,102,204,0.6)',
+                          background: 'rgba(0,102,204,0.15)',
+                          color: 'white',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          backdropFilter: 'blur(8px)',
+                          WebkitBackdropFilter: 'blur(8px)',
+                          minHeight: 'unset',
+                          minWidth: 'unset',
+                        }}
+                      >
+                        {qr.label}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>

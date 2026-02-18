@@ -27,7 +27,7 @@
  * ```
  */
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useImperativeHandle } from 'react';
 import { BobProvider } from '../BobProvider';
 import { Bob } from './Bob';
 import { BobDebugOverlay } from './BobDebugOverlay';
@@ -118,12 +118,30 @@ const ErrorState: React.FC<{ error: Error; partner: string }> = ({ error, partne
 );
 
 /**
+ * Imperative handle exposed via ref on BobStandalone.
+ * Allows hosts to programmatically stop speech, e.g. when navigating away.
+ *
+ * @example
+ * ```tsx
+ * const bobRef = useRef<BobStandaloneHandle>(null);
+ * bobRef.current?.stopSpeech();
+ * <BobStandalone ref={bobRef} partner="CARFIX" ... />
+ * ```
+ */
+export interface BobStandaloneHandle {
+  /** Stop any active speech (TTS or canned audio) immediately */
+  stopSpeech: () => void;
+  /** Alias for stopSpeech - interrupts Bob mid-sentence */
+  interrupt: () => void;
+}
+
+/**
  * BobStandalone - Simplified partner integration component
  * 
  * Reduces integration from 30+ lines to just 4 lines of code.
  * All configuration is auto-loaded from the bob_partners database table.
  */
-export const BobStandalone: React.FC<StandaloneWidgetProps> = ({
+export const BobStandalone = React.forwardRef<BobStandaloneHandle, StandaloneWidgetProps>(({
   partner,
   sessionToken,
   bottomOffset: propsBottomOffset,
@@ -136,7 +154,15 @@ export const BobStandalone: React.FC<StandaloneWidgetProps> = ({
   onError,
   debug = false,
   className = '',
-}) => {
+}, ref) => {
+  // Capture stopSpeech from useBobChat so we can expose it imperatively via ref
+  const stopSpeechRef = useRef<(() => void) | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    stopSpeech: () => stopSpeechRef.current?.(),
+    interrupt: () => stopSpeechRef.current?.(),
+  }));
+
   // Auto-load partner configuration
   const { config, isLoading, error, supabaseClient } = usePartnerConfig(partner);
 
@@ -158,12 +184,19 @@ export const BobStandalone: React.FC<StandaloneWidgetProps> = ({
     onError,
     onNavigateToProductPage: onNavigate 
       ? (product: unknown) => {
-          const p = product as { sku?: string };
-          if (p?.sku) {
+          const p = product as { sku?: string; url?: string };
+          // Quick-reply navigation passes { url } directly
+          if (p?.url) {
+            onNavigate(p.url);
+          } else if (p?.sku) {
             onNavigate(`/product/${p.sku}`);
           }
         }
       : undefined,
+    // Wire stopSpeech capture so BobStandalone ref can expose it imperatively
+    onStopSpeechReady: (fn) => {
+      stopSpeechRef.current = fn;
+    },
   }), [onAddToCart, onNavigate, onCheckout, onError]);
 
   // Build host context from session token if provided
@@ -230,6 +263,6 @@ export const BobStandalone: React.FC<StandaloneWidgetProps> = ({
       </BobProvider>
     </div>
   );
-};
+});
 
 export default BobStandalone;

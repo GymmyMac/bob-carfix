@@ -363,6 +363,13 @@ export const useBobChat = ({
     }
   });
 
+  // Expose stopSpeech to host via BobCallbacks.onStopSpeechReady
+  // Called once on mount so BobStandalone can capture the fn and expose it via ref
+  useEffect(() => {
+    callbacks.onStopSpeechReady?.(stopSpeech);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Auto-scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -747,6 +754,30 @@ export const useBobChat = ({
               callbacks.onPartsFound?.([]);
               callbacks.onServicePackagesFound?.([]);
               onNoPartsFound?.();
+              continue;
+            }
+
+            // Handle navigate_url - stop speech and fire host navigation callback immediately
+            if (parsed.type === "navigate_url" && parsed.url) {
+              console.log('[useBobChat] navigate_url event:', parsed.url);
+              stopSpeech();
+              callbacks.onNavigateToProductPage?.({ sku: parsed.sku, url: parsed.url } as any);
+              continue;
+            }
+
+            // Handle quick_replies - attach navigation CTA buttons to the last assistant message
+            if (parsed.type === "quick_replies" && Array.isArray(parsed.replies)) {
+              console.log('[useBobChat] quick_replies event:', parsed.replies.length, 'buttons');
+              setMessages(prev => {
+                const updated = [...prev];
+                const lastIdx = updated.length - 1;
+                if (updated[lastIdx]?.role === "assistant") {
+                  return updated.map((m, i) =>
+                    i === lastIdx ? { ...m, quickReplies: parsed.replies } : m
+                  );
+                }
+                return updated;
+              });
               continue;
             }
             
