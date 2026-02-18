@@ -1086,5 +1086,6 @@ export const useBobChat = ({
     identifiedVehicle,
     clearVehicle,
     sendDirectMessage,
+    stopAllAudio,
   };
 };

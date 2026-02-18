@@ -25,6 +25,8 @@ interface MobileChatDrawerProps {
   onQuickReply?: (url: string) => void;
   /** Counter height as percentage of container - chat positions above this */
   counterHeightPercent?: number;
+  /** Called when PTT is tapped while Bob is speaking — immediately stops audio */
+  onInterrupt?: () => void;
 }
 
 export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
@@ -43,6 +45,7 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
   onAddToCart,
   onProductClick,
   onQuickReply,
+  onInterrupt,
   counterHeightPercent = 22
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -71,15 +74,26 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
     }
   }, [interimTranscript, setInput]);
 
+  // 4-state derivation: isSpeaking > isLoading > isListening > idle
+  const pttState: 'speaking' | 'processing' | 'listening' | 'idle' = 
+    isSpeaking ? 'speaking' : isLoading ? 'processing' : isListening ? 'listening' : 'idle';
+
   const handlePTTStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
     e.preventDefault();
+
+    // INTERRUPT: If Bob is speaking, stop audio and return to idle
+    if (pttState === 'speaking') {
+      onInterrupt?.();
+      return;
+    }
+
     if (isLoading || pttActiveRef.current) return;
     pttActiveRef.current = true;
     if (navigator.vibrate) {
       navigator.vibrate(30);
     }
     startListening();
-  }, [isLoading, startListening]);
+  }, [pttState, isLoading, startListening, onInterrupt]);
 
   const handlePTTEnd = useCallback(() => {
     if (!pttActiveRef.current) return;
@@ -135,9 +149,6 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
     }
   };
 
-  // 4-state derivation: isSpeaking > isLoading > isListening > idle
-  const pttState: 'speaking' | 'processing' | 'listening' | 'idle' = 
-    isSpeaking ? 'speaking' : isLoading ? 'processing' : isListening ? 'listening' : 'idle';
 
   const talkStyleMap = {
     idle: talkButtonStyles.idle,
@@ -389,7 +400,7 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
               textTransform: 'uppercase',
               fontFamily: 'system-ui, -apple-system, sans-serif',
             }}>
-              {pttState === 'listening' ? 'LISTENING' : pttState === 'processing' ? 'THINKING' : pttState === 'speaking' ? 'PLAYING' : 'TALK'}
+              {pttState === 'listening' ? 'LISTENING' : pttState === 'processing' ? 'THINKING' : pttState === 'speaking' ? 'TAP TO STOP' : 'TALK'}
             </span>
           </button>
         </div>
