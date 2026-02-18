@@ -44,6 +44,8 @@ interface MobileBobLayoutProps {
   onNavigateToProductPage?: (product: Product) => void;
   /** Called when a quick-reply CTA button is tapped — fires onNavigate(url), no chat message sent */
   onQuickReply?: (url: string) => void;
+  /** Called when PTT is tapped while Bob is speaking — immediately stops audio */
+  onInterrupt?: () => void;
   
   // Vehicle
   vehicle?: Vehicle | null;
@@ -93,6 +95,7 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
   onPackageSelect,
   isResearching,
   onQuickReply,
+  onInterrupt,
   vehicle,
   onChangeVehicle,
   pendingVariants,
@@ -245,6 +248,7 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
         onAddToCart={onProductClick}
         onProductClick={onProductClick}
         onQuickReply={onQuickReply}
+        onInterrupt={onInterrupt}
         counterHeightPercent={counterHeightPercent}
       />
     </div>

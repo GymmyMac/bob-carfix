@@ -21,6 +21,8 @@ interface ContainedChatDrawerProps {
   onQuickReply?: (url: string) => void;
   /** Counter height as percentage of container - chat positions above this */
   counterHeightPercent?: number;
+  /** Called when PTT is tapped while Bob is speaking — immediately stops audio */
+  onInterrupt?: () => void;
 }
 
 /**
@@ -41,6 +43,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
   onToggleMute,
   isSpeaking = false,
   onQuickReply,
+  onInterrupt,
   counterHeightPercent = 22
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -69,15 +72,26 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
     }
   }, [interimTranscript, setInput]);
 
+  // 4-state derivation: isSpeaking > isLoading > isListening > idle
+  const pttState: 'speaking' | 'processing' | 'listening' | 'idle' = 
+    isSpeaking ? 'speaking' : isLoading ? 'processing' : isListening ? 'listening' : 'idle';
+
   const handlePTTStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
     e.preventDefault();
+
+    // INTERRUPT: If Bob is speaking, stop audio and return to idle
+    if (pttState === 'speaking') {
+      onInterrupt?.();
+      return;
+    }
+
     if (isLoading || pttActiveRef.current) return;
     pttActiveRef.current = true;
     if (navigator.vibrate) {
       navigator.vibrate(30);
     }
     startListening();
-  }, [isLoading, startListening]);
+  }, [pttState, isLoading, startListening, onInterrupt]);
 
   const handlePTTEnd = useCallback(() => {
     if (!pttActiveRef.current) return;
@@ -127,9 +141,6 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
     }
   };
 
-  // 4-state derivation: isSpeaking > isLoading > isListening > idle
-  const pttState: 'speaking' | 'processing' | 'listening' | 'idle' = 
-    isSpeaking ? 'speaking' : isLoading ? 'processing' : isListening ? 'listening' : 'idle';
 
   const pttStyleMap = {
     idle: pttButtonStyles.idle,

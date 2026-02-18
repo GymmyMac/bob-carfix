@@ -284,6 +284,7 @@ export const Bob: React.FC<BobProps> = ({
         pendingVariantMake={pendingVariantMake}
         pendingVariantModel={pendingVariantModel}
         onVariantSelect={handleVariantSelect}
+        onInterrupt={bobChat.stopAllAudio}
       />
     );
   }
@@ -333,6 +334,7 @@ export const Bob: React.FC<BobProps> = ({
           pendingVariantMake={pendingVariantMake}
           pendingVariantModel={pendingVariantModel}
           onVariantSelect={handleVariantSelect}
+          onInterrupt={bobChat.stopAllAudio}
         />
       </div>
     );
