@@ -165,6 +165,11 @@ export interface BobCallbacks {
   onError?: (error: Error) => void;
   /** Called for every trackable event - for server-side analytics */
   onAnalyticsEvent?: (event: BobAnalyticsEvent) => void;
+  /**
+   * Called once when the internal stopSpeech function is ready.
+   * Capture it to expose imperative speech control to the host (e.g. via BobStandaloneHandle).
+   */
+  onStopSpeechReady?: (fn: () => void) => void;
 }
 
 /**

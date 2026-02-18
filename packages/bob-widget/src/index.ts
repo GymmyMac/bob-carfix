@@ -38,6 +38,7 @@ export type { BobWidgetProps } from './components/BobWidget';
 
 // v3.1.0 Standalone widget (simplest integration - auto-configures from database)
 export { BobStandalone } from './components/BobStandalone';
+export type { BobStandaloneHandle } from './components/BobStandalone';
 export type { StandaloneWidgetProps } from './types/partner';
 
 // Partner configuration hook (for advanced integrations)
@@ -131,6 +132,7 @@ export type {
 export type {
   Message,
   HighlightedProduct,
+  QuickReply,
 } from './types/message';
 
 export type {
