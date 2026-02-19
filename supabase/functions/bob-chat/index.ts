@@ -1706,7 +1706,7 @@ const CARFIX_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 async function diagnoseBrainSymptom(userQuery: string): Promise<unknown> {
   console.log('[Brain] Diagnosing symptom:', userQuery);
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout (query-brain needs to embed via OpenAI first)
 
   try {
     const response = await fetch(`${CARFIX_BRAIN_BASE}/query-brain`, {
@@ -1733,7 +1733,7 @@ async function diagnoseBrainSymptom(userQuery: string): Promise<unknown> {
   } catch (error) {
     clearTimeout(timeoutId);
     const isTimeout = error instanceof Error && error.name === 'AbortError';
-    console.error('[Brain] Error:', isTimeout ? 'Timeout after 10s' : error);
+    console.error('[Brain] Error:', isTimeout ? 'Timeout after 30s' : error);
     return { error: isTimeout ? 'Brain diagnosis timed out' : 'Brain diagnosis failed', no_match: true };
   }
 }
