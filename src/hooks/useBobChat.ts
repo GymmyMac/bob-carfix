@@ -486,6 +486,13 @@ export const useBobChat = ({
               onHighlightPart?.(parsed.partType);
               continue;
             }
+
+            // Brain diagnostic category highlight (emitted by diagnose_symptom tool)
+            if (parsed.type === "highlight_category" && parsed.category) {
+              console.log('[useBobChat] highlight_category event:', parsed.category);
+              onHighlightPart?.(parsed.category);
+              continue;
+            }
             
             if (parsed.type === "highlight_product" && parsed.product) {
               onHighlightProduct?.(parsed.product);
