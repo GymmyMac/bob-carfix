@@ -1,142 +1,227 @@
 
-# Add Interrupt to the PTT Button
+# Brain Diagnostic → Shelf Scroll with Physics Commentary
 
-## What "interrupt" means in this context
+## What CARFIX has changed
 
-When Bob is mid-speech (`pttState === 'speaking'`), the user should be able to tap/press the PTT button to **immediately stop all audio and return to idle**, ready to listen for the next input. Right now the button is fully functional during `speaking` state (it is not `disabled`), but pressing it just starts STT listening on top of Bob still talking — it does not stop the audio.
+The `query-brain` API now returns two new fields in each `diagnosis_trace` entry:
 
-The fix is a single behaviour change: **when `pttState === 'speaking'`, a tap of PTT interrupts Bob's speech first, then starts listening (or just interrupts if the user wants to speak next).**
+- `partslot_id` (integer | null) — identifies the matched product category
+- `partslot_description` (string | null) — exact category string, e.g. `"BRAKE FLUID"`
 
----
-
-## Current state audit
-
-| Layer | Location | Relevant code |
-|---|---|---|
-| Speech control | `useSpeechSynthesis.ts` | `stop()` pauses `audioRef`, clears queue, calls `onEnd` |
-| Stop wired to Bob | `useBobChat.ts` | `stopAllAudio()` calls `stopSpeech()` (the `stop` fn from synthesis) |
-| `isSpeaking` exposed | `Bob.tsx` | `bobChat.isSpeaking` → passed as `isSpeaking` prop down to `MobileChatDrawer` |
-| PTT state machine | `MobileChatDrawer.tsx` | `pttState = isSpeaking ? 'speaking' : isLoading ? 'processing' : isListening ? 'listening' : 'idle'` |
-| PTT start handler | `MobileChatDrawer.tsx` | `handlePTTStart` — currently **does nothing extra when speaking** |
-| Stop callback | `MobileChatDrawer.tsx` | **No `onInterrupt` / `onStopSpeech` prop exists** — the drawer cannot stop Bob |
-
-The gap: `MobileChatDrawer` knows Bob is speaking (`isSpeaking = true`) but has no way to tell `useBobChat` / `useSpeechSynthesis` to stop. It needs an `onInterrupt` callback prop.
+`commercial_sku` is now always `null`. The `partslot_description` is the primary discovery mechanism — it maps directly to the `category` parameter of the `retrieve-parts` API.
 
 ---
 
-## The Fix — 3 targeted changes
+## What needs to change and where
 
-### Change 1 — Add `onInterrupt` prop to `MobileChatDrawer`
+The work is entirely in the `bob-chat` edge function. The widget frontend already has all the plumbing needed — `onHighlightPart` scrolls the shelf and `parts_found` populates products. We just need the edge function to use the new Brain fields correctly after a `diagnose_symptom` call.
 
-**File:** `packages/bob-widget/src/components/mobile/MobileChatDrawer.tsx`
+### Current flow (broken for this use case)
 
-Add one new optional prop:
-```ts
-onInterrupt?: () => void;
+```text
+User: "my brake pedal feels spongy"
+→ diagnose_symptom forced (symptom detected)
+→ Brain returns diagnosis_trace[0].partslot_description = "BRAKE FLUID"
+→ Current code: only enriches commercial_sku (which is now null — no-op)
+→ AI writes physics commentary
+→ No retrieve-parts call triggered
+→ Shelf does not scroll
 ```
 
-Modify `handlePTTStart` to check `pttState` before doing anything:
+### Target flow (after fix)
 
-```ts
-const handlePTTStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
-  e.preventDefault();
+```text
+User: "my brake pedal feels spongy"
+→ diagnose_symptom forced
+→ Brain returns partslot_description = "BRAKE FLUID", partslot_id = 3803
+→ Edge function: extracts partslot_description, calls retrieve-parts with category
+→ Parts result stored in _partsToEmit
+→ highlight_category SSE event emitted with partslot_description
+→ AI writes physics commentary (physics_title + physics_logic)
+→ Stream opens: parts_found event fires → shelf populates with BRAKE FLUID products
+→ highlight_category event fires → shelf auto-scrolls to BRAKE FLUID section
+→ Customer sees relevant vehicle-specific products without leaving Bob
+```
 
-  // INTERRUPT: If Bob is speaking, stop audio and return to idle
-  if (pttState === 'speaking') {
-    onInterrupt?.();
-    return; // Don't start listening immediately — let user tap again to speak
+---
+
+## Files to change
+
+Only **one file** requires modification: `supabase/functions/bob-chat/index.ts`
+
+---
+
+## Detailed changes to `bob-chat/index.ts`
+
+### Change 1 — After diagnose_symptom result, call retrieve-parts using partslot_description
+
+**Location:** inside `case "diagnose_symptom":` in `executeToolCall` (lines ~1836–1863)
+
+Currently, after getting `enrichedTrace`, the function only enriches `commercial_sku`. We need to add: for each entry with a `partslot_description`, call `retrieveParts(vehicleId, apiConfig, partslot_description)` using it as the `category` filter — but only if a valid `vehicleId` is available from the current session context.
+
+The cleanest pattern (matching how other tools work) is: store the `partslot_description` on the conversation messages object (like `_partsToEmit`), then have the calling code handle the fetch. But since `executeToolCall` doesn't have direct access to vehicle context, the better approach is to **return the partslot_description in the tool result** so the outer tool loop can act on it.
+
+Specifically:
+
+```typescript
+case "diagnose_symptom": {
+  const brainResult = await diagnoseBrainSymptom(args.user_query) as any;
+
+  if (brainResult.no_match || brainResult.error) {
+    return { no_match: true, message: brainResult.error || 'No matching diagnosis found' };
   }
 
-  if (isLoading || pttActiveRef.current) return;
-  pttActiveRef.current = true;
-  if (navigator.vibrate) navigator.vibrate(30);
-  startListening();
-}, [pttState, isLoading, startListening, onInterrupt]);
-```
+  const diagnosisTrace = brainResult.diagnosis_trace || brainResult.results || [];
+  const enrichedTrace = await Promise.all(
+    diagnosisTrace.map(async (entry: any) => {
+      if (entry.commercial_sku) {
+        const partData = await lookupPartBySku(String(entry.commercial_sku));
+        return { ...entry, catalog_part: partData };
+      }
+      return entry;
+    })
+  );
 
-Also update the button label when speaking to make the interrupt affordance obvious:
+  // NEW: Extract the first partslot_description for vehicle-specific parts lookup
+  const firstMatch = enrichedTrace.find((e: any) => e.partslot_description);
+  const partslotDescription = firstMatch?.partslot_description || null;
+  const partslotId = firstMatch?.partslot_id || null;
 
-```tsx
-// Current:
-{pttState === 'speaking' ? 'PLAYING' : ...}
-
-// New:
-{pttState === 'speaking' ? 'TAP TO STOP' : pttState === 'listening' ? 'LISTENING' : pttState === 'processing' ? 'THINKING' : 'TALK'}
-```
-
-And remove the `disabled` restriction that only blocks `processing` — the `speaking` state should be tappable (currently it is, but make it explicit):
-```ts
-disabled={pttState === 'processing'} // no change needed, already correct
-```
-
-### Change 2 — Thread `onInterrupt` from `MobileBobLayout` → `MobileChatDrawer`
-
-**File:** `packages/bob-widget/src/components/mobile/MobileBobLayout.tsx`
-
-Add prop to interface and pass down:
-```ts
-interface MobileBobLayoutProps {
-  // ... existing props
-  onInterrupt?: () => void;
+  return {
+    no_match: false,
+    confidence_tier: brainResult.confidence_tier || brainResult.confidence || 'unknown',
+    diagnosis_trace: enrichedTrace,
+    summary: brainResult.summary || null,
+    // NEW: Pass back to caller so outer loop can fetch vehicle-specific parts
+    _partslot_description: partslotDescription,
+    _partslot_id: partslotId,
+  };
 }
 ```
 
-Pass through to `MobileChatDrawer`:
-```tsx
-<MobileChatDrawer
-  ...
-  onInterrupt={onInterrupt}
-/>
+### Change 2 — In the outer tool loop, when diagnose_symptom returns a partslot_description, fetch filtered parts
+
+**Location:** after `const result = await executeToolCall(toolCall, apiConfig)` inside the `for (const toolCall of assistantMessage.tool_calls)` loop (around lines ~2779–2892)
+
+Add a new block after the existing `retrieve_parts` result handler:
+
+```typescript
+// ============= BRAIN DIAGNOSIS PARTS FETCH =============
+// When Brain returns a partslot_description, fetch vehicle-specific parts filtered to that category
+if (toolCall.function.name === "diagnose_symptom") {
+  const diagResult = result as any;
+  const partslotDesc = diagResult._partslot_description;
+  const vehicleIdForParts = effectiveVehicleContext?.vehicle_id || effectiveVehicleContext?.id;
+
+  if (partslotDesc && vehicleIdForParts) {
+    console.log(`[Brain→Parts] Fetching parts for category "${partslotDesc}", vehicle ${vehicleIdForParts}`);
+
+    const filteredParts = await retrieveParts(vehicleIdForParts, apiConfig, partslotDesc);
+
+    if (filteredParts.success && filteredParts.parts.length > 0) {
+      console.log(`[Brain→Parts] Fetched ${filteredParts.parts.length} parts for "${partslotDesc}"`);
+      // Store for emission (merges with any existing parts)
+      const existing = (conversationMessages as any)._partsToEmit || [];
+      (conversationMessages as any)._partsToEmit = existing.length > 0 ? existing : filteredParts.parts;
+
+      // Store the category for shelf-scroll highlight event
+      (conversationMessages as any)._diagnosisHighlightCategory = partslotDesc;
+    } else {
+      console.log(`[Brain→Parts] No parts found for "${partslotDesc}" — shelf will retain existing state`);
+    }
+  } else if (partslotDesc && !vehicleIdForParts) {
+    console.log(`[Brain→Parts] Has partslot_description but no confirmed vehicle — skipping parts fetch`);
+  }
+}
 ```
 
-### Change 3 — Wire `onInterrupt` in `Bob.tsx`
+**Key design note:** We use `existing.length > 0 ? existing : filteredParts.parts` so that if the full 500-part catalog is already loaded (from the initial auto-fetch), we don't overwrite it with a smaller filtered set. The highlight/scroll handles the UX of pointing the user to the right section.
 
-**File:** `packages/bob-widget/src/components/Bob.tsx`
+### Change 3 — Emit a `highlight_category` SSE event before the AI stream
 
-The `bobChat` hook already exposes `stopAllAudio` internally, but it is not returned from `useBobChat`. We need to expose it.
+**Location:** in the `transformedStream` `start(controller)` function, after the `parts_found` emission block (~line 3200)
 
-**Sub-change 3a — Expose `stopAllAudio` from `useBobChat`:**
+Add:
 
-In `packages/bob-widget/src/hooks/useBobChat.ts`, add `stopAllAudio` to the return object:
-```ts
-return {
-  // ... existing returns
-  stopAllAudio,
-};
+```typescript
+// ============= BRAIN DIAGNOSIS HIGHLIGHT EVENT =============
+// When Brain diagnosed a specific part category, emit a highlight event
+// so the frontend can auto-scroll to that category on the shelf
+const diagnosisHighlightCategory = (conversationMessages as any)._diagnosisHighlightCategory;
+if (diagnosisHighlightCategory) {
+  const highlightEvent = `data: ${JSON.stringify({
+    type: "highlight_category",
+    category: diagnosisHighlightCategory,
+  })}\n\n`;
+  controller.enqueue(encoder.encode(highlightEvent));
+  console.log(`[Stream] Emitted highlight_category: "${diagnosisHighlightCategory}"`);
+}
 ```
 
-**Sub-change 3b — Wire in `Bob.tsx`:**
+### Change 4 — Handle `highlight_category` SSE event in `useBobChat.ts`
 
-```tsx
-// Mobile variant
-<MobileBobLayout
-  ...
-  onInterrupt={bobChat.stopAllAudio}
-/>
+**Location:** in the SSE stream parser in `streamChat`, alongside the other `parsed.type` handlers
 
-// Inline/contained variant  
-<ContainedMobileBobLayout
-  ...
-  onInterrupt={bobChat.stopAllAudio}
-/>
+```typescript
+// Handle Brain diagnostic category highlight — scroll shelf to matched category
+if (parsed.type === "highlight_category" && parsed.category) {
+  console.log('[useBobChat] highlight_category event:', parsed.category);
+  onHighlightPart?.(parsed.category);
+  continue;
+}
 ```
 
-**Sub-change 3c — Thread through `ContainedMobileBobLayout` → `ContainedChatDrawer`:**
-
-Same pattern as `MobileBobLayout`: add `onInterrupt` prop to `ContainedMobileBobLayout` interface and pass it into `ContainedChatDrawer`.
+This uses the existing `onHighlightPart` callback, which in `Bob.tsx` calls `setHighlightedPartType(partType)` (with 8-second auto-clear), and in `MobileProductColumn.tsx` triggers a `scrollIntoView` on the matching category section. **No new frontend plumbing needed.**
 
 ---
 
-## UX behaviour after the fix
+## Data flow diagram
 
-| User action | Before | After |
-|---|---|---|
-| Tap PTT while Bob is idle | Start listening | Start listening (unchanged) |
-| Tap PTT while Bob is speaking | Start listening ON TOP of Bob's audio | Immediately stop Bob's audio → return to idle. Next tap starts listening. |
-| Tap PTT while Bob is processing/thinking | Blocked (disabled) | Blocked (unchanged) |
-| Button label when speaking | "PLAYING" | "TAP TO STOP" |
+```text
+User: "spongy pedal"
+        │
+        ▼ (symptom keyword detected → forced tool call)
+  diagnose_symptom("spongy pedal")
+        │
+        ▼ query-brain API
+  { partslot_description: "BRAKE FLUID", partslot_id: 3803,
+    physics_title: "Vapour Lock", physics_logic: "..." }
+        │
+        ▼ (Change 1 — return _partslot_description in result)
+  outer tool loop receives result with _partslot_description
+        │
+        ▼ (Change 2 — fetch filtered parts)
+  retrieveParts(vehicleId, apiConfig, "BRAKE FLUID")
+  → stores parts in _partsToEmit
+  → stores "BRAKE FLUID" in _diagnosisHighlightCategory
+        │
+        ▼ SSE stream opens
+  [parts_found]          → shelf renders BRAKE FLUID products
+  [highlight_category]   → shelf auto-scrolls to BRAKE FLUID section
+  [AI text stream]       → Bob explains Vapour Lock physics
+```
 
-The "tap once to stop, tap again to speak" two-step feels more intentional and prevents the jarring experience of the mic opening while Bob is still talking.
+---
+
+## Edge cases and guard rails
+
+| Scenario | Behaviour |
+|---|---|
+| Brain returns `no_match: true` | No parts fetch, no highlight, AI falls back gracefully |
+| Brain has `partslot_description` but vehicle not confirmed | No parts fetch (guard: `vehicleIdForParts` check), highlight skipped |
+| Full catalog already in `_partsToEmit` (500 parts) | Existing catalog preserved, only highlight emitted — no overwrite |
+| `partslot_description` not in parts API (empty result) | No overwrite of existing shelf, no highlight emitted |
+| Multiple entries in `diagnosis_trace` | Only first entry with `partslot_description` used (highest similarity, already sorted by API) |
+
+---
+
+## What does NOT change
+
+- No widget frontend components change (Bob.tsx, MobileProductColumn, MobileBobLayout, etc.)
+- No new SSE event types on the frontend — `highlight_category` reuses the existing `onHighlightPart` path
+- No changes to `useSpeechSynthesis`, animation system, or PTT logic
+- No changes to the test suite (edge function logic is not unit tested in the widget package)
+- The `retrieve-parts` API call uses the exact `partslot_description` string as-is — no transformation needed
 
 ---
 
@@ -144,15 +229,5 @@ The "tap once to stop, tap again to speak" two-step feels more intentional and p
 
 | File | Change |
 |---|---|
-| `packages/bob-widget/src/hooks/useBobChat.ts` | Add `stopAllAudio` to the return object |
-| `packages/bob-widget/src/components/mobile/MobileChatDrawer.tsx` | Add `onInterrupt` prop; modify `handlePTTStart`; update button label |
-| `packages/bob-widget/src/components/mobile/MobileBobLayout.tsx` | Add `onInterrupt` prop; pass to `MobileChatDrawer` |
-| `packages/bob-widget/src/components/mobile/ContainedMobileBobLayout.tsx` | Add `onInterrupt` prop; pass to `ContainedChatDrawer` |
-| `packages/bob-widget/src/components/mobile/ContainedChatDrawer.tsx` | Add `onInterrupt` prop; same `handlePTTStart` logic + label change |
-| `packages/bob-widget/src/components/Bob.tsx` | Pass `bobChat.stopAllAudio` as `onInterrupt` to both layout variants |
-
-## What this does NOT change
-- The `processing` / thinking state remains fully blocked — user cannot interrupt while Bob is fetching from the API mid-stream.
-- No changes to `useSpeechSynthesis` — `stop()` already cleanly handles everything including clearing the queue and firing `onEnd` to reset animation state.
-- No changes to the edge function or any backend code.
-- No changes to the test suite required (the existing PTT tests cover the hook logic; the interrupt behaviour is a UI-layer concern in the drawer).
+| `supabase/functions/bob-chat/index.ts` | 4 targeted additions: (1) return `_partslot_description` from diagnose_symptom case, (2) fetch filtered parts after diagnose_symptom in outer loop, (3) emit `highlight_category` SSE event, (4) — |
+| `packages/bob-widget/src/hooks/useBobChat.ts` | Handle `highlight_category` SSE event → call `onHighlightPart` |
