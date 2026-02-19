@@ -1716,7 +1716,7 @@ async function diagnoseBrainSymptom(userQuery: string): Promise<unknown> {
         'apikey': CARFIX_ANON_KEY,
         'x-partner-key': PARTNER_API_KEY,
       },
-      body: JSON.stringify({ query: userQuery }),
+      body: JSON.stringify({ query: userQuery, match_count: 3 }),
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
