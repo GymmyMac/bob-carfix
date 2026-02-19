@@ -757,6 +757,13 @@ export const useBobChat = ({
               continue;
             }
 
+            // Handle Brain diagnostic category highlight — scroll shelf to matched category
+            if (parsed.type === "highlight_category" && parsed.category) {
+              console.log('[useBobChat] highlight_category event:', parsed.category);
+              onHighlightPart?.(parsed.category);
+              continue;
+            }
+
             // Handle navigate_url - stop speech and fire host navigation callback immediately
             if (parsed.type === "navigate_url" && parsed.url) {
               console.log('[useBobChat] navigate_url event:', parsed.url);

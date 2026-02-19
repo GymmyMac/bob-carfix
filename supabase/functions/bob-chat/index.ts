@@ -1854,11 +1854,19 @@ async function executeToolCall(toolCall: { function: { name: string; arguments: 
           })
         );
 
+        // NEW: Extract the first partslot_description for vehicle-specific parts lookup
+        const firstMatch = enrichedTrace.find((e: any) => e.partslot_description);
+        const partslotDescription = firstMatch?.partslot_description || null;
+        const partslotId = firstMatch?.partslot_id || null;
+
         return {
           no_match: false,
           confidence_tier: brainResult.confidence_tier || brainResult.confidence || 'unknown',
           diagnosis_trace: enrichedTrace,
           summary: brainResult.summary || null,
+          // Pass back to caller so outer loop can fetch vehicle-specific parts
+          _partslot_description: partslotDescription,
+          _partslot_id: partslotId,
         };
       }
       default:
@@ -2883,6 +2891,33 @@ Use light humor and be helpful while being honest about the limitation.`
               (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = displayable;
             }
           }
+
+          // ============= BRAIN DIAGNOSIS PARTS FETCH =============
+          // When Brain returns a partslot_description, fetch vehicle-specific parts filtered to that category
+          if (toolCall.function.name === "diagnose_symptom") {
+            const diagResult = result as any;
+            const partslotDesc = diagResult._partslot_description;
+            const vehicleIdForParts = effectiveVehicleContext?.vehicle_id || (effectiveVehicleContext as any)?.id;
+
+            if (partslotDesc && vehicleIdForParts) {
+              console.log(`[Brain→Parts] Fetching parts for category "${partslotDesc}", vehicle ${vehicleIdForParts}`);
+
+              const filteredParts = await retrieveParts(vehicleIdForParts, apiConfig, partslotDesc);
+
+              if (filteredParts.success && filteredParts.parts.length > 0) {
+                console.log(`[Brain→Parts] Fetched ${filteredParts.parts.length} parts for "${partslotDesc}"`);
+                // Preserve existing full catalog if already loaded; only add if shelf is empty
+                const existing = (conversationMessages as any)._partsToEmit || [];
+                (conversationMessages as any)._partsToEmit = existing.length > 0 ? existing : filteredParts.parts;
+                // Store the category for shelf-scroll highlight event
+                (conversationMessages as any)._diagnosisHighlightCategory = partslotDesc;
+              } else {
+                console.log(`[Brain→Parts] No parts found for "${partslotDesc}" — shelf will retain existing state`);
+              }
+            } else if (partslotDesc && !vehicleIdForParts) {
+              console.log(`[Brain→Parts] Has partslot_description but no confirmed vehicle — skipping parts fetch`);
+            }
+          }
           
           // Add tool result to conversation
           conversationMessages.push({
@@ -3201,6 +3236,19 @@ IMPORTANT:
             controller.enqueue(encoder.encode(partsEvent));
             console.log("[Stream] Emitted parts_found:", partsToEmit.length, "parts");
             partsEmitted = true;
+
+            // ============= BRAIN DIAGNOSIS HIGHLIGHT EVENT =============
+            // When Brain diagnosed a specific part category, emit a highlight event
+            // so the frontend can auto-scroll to that category on the shelf
+            const diagnosisHighlightCategory = (conversationMessages as any)._diagnosisHighlightCategory;
+            if (diagnosisHighlightCategory) {
+              const highlightEvent = `data: ${JSON.stringify({
+                type: "highlight_category",
+                category: diagnosisHighlightCategory,
+              })}\n\n`;
+              controller.enqueue(encoder.encode(highlightEvent));
+              console.log(`[Stream] Emitted highlight_category: "${diagnosisHighlightCategory}"`);
+            }
           } else if (!multipleVehiclesFound && confirmedVehicleStored) {
             // Vehicle confirmed but no parts - determine the reason
             if (partsErrorType) {
