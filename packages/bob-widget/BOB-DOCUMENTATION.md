@@ -1,8 +1,19 @@
 # Bob Widget - Complete Documentation
 
-> **Version:** 3.1.19 | **Last Updated:** February 2026
+> **Version:** 3.2.1 | **Last Updated:** February 2026
 
 AI-powered automotive parts assistant widget for seamless integration into partner websites.
+
+---
+
+## 📖 Documentation Map
+
+| Document | What It Covers |
+|----------|---------------|
+| **This file** | Technical reference: props, API, CSS, troubleshooting, 3-stage install |
+| **[README.md](./README.md)** | Quick start, installation, container setup, callbacks |
+| **[CHANGELOG.md](./CHANGELOG.md)** | Version history |
+| **[BOB-COMPLETE-PROCESS-FLOW.md](../../BOB-COMPLETE-PROCESS-FLOW.md)** (project root) | Bob's personality, conversation states, Brain diagnostics, canned speech, customer playbook |
 
 ---
 
@@ -14,11 +25,10 @@ AI-powered automotive parts assistant widget for seamless integration into partn
 4. [Props Reference](#4-props-reference)
 5. [Session Handoff](#5-session-handoff)
 6. [CSS Customization](#6-css-customization)
-7. [Bob's Behaviour Guidelines](#7-bobs-behaviour-guidelines)
+7. [Bob's Personality & Behaviour](#7-bobs-personality--behaviour)
 8. [API Reference](#8-api-reference)
 9. [Troubleshooting](#9-troubleshooting)
 10. [CARFIX 3-Stage Installation](#10-carfix-3-stage-installation)
-11. [Changelog Summary](#11-changelog-summary)
 
 ---
 
@@ -394,74 +404,11 @@ This prevents host site styles from bleeding into Bob and vice versa.
 
 ---
 
-## 7. Bob's Behaviour Guidelines
+## 7. Bob's Personality & Behaviour
 
-### Personality & Voice
-
-Bob is a friendly, knowledgeable Kiwi auto parts expert with a relaxed, helpful tone.
-
-| Expression | Meaning | When to Use |
-|------------|---------|-------------|
-| "Sweet as" | All good, perfect | Confirming something |
-| "Mate" | Friendly address | Throughout conversation |
-| "Choice" | Excellent | When something is good |
-| "Chur" | Thanks/Cool | Quick acknowledgment |
-| "She'll be right" | It'll be fine | Reassurance |
-| "Yeah nah" | No | Gentle decline |
-| "Away laughing" | Sorted, good to go | After solving a problem |
-
-### Response Length Guidelines
-
-| Situation | Response Style |
-|-----------|----------------|
-| No vehicle identified yet | SHORT - 1-2 sentences max |
-| Vehicle confirmed | Can be slightly longer |
-| Product recommendation | 2-3 sentences + point to shelf |
-| Checkout/cart | Brief confirmation |
-
-### Vehicle Identification Workflow
-
-1. **REGO (License Plate)** - Primary identifier, gives exact match
-2. **Make + Model + Year + Engine CC** - Fallback when no REGO
-
-```
-First ask: "What's your rego, mate?"
-If no rego: "No worries - what make, model, and year is she?"
-If needed: "What's the engine size? 1.8L, 2.0L...?"
-```
-
-### Product Recommendations - Golden Rules
-
-1. **NEVER recommend cheapest first** - Lowest margin, lowest quality
-2. **Lead with mid-priced "best value"** option
-3. **Max 2-3 products mentioned verbally** - Let the shelf show the rest
-4. **ONLY recommend products from retrieve_parts results** - Never hallucinate brands
-
-### Cart & Checkout Rules (CRITICAL)
-
-- **NEVER add to cart** unless customer explicitly says:
-  - "add to cart", "I'll take it", "buy it", "yes please"
-- If customer says "that one" or "the first one", **confirm WHICH product** before adding
-- **NEVER claim to add products without calling add_to_cart tool**
-
-### Things Bob NEVER Does
-
-| Never Do | Why |
-|----------|-----|
-| Offer to fit parts | CARFIX only sells parts - DIY or workshop fitment |
-| Mention stock status | All displayed parts are in stock |
-| List more than 3 products verbally | Let the shelf do the work |
-| Recommend cheapest option first | Low margin, low quality perception |
-| Hallucinate brands or products | Only recommend from actual tool results |
-| Add to cart without explicit request | Customer must say "add", "buy", "take it" |
-
-### Anti-Hallucination Rules
-
-1. **ONLY mention products that appear in tool responses**
-2. If no tool returned products, **DO NOT invent alternatives**
-3. If search fails or returns empty, say: "I don't have that in my system right now"
-4. **NEVER recommend brands, SKUs, or prices** not retrieved from tools
-5. **NEVER fabricate product names** like "Best Value wipers"
+> **Full reference moved →** See **[BOB-COMPLETE-PROCESS-FLOW.md](../../BOB-COMPLETE-PROCESS-FLOW.md)** for Bob's complete personality guide, conversation states, Brain diagnostics, canned speech triggers, and customer interaction playbook.
+>
+> This section previously duplicated that content. The master document is now the single source of truth for all behavioural guidelines.
 
 ---
 
@@ -605,9 +552,6 @@ After installation, you can find the scripts in:
 ```
 node_modules/@gymmymac/bob-widget/
 ├── bin/bob-widget.mjs           # CLI entrypoint
-├── install/carfix/
-│   ├── 00-README-PREINSTALL.md  # This guide
-│   └── 05-runtime-verification-checklist.md
 ├── BOB-DOCUMENTATION.md         # Full documentation
 └── CHANGELOG.md                 # Version history
 ```
@@ -980,67 +924,6 @@ export default function AskBobPage() {
 | Error detection | After issues appear | Script exits on detection |
 | Verification | Optional | Mandatory checklist |
 | Success rate | Variable | High (issues caught early) |
-
----
-
-## 11. Changelog Summary
-
-### v3.1.9 (Current)
-- 🔧 **3-Stage Installation Process**: Complete rewrite of Section 10 with strict sequential stages
-  - **Stage A: Forensic Removal** - Script now EXITS with error if any Bob files/imports found
-  - **Stage B: Page Preparation** - Clear template for creating blank container page
-  - **Stage C: Install & Verify** - Fresh installation with mandatory verification checklist
-- 📖 **Documentation Restructure**: Installation and cleanup clearly separated into distinct stages
-- ⚠️ **Prevents Legacy Code Interference**: Enhanced cleanup script with comprehensive detection
-
-### v3.1.8
-- 📖 **Documentation Clarity**: Clarified that Bob container is placed on a page WITH existing CARFIX header/bottom nav
-- ⚠️ **Pre-Install Requirements**: Emphasized mandatory forensic cleanup before installation
-- 📐 **Page Layout Context**: Added explicit guidance that Bob fits BETWEEN fixed layout elements
-
-### v3.1.7
-- 📦 **Version Sync**: Prepared release with all version references aligned
-
-### v3.1.6
-- 📖 **README Update**: Added prominent "Read Before Installing" section
-- 📐 **Layout Corrections**: Documented 144px offset formula with safe-area support
-
-### v3.1.5
-- 📦 **Version Sync**: Re-released to sync package.json version with GitHub release tag
-- 📐 **Layout Corrections**: Updated CARFIX measurements to 72px header + 72px bottom nav
-
-### v3.1.4
-- 📦 **Supabase Bundling**: Removed @supabase/supabase-js from external to prevent "module not found" errors
-- 🔒 **HTTPS Validation**: Added programmatic check for PTT - warns users on HTTP connections
-- 🔧 **Debug Logging**: Consolidated all internal logs via bobLog utility respecting debug prop
-
-### v3.1.3
-- 🎨 **CSS Isolation**: Enhanced with `isolation: isolate` and `all: initial`
-- 📐 **Embedded Mode**: Added `embedded` prop for fullscreen variant in host containers
-
-### v3.1.2
-- 🔊 **Pre-recorded Audio Clips**: Fixed context property mismatch where `useSpeechSynthesis` was accessing `supabase` instead of `bobSupabase`, causing pre-recorded clips to never play
-
-### v3.1.1
-- ⚛️ **React Hooks Order Violation**: Fixed hooks being called after conditional returns
-- 🌐 **Allowed Origins**: Added Lovable preview domain support
-
-### v3.1.0
-- 🎯 **BobStandalone**: Auto-configures from database - 4 lines to integrate
-- 🗄️ **Partner Config System**: All settings in `bob_partners` table
-- 🎨 **CSS Variables**: Customizable blur, opacity, colors
-- 🔍 **Debug Overlay**: Visual diagnostic tool
-- 📦 **Simplified Callbacks**: Only essential callbacks required
-
-### v3.0.x
-- 🎭 **SwipeableBob**: Gesture-based interactions
-- 🏢 **Multi-Tenant Support**: Configurable looks and animations per tenant
-- 🎬 **RAF Animations**: Smooth 60fps animations
-- ⚡ **MatrixProductLoader**: Cyberpunk-style loading
-- 🔥 **SparkDealBanner**: Animated promotional banners
-- 👋 **Returning User Detection**: Personalized greetings
-
-See [CHANGELOG.md](./CHANGELOG.md) for full version history.
 
 ---
 

@@ -6,6 +6,17 @@ AI-powered automotive parts assistant widget for partner websites.
 
 ---
 
+## 📖 Documentation Map
+
+| Document | What It Covers |
+|----------|---------------|
+| **This README** | Quick start, installation, container setup, callbacks |
+| **[BOB-DOCUMENTATION.md](./BOB-DOCUMENTATION.md)** | Full technical reference, props, troubleshooting, 3-stage install |
+| **[CHANGELOG.md](./CHANGELOG.md)** | Version history |
+| **[BOB-COMPLETE-PROCESS-FLOW.md](../../BOB-COMPLETE-PROCESS-FLOW.md)** (project root) | Bob's personality, conversation states, Brain diagnostics, canned speech, customer playbook |
+
+---
+
 ## 🚨 STOP — RUN THE INSTALLER FIRST
 
 Bob v3.1.19 includes an **executable 3-stage installer**. Do NOT skip this step.
@@ -457,14 +468,6 @@ Bob ships with **36 unit tests** and **8+ E2E scenarios** covering:
 Run locally: `cd packages/bob-widget && npx vitest run`
 
 ---
-
-## 📖 Additional Documentation
-
-| Document | Description |
-|----------|-------------|
-| **[BOB-DOCUMENTATION.md](./BOB-DOCUMENTATION.md)** | Complete integration guide with troubleshooting |
-| **[CHANGELOG.md](./CHANGELOG.md)** | Version history and release notes |
-| **[install/carfix/](./install/carfix/)** | Installer scripts, templates, and verification checklists |
 
 ---
 

@@ -1,8 +1,17 @@
 # Bob's Complete Process Flow, Canned Speech & Customer Interaction Guide
 
 > **Single Source of Truth** — This document consolidates everything about how Bob interacts with CARFIX customers.  
-> Last updated: 2026-02-20  
-> Replaces: `packages/bob-widget/BOB-PROCESS-FLOW.md`
+> Last updated: 2026-02-20
+
+---
+
+## 📖 Related Documentation
+
+| Document | What It Covers |
+|----------|---------------|
+| **[packages/bob-widget/README.md](./packages/bob-widget/README.md)** | Installation, container setup, callbacks |
+| **[packages/bob-widget/BOB-DOCUMENTATION.md](./packages/bob-widget/BOB-DOCUMENTATION.md)** | Full technical reference, props, API, troubleshooting |
+| **[packages/bob-widget/CHANGELOG.md](./packages/bob-widget/CHANGELOG.md)** | Version history |
 
 ---
 
