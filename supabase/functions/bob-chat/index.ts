@@ -1228,6 +1228,36 @@ const tools = [
         required: ["user_query"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_returning_customer_context",
+      description: "Fetch returning customer context including name, garage vehicles, purchase history, and maintenance reminders. Call at session start when you have a customer email (from session handoff or conversation). Returns personalised greeting hints, last purchase info, and the customer's vehicle garage. IMPORTANT: Only reference vehicles where has_purchases=true in greetings — vehicles with has_purchases=false were just searched, not purchased for.",
+      parameters: {
+        type: "object",
+        properties: {
+          user_email: { type: "string", description: "Customer's email address" },
+          session_token: { type: "string", description: "Optional CARFIX session token if available from session handoff" }
+        },
+        required: ["user_email"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "remove_vehicle",
+      description: "Remove a vehicle from the customer's garage. Use when customer says they sold a car or want to remove it. Requires the vehicle_record_id (UUID) from the get_returning_customer_context response. ALWAYS confirm with the customer before removing: 'Just to confirm — remove the [MAKE] [MODEL] [REGO] from your garage?'",
+      parameters: {
+        type: "object",
+        properties: {
+          user_email: { type: "string", description: "Customer's email address" },
+          vehicle_record_id: { type: "string", description: "The vehicle_record_id UUID from the customer's garage list" }
+        },
+        required: ["user_email", "vehicle_record_id"]
+      }
+    }
   }
 ];
 
@@ -1682,6 +1712,18 @@ async function getCustomerContext(userEmail: string): Promise<unknown> {
   return callPartnerAPI("get_user_context", { user_email: userEmail });
 }
 
+async function getReturningCustomerContext(userEmail: string, sessionToken?: string): Promise<unknown> {
+  console.log('Getting returning customer context for:', userEmail);
+  const params: Record<string, unknown> = { user_email: userEmail };
+  if (sessionToken) params.session_token = sessionToken;
+  return callPartnerAPI("get_returning_customer_context", params);
+}
+
+async function removeVehicle(userEmail: string, vehicleRecordId: string): Promise<unknown> {
+  console.log('Removing vehicle:', vehicleRecordId, 'for:', userEmail);
+  return callPartnerAPI("remove_vehicle", { user_email: userEmail, vehicle_record_id: vehicleRecordId });
+}
+
 async function getProductDetails(sku: string): Promise<unknown> {
   console.log('Getting product details for SKU:', sku);
   return callPartnerAPI("get_product_details", { sku });
@@ -1827,6 +1869,10 @@ async function executeToolCall(toolCall: { function: { name: string; arguments: 
         return await createCheckout(args.user_email);
       case "get_customer_context":
         return await getCustomerContext(args.user_email);
+      case "get_returning_customer_context":
+        return await getReturningCustomerContext(args.user_email, args.session_token);
+      case "remove_vehicle":
+        return await removeVehicle(args.user_email, args.vehicle_record_id);
       case "get_product_details":
         return await getProductDetails(args.sku);
       case "search_products":
@@ -2343,8 +2389,91 @@ IMPORTANT RULES FOR THIS SESSION:
     if (customerEmail) {
       enhancedSystemPrompt += `\n\n## CUSTOMER EMAIL FOR CART/CHECKOUT
 Customer email is: ${customerEmail}
-Use this email for add_to_cart, get_cart, and create_checkout calls.
+Use this email for add_to_cart, get_cart, create_checkout, get_returning_customer_context, and remove_vehicle calls.
 Do NOT ask for their email - you already have it.`;
+
+      // ============= RETURNING CUSTOMER CONTEXT (Proactive Fetch) =============
+      // At session start (first message or fresh session with email), fetch returning customer data
+      // to enable personalised greetings, maintenance reminders, and garage awareness
+      const isFirstExchange = messages.filter((m: Message) => m.role === 'user').length <= 1;
+      if (isFirstExchange) {
+        try {
+          console.log('[Returning Customer] Proactively fetching context for:', customerEmail);
+          const returningCtx = await getReturningCustomerContext(customerEmail) as {
+            is_returning?: boolean;
+            first_name?: string;
+            days_since_last_order?: number;
+            total_orders?: number;
+            current_session_vehicle?: Record<string, unknown>;
+            last_purchase?: Record<string, unknown>;
+            vehicles?: Array<{ vehicle_record_id: string; rego: string; description: string; has_purchases: boolean }>;
+            suggested_greeting_hints?: { maintenance_due?: string; last_product_followup?: string };
+            error?: string;
+          };
+
+          if (returningCtx.is_returning && !returningCtx.error) {
+            console.log(`[Returning Customer] Recognised: ${returningCtx.first_name}, ${returningCtx.total_orders} orders, ${returningCtx.vehicles?.length || 0} garage vehicles`);
+            
+            // Build garage list (only vehicles with purchases for greeting)
+            const garageWithPurchases = (returningCtx.vehicles || []).filter(v => v.has_purchases);
+            const garageSearchOnly = (returningCtx.vehicles || []).filter(v => !v.has_purchases);
+            
+            enhancedSystemPrompt += `\n\n## RETURNING CUSTOMER CONTEXT
+This is a returning customer! Personalise your greeting.
+- First name: ${returningCtx.first_name}
+- Total orders: ${returningCtx.total_orders}
+- Days since last order: ${returningCtx.days_since_last_order}`;
+
+            if (returningCtx.current_session_vehicle) {
+              const csv = returningCtx.current_session_vehicle;
+              enhancedSystemPrompt += `\n- Currently browsing: ${csv.year} ${csv.make} ${csv.model} (REGO: ${csv.rego}, vehicle_id: ${csv.vehicle_id})
+  PRIORITISE this vehicle in conversation — it's what they're looking at right now on CARFIX.`;
+            }
+
+            if (returningCtx.last_purchase) {
+              const lp = returningCtx.last_purchase;
+              enhancedSystemPrompt += `\n- Last purchase: ${lp.product_name} for ${lp.vehicle_description} (${lp.days_ago} days ago)`;
+            }
+
+            if (garageWithPurchases.length > 0) {
+              enhancedSystemPrompt += `\n\n### Garage Vehicles (purchased parts for — OK to reference in greeting):`;
+              for (const v of garageWithPurchases) {
+                enhancedSystemPrompt += `\n- ${v.rego}: ${v.description} (vehicle_record_id: ${v.vehicle_record_id})`;
+              }
+            }
+
+            if (garageSearchOnly.length > 0) {
+              enhancedSystemPrompt += `\n\n### Garage Vehicles (searched only — do NOT reference in greeting):`;
+              for (const v of garageSearchOnly) {
+                enhancedSystemPrompt += `\n- ${v.rego}: ${v.description} (vehicle_record_id: ${v.vehicle_record_id})`;
+              }
+            }
+
+            if (returningCtx.suggested_greeting_hints) {
+              const hints = returningCtx.suggested_greeting_hints;
+              enhancedSystemPrompt += `\n\n### Greeting Hints:`;
+              if (hints.maintenance_due) {
+                enhancedSystemPrompt += `\n- Maintenance due: ${hints.maintenance_due}`;
+              }
+              if (hints.last_product_followup) {
+                enhancedSystemPrompt += `\n- Follow-up opener: ${hints.last_product_followup}`;
+              }
+            }
+
+            enhancedSystemPrompt += `\n\n### Greeting Rules:
+1. Use their first name: "Hey ${returningCtx.first_name}!"
+2. Reference vehicles with has_purchases=true ONLY in greetings
+3. If maintenance_due hint exists, weave it in naturally: "That air filter on the Ranger might be due for a swap — been a couple months!"
+4. If they have a current_session_vehicle, acknowledge it: "I see you're checking out the [MAKE] [MODEL]"
+5. For vehicle removal: customer says "sold my [CAR]" → match to vehicle_record_id → confirm → call remove_vehicle
+6. Keep greeting concise — 2-3 sentences max`;
+          } else {
+            console.log('[Returning Customer] Not a returning customer or error:', returningCtx.error || 'unknown');
+          }
+        } catch (err) {
+          console.warn('[Returning Customer] Failed to fetch context:', err);
+        }
+      }
     }
 
     // Add host context if provided (multi-tenant support)
