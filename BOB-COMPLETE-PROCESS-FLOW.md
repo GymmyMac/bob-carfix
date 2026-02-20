@@ -22,9 +22,10 @@
 3. [Brain Diagnostic Flow](#3-brain-diagnostic-flow)
 4. [Canned Speech & Audio Clip Reference](#4-canned-speech--audio-clip-reference)
 5. [Customer Interaction Playbook](#5-customer-interaction-playbook)
-6. [Error Handling Matrix](#6-error-handling-matrix)
-7. [SSE Event Reference](#7-sse-event-reference)
-8. [Technical Appendix](#8-technical-appendix)
+6. [Returning Customer Recognition](#6-returning-customer-recognition)
+7. [Error Handling Matrix](#7-error-handling-matrix)
+8. [SSE Event Reference](#8-sse-event-reference)
+9. [Technical Appendix](#9-technical-appendix)
 
 ---
 
@@ -157,12 +158,14 @@ When presenting Brain diagnostic results, calibrate language to the confidence t
 | Field | Value |
 |-------|-------|
 | **Trigger** | Widget initialized on page |
-| **Bob's Action** | Play greeting audio, wave animation |
+| **Bob's Action** | Play greeting audio, wave animation. If `customerEmail` is available, proactively call `get_returning_customer_context` to personalise greeting. |
 | **Audio Clip** | `greeting_welcome` (new user) or `greeting_returning` (returning user) |
 | **Next State** | AWAITING_REGO |
 | **Error Handling** | If greeting audio fails, proceed silently |
 
-**Returning user detection:** Uses `localStorage` key `bob_last_visit` with a 30-day threshold.
+**Returning user detection:** Two layers:
+1. **localStorage** (`bob_last_visit`, 30-day threshold) — triggers `greeting_returning` audio clip
+2. **Partner API** (`get_returning_customer_context`) — fetches name, garage, purchase history, and maintenance hints when `customerEmail` is available from session handoff
 
 ---
 
@@ -598,7 +601,134 @@ These are emitted as `bob_searching` SSE events before the main response stream.
 
 ---
 
-## 6. Error Handling Matrix
+## 6. Returning Customer Recognition
+
+### Overview
+
+When Bob has a `customerEmail` (from session handoff or conversation), he proactively calls `get_returning_customer_context` on the first message exchange. This enables personalised greetings, maintenance reminders, and garage management.
+
+### API: `get_returning_customer_context`
+
+**Request:**
+```json
+{
+  "action": "get_returning_customer_context",
+  "user_email": "sarah@example.com",
+  "session_token": "abc123..."  // optional
+}
+```
+
+**Response (returning customer):**
+```json
+{
+  "is_returning": true,
+  "first_name": "Jimbo",
+  "days_since_last_order": 64,
+  "total_orders": 25,
+  "current_session_vehicle": {
+    "rego": "PSU690",
+    "make": "FORD",
+    "model": "RANGER",
+    "year": "2022",
+    "vehicle_id": 23216
+  },
+  "last_purchase": {
+    "product_name": "Ryco Air Filter",
+    "product_type": "Auto Part",
+    "vehicle_rego": "PSU690",
+    "vehicle_description": "FORD RANGER",
+    "days_ago": 64
+  },
+  "vehicles": [
+    {
+      "vehicle_record_id": "db642ae7-...",
+      "rego": "PSU690",
+      "description": "FORD RANGER 06/22-ON",
+      "has_purchases": true
+    },
+    {
+      "vehicle_record_id": "38a33fdb-...",
+      "rego": "KCG93",
+      "description": "VOLKSWAGEN TIGUAN 01/16-04/24",
+      "has_purchases": false
+    }
+  ],
+  "suggested_greeting_hints": {
+    "maintenance_due": "Air filter replacement on FORD RANGER (purchased 2 months ago)",
+    "last_product_followup": "Ryco Air Filter on FORD RANGER (64 days ago)"
+  }
+}
+```
+
+**Response (new/unknown user):**
+```json
+{
+  "is_returning": false,
+  "message": "User not found"
+}
+```
+
+### Key Fields for Bob's Greeting Logic
+
+| Field | What it tells Bob |
+|-------|------------------|
+| `is_returning` | Whether this is a known customer with order history |
+| `first_name` | Use in greeting ("Hey Jimbo!") |
+| `current_session_vehicle` | The car they're actively browsing on CARFIX right now. **Prioritise this in conversation.** |
+| `last_purchase` | Most recent purchase — good for follow-up ("How did those brake pads go?") |
+| `vehicles[].has_purchases` | `true` = customer bought parts for this car. `false` = only searched/browsed. **Don't reference `has_purchases: false` vehicles in greetings.** |
+| `vehicles[].vehicle_record_id` | The UUID needed to call `remove_vehicle` when a customer says they sold a car |
+| `suggested_greeting_hints.maintenance_due` | Pre-computed hint when a product's maintenance interval has elapsed (oil 6mo, filters 12mo, wipers 12mo, brake pads 3mo) |
+| `suggested_greeting_hints.last_product_followup` | Most recent purchase for a "how did it go?" style opener |
+
+### Greeting Examples
+
+**Returning customer with maintenance hint:**
+```
+"Hey Jimbo! Welcome back to CARFIX, mate. That air filter on the Ranger 
+might be due for a swap — been about two months since you grabbed the Ryco. 
+What can I help you with today?"
+```
+
+**Returning customer with current session vehicle:**
+```
+"Hey Jimbo! Good to see you back. I see you're checking out the Ford 
+Ranger — need some parts for it today?"
+```
+
+**Returning customer, no specific hint:**
+```
+"Hey Jimbo! Welcome back to CARFIX — 25 orders, you're practically 
+part of the team! What are you after today?"
+```
+
+### Vehicle Removal Flow
+
+The `remove_vehicle` tool uses `vehicle_record_id` from the garage list:
+
+1. Customer: "I sold my Ranger"
+2. Bob matches "Ranger" → `vehicle_record_id: "db642ae7-..."`
+3. Bob confirms: "Just to confirm — remove the Ford Ranger PSU690 from your garage?"
+4. Customer confirms
+5. Bob calls: `remove_vehicle(user_email, vehicle_record_id)`
+6. Bob confirms: "Done! You've still got the VW Tiguan — need anything for it?"
+
+### Important: Garage Contains Searched Vehicles
+
+Every rego lookup on CARFIX auto-adds the vehicle to the customer's garage. This means the garage may contain cars the customer only searched once. **Use `has_purchases` to decide which vehicles to reference in conversation.** Only greet about cars where `has_purchases: true`.
+
+### Proactive Fetch Behaviour
+
+The returning customer context is fetched **proactively** on the first message exchange when `customerEmail` is available — before the AI generates its first response. This means:
+
+- Bob already knows the customer's name and history when crafting his greeting
+- No extra tool call needed during the conversation — context is injected into the system prompt
+- If the API call fails, Bob falls back to a standard greeting (no error shown to customer)
+- The AI can still call `get_returning_customer_context` manually if needed later in conversation
+
+---
+
+## 7. Error Handling Matrix
 
 | Error Type | API Response | Bob's Response (Varied) | Audio Clip | Next Action |
 |-----------|-------------|------------------------|------------|-------------|
@@ -635,7 +765,7 @@ All errors are logged to `bob_error_logs` table:
 
 ---
 
-## 7. SSE Event Reference
+## 8. SSE Event Reference
 
 These events are emitted in the response stream and handled by the widget frontend.
 
@@ -669,9 +799,9 @@ When a vehicle is confirmed and parts are loaded, events emit in this order:
 
 ---
 
-## 8. Technical Appendix
+## 9. Technical Appendix
 
-### Tool Definitions (12 Tools)
+### Tool Definitions (15 Tools)
 
 | # | Tool Name | Purpose | Vehicle Required? |
 |---|----------|---------|------------------|
@@ -688,6 +818,8 @@ When a vehicle is confirmed and parts are loaded, events emit in this order:
 | 11 | `search_products` | Search by keyword, optionally filter by vehicle | No (optional `vehicle_id`) |
 | 12 | `check_vehicle_fitment` | Verify product fits a specific vehicle | Yes (needs `sku` + `vehicle_id`) |
 | 13 | `diagnose_symptom` | Consult CARFIX Brain for symptom diagnosis | Vehicle context required for forced call |
+| 14 | `get_returning_customer_context` | Fetch returning customer name, garage, purchases, maintenance hints | No (needs `user_email`) |
+| 15 | `remove_vehicle` | Remove a vehicle from customer's garage | No (needs `user_email` + `vehicle_record_id`) |
 
 ### Symptom Keyword Array (Exact)
 
