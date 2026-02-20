@@ -1,109 +1,80 @@
 
 
-# Bob's Complete Process Flow, Canned Speech & Customer Interaction Guide
+# Documentation Tidy-Up: Consolidate and Remove Duplicates
 
-## Purpose
+## Current Problem
 
-Create a new standalone Markdown document (`BOB-COMPLETE-PROCESS-FLOW.md` in the project root) that consolidates everything about how Bob interacts with customers. This replaces the existing `packages/bob-widget/BOB-PROCESS-FLOW.md` as the single source of truth. The document will be structured for non-technical editing (e.g., updating response wording, adding canned clips) while containing a technical appendix for developers.
+Bob has 8 documentation files with heavy overlap. The same installation instructions, layout diagrams, callback signatures, and verification checklists appear in 3-4 places. This makes updates error-prone — change one file and the others go stale.
 
-## Document Structure
-
-The file will contain these major sections:
-
-### 1. Bob's Personality & Voice Guide
-- Kiwi persona rules, tone calibration (busy vs. chatty customer sensing)
-- Approved Kiwi-isms reference list
-- "Never offer to fit parts" golden rule
-- Confidence-tier language mapping (high/medium/low from Brain results)
-
-### 2. Complete Conversation State Machine
-Updated state diagram incorporating the Brain diagnostic path:
+## Proposed Structure (4 files, down from 8)
 
 ```text
-PAGE_LOAD -> AWAITING_REGO -> VEHICLE_LOOKUP_IN_PROGRESS
-  |-> VEHICLE_NOT_FOUND (retry loop)
-  |-> MULTIPLE_VARIANTS_FOUND -> VARIANT_CONFIRMED
-  |-> SINGLE_MATCH_CONFIRMED
-       |-> PARTS_FETCH_IN_PROGRESS
-            |-> PARTS_FOUND -> CONVERSATION
-            |-> NO_PARTS_FOUND -> CONVERSATION (degraded)
-            |-> PARTS_FETCH_ERROR -> CONVERSATION (degraded)
-
-NEW BRANCH (from CONVERSATION with vehicle context):
-CONVERSATION + symptom detected -> BRAIN_DIAGNOSIS_IN_PROGRESS
-  |-> DIAGNOSIS_MATCH (shelf scrolls to category, Bob explains physics)
-  |-> DIAGNOSIS_NO_MATCH (Bob acknowledges gap, does NOT self-diagnose)
+BOB-COMPLETE-PROCESS-FLOW.md          (root)   -- Personality, states, Brain, canned speech, playbook
+packages/bob-widget/
+  README.md                                     -- npm package README (installation + integration)
+  CHANGELOG.md                                  -- Version history (unchanged)
+  BOB-DOCUMENTATION.md                          -- Technical reference (props, API, CSS, troubleshooting)
 ```
 
-Each state will include:
-- Trigger condition
-- Bob's action (animation, audio, API calls)
-- Response variations (3 per state for naturalness)
-- Next state transitions
-- Error handling
+## Files to DELETE (4 files removed)
 
-### 3. Brain Diagnostic Flow (NEW section)
-- Symptom keyword list (the 40+ keywords that trigger forced `diagnose_symptom`)
-- Requirement: vehicle must be confirmed before Brain activates
-- Forced `tool_choice` override on first loop iteration
-- Confidence tier language rules:
-  - High (>0.85): "That's your [X]" (definitive)
-  - Medium (0.70-0.85): "Sounds like [X]" (likely)
-  - Low (<0.70): "Could be [X]" (possible)
-- `highlight_category` SSE event -> shelf auto-scroll
-- No-match protocol: acknowledge gap, do NOT self-diagnose, suggest rewording or carfix.co.nz
-- Brain -> Parts pipeline: when `partslot_description` returned, auto-fetch filtered parts for that category
+| File | Reason |
+|------|--------|
+| `packages/bob-widget/BOB-PROCESS-FLOW.md` | Fully replaced by `BOB-COMPLETE-PROCESS-FLOW.md` in root |
+| `packages/bob-widget/install/carfix/CARFIX-INSTALLATION-BRIEF.md` | Near-identical copy of `README.md` — all content already there |
+| `packages/bob-widget/install/carfix/00-README-PREINSTALL.md` | Duplicates `BOB-DOCUMENTATION.md` Section 10 (3-stage install) |
+| `packages/bob-widget/install/carfix/05-runtime-verification-checklist.md` | Duplicates `BOB-DOCUMENTATION.md` Section 10 verification checklist |
 
-### 4. Canned Speech & Audio Clip Reference
-Complete table of all 8 active clips from `bob_audio_clips`:
+## Files to UPDATE (3 files modified)
 
-| clip_key | Transcript | Trigger Context | When Played |
-|----------|-----------|-----------------|-------------|
-| greeting_welcome | "G'day! Bob from CARFIX here..." | First page load, new user | PAGE_LOAD |
-| greeting_returning | "Ah hey... you again!..." | Returning user detected | PAGE_LOAD |
-| ask_rego | "Just need your rego..." | Parts request without vehicle | AWAITING_REGO (canned bypass) |
-| rego_searching | "Sweet! Let's see what car..." | REGO lookup started | VEHICLE_LOOKUP_IN_PROGRESS |
-| vehicle_not_found | "Hmm, couldn't find that one..." | Lookup returns no match | VEHICLE_NOT_FOUND |
-| parts_searching | "Chur, lets have a wee peek..." | Vehicle confirmed, fetching | PARTS_FETCH_IN_PROGRESS |
-| no_parts_found | "Sorry mate, nothing came up..." | Parts fetch returns empty | NO_PARTS_FOUND |
-| checkout_ready | "Choice! Ready to checkout." | Cart ready | CHECKOUT |
+### 1. `BOB-DOCUMENTATION.md` — Trim duplicated sections
 
-Plus the canned response bypass system (how `bypass_ai=true` clips skip the LLM entirely).
+**Remove:**
+- Section 7 ("Bob's Behaviour Guidelines") — this is now fully covered (and expanded with Brain logic) in `BOB-COMPLETE-PROCESS-FLOW.md`
+- Section 11 ("Changelog Summary") — redundant with `CHANGELOG.md`
 
-### 5. Customer Interaction Playbook
-Step-by-step script for the ideal customer journey:
-1. Welcome & sense urgency
-2. Ask for REGO (primary) or make/model/year (fallback)
-3. Vehicle small talk (motorsport pedigree, reputation)
-4. Ask about symptoms / what's wrong / dashboard lights / OBD2 codes
-5. If symptom detected -> Brain diagnosis flow
-6. Suggest service packages (always quote CARFIX VALUE tier price)
-7. Suggest add-ons (tire shine, windscreen wash, etc.)
-8. Never offer fitment - parts only
+**Add:**
+- A "Documentation Map" section at the top pointing to the other docs
+- A cross-reference note where Section 7 was: "See `BOB-COMPLETE-PROCESS-FLOW.md` for Bob's personality, conversation states, Brain diagnostics, and customer interaction playbook."
 
-### 6. Error Handling Matrix
-Updated table covering all error scenarios including Brain-specific errors:
-- `statement_timeout` from Brain RPC
-- `no_match` from Brain (similarity < 0.70)
-- `ambiguous column` or other SQL errors
-- All existing error types (vehicle_not_found, parts API 500, timeout, etc.)
+**Keep intact:**
+- Sections 1-6 (Overview, Quick Start, Integration, Props, Session Handoff, CSS)
+- Section 8 (API Reference)
+- Section 9 (Troubleshooting)
+- Section 10 (3-Stage Installation) — this is the canonical installation guide
 
-### 7. SSE Event Reference
-Complete event table including the new `highlight_category` event.
+### 2. `README.md` (packages/bob-widget) — Add doc map, trim duplication
 
-### 8. Technical Appendix
-- Tool definitions summary (all 11 tools)
-- Symptom keyword list (exact array from code)
-- Deterministic variant matcher methods
-- Vehicle characterization engine (engine code personalities, make modifiers)
-- Retry logic specifications
-- Error analytics logging schema
+**Add** a "Documentation Map" table at the top:
 
-## What This Replaces
+| Document | What It Covers |
+|----------|---------------|
+| This README | Quick start, installation, container setup, callbacks |
+| `BOB-DOCUMENTATION.md` | Full technical reference, props, troubleshooting, 3-stage install |
+| `CHANGELOG.md` | Version history |
+| `BOB-COMPLETE-PROCESS-FLOW.md` (project root) | Bob's personality, conversation states, Brain diagnostics, canned speech, customer playbook |
 
-The existing `packages/bob-widget/BOB-PROCESS-FLOW.md` will remain as-is for now (it's referenced by the widget package). The new document will be the editable master copy that can be updated independently and used to refresh the existing one.
+**No content removal** — README.md is the npm-facing document and needs to be self-contained for developers finding the package on npm.
 
-## File Location
+### 3. `BOB-COMPLETE-PROCESS-FLOW.md` (root) — Add doc map header
 
-`BOB-COMPLETE-PROCESS-FLOW.md` in the project root -- easily accessible for editing outside of the codebase.
+**Add** a small "Related Documentation" section after the intro, pointing to:
+- `packages/bob-widget/README.md` for integration/installation
+- `packages/bob-widget/BOB-DOCUMENTATION.md` for technical reference
+- `packages/bob-widget/CHANGELOG.md` for version history
+
+## Summary of Changes
+
+| Action | Count | Detail |
+|--------|-------|--------|
+| Files deleted | 4 | Legacy process flow + 3 duplicated install docs |
+| Files updated | 3 | Cross-references added, duplicated sections removed |
+| Files unchanged | 1 | CHANGELOG.md |
+| Net result | 4 docs total (down from 8) | Clear ownership, no duplication |
+
+## Technical Details
+
+- All deletions are `.md` files only — no code changes
+- The `install/carfix/` directory will retain its folder structure (it may still be referenced by the CLI installer binary in `bin/bob-widget.mjs`) but will be empty of markdown files
+- The `BOB-PROCESS-FLOW.md` deletion is safe — the plan notes confirm the root document replaces it, and no code imports it
 
