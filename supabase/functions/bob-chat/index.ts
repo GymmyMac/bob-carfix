@@ -918,6 +918,10 @@ interface SearchingClip {
 async function getSearchingClip(
   searchType: 'vehicle' | 'parts'
 ): Promise<SearchingClip | null> {
+  // V2.0: Audio disabled - short-circuit to null (architecture preserved)
+  console.log(`[Searching Clip] V2.0: Audio disabled, skipping ${searchType} clip lookup`);
+  return null;
+
   const triggerMap = {
     vehicle: 'searching_vehicle',
     parts: 'searching_parts'
@@ -964,6 +968,10 @@ async function checkCannedResponse(
   vehicleContext: unknown,
   customerEmail: string | null
 ): Promise<CannedResponseClip | null> {
+  // V2.0: Audio/canned responses disabled - short-circuit to null (architecture preserved)
+  console.log('[Canned Response] V2.0: Canned responses disabled, passing to AI');
+  return null;
+
   // Only check last user message
   const lastMessage = messages.filter(m => m.role === 'user').pop();
   if (!lastMessage) return null;
