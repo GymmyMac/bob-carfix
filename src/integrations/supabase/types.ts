@@ -329,6 +329,42 @@ export type Database = {
         }
         Relationships: []
       }
+      bob_brand_affinity: {
+        Row: {
+          affinity_level: string
+          brand: string
+          category: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          priority: number
+          talk_track: string
+          updated_at: string
+        }
+        Insert: {
+          affinity_level?: string
+          brand: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          priority?: number
+          talk_track: string
+          updated_at?: string
+        }
+        Update: {
+          affinity_level?: string
+          brand?: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          priority?: number
+          talk_track?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bob_error_logs: {
         Row: {
           additional_data: Json | null
@@ -490,6 +526,54 @@ export type Database = {
           is_active?: boolean | null
           partner_code?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      bob_promotions: {
+        Row: {
+          brand: string | null
+          category: string | null
+          created_at: string
+          discount_percent: number | null
+          id: string
+          is_active: boolean
+          priority: number
+          sku_list: string[] | null
+          talk_track: string
+          title: string
+          updated_at: string
+          valid_from: string
+          valid_until: string
+        }
+        Insert: {
+          brand?: string | null
+          category?: string | null
+          created_at?: string
+          discount_percent?: number | null
+          id?: string
+          is_active?: boolean
+          priority?: number
+          sku_list?: string[] | null
+          talk_track: string
+          title: string
+          updated_at?: string
+          valid_from?: string
+          valid_until: string
+        }
+        Update: {
+          brand?: string | null
+          category?: string | null
+          created_at?: string
+          discount_percent?: number | null
+          id?: string
+          is_active?: boolean
+          priority?: number
+          sku_list?: string[] | null
+          talk_track?: string
+          title?: string
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string
         }
         Relationships: []
       }

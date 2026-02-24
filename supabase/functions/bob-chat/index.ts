@@ -93,6 +93,96 @@ function buildSystemPromptFromDB(prompts: BobPrompt[]): string {
   return prompts.map(p => p.content).join('\n\n');
 }
 
+// ============= BRAND AFFINITY & PROMOTIONS =============
+interface BrandAffinityRow {
+  brand: string;
+  category: string | null;
+  affinity_level: string;
+  talk_track: string;
+  priority: number;
+}
+
+interface PromotionRow {
+  id: string;
+  title: string;
+  brand: string | null;
+  category: string | null;
+  sku_list: string[] | null;
+  discount_percent: number | null;
+  talk_track: string;
+  priority: number;
+}
+
+const affinityCache: { data: BrandAffinityRow[]; timestamp: number } = { data: [], timestamp: 0 };
+const promoCache: { data: PromotionRow[]; timestamp: number } = { data: [], timestamp: 0 };
+
+async function fetchBrandAffinities(): Promise<BrandAffinityRow[]> {
+  const now = Date.now();
+  if (affinityCache.data.length > 0 && (now - affinityCache.timestamp) < CACHE_TTL_MS) {
+    return affinityCache.data;
+  }
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !supabaseKey) return [];
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data, error } = await supabase
+      .from('bob_brand_affinity')
+      .select('brand, category, affinity_level, talk_track, priority')
+      .eq('is_active', true)
+      .order('priority', { ascending: false });
+    if (error) { console.error('Error fetching brand affinities:', error); return affinityCache.data; }
+    affinityCache.data = data || [];
+    affinityCache.timestamp = now;
+    console.log(`Loaded ${affinityCache.data.length} brand affinities`);
+    return affinityCache.data;
+  } catch (err) { console.error('Failed to fetch brand affinities:', err); return affinityCache.data; }
+}
+
+async function fetchActivePromotions(): Promise<PromotionRow[]> {
+  const now = Date.now();
+  if (promoCache.data.length > 0 && (now - promoCache.timestamp) < CACHE_TTL_MS) {
+    return promoCache.data;
+  }
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !supabaseKey) return [];
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data, error } = await supabase
+      .from('bob_promotions')
+      .select('id, title, brand, category, sku_list, discount_percent, talk_track, priority')
+      .eq('is_active', true)
+      .lte('valid_from', new Date().toISOString())
+      .gte('valid_until', new Date().toISOString())
+      .order('priority', { ascending: false });
+    if (error) { console.error('Error fetching promotions:', error); return promoCache.data; }
+    promoCache.data = data || [];
+    promoCache.timestamp = now;
+    console.log(`Loaded ${promoCache.data.length} active promotions`);
+    return promoCache.data;
+  } catch (err) { console.error('Failed to fetch promotions:', err); return promoCache.data; }
+}
+
+function buildAffinityContextBlock(affinities: BrandAffinityRow[]): string {
+  if (affinities.length === 0) return '';
+  const lines = affinities.map(a => {
+    const scope = a.category ? `for ${a.category}` : '(all categories)';
+    return `- ${a.brand}: ${a.affinity_level} brand ${scope}\n  Talk track: "${a.talk_track}"`;
+  });
+  return `\n\n=== BRAND AFFINITY (ALWAYS ACTIVE) ===\n${lines.join('\n')}\nWhen recommending products in these categories, naturally lean into affinity brands and use their talk tracks.\n===`;
+}
+
+function buildPromotionContextBlock(promotions: PromotionRow[]): string {
+  if (promotions.length === 0) return '';
+  const lines = promotions.map(p => {
+    const match = [p.brand, p.category].filter(Boolean).join(' in category ');
+    const discount = p.discount_percent ? ` (${p.discount_percent}% off)` : '';
+    return `PROMOTION: "${p.title}"${discount}\nMATCH: ${match || 'All products'}\nTALK TRACK: "${p.talk_track}"`;
+  });
+  return `\n\n=== ACTIVE PROMOTIONS (OVERRIDE DEFAULT RECOMMENDATION) ===\n${lines.join('\n\n')}\nPRIORITY: Lead with promoted product. If declined, fall back to affinity brand, then CARFIX Value.\n===`;
+}
+
 // ============= VEHICLE CANDIDATE TYPE =============
 interface VehicleCandidate {
   vehicle_id: number | null;   // TecDoc ID - null if not in catalog
@@ -2348,12 +2438,18 @@ serve(async (req) => {
       });
     }
 
-    // Load prompts from database and build system prompt
-    const dbPrompts = await fetchPromptsFromDB();
+    // Load prompts, brand affinities, and promotions from database
+    const [dbPrompts, brandAffinities, activePromotions] = await Promise.all([
+      fetchPromptsFromDB(),
+      fetchBrandAffinities(),
+      fetchActivePromotions(),
+    ]);
     const baseSystemPrompt = buildSystemPromptFromDB(dbPrompts);
     
-    // Build enhanced system prompt if vehicle context is provided from session
+    // Build enhanced system prompt with brand affinity and promotions context
     let enhancedSystemPrompt = baseSystemPrompt;
+    enhancedSystemPrompt += buildAffinityContextBlock(brandAffinities);
+    enhancedSystemPrompt += buildPromotionContextBlock(activePromotions);
     
     // Use deterministic vehicle if matched, otherwise use session context
     const effectiveVehicleContext = vehicleContext || (deterministicVehicle ? {
@@ -3196,11 +3292,29 @@ Use light humor and be helpful while being honest about the limitation.`
           ? `PARTS: ${displayedParts.length} individual parts available` 
           : '';
         
+        // Build affinity/promotion context for display injection
+        const displayAffinityBlock = buildAffinityContextBlock(brandAffinities);
+        const displayPromoBlock = buildPromotionContextBlock(activePromotions);
+        
         const displayContext = `[CUSTOMER DISPLAY STATE - WHAT THE CUSTOMER SEES RIGHT NOW]
 The customer's shelf currently shows:
 
 ${packageSummary}
 ${partsSummary}
+${displayAffinityBlock}
+${displayPromoBlock}
+
+THE SHELF TALKER (HOW TO TALK ABOUT PRODUCTS):
+1. NEVER list all products. The shelf shows them visually -- your job is to SELL one.
+2. Lead with ONE recommendation using this priority:
+   a) Active PROMOTION match (if present above)
+   b) Brand AFFINITY match (if present above)
+   c) CARFIX VALUE tier (for service packages)
+   d) Mid-range branded option (for individual parts)
+3. Give a REASON tied to the customer's situation.
+4. CLOSE immediately: "Want me to add it?"
+5. If customer asks "what are my options?": Give a 1-line summary per tier, not full specs.
+6. Brand affinity phrasing: When recommending an affinity brand, use the talk_track naturally.
 
 IMPORTANT: 
 1. Only reference products/packages from this list
