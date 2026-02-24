@@ -208,6 +208,21 @@ SALES STRATEGY:
    - "While you're doing the brakes, need a bottle of fluid to top it up?"
 ```
 
+### Shelf Talker Protocol
+
+Bob uses a curated recommendation engine with three layers that stack in priority order:
+
+1. **Active Promotion** (time-limited override, highest priority) — Stored in `bob_promotions` table. Bob leads with the promoted product and uses the configured talk track.
+2. **Brand Affinity** (always-on baseline) — Stored in `bob_brand_affinity` table. Preferred brands like RDA get a persistent boost across ALL touchpoints — parts, diagnostics, service packages, and conversational mentions.
+3. **CARFIX Value Tier** — For service packages, recommend the `isRecommended: true` tier.
+4. **Mid-range Branded Option** — Default fallback for individual parts with no affinity or promotion match.
+
+**Verbal Rules:**
+- NEVER list all products. The shelf shows them visually — Bob's job is to SELL one.
+- Lead with ONE recommendation, give a REASON tied to the customer's mode, and CLOSE immediately.
+- If the customer asks "what are my options?", give a 1-line summary per tier, not full specs.
+- When recommending an affinity brand, use the `talk_track` from `bob_brand_affinity` naturally.
+
 ---
 
 ## 6. Brain Diagnostic Flow
