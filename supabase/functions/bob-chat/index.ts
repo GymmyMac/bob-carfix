@@ -3299,6 +3299,34 @@ Use light humor and be helpful while being honest about the limitation.`
         
         const carfixValueSummary = generateRecommendedTierSummary(displayedPackages as any[]);
         
+        // ============= PREFERRED BRAND DETECTION =============
+        // Extract preferred brand info from preparedTiers so the LLM can see it
+        const generatePreferredBrandSummary = (packages: any[]): string => {
+          const brandNotes: string[] = [];
+          
+          for (const pkg of packages) {
+            if (pkg.preparedTiers && Array.isArray(pkg.preparedTiers)) {
+              for (const tier of pkg.preparedTiers) {
+                if (tier.isHidden) continue;
+                const preferredProducts = tier.products?.filter((p: any) => p.isPreferredBrand === true) || [];
+                for (const prod of preferredProducts) {
+                  brandNotes.push(
+                    `⭐ ${pkg.title} → ${prod.brand} (${prod.partslotName}) is our PREFERRED BRAND — in ${tier.tierName} tier${tier.isRecommended ? ' (CARFIX VALUE)' : ''} at $${tier.totalPrice.toFixed(2)}`
+                  );
+                }
+              }
+            }
+          }
+          
+          if (brandNotes.length === 0) return '';
+          
+          // Deduplicate (same brand may appear in multiple tiers)
+          const unique = [...new Set(brandNotes)];
+          return `\n\n=== PREFERRED BRANDS IN THIS VEHICLE'S DATA ===\n${unique.join('\n')}\n===`;
+        };
+        
+        const preferredBrandSummary = generatePreferredBrandSummary(displayedPackages as any[]);
+        
         const packageSummary = displayedPackages.length > 0 
           ? `SERVICE PACKAGES (${displayedPackages.length}):\n${(displayedPackages as any[]).map(p => {
               // Include tier breakdown for AI context
@@ -3306,7 +3334,7 @@ Use light humor and be helpful while being honest about the limitation.`
                 `  - ${t.tierName}: $${t.totalPrice?.toFixed(2) || 'N/A'}${t.isRecommended ? ' (CARFIX VALUE)' : ''}`
               ).join('\n') || '';
               return `- ${p.title}: from $${p.from_price}\n${tierInfo}`;
-            }).join('\n')}${carfixValueSummary}`
+            }).join('\n')}${carfixValueSummary}${preferredBrandSummary}`
           : 'No service packages displayed.';
         
         const partsSummary = displayedParts.length > 0 
@@ -3352,6 +3380,11 @@ IMPORTANT:
           content: displayContext
         });
         console.log(`[Display Context] Injected: ${displayedPackages.length} packages, ${displayedParts.length} parts`);
+        if (preferredBrandSummary) {
+          console.log(`[Preferred Brands] Found preferred brand data in packages`);
+        } else {
+          console.log(`[Preferred Brands] No isPreferredBrand:true found in any package`);
+        }
       }
       
       console.log('Streaming final response');
