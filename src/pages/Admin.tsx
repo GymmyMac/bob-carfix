@@ -9,7 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image, Database, Volume2, Wand2, ArrowLeft, FileText, Palette, Building2, Globe, Music, Heart, Tag } from "lucide-react";
+import { Trash2, RotateCcw, Settings, Activity, MessageSquare, Zap, Timer, Eye, Image, Database, Volume2, Wand2, ArrowLeft, FileText, Palette, Building2, Globe, Music, Tag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PromptsManager } from "@/components/PromptsManager";
 import { ImageUploaderWithState } from "@/components/ImageUploaderWithState";
@@ -27,7 +27,7 @@ import { SparkDealsSettings } from "@/components/SparkDealsSettings";
 import { TenantManager } from "@/components/TenantManager";
 import { AudioClipsManager } from "@/components/AudioClipsManager";
 import { LLMModelSelector } from "@/components/LLMModelSelector";
-import { BrandAffinityManager } from "@/components/BrandAffinityManager";
+
 import { PromotionsManager } from "@/components/PromotionsManager";
 import { useBobAnimationConfig, AnimationState as AnimationStateType } from "@/hooks/useBobAnimationConfig";
 import { useBobAnimation } from "@/hooks/useBobAnimation";
@@ -239,7 +239,7 @@ const Admin = () => {
           {/* Admin Tabs (Main Area) */}
           <div className="lg:col-span-3">
             <Tabs defaultValue="controls" className="w-full">
-              <TabsList className="grid w-full" style={{ gridTemplateColumns: 'repeat(11, minmax(0, 1fr))' }}>
+              <TabsList className="grid w-full" style={{ gridTemplateColumns: 'repeat(10, minmax(0, 1fr))' }}>
                 <TabsTrigger value="controls" className="gap-1 text-xs">
                   <Zap className="w-3 h-3" />
                   Controls
@@ -267,10 +267,6 @@ const Admin = () => {
                 <TabsTrigger value="backdrop" className="gap-1 text-xs">
                   <Image className="w-3 h-3" />
                   Backdrop
-                </TabsTrigger>
-                <TabsTrigger value="brands" className="gap-1 text-xs">
-                  <Heart className="w-3 h-3" />
-                  Brands
                 </TabsTrigger>
                 <TabsTrigger value="promos" className="gap-1 text-xs">
                   <Tag className="w-3 h-3" />
@@ -764,11 +760,6 @@ const Admin = () => {
               {/* TENANTS TAB */}
               <TabsContent value="tenants" className="space-y-6 mt-6">
                 <TenantManager />
-              </TabsContent>
-
-              {/* BRAND AFFINITY TAB */}
-              <TabsContent value="brands" className="space-y-6 mt-6">
-                <BrandAffinityManager />
               </TabsContent>
 
               {/* PROMOTIONS TAB */}
