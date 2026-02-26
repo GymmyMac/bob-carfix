@@ -1406,7 +1406,15 @@ SYMPTOM DIAGNOSIS:
 
 KIWI STYLE:
 - Use casual NZ expressions: "sweet as", "no worries", "mate", "chur"
-- Be friendly but efficient - customers are busy`;
+- Be friendly but efficient - customers are busy
+
+PREFERRED BRAND RULES:
+- When presenting service packs, ALWAYS lead with the CARFIX Value tier (isRecommended: true).
+- Scan preparedTiers[].products[] for any product with isPreferredBrand: true.
+- If NO products have isPreferredBrand: true → Do NOT mention any preferred brand. Do NOT improvise brand recommendations.
+- If preferred brand products exist AND are in the Value tier → Mention as bonus: "It includes [Brand], which are our go-to."
+- If preferred brand products exist but NOT in Value tier → Mention as upgrade: "If you want our go-to brand, [Brand] is in the [TierName] tier for $[TierPrice]."
+- NEVER recommend a brand unless isPreferredBrand: true appears in the actual product data.`;
 
 // ============= HOST CONFIG TYPES =============
 interface HostConfig {
@@ -2454,16 +2462,14 @@ serve(async (req) => {
     }
 
     // Load prompts, brand affinities, and promotions from database
-    const [dbPrompts, brandAffinities, activePromotions] = await Promise.all([
+    const [dbPrompts, activePromotions] = await Promise.all([
       fetchPromptsFromDB(),
-      fetchBrandAffinities(),
       fetchActivePromotions(),
     ]);
     const baseSystemPrompt = buildSystemPromptFromDB(dbPrompts);
     
-    // Build enhanced system prompt with brand affinity and promotions context
+    // Build enhanced system prompt with promotions context
     let enhancedSystemPrompt = baseSystemPrompt;
-    enhancedSystemPrompt += buildAffinityContextBlock(brandAffinities);
     enhancedSystemPrompt += buildPromotionContextBlock(activePromotions);
     
     // Use deterministic vehicle if matched, otherwise use session context
@@ -3307,8 +3313,7 @@ Use light humor and be helpful while being honest about the limitation.`
           ? `PARTS: ${displayedParts.length} individual parts available` 
           : '';
         
-        // Build affinity/promotion context for display injection
-        const displayAffinityBlock = buildAffinityContextBlock(brandAffinities);
+        // Build promotion context for display injection
         const displayPromoBlock = buildPromotionContextBlock(activePromotions);
         
         const displayContext = `[CUSTOMER DISPLAY STATE - WHAT THE CUSTOMER SEES RIGHT NOW]
@@ -3316,20 +3321,25 @@ The customer's shelf currently shows:
 
 ${packageSummary}
 ${partsSummary}
-${displayAffinityBlock}
 ${displayPromoBlock}
 
 THE SHELF TALKER (HOW TO TALK ABOUT PRODUCTS):
 1. NEVER list all products. The shelf shows them visually -- your job is to SELL one.
 2. Lead with ONE recommendation using this priority:
    a) Active PROMOTION match (if present above)
-   b) Brand AFFINITY match (if present above)
-   c) CARFIX VALUE tier (for service packages)
-   d) Mid-range branded option (for individual parts)
+   b) CARFIX VALUE tier (isRecommended: true) for service packages
+   c) Mid-range branded option (for individual parts)
 3. Give a REASON tied to the customer's situation.
 4. CLOSE immediately: "Want me to add it?"
 5. If customer asks "what are my options?": Give a 1-line summary per tier, not full specs.
-6. Brand affinity phrasing: When recommending an affinity brand, use the talk_track naturally.
+
+PREFERRED BRAND RULES (use isPreferredBrand from preparedTiers product data):
+- When presenting service packs, ALWAYS lead with the CARFIX Value tier (isRecommended: true).
+- Scan preparedTiers[].products[] for any product with isPreferredBrand: true.
+- If NO products have isPreferredBrand: true → Do NOT mention any preferred brand. Do NOT improvise brand recommendations.
+- If preferred brand products exist AND are in the Value tier → Mention as bonus: "It includes [Brand], which are our go-to."
+- If preferred brand products exist but NOT in Value tier → Mention as upgrade: "If you want our go-to brand, [Brand] is in the [TierName] tier for $[TierPrice]."
+- NEVER recommend a brand unless isPreferredBrand: true appears in the actual product data for the current vehicle.
 
 IMPORTANT: 
 1. Only reference products/packages from this list
