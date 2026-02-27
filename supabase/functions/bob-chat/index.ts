@@ -3043,6 +3043,27 @@ Use light humor and be helpful while being honest about the limitation.`
           // ============= VEHICLE LOOKUP PROCESSING =============
           // Handle vehicle lookup results - store data for validation and emit events
           if (toolCall.function.name === "lookup_vehicle") {
+            // GUARD: If deterministic fetch already confirmed a vehicle, skip redundant lookup
+            const alreadyDeterministic = (conversationMessages as unknown as { _deterministicMatch?: boolean })._deterministicMatch;
+            const existingConfirmed = (conversationMessages as unknown as { _confirmedVehicle?: unknown })._confirmedVehicle;
+            
+            if (alreadyDeterministic && existingConfirmed) {
+              console.log(`[Vehicle Lookup] SKIPPED — deterministic fetch already confirmed vehicle. Returning cached result to AI.`);
+              // Override the tool result so the AI sees "already confirmed" instead of processing new data
+              const cachedVehicle = existingConfirmed as Record<string, unknown>;
+              conversationMessages.push({
+                role: "tool",
+                content: JSON.stringify({
+                  success: true,
+                  message: `Vehicle already confirmed: ${cachedVehicle.year} ${cachedVehicle.make} ${cachedVehicle.model}. Parts and service packages are already loaded on the shelf. Do NOT re-fetch.`,
+                  vehicle: cachedVehicle,
+                  already_confirmed: true
+                }),
+                tool_call_id: toolCall.id
+              });
+              continue; // Skip to next tool call — do NOT fall through to normal processing
+            }
+            
             const vehicleResult = result as { 
               success?: boolean; 
               vehicle?: Record<string, unknown>; 
@@ -3108,21 +3129,37 @@ Use light humor and be helpful while being honest about the limitation.`
                   rego: (vehicleResult as any).plate || vehicle.rego,
                 };
                 
-                // Fetch parts and packages
-                const [partsResult, packagesResult] = await Promise.all([
-                  retrieveParts(vehicleId, apiConfig),
-                  retrieveServicePackages(vehicleId, apiConfig)
-                ]);
+                // GUARD: Only fetch parts/packages if not already loaded
+                const existingParts = (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit;
+                const existingPackages = (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit;
                 
-                if (partsResult.success && partsResult.parts.length > 0) {
-                  console.log(`[Vehicle Lookup] Auto-fetch: ${partsResult.parts.length} parts`);
-                  (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit = partsResult.parts;
-                }
-                
-                if (packagesResult.success && packagesResult.packages.length > 0) {
-                  const displayable = filterDisplayablePackages(packagesResult.packages);
-                  console.log(`[Vehicle Lookup] Auto-fetch: ${displayable.length} packages`);
-                  (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = displayable;
+                if ((!existingParts || existingParts.length === 0) || (!existingPackages || existingPackages.length === 0)) {
+                  // Fetch parts and packages
+                  const [partsResult, packagesResult] = await Promise.all([
+                    (!existingParts || existingParts.length === 0) ? retrieveParts(vehicleId, apiConfig) : Promise.resolve({ success: true, parts: existingParts }),
+                    (!existingPackages || existingPackages.length === 0) ? retrieveServicePackages(vehicleId, apiConfig) : Promise.resolve({ success: true, packages: existingPackages })
+                  ]);
+                  
+                  if (!existingParts || existingParts.length === 0) {
+                    if (partsResult.success && partsResult.parts.length > 0) {
+                      console.log(`[Vehicle Lookup] Auto-fetch: ${partsResult.parts.length} parts`);
+                      (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit = partsResult.parts;
+                    }
+                  } else {
+                    console.log(`[Vehicle Lookup] SKIPPED parts fetch — ${existingParts.length} parts already loaded`);
+                  }
+                  
+                  if (!existingPackages || existingPackages.length === 0) {
+                    if (packagesResult.success && packagesResult.packages.length > 0) {
+                      const displayable = filterDisplayablePackages(packagesResult.packages);
+                      console.log(`[Vehicle Lookup] Auto-fetch: ${displayable.length} packages`);
+                      (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = displayable;
+                    }
+                  } else {
+                    console.log(`[Vehicle Lookup] SKIPPED packages fetch — ${existingPackages.length} packages already loaded`);
+                  }
+                } else {
+                  console.log(`[Vehicle Lookup] SKIPPED all fetches — parts (${existingParts.length}) and packages (${existingPackages.length}) already loaded`);
                 }
               }
             }
@@ -3130,19 +3167,29 @@ Use light humor and be helpful while being honest about the limitation.`
           
           // ============= PARTS/PACKAGES TOOL RESULT PROCESSING =============
           if (toolCall.function.name === "retrieve_parts") {
-            const partsResult = result as { success?: boolean; parts?: unknown[] };
-            if (partsResult.success && partsResult.parts && partsResult.parts.length > 0) {
-              console.log('Storing', partsResult.parts.length, 'parts for emission');
-              (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit = partsResult.parts;
+            const existingParts = (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit;
+            if (existingParts && existingParts.length > 0) {
+              console.log(`[retrieve_parts] SKIPPED — ${existingParts.length} parts already loaded`);
+            } else {
+              const partsResult = result as { success?: boolean; parts?: unknown[] };
+              if (partsResult.success && partsResult.parts && partsResult.parts.length > 0) {
+                console.log('Storing', partsResult.parts.length, 'parts for emission');
+                (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit = partsResult.parts;
+              }
             }
           }
           
           if (toolCall.function.name === "retrieve_service_packages") {
-            const packagesResult = result as { success?: boolean; packages?: unknown[] };
-            if (packagesResult.success && packagesResult.packages && packagesResult.packages.length > 0) {
-              const displayable = filterDisplayablePackages(packagesResult.packages);
-              console.log('Storing', displayable.length, 'service packages for emission');
-              (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = displayable;
+            const existingPackages = (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit;
+            if (existingPackages && existingPackages.length > 0) {
+              console.log(`[retrieve_service_packages] SKIPPED — ${existingPackages.length} packages already loaded`);
+            } else {
+              const packagesResult = result as { success?: boolean; packages?: unknown[] };
+              if (packagesResult.success && packagesResult.packages && packagesResult.packages.length > 0) {
+                const displayable = filterDisplayablePackages(packagesResult.packages);
+                console.log('Storing', displayable.length, 'service packages for emission');
+                (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit = displayable;
+              }
             }
           }
 
@@ -3269,73 +3316,97 @@ Use light humor and be helpful while being honest about the limitation.`
       const displayedParts = (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit || [];
       
       if (displayedPackages.length > 0 || displayedParts.length > 0) {
-        // ============= CARFIX VALUE TIER SUMMARY (Regression Prevention) =============
-        // Generate explicit recommended tier summary to ensure AI quotes correct prices
-        // See: .lovable/plan.md - "Layer 4: Fix 3 - Explicit CARFIX VALUE Price"
-        const generateRecommendedTierSummary = (packages: any[]): string => {
-          const summaries: string[] = [];
-          
-          for (const pkg of packages) {
-            if (pkg.preparedTiers && Array.isArray(pkg.preparedTiers)) {
-              // Validate tiers have isRecommended flag
-              const hasRecommended = pkg.preparedTiers.some((t: any) => t.isRecommended === true);
-              if (!hasRecommended) {
-                console.warn(`[VALIDATION] Package ${pkg.id} has no recommended tier!`);
-              }
-              
-              const recommended = pkg.preparedTiers.find((t: any) => t.isRecommended === true);
-              if (recommended) {
-                summaries.push(
-                  `📍 ${pkg.title}: CARFIX VALUE = ${recommended.tierName} tier at $${recommended.totalPrice.toFixed(2)}`
-                );
-              }
-            }
-          }
-          
-          return summaries.length > 0 
-            ? `\n\n=== CARFIX VALUE TIERS (SPEAK THESE PRICES) ===\n${summaries.join('\n')}\n===`
-            : '';
-        };
-        
-        const carfixValueSummary = generateRecommendedTierSummary(displayedPackages as any[]);
-        
-        // ============= PREFERRED BRAND DETECTION =============
-        // Extract preferred brand info from preparedTiers so the LLM can see it
-        const generatePreferredBrandSummary = (packages: any[]): string => {
+        // ============= COMPACT PACKAGE SUMMARIES FOR LLM (not full preparedTiers) =============
+        // Build lightweight summaries so the LLM can discuss packages without ingesting
+        // massive tier/product payloads. Full preparedTiers still flow to frontend via SSE.
+        const generateCompactPackageSummary = (packages: any[]): { summary: string; carfixValueBlock: string; preferredBrandBlock: string; cachedBrandContext: string } => {
+          const packageLines: string[] = [];
+          const valueTierLines: string[] = [];
           const brandNotes: string[] = [];
           
           for (const pkg of packages) {
-            if (pkg.preparedTiers && Array.isArray(pkg.preparedTiers)) {
-              for (const tier of pkg.preparedTiers) {
-                if (tier.isHidden) continue;
-                const preferredProducts = tier.products?.filter((p: any) => p.isPreferredBrand === true) || [];
-                for (const prod of preferredProducts) {
-                  brandNotes.push(
-                    `⭐ ${pkg.title} → ${prod.brand} (${prod.partslotName}) is our PREFERRED BRAND — in ${tier.tierName} tier${tier.isRecommended ? ' (CARFIX VALUE)' : ''} at $${tier.totalPrice.toFixed(2)}`
-                  );
-                }
+            if (!pkg.preparedTiers || !Array.isArray(pkg.preparedTiers)) {
+              packageLines.push(`- ${pkg.title}: from $${pkg.from_price}`);
+              continue;
+            }
+            
+            const visibleTiers = pkg.preparedTiers.filter((t: any) => !t.isHidden);
+            const tierCount = visibleTiers.length;
+            
+            // Per-tier compact summary
+            const tierSummaries: string[] = [];
+            for (const tier of visibleTiers) {
+              const products = tier.products || [];
+              // Only include partslotName, brand, displayPrice, and isPreferredBrand flag
+              const productSummaries = products.map((p: any) => {
+                let line = `${p.partslotName}: ${p.brand} $${p.displayPrice.toFixed(2)}`;
+                if (p.isPreferredBrand) line += ' ⭐PREFERRED';
+                return line;
+              });
+              
+              tierSummaries.push(
+                `  - ${tier.tierName}: $${tier.totalPrice?.toFixed(2) || 'N/A'}${tier.isRecommended ? ' (CARFIX VALUE)' : ''} | ${tier.productCount} products | ${tier.dominantBrand || 'mixed'}\n    Products: ${productSummaries.join(', ')}`
+              );
+              
+              // Extract preferred brand notes
+              const preferredProducts = products.filter((p: any) => p.isPreferredBrand === true);
+              for (const prod of preferredProducts) {
+                brandNotes.push(
+                  `⭐ ${pkg.title} → ${prod.brand} (${prod.partslotName}) is our PREFERRED BRAND — in ${tier.tierName} tier${tier.isRecommended ? ' (CARFIX VALUE)' : ''} at $${tier.totalPrice.toFixed(2)}`
+                );
               }
+            }
+            
+            packageLines.push(`- ${pkg.title} (${tierCount} tiers, from $${pkg.from_price}):\n${tierSummaries.join('\n')}`);
+            
+            // CARFIX Value tier extraction
+            const hasRecommended = pkg.preparedTiers.some((t: any) => t.isRecommended === true);
+            if (!hasRecommended) {
+              console.warn(`[VALIDATION] Package ${pkg.id} has no recommended tier!`);
+            }
+            const recommended = pkg.preparedTiers.find((t: any) => t.isRecommended === true);
+            if (recommended) {
+              valueTierLines.push(`📍 ${pkg.title}: CARFIX VALUE = ${recommended.tierName} tier at $${recommended.totalPrice.toFixed(2)}`);
             }
           }
           
-          if (brandNotes.length === 0) return '';
+          const summary = packageLines.length > 0
+            ? `SERVICE PACKAGES (${packages.length}):\n${packageLines.join('\n')}`
+            : 'No service packages displayed.';
           
-          // Deduplicate (same brand may appear in multiple tiers)
-          const unique = [...new Set(brandNotes)];
-          return `\n\n=== PREFERRED BRANDS IN THIS VEHICLE'S DATA ===\n${unique.join('\n')}\n===`;
+          const carfixValueBlock = valueTierLines.length > 0
+            ? `\n\n=== CARFIX VALUE TIERS (SPEAK THESE PRICES) ===\n${valueTierLines.join('\n')}\n===`
+            : '';
+          
+          const uniqueBrands = [...new Set(brandNotes)];
+          const preferredBrandBlock = uniqueBrands.length > 0
+            ? `\n\n=== PREFERRED BRANDS IN THIS VEHICLE'S DATA ===\n${uniqueBrands.join('\n')}\n===`
+            : '';
+          
+          // Build cached brand context string for follow-up turns (Fix 2)
+          let cachedBrandContext = '';
+          if (uniqueBrands.length > 0) {
+            cachedBrandContext = `[PREFERRED BRAND CONTEXT]
+=== PREFERRED BRANDS FOR THIS VEHICLE ===
+${uniqueBrands.join('\n')}
+===
+
+PREFERRED BRAND RULES:
+- When discussing service packs or parts, ALWAYS lead with the CARFIX Value tier.
+- If preferred brand products exist AND are in the Value tier → Mention as bonus: "It includes [Brand], which are our go-to."
+- If preferred brand products exist but NOT in Value tier → Mention as upgrade: "If you want our go-to brand, [Brand] is in the [TierName] tier for $[TierPrice]."
+- NEVER recommend a brand unless isPreferredBrand: true appears in the actual product data.`;
+          }
+          
+          return { summary, carfixValueBlock, preferredBrandBlock, cachedBrandContext };
         };
         
-        const preferredBrandSummary = generatePreferredBrandSummary(displayedPackages as any[]);
+        const { summary: packageSummary, carfixValueBlock, preferredBrandBlock, cachedBrandContext } = generateCompactPackageSummary(displayedPackages as any[]);
         
-        const packageSummary = displayedPackages.length > 0 
-          ? `SERVICE PACKAGES (${displayedPackages.length}):\n${(displayedPackages as any[]).map(p => {
-              // Include tier breakdown for AI context
-              const tierInfo = p.preparedTiers?.filter((t: any) => !t.isHidden)?.map((t: any) => 
-                `  - ${t.tierName}: $${t.totalPrice?.toFixed(2) || 'N/A'}${t.isRecommended ? ' (CARFIX VALUE)' : ''}`
-              ).join('\n') || '';
-              return `- ${p.title}: from $${p.from_price}\n${tierInfo}`;
-            }).join('\n')}${carfixValueSummary}${preferredBrandSummary}`
-          : 'No service packages displayed.';
+        // Cache the preferred brand context for follow-up turns (Fix 2)
+        if (cachedBrandContext) {
+          (conversationMessages as unknown as { _cachedBrandContext?: string })._cachedBrandContext = cachedBrandContext;
+        }
         
         const partsSummary = displayedParts.length > 0 
           ? `PARTS: ${displayedParts.length} individual parts available` 
@@ -3347,7 +3418,7 @@ Use light humor and be helpful while being honest about the limitation.`
         const displayContext = `[CUSTOMER DISPLAY STATE - WHAT THE CUSTOMER SEES RIGHT NOW]
 The customer's shelf currently shows:
 
-${packageSummary}
+${packageSummary}${carfixValueBlock}${preferredBrandBlock}
 ${partsSummary}
 ${displayPromoBlock}
 
@@ -3379,63 +3450,23 @@ IMPORTANT:
           role: "system",
           content: displayContext
         });
-        console.log(`[Display Context] Injected: ${displayedPackages.length} packages, ${displayedParts.length} parts`);
-        if (preferredBrandSummary) {
+        console.log(`[Display Context] Injected compact summaries: ${displayedPackages.length} packages, ${displayedParts.length} parts`);
+        if (preferredBrandBlock) {
           console.log(`[Preferred Brands] Found preferred brand data in packages`);
         } else {
           console.log(`[Preferred Brands] No isPreferredBrand:true found in any package`);
         }
       } else if (effectiveVehicleContext) {
-        // ============= PERSISTENT PREFERRED BRAND INJECTION =============
-        // When no new packages were emitted this turn but we have a vehicle,
-        // fetch service bundles to extract preferred brand data for the LLM
-        const vehicleIdForBrands = effectiveVehicleContext.vehicle_id || (effectiveVehicleContext as any)?.id;
-        const vehicleIdNum = Number.parseInt(String(vehicleIdForBrands), 10);
+        // ============= CACHED PREFERRED BRAND INJECTION (NO RE-FETCH) =============
+        // Instead of re-fetching service bundles every turn, use cached brand context
+        // from the initial package fetch (stored in _cachedBrandContext)
+        const cachedBrandCtx = (conversationMessages as unknown as { _cachedBrandContext?: string })._cachedBrandContext;
         
-        if (Number.isFinite(vehicleIdNum)) {
-          try {
-            console.log(`[Preferred Brands Fallback] Fetching for vehicle ${vehicleIdNum}`);
-            const brandFetchResult = await retrieveServicePackages(vehicleIdNum, apiConfig);
-            
-            if (brandFetchResult.success && brandFetchResult.packages?.length > 0) {
-              const brandNotes: string[] = [];
-              
-              for (const pkg of brandFetchResult.packages) {
-                if (pkg.preparedTiers && Array.isArray(pkg.preparedTiers)) {
-                  for (const tier of pkg.preparedTiers) {
-                    if (tier.isHidden) continue;
-                    const preferredProducts = tier.products?.filter((p: any) => p.isPreferredBrand === true) || [];
-                    for (const prod of preferredProducts) {
-                      brandNotes.push(
-                        `⭐ ${pkg.title} → ${prod.brand} (${prod.partslotName}) is our PREFERRED BRAND — in ${tier.tierName} tier${tier.isRecommended ? ' (CARFIX VALUE)' : ''} at $${tier.totalPrice.toFixed(2)}`
-                      );
-                    }
-                  }
-                }
-              }
-              
-              if (brandNotes.length > 0) {
-                const unique = [...new Set(brandNotes)];
-                const brandContext = `[PREFERRED BRAND CONTEXT]
-=== PREFERRED BRANDS FOR THIS VEHICLE ===
-${unique.join('\n')}
-===
-
-PREFERRED BRAND RULES:
-- When discussing service packs or parts, ALWAYS lead with the CARFIX Value tier.
-- If preferred brand products exist AND are in the Value tier → Mention as bonus: "It includes [Brand], which are our go-to."
-- If preferred brand products exist but NOT in Value tier → Mention as upgrade: "If you want our go-to brand, [Brand] is in the [TierName] tier for $[TierPrice]."
-- NEVER recommend a brand unless isPreferredBrand: true appears in the actual product data.`;
-                
-                conversationMessages.push({ role: "system", content: brandContext });
-                console.log(`[Preferred Brands Fallback] Injected ${unique.length} preferred brand notes`);
-              } else {
-                console.log(`[Preferred Brands Fallback] No isPreferredBrand:true in fetched packages`);
-              }
-            }
-          } catch (err) {
-            console.warn(`[Preferred Brands Fallback] Failed to fetch:`, err);
-          }
+        if (cachedBrandCtx) {
+          conversationMessages.push({ role: "system", content: cachedBrandCtx });
+          console.log(`[Preferred Brands] Injected CACHED brand context (no API call)`);
+        } else {
+          console.log(`[Preferred Brands] No cached brand context available for this session`);
         }
       }
       
