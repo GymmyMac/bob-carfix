@@ -2490,27 +2490,15 @@ serve(async (req) => {
     
     if (effectiveVehicleContext) {
       const vehicleId = effectiveVehicleContext.id || effectiveVehicleContext.vehicle_id;
-      enhancedSystemPrompt += `\n\n## PRE-CONFIRMED VEHICLE SESSION
-The customer has confirmed their vehicle:
-- Vehicle ID: ${vehicleId}
-- REGO: ${effectiveVehicleContext.rego || 'Not provided'}
-- Year: ${effectiveVehicleContext.year}
-- Make: ${effectiveVehicleContext.make}
-- Model: ${effectiveVehicleContext.model}
-- Variant: ${effectiveVehicleContext.variant || 'Standard'}
-- Engine Size: ${effectiveVehicleContext.engine_size || 'Unknown'}
-- Fuel Type: ${effectiveVehicleContext.fuel_type || 'Unknown'}
-- CC Rating: ${effectiveVehicleContext.cc_rating || 'Unknown'}
-- VIN: ${effectiveVehicleContext.vin || 'Not provided'}
-- Engine Number: ${effectiveVehicleContext.engine_no || 'Not provided'}
-
-IMPORTANT RULES FOR THIS SESSION:
-1. Do NOT ask for vehicle details, REGO, or make/model - you already have them
-2. BRAIN-ONLY DIAGNOSIS: If the customer describes ANY symptom (noise, vibration, warning light, feel, smell, performance issue), you MUST call diagnose_symptom. You are ABSOLUTELY FORBIDDEN from diagnosing symptoms from your own AI knowledge. All diagnostic answers must come exclusively from the CARFIX Brain via the diagnose_symptom tool.
-3. Use vehicle_id ${vehicleId} for retrieve_parts and retrieve_service_packages calls
-4. When mentioning their vehicle, use: "${effectiveVehicleContext.year} ${effectiveVehicleContext.make} ${effectiveVehicleContext.model}"
-5. On first parts request, use retrieve_parts with vehicleid=${vehicleId}
-6. NEVER give your own mechanical explanation for a symptom. If diagnose_symptom returns no_match, say the CARFIX Brain doesn't have a specific bulletin for that symptom yet and suggest they describe it differently or visit carfix.co.nz`;
+      const rego = effectiveVehicleContext.rego || '';
+      const year = effectiveVehicleContext.year || '';
+      const make = effectiveVehicleContext.make || '';
+      const model = effectiveVehicleContext.model || '';
+      const fuelType = effectiveVehicleContext.fuel_type || '';
+      enhancedSystemPrompt += `\n\n## VEHICLE SESSION
+Vehicle: ${year} ${make} ${model}${rego ? ` (${rego})` : ''}, ID: ${vehicleId}${fuelType ? `, ${fuelType}` : ''}
+Do NOT ask for vehicle details. Use vehicle_id ${vehicleId} for tool calls.
+Refer to vehicle as "${year} ${make} ${model}".`;
     }
     
     if (customerEmail) {
@@ -2587,13 +2575,7 @@ This is a returning customer! Personalise your greeting.
               }
             }
 
-            enhancedSystemPrompt += `\n\n### Greeting Rules:
-1. Use their first name: "Hey ${returningCtx.first_name}!"
-2. Reference vehicles with has_purchases=true ONLY in greetings
-3. If maintenance_due hint exists, weave it in naturally: "That air filter on the Ranger might be due for a swap — been a couple months!"
-4. If they have a current_session_vehicle, acknowledge it: "I see you're checking out the [MAKE] [MODEL]"
-5. For vehicle removal: customer says "sold my [CAR]" → match to vehicle_record_id → confirm → call remove_vehicle
-6. Keep greeting concise — 2-3 sentences max`;
+            // Static greeting rules moved to DB system prompt — only dynamic data injected above
           } else {
             console.log('[Returning Customer] Not a returning customer or error:', returningCtx.error || 'unknown');
           }
@@ -3365,39 +3347,10 @@ Use light humor and be helpful while being honest about the limitation.`
           ? `PARTS: ${displayedParts.length} individual parts available` 
           : '';
         
-        // Build promotion context for display injection
-        const displayPromoBlock = buildPromotionContextBlock(activePromotions);
-        
-        const displayContext = `[CUSTOMER DISPLAY STATE - WHAT THE CUSTOMER SEES RIGHT NOW]
-The customer's shelf currently shows:
-
+        // Display context: data-only, no static instructions (moved to DB system prompt)
+        const displayContext = `[SHELF DATA]
 ${packageSummary}${carfixValueBlock}${preferredBrandBlock}
-${partsSummary}
-${displayPromoBlock}
-
-THE SHELF TALKER (HOW TO TALK ABOUT PRODUCTS):
-1. NEVER list all products. The shelf shows them visually -- your job is to SELL one.
-2. Lead with ONE recommendation using this priority:
-   a) Active PROMOTION match (if present above)
-   b) CARFIX VALUE tier (isRecommended: true) for service packages
-   c) Mid-range branded option (for individual parts)
-3. Give a REASON tied to the customer's situation.
-4. CLOSE immediately: "Want me to add it?"
-5. If customer asks "what are my options?": Give a 1-line summary per tier, not full specs.
-
-PREFERRED BRAND RULES (use isPreferredBrand from preparedTiers product data):
-- When presenting service packs, ALWAYS lead with the CARFIX Value tier (isRecommended: true).
-- Scan preparedTiers[].products[] for any product with isPreferredBrand: true.
-- If NO products have isPreferredBrand: true → Do NOT mention any preferred brand. Do NOT improvise brand recommendations.
-- If preferred brand products exist AND are in the Value tier → Mention as bonus: "It includes [Brand], which are our go-to."
-- If preferred brand products exist but NOT in Value tier → Mention as upgrade: "If you want our go-to brand, [Brand] is in the [TierName] tier for $[TierPrice]."
-- NEVER recommend a brand unless isPreferredBrand: true appears in the actual product data for the current vehicle.
-
-IMPORTANT: 
-1. Only reference products/packages from this list
-2. When recommending a service package, ALWAYS quote the CARFIX VALUE tier price (marked above)
-3. DO NOT quote the cheapest (Economy) price - quote the recommended tier price
-4. The recommended tier is what appears as "CARFIX VALUE" on the customer's screen`;
+${partsSummary}`;
         
         conversationMessages.push({
           role: "system",
@@ -3425,6 +3378,54 @@ IMPORTANT:
       
       console.log('Streaming final response');
       
+      // ============= STEP 1: Strip tool history on bypass path =============
+      // When tool loop was bypassed, remove tool_calls and tool role messages
+      // to avoid sending stale tool history tokens to the LLM.
+      let streamMessages = conversationMessages;
+      if (canBypassToolLoop) {
+        streamMessages = conversationMessages
+          .filter((m: any) => m.role !== 'tool')
+          .map((m: any) => {
+            if (m.role === 'assistant' && m.tool_calls) {
+              const { tool_calls, ...rest } = m;
+              return rest;
+            }
+            return m;
+          });
+        console.log(`[Token Optimization] Stripped tool history: ${conversationMessages.length} → ${streamMessages.length} messages`);
+      }
+      
+      // ============= STEP 6: Truncate old assistant messages =============
+      // For multi-turn conversations, summarize old assistant messages to first sentence.
+      // Keep all user and system messages intact. Only truncate assistant messages
+      // older than the last 3 turns.
+      if (streamMessages.length > 6) {
+        const lastAssistantIndices: number[] = [];
+        for (let i = streamMessages.length - 1; i >= 0; i--) {
+          if (streamMessages[i].role === 'assistant') {
+            lastAssistantIndices.push(i);
+            if (lastAssistantIndices.length >= 3) break;
+          }
+        }
+        const keepFromIndex = lastAssistantIndices.length > 0 
+          ? Math.min(...lastAssistantIndices) 
+          : streamMessages.length;
+        
+        let truncatedCount = 0;
+        streamMessages = streamMessages.map((m: any, i: number) => {
+          if (m.role === 'assistant' && i < keepFromIndex && m.content && m.content.length > 100) {
+            // Extract first sentence only
+            const firstSentence = m.content.match(/^[^.!?]*[.!?]/)?.[0] || m.content.slice(0, 80) + '…';
+            truncatedCount++;
+            return { ...m, content: firstSentence };
+          }
+          return m;
+        });
+        if (truncatedCount > 0) {
+          console.log(`[Token Optimization] Truncated ${truncatedCount} old assistant messages to first sentence`);
+        }
+      }
+      
       // Make streaming request for final response
       const streamResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -3434,7 +3435,7 @@ IMPORTANT:
         },
         body: JSON.stringify({
           model: "google/gemini-2.5-flash",
-          messages: conversationMessages,
+          messages: streamMessages,
           stream: true,
         }),
       });
