@@ -2874,7 +2874,13 @@ Use light humor and be helpful while being honest about the limitation.`
 
     // Tool calling loop - may require multiple iterations
     let loopCount = 0;
-    const maxLoops = canBypassToolLoop ? 0 : 5; // Skip loop entirely if bypass is active
+    const maxLoops = 5;
+    
+    // If bypass is active, skip tool loop entirely and go straight to streaming
+    if (canBypassToolLoop) {
+      // Jump directly to display context + streaming (after the while loop)
+      loopCount = maxLoops; // Force skip
+    }
     
     while (loopCount < maxLoops) {
       loopCount++;
@@ -3788,7 +3794,210 @@ ${partsSummary}`;
       });
     }
     
-    // If we hit max loops, return an error
+    // ============= BYPASS PATH: Direct streaming without tool loop =============
+    if (canBypassToolLoop) {
+      console.log('[Bypass Path] Entering direct streaming — no tool loop executed');
+      
+      const displayedPackages = (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit || [];
+      const displayedParts = (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit || [];
+      
+      if (displayedPackages.length > 0 || displayedParts.length > 0) {
+        let displayContext = `\n\n## PRODUCTS ON SHELF (customer can see these)\n`;
+        if (displayedPackages.length > 0) {
+          const packageLines: string[] = [];
+          const valueTierLines: string[] = [];
+          const brandNotes: string[] = [];
+          for (const pkg of displayedPackages as any[]) {
+            if (!pkg.preparedTiers || !Array.isArray(pkg.preparedTiers)) {
+              packageLines.push(`- ${pkg.title}: from $${pkg.from_price}`);
+              continue;
+            }
+            const visibleTiers = pkg.preparedTiers.filter((t: any) => !t.isHidden);
+            const tierPrices = visibleTiers.map((t: any) => {
+              let label = `${t.tierName} $${t.totalPrice?.toFixed(0) || '?'}`;
+              if (t.isRecommended) label += ' ★VALUE';
+              const preferred = (t.products || []).find((p: any) => p.isPreferredBrand === true);
+              if (preferred) {
+                label += ` (${preferred.brand} ⭐)`;
+                brandNotes.push(`${pkg.title}: ${preferred.brand} is preferred (in ${t.tierName} at $${t.totalPrice?.toFixed(0)})`);
+              }
+              return label;
+            }).join(' | ');
+            packageLines.push(`- ${pkg.title}: ${tierPrices}`);
+            const valueTier = visibleTiers.find((t: any) => t.isRecommended);
+            if (valueTier) {
+              valueTierLines.push(`${pkg.title}: ${valueTier.tierName} at $${valueTier.totalPrice?.toFixed(0)} (${valueTier.dominantBrand || 'mixed'})`);
+            }
+          }
+          displayContext += `Service Packs (${displayedPackages.length}):\n${packageLines.join('\n')}`;
+          if (valueTierLines.length > 0) displayContext += `\nCARFIX VALUE PICKS:\n${valueTierLines.join('\n')}`;
+          if (brandNotes.length > 0) {
+            displayContext += `\nPREFERRED BRANDS:\n${brandNotes.join('\n')}`;
+            conversationMessages.push({ role: "system", content: `BRAND AFFINITY CONTEXT:\n${brandNotes.join('\n')}` });
+          }
+        }
+        if (displayedParts.length > 0) {
+          displayContext += `\nIndividual parts: ${displayedParts.length} available on shelf.`;
+        }
+        conversationMessages.push({ role: "system", content: displayContext });
+      }
+
+      // Strip tool history
+      let streamMessages = conversationMessages
+        .filter((m: any) => m.role !== 'tool')
+        .map((m: any) => {
+          if (m.role === 'assistant' && m.tool_calls) {
+            const { tool_calls, ...rest } = m;
+            return rest;
+          }
+          return m;
+        });
+      console.log(`[Token Optimization] Bypass: stripped to ${streamMessages.length} messages`);
+
+      // Truncate old assistant messages
+      if (streamMessages.length > 6) {
+        const lastAssistantIndices: number[] = [];
+        for (let i = streamMessages.length - 1; i >= 0; i--) {
+          if (streamMessages[i].role === 'assistant') {
+            lastAssistantIndices.push(i);
+            if (lastAssistantIndices.length >= 3) break;
+          }
+        }
+        const keepFromIndex = lastAssistantIndices.length > 0 ? Math.min(...lastAssistantIndices) : streamMessages.length;
+        streamMessages = streamMessages.map((m: any, i: number) => {
+          if (m.role === 'assistant' && i < keepFromIndex && m.content && m.content.length > 100) {
+            const firstSentence = m.content.match(/^[^.!?]*[.!?]/)?.[0] || m.content.slice(0, 80) + '…';
+            return { ...m, content: firstSentence };
+          }
+          return m;
+        });
+      }
+
+      const streamResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: streamMessages,
+          stream: true,
+        }),
+      });
+
+      if (!streamResponse.ok) {
+        const errorText = await streamResponse.text();
+        console.error("Bypass streaming error:", streamResponse.status, errorText);
+        return new Response(JSON.stringify({ error: "Streaming error" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      console.log('[Bypass Path] Streaming response');
+      const reader = streamResponse.body?.getReader();
+      if (!reader) throw new Error("No response body");
+      
+      const partsToEmit = (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit;
+      const servicePackagesToEmit = (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit;
+      const confirmedVehicleStored = (conversationMessages as unknown as { _confirmedVehicle?: unknown })._confirmedVehicle;
+      
+      const encoder = new TextEncoder();
+      const decoder = new TextDecoder();
+      
+      const transformedStream = new ReadableStream({
+        async start(controller) {
+          let buffer = "";
+          let accumulatedContent = "";
+          let vehicleEmitted = false;
+          let partsEmitted = false;
+          
+          // Emit confirmed vehicle first
+          if (confirmedVehicleStored) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "vehicle_identified", vehicle: confirmedVehicleStored })}\n\n`));
+            vehicleEmitted = true;
+          }
+          
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) {
+                if (!partsEmitted) {
+                  if (partsToEmit && partsToEmit.length > 0) {
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "parts_found", parts: partsToEmit })}\n\n`));
+                  }
+                  if (servicePackagesToEmit && servicePackagesToEmit.length > 0) {
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "service_packages_found", packages: servicePackagesToEmit })}\n\n`));
+                  }
+                  partsEmitted = true;
+                }
+                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                break;
+              }
+              
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split("\n");
+              buffer = lines.pop() || "";
+              
+              for (const line of lines) {
+                if (!line.startsWith("data: ") || line === "data: [DONE]") {
+                  if (line === "data: [DONE]") continue;
+                  controller.enqueue(encoder.encode(line + "\n"));
+                  continue;
+                }
+                try {
+                  const parsed = JSON.parse(line.slice(6));
+                  const content = parsed.choices?.[0]?.delta?.content || "";
+                  if (content) {
+                    accumulatedContent += content;
+                    if (!partsEmitted && accumulatedContent.length > 5) {
+                      if (partsToEmit && partsToEmit.length > 0) {
+                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "parts_found", parts: partsToEmit })}\n\n`));
+                      }
+                      if (servicePackagesToEmit && servicePackagesToEmit.length > 0) {
+                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "service_packages_found", packages: servicePackagesToEmit })}\n\n`));
+                      }
+                      partsEmitted = true;
+                    }
+                    if (content.includes('[VEHICLE_CONFIRMED:')) {
+                      const markerMatch = accumulatedContent.match(/\[VEHICLE_CONFIRMED:(.*?)\]/);
+                      if (markerMatch && !vehicleEmitted) {
+                        try {
+                          const vehicleData = JSON.parse(markerMatch[1]);
+                          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "vehicle_identified", vehicle: vehicleData })}\n\n`));
+                          vehicleEmitted = true;
+                        } catch { /* ignore */ }
+                      }
+                      const cleanContent = content.replace(/\[VEHICLE_CONFIRMED:.*?\]/g, '');
+                      if (cleanContent.trim()) {
+                        parsed.choices[0].delta.content = cleanContent;
+                        controller.enqueue(encoder.encode(`data: ${JSON.stringify(parsed)}\n`));
+                      }
+                      continue;
+                    }
+                  }
+                  controller.enqueue(encoder.encode(line + "\n"));
+                } catch {
+                  controller.enqueue(encoder.encode(line + "\n"));
+                }
+              }
+            }
+          } catch (error) {
+            console.error("Bypass stream error:", error);
+            controller.error(error);
+          } finally {
+            controller.close();
+          }
+        }
+      });
+      
+      return new Response(transformedStream, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      });
+    }
+    
+    // If we hit max loops without bypass, return an error
     console.error('Max tool calling loops reached');
     return new Response(JSON.stringify({ error: "Max tool calling iterations reached" }), {
       status: 500,
