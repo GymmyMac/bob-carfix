@@ -121,6 +121,9 @@ export const useBobChat = ({
   // NEW: Vehicle candidates for multi-variant selection persistence
   const vehicleCandidatesRef = useRef<unknown[]>([]);
   
+  // NEW: Cached brand context from server (Phase 5 optimization)
+  const cachedBrandContextRef = useRef<string | null>(null);
+  
   // NEW: Conversation state for UI hints
   const conversationStateRef = useRef<string>('AWAITING_REGO');
 
@@ -352,6 +355,12 @@ export const useBobChat = ({
         console.log('[useBobChat] ⚠️ No vehicle candidates to include - ref is empty');
       }
       
+      // Include cached brand context for follow-up turns (Phase 5)
+      if (cachedBrandContextRef.current) {
+        requestBody.cachedBrandContext = cachedBrandContextRef.current;
+        console.log('[useBobChat] 💾 Including cached brand context in request');
+      }
+      
       console.log('[useBobChat] Request body keys:', Object.keys(requestBody));
       
       const resp = await fetch(CHAT_URL, {
@@ -415,13 +424,19 @@ export const useBobChat = ({
               continue;
             }
             
-            // PRIORITY: Handle variant_selection_required for UI cards BEFORE other events
-            // This must trigger immediately when multiple variants are detected
+            // Handle variant_selection_required for UI cards
             if (parsed.type === "variant_selection_required") {
               console.log('[useBobChat] 🎴 variant_selection_required event received:', parsed.candidates?.length || 0, 'cards');
               if (parsed.candidates && Array.isArray(parsed.candidates)) {
                 onVariantSelectionRequired?.(parsed.candidates, parsed.make || '', parsed.model || '');
               }
+              continue;
+            }
+            
+            // Handle cached_brand_context for client-side persistence (Phase 5)
+            if (parsed.type === "cached_brand_context" && parsed.context) {
+              console.log('[useBobChat] 💾 Storing cached brand context from server');
+              cachedBrandContextRef.current = parsed.context;
               continue;
             }
             
