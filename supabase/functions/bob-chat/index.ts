@@ -3385,6 +3385,58 @@ IMPORTANT:
         } else {
           console.log(`[Preferred Brands] No isPreferredBrand:true found in any package`);
         }
+      } else if (effectiveVehicleContext) {
+        // ============= PERSISTENT PREFERRED BRAND INJECTION =============
+        // When no new packages were emitted this turn but we have a vehicle,
+        // fetch service bundles to extract preferred brand data for the LLM
+        const vehicleIdForBrands = effectiveVehicleContext.vehicle_id || (effectiveVehicleContext as any)?.id;
+        const vehicleIdNum = Number.parseInt(String(vehicleIdForBrands), 10);
+        
+        if (Number.isFinite(vehicleIdNum)) {
+          try {
+            console.log(`[Preferred Brands Fallback] Fetching for vehicle ${vehicleIdNum}`);
+            const brandFetchResult = await retrieveServicePackages(vehicleIdNum, apiConfig);
+            
+            if (brandFetchResult.success && brandFetchResult.packages?.length > 0) {
+              const brandNotes: string[] = [];
+              
+              for (const pkg of brandFetchResult.packages) {
+                if (pkg.preparedTiers && Array.isArray(pkg.preparedTiers)) {
+                  for (const tier of pkg.preparedTiers) {
+                    if (tier.isHidden) continue;
+                    const preferredProducts = tier.products?.filter((p: any) => p.isPreferredBrand === true) || [];
+                    for (const prod of preferredProducts) {
+                      brandNotes.push(
+                        `⭐ ${pkg.title} → ${prod.brand} (${prod.partslotName}) is our PREFERRED BRAND — in ${tier.tierName} tier${tier.isRecommended ? ' (CARFIX VALUE)' : ''} at $${tier.totalPrice.toFixed(2)}`
+                      );
+                    }
+                  }
+                }
+              }
+              
+              if (brandNotes.length > 0) {
+                const unique = [...new Set(brandNotes)];
+                const brandContext = `[PREFERRED BRAND CONTEXT]
+=== PREFERRED BRANDS FOR THIS VEHICLE ===
+${unique.join('\n')}
+===
+
+PREFERRED BRAND RULES:
+- When discussing service packs or parts, ALWAYS lead with the CARFIX Value tier.
+- If preferred brand products exist AND are in the Value tier → Mention as bonus: "It includes [Brand], which are our go-to."
+- If preferred brand products exist but NOT in Value tier → Mention as upgrade: "If you want our go-to brand, [Brand] is in the [TierName] tier for $[TierPrice]."
+- NEVER recommend a brand unless isPreferredBrand: true appears in the actual product data.`;
+                
+                conversationMessages.push({ role: "system", content: brandContext });
+                console.log(`[Preferred Brands Fallback] Injected ${unique.length} preferred brand notes`);
+              } else {
+                console.log(`[Preferred Brands Fallback] No isPreferredBrand:true in fetched packages`);
+              }
+            }
+          } catch (err) {
+            console.warn(`[Preferred Brands Fallback] Failed to fetch:`, err);
+          }
+        }
       }
       
       console.log('Streaming final response');
