@@ -2099,7 +2099,9 @@ serve(async (req) => {
       hostConfig,
       hostContext,
       // NEW: Vehicle candidates from previous multi-match response
-      vehicleCandidates
+      vehicleCandidates,
+      // NEW: Cached brand context from client (Phase 5)
+      cachedBrandContext: clientCachedBrandContext
     } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -2640,65 +2642,16 @@ DO NOT invent or hallucinate vehicle_ids - copy the number exactly as shown.
       }
     }
     
-    // ============= MULTI-VARIANT PROMPT ENGINEERING =============
-    // Add explicit instructions for handling multiple vehicle variants
-    enhancedSystemPrompt += `\n\n## CRITICAL - MULTIPLE VEHICLE VARIANTS
-When lookup_vehicle returns multiple matches (vehicles array > 1), you MUST:
-1. Present a numbered list of variants with key differences (engine, power, year range, fuel type)
-2. Ask the customer to confirm which one is theirs (e.g., "Which one is yours - just say the number or engine type")
-3. DO NOT assume the first/best match is correct
-4. DO NOT say "sorted", "sweet as", or "loading parts" until customer explicitly selects a variant
-5. Wait for explicit confirmation before proceeding to fetch parts
-
-Example response when multiple variants found:
-"I found a few versions of that model. Which one is yours?
-1) 2.0L Petrol (150kW)
-2) 2.0L Diesel (103kW)
-3) 3.0L Petrol (180kW)
-Just say the number or engine type, mate."`;
-
-    // ============= ERROR HANDLING PROMPT ENGINEERING =============
-    // Add instructions for graceful error handling with response variety
-    enhancedSystemPrompt += `\n\n## CRITICAL - ERROR HANDLING AND RECOVERY
-
-When things go wrong, respond transparently and helpfully. Vary your phrasing for naturalness.
-
-### Invalid REGO Format (Acknowledgment + Clarification)
-Cycle these responses (vary each time):
-- "Oops, I didn't quite catch that one! I need a valid NZ plate like ABC123 or HZP550."
-- "Hmm, that doesn't look like a Kiwi rego to me. Mind trying again? Format's usually ABC123."
-- "No luck with that plate, mate. Double-check it's a standard NZ format like ABC123?"
-
-### Vehicle Not Found in Database
-Cycle these responses:
-- "Couldn't find a match for [REGO] in the system. Might be too new or an import. Try the make, model, and year?"
-- "Hmm, [REGO] isn't showing up. Sometimes newer cars take a while to get catalogued. Got the make and model handy?"
-- "No joy on [REGO], mate. Could be a typo, or it might be a fresh import. Mind double-checking?"
-
-### Parts Fetch Error (vehicle_not_in_parts_db)
-Cycle these responses - direct to carfix.co.nz:
-- "Ah, Bob's parts system isn't set up for your [VEHICLE] yet. Head over to carfix.co.nz and browse manually – the team there will sort you!"
-- "No parts coming up for your [VEHICLE] in my system – sometimes happens with imports. Try carfix.co.nz for the full catalogue!"
-- "Drawing a blank for your [VEHICLE], mate. Best bet is to pop over to carfix.co.nz and browse there!"
-
-### Parts Fetch Error (server_error/timeout/network)
-Cycle these responses (add Bob personality):
-- "Bob's taking a quick pit stop! Having trouble connecting – try refreshing, or hop over to carfix.co.nz while we sort this out."
-- "Bit of a glitch on my end, mate. Give the page a refresh, or browse directly at carfix.co.nz."
-- "She's playing up a bit – connection trouble. Try again in a tick, or carfix.co.nz has what you need!"
-
-### Empty Results (Parts search succeeded but zero results)
-Cycle these responses:
-- "Hmm, no parts showing for your [VEHICLE] in our catalogue – common with imports. Try carfix.co.nz for the full range!"
-- "Nothing coming up for that one. Head to carfix.co.nz and browse manually – they'll have it sorted!"
-
-### General Rules:
-- NEVER output "undefined", "null", or empty template variables - if a value is missing, omit it
-- NEVER invent products or prices not in tool results
-- NEVER offer "universal products" or "accessories" – Bob doesn't have this capability
-- ALWAYS empower users: provide clear next steps, suggest retry or website
-- ALWAYS direct to carfix.co.nz as the fallback recovery path
-- Kiwi-friendly tone: apologetic yet optimistic ("she'll be right" attitude)`;
+    // ============= CONDITIONAL PROMPT INJECTION =============
+    // Only inject multi-variant instructions when actually in variant selection state
+    if (conversationState === 'AWAITING_VARIANT_SELECTION') {
+      enhancedSystemPrompt += `\n\n## MULTIPLE VEHICLE VARIANTS
+Present a numbered list of variants. Ask customer to confirm which is theirs. Do NOT assume or auto-confirm.`;
+    }
+    
+    // Slim error handling: single paragraph instead of 40+ lines of templates
+    enhancedSystemPrompt += `\n\n## ERROR HANDLING
+When errors occur: be honest, use Kiwi-friendly tone, vary phrasing each time, and direct to carfix.co.nz as fallback. Never output "undefined" or "null". Never invent products not in tool results.`;
 
     // Build conversation with system prompt
     const conversationMessages: Message[] = [
@@ -2917,9 +2870,29 @@ Use light humor and be helpful while being honest about the limitation.`
       console.log('[Brain] Symptom detected in user message - will FORCE diagnose_symptom on first loop iteration');
     }
 
+    // ============= TOOL-LOOP BYPASS FOR DETERMINISTIC MATCHES =============
+    // When vehicle is already confirmed via deterministic fetch AND data is loaded,
+    // skip the entire tool calling loop — go straight to display context + streaming.
+    // Exception: symptoms (need diagnose_symptom), cart/checkout intent (need tools).
+    const isDeterministic = (conversationMessages as unknown as { _deterministicMatch?: boolean })._deterministicMatch;
+    const hasPartsLoaded = ((conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit || []).length > 0;
+    const hasPackagesLoaded = ((conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit || []).length > 0;
+    
+    // Detect cart/checkout intent in user message
+    const cartKeywords = ['add to cart', 'buy', 'purchase', 'checkout', 'cart', 'order', 'pay'];
+    const hasCartIntent = cartKeywords.some(kw => latestUserContentForSymptom.includes(kw));
+    
+    const canBypassToolLoop = isDeterministic && (hasPartsLoaded || hasPackagesLoaded) && !hasSymptomGlobal && !hasCartIntent;
+    
+    if (canBypassToolLoop) {
+      console.log(`[Tool-Loop Bypass] ✅ Skipping tool loop — deterministic match with ${hasPartsLoaded ? 'parts' : 'no parts'} + ${hasPackagesLoaded ? 'packages' : 'no packages'} loaded`);
+    } else if (isDeterministic) {
+      console.log(`[Tool-Loop Bypass] ❌ Cannot bypass — symptom=${!!hasSymptomGlobal}, cart=${hasCartIntent}, parts=${hasPartsLoaded}, packages=${hasPackagesLoaded}`);
+    }
+
     // Tool calling loop - may require multiple iterations
     let loopCount = 0;
-    const maxLoops = 5; // Prevent infinite loops
+    const maxLoops = canBypassToolLoop ? 0 : 5; // Skip loop entirely if bypass is active
     
     while (loopCount < maxLoops) {
       loopCount++;
@@ -3319,6 +3292,9 @@ Use light humor and be helpful while being honest about the limitation.`
         // ============= COMPACT PACKAGE SUMMARIES FOR LLM (not full preparedTiers) =============
         // Build lightweight summaries so the LLM can discuss packages without ingesting
         // massive tier/product payloads. Full preparedTiers still flow to frontend via SSE.
+        // ============= ULTRA-COMPACT PACKAGE SUMMARIES (Phase 3) =============
+        // Package-level only: title, tier prices, recommended flag, preferred brand.
+        // ~6 lines instead of ~72. Full preparedTiers still flow to frontend via SSE.
         const generateCompactPackageSummary = (packages: any[]): { summary: string; carfixValueBlock: string; preferredBrandBlock: string; cachedBrandContext: string } => {
           const packageLines: string[] = [];
           const valueTierLines: string[] = [];
@@ -3331,42 +3307,28 @@ Use light humor and be helpful while being honest about the limitation.`
             }
             
             const visibleTiers = pkg.preparedTiers.filter((t: any) => !t.isHidden);
-            const tierCount = visibleTiers.length;
             
-            // Per-tier compact summary
-            const tierSummaries: string[] = [];
-            for (const tier of visibleTiers) {
-              const products = tier.products || [];
-              // Only include partslotName, brand, displayPrice, and isPreferredBrand flag
-              const productSummaries = products.map((p: any) => {
-                let line = `${p.partslotName}: ${p.brand} $${p.displayPrice.toFixed(2)}`;
-                if (p.isPreferredBrand) line += ' ⭐PREFERRED';
-                return line;
-              });
-              
-              tierSummaries.push(
-                `  - ${tier.tierName}: $${tier.totalPrice?.toFixed(2) || 'N/A'}${tier.isRecommended ? ' (CARFIX VALUE)' : ''} | ${tier.productCount} products | ${tier.dominantBrand || 'mixed'}\n    Products: ${productSummaries.join(', ')}`
-              );
-              
-              // Extract preferred brand notes
-              const preferredProducts = products.filter((p: any) => p.isPreferredBrand === true);
-              for (const prod of preferredProducts) {
+            // One-line per package: tier prices only
+            const tierPrices = visibleTiers.map((t: any) => {
+              let label = `${t.tierName} $${t.totalPrice?.toFixed(0) || '?'}`;
+              if (t.isRecommended) label += ' ★VALUE';
+              // Check for preferred brand at tier level
+              const preferred = (t.products || []).find((p: any) => p.isPreferredBrand === true);
+              if (preferred) {
+                label += ` (${preferred.brand} ⭐)`;
                 brandNotes.push(
-                  `⭐ ${pkg.title} → ${prod.brand} (${prod.partslotName}) is our PREFERRED BRAND — in ${tier.tierName} tier${tier.isRecommended ? ' (CARFIX VALUE)' : ''} at $${tier.totalPrice.toFixed(2)}`
+                  `⭐ ${pkg.title} → ${preferred.brand} is our PREFERRED BRAND — in ${t.tierName} tier${t.isRecommended ? ' (CARFIX VALUE)' : ''} at $${t.totalPrice.toFixed(2)}`
                 );
               }
-            }
+              return label;
+            }).join(', ');
             
-            packageLines.push(`- ${pkg.title} (${tierCount} tiers, from $${pkg.from_price}):\n${tierSummaries.join('\n')}`);
+            packageLines.push(`- ${pkg.title}: ${tierPrices}`);
             
             // CARFIX Value tier extraction
-            const hasRecommended = pkg.preparedTiers.some((t: any) => t.isRecommended === true);
-            if (!hasRecommended) {
-              console.warn(`[VALIDATION] Package ${pkg.id} has no recommended tier!`);
-            }
             const recommended = pkg.preparedTiers.find((t: any) => t.isRecommended === true);
             if (recommended) {
-              valueTierLines.push(`📍 ${pkg.title}: CARFIX VALUE = ${recommended.tierName} tier at $${recommended.totalPrice.toFixed(2)}`);
+              valueTierLines.push(`📍 ${pkg.title}: CARFIX VALUE = ${recommended.tierName} at $${recommended.totalPrice.toFixed(2)}`);
             }
           }
           
@@ -3380,22 +3342,13 @@ Use light humor and be helpful while being honest about the limitation.`
           
           const uniqueBrands = [...new Set(brandNotes)];
           const preferredBrandBlock = uniqueBrands.length > 0
-            ? `\n\n=== PREFERRED BRANDS IN THIS VEHICLE'S DATA ===\n${uniqueBrands.join('\n')}\n===`
+            ? `\n\n=== PREFERRED BRANDS ===\n${uniqueBrands.join('\n')}\n===`
             : '';
           
-          // Build cached brand context string for follow-up turns (Fix 2)
+          // Cached brand context for follow-up turns
           let cachedBrandContext = '';
           if (uniqueBrands.length > 0) {
-            cachedBrandContext = `[PREFERRED BRAND CONTEXT]
-=== PREFERRED BRANDS FOR THIS VEHICLE ===
-${uniqueBrands.join('\n')}
-===
-
-PREFERRED BRAND RULES:
-- When discussing service packs or parts, ALWAYS lead with the CARFIX Value tier.
-- If preferred brand products exist AND are in the Value tier → Mention as bonus: "It includes [Brand], which are our go-to."
-- If preferred brand products exist but NOT in Value tier → Mention as upgrade: "If you want our go-to brand, [Brand] is in the [TierName] tier for $[TierPrice]."
-- NEVER recommend a brand unless isPreferredBrand: true appears in the actual product data.`;
+            cachedBrandContext = `[PREFERRED BRAND CONTEXT]\n${uniqueBrands.join('\n')}\nRules: Lead with CARFIX Value tier. If preferred brand is in Value tier, mention as bonus. If not, mention as upgrade option. Never recommend brands without isPreferredBrand:true.`;
           }
           
           return { summary, carfixValueBlock, preferredBrandBlock, cachedBrandContext };
@@ -3457,16 +3410,16 @@ IMPORTANT:
           console.log(`[Preferred Brands] No isPreferredBrand:true found in any package`);
         }
       } else if (effectiveVehicleContext) {
-        // ============= CACHED PREFERRED BRAND INJECTION (NO RE-FETCH) =============
-        // Instead of re-fetching service bundles every turn, use cached brand context
-        // from the initial package fetch (stored in _cachedBrandContext)
-        const cachedBrandCtx = (conversationMessages as unknown as { _cachedBrandContext?: string })._cachedBrandContext;
+        // ============= CACHED PREFERRED BRAND INJECTION (Phase 5) =============
+        // Priority: server-side cache > client-provided cache > nothing
+        const serverCachedCtx = (conversationMessages as unknown as { _cachedBrandContext?: string })._cachedBrandContext;
+        const cachedBrandCtx = serverCachedCtx || (clientCachedBrandContext as string | undefined);
         
         if (cachedBrandCtx) {
           conversationMessages.push({ role: "system", content: cachedBrandCtx });
-          console.log(`[Preferred Brands] Injected CACHED brand context (no API call)`);
+          console.log(`[Preferred Brands] Injected ${serverCachedCtx ? 'SERVER' : 'CLIENT'}-cached brand context (no API call)`);
         } else {
-          console.log(`[Preferred Brands] No cached brand context available for this session`);
+          console.log(`[Preferred Brands] No cached brand context available`);
         }
       }
       
@@ -3609,6 +3562,14 @@ IMPORTANT:
             console.log("[Stream] Emitted service_packages_found:", packagesToSend.length, "packages");
           }
           
+          // Emit cached brand context for client-side persistence (Phase 5)
+          const brandCtxToEmit = (conversationMessages as unknown as { _cachedBrandContext?: string })._cachedBrandContext;
+          if (brandCtxToEmit) {
+            const brandCtxEvent = `data: ${JSON.stringify({ type: "cached_brand_context", context: brandCtxToEmit })}\n\n`;
+            controller.enqueue(encoder.encode(brandCtxEvent));
+            console.log("[Stream] Emitted cached_brand_context for client storage");
+          }
+          
           // Check for cart items
           const cartItemsToEmit = (conversationMessages as unknown as { _cartItemsToEmit?: Array<{ productName: string; quantity: number }> })._cartItemsToEmit;
           if (cartItemsToEmit && cartItemsToEmit.length > 0) {
@@ -3617,34 +3578,20 @@ IMPORTANT:
             console.log("[Stream] Emitted cart_updated:", cartItemsToEmit.length, "items");
           }
           
-          // ============= PARTS EMISSION LOGIC =============
-          // Check for parts error type
+          // ============= PARTS EMISSION LOGIC (DEFERRED — Phase 4) =============
+          // Parts are now emitted AFTER the first text chunk arrives, so Bob starts
+          // speaking before the 500-part payload transfers. We store the data and
+          // emit it on the first text token below.
           const partsErrorType = (conversationMessages as unknown as { _partsErrorType?: string })._partsErrorType;
+          let partsDeferredForTextInterleave = false;
           
-          // CRITICAL: Only emit no_parts_found if we actually tried to fetch parts
-          // and got nothing - NOT during multi-vehicle selection phase
           if (partsToEmit && partsToEmit.length > 0) {
-            const partsEvent = `data: ${JSON.stringify({ type: "parts_found", parts: partsToEmit })}\n\n`;
-            controller.enqueue(encoder.encode(partsEvent));
-            console.log("[Stream] Emitted parts_found:", partsToEmit.length, "parts");
-            partsEmitted = true;
-
-            // ============= BRAIN DIAGNOSIS HIGHLIGHT EVENT =============
-            // When Brain diagnosed a specific part category, emit a highlight event
-            // so the frontend can auto-scroll to that category on the shelf
-            const diagnosisHighlightCategory = (conversationMessages as any)._diagnosisHighlightCategory;
-            if (diagnosisHighlightCategory) {
-              const highlightEvent = `data: ${JSON.stringify({
-                type: "highlight_category",
-                category: diagnosisHighlightCategory,
-              })}\n\n`;
-              controller.enqueue(encoder.encode(highlightEvent));
-              console.log(`[Stream] Emitted highlight_category: "${diagnosisHighlightCategory}"`);
-            }
+            // Defer: will emit after first text chunk
+            partsDeferredForTextInterleave = true;
+            console.log("[Stream] Deferring parts_found emission until first text chunk");
           } else if (!multipleVehiclesFound && confirmedVehicleStored) {
-            // Vehicle confirmed but no parts - determine the reason
+            // Vehicle confirmed but no parts - emit error/empty events immediately
             if (partsErrorType) {
-              // Emit specific error event with context for frontend handling
               const errorEvent = `data: ${JSON.stringify({ 
                 type: "parts_fetch_error", 
                 errorType: partsErrorType,
@@ -3660,7 +3607,6 @@ IMPORTANT:
               controller.enqueue(encoder.encode(errorEvent));
               console.log(`[Stream] Emitted parts_fetch_error: ${partsErrorType}`);
             } else {
-              // No error type means parts fetch succeeded but returned empty
               const noPartsEvent = `data: ${JSON.stringify({ 
                 type: "no_parts_found",
                 reason: "empty_result"
@@ -3669,7 +3615,6 @@ IMPORTANT:
               console.log("[Stream] Emitted no_parts_found (confirmed vehicle, 0 parts)");
             }
           } else if (multipleVehiclesFound) {
-            // During variant selection - do NOT emit no_parts_found
             console.log("[Stream] Skipping no_parts_found - awaiting variant selection");
           }
           
@@ -3712,6 +3657,13 @@ IMPORTANT:
                   }
                 }
                 
+                // Fallback: emit deferred parts if stream ended without any text content
+                if (partsDeferredForTextInterleave && !partsEmitted && partsToEmit) {
+                  const partsEvent = `data: ${JSON.stringify({ type: "parts_found", parts: partsToEmit })}\n\n`;
+                  controller.enqueue(encoder.encode(partsEvent));
+                  console.log("[Stream End] Emitted deferred parts_found (fallback):", partsToEmit.length, "parts");
+                }
+                
                 // Flush remaining buffer
                 if (buffer.trim()) {
                   controller.enqueue(encoder.encode(buffer));
@@ -3742,9 +3694,29 @@ IMPORTANT:
                 try {
                   const parsed = JSON.parse(jsonStr);
                   const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-                  
-                  if (content) {
-                    accumulatedContent += content;
+                   
+                   if (content) {
+                     accumulatedContent += content;
+                     
+                     // ============= DEFERRED PARTS EMISSION (Phase 4) =============
+                     // Emit parts_found AFTER first text chunk so Bob starts speaking first
+                     if (partsDeferredForTextInterleave && !partsEmitted) {
+                       const partsEvent = `data: ${JSON.stringify({ type: "parts_found", parts: partsToEmit })}\n\n`;
+                       controller.enqueue(encoder.encode(partsEvent));
+                       console.log("[Stream] Emitted deferred parts_found:", partsToEmit!.length, "parts (after first text chunk)");
+                       partsEmitted = true;
+                       
+                       // Also emit diagnosis highlight if applicable
+                       const diagnosisHighlightCategory = (conversationMessages as any)._diagnosisHighlightCategory;
+                       if (diagnosisHighlightCategory) {
+                         const highlightEvent = `data: ${JSON.stringify({
+                           type: "highlight_category",
+                           category: diagnosisHighlightCategory,
+                         })}\n\n`;
+                         controller.enqueue(encoder.encode(highlightEvent));
+                         console.log(`[Stream] Emitted highlight_category: "${diagnosisHighlightCategory}"`);
+                       }
+                     }
                     
                     // Check for vehicle marker
                     const markerRegex = /\[VEHICLE_CONFIRMED:(\{[\s\S]*?\})\]/;
