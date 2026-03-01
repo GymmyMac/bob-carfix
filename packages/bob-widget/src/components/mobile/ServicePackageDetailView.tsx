@@ -382,11 +382,12 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
                               onClick={() => onNavigateToProductPage?.(product.sku)}
                             >
                               {/* Product image - use server-provided URL */}
-                              <div className="w-14 h-14 flex-shrink-0 rounded-lg bg-white overflow-hidden border border-[#E2E8F0]">
+                              <div className="flex-shrink-0 rounded-lg bg-white overflow-hidden border border-[#E2E8F0]" style={{ width: '56px', height: '56px', minWidth: '56px', maxWidth: '56px' }}>
                                 <img 
                                   src={product.productImageUrl || IMAGE_URLS.productImage(product.sku)}
                                   alt={product.name}
-                                  className="w-full h-full object-contain p-1.5"
+                                  className="object-contain"
+                                  style={{ width: '100%', height: '100%', maxWidth: '56px', maxHeight: '56px', padding: '6px' }}
                                   onError={(e) => {
                                     (e.target as HTMLImageElement).src = '/placeholder.svg';
                                   }}
