@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BobProvider } from '../BobProvider';
 import { Bob, BobVariant } from './Bob';
 import { BOB_VERSION } from '../version';
+import { useMicPermission } from '../hooks/useMicPermission';
 import type {
   BobConfig,
   HostApiConfig,
@@ -119,6 +120,10 @@ export const BobWidget: React.FC<BobWidgetProps> = ({
   zIndexBase = 50,
   embedded = false,
 }) => {
+  // Request microphone permission early so the browser dialog appears
+  // before the user taps PTT, not mid-conversation
+  const { micPermission } = useMicPermission(true);
+
   // Debug logging for external host troubleshooting
   useEffect(() => {
     console.log('[BobWidget] Initialized', {
@@ -129,8 +134,9 @@ export const BobWidget: React.FC<BobWidgetProps> = ({
       bobConfigUrl: bobConfig.supabaseUrl,
       hostApiBaseUrl: hostApiConfig.baseUrl,
       analyticsEnabled,
+      micPermission,
     });
-  }, [variant, bottomOffset, zIndexBase, bobConfig.supabaseUrl, hostApiConfig.baseUrl, analyticsEnabled]);
+  }, [variant, bottomOffset, zIndexBase, bobConfig.supabaseUrl, hostApiConfig.baseUrl, analyticsEnabled, micPermission]);
 
   return (
     <div className="bob-widget-root" style={{ width: '100%', height: '100%' }}>
