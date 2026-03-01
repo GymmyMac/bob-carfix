@@ -755,12 +755,13 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                             style={{ background: CARFIX_COLORS.background, border: `1px solid ${CARFIX_COLORS.border}` }}
                           >
                             {/* Product Image */}
-                            <div className="w-14 h-14 flex-shrink-0 bg-white rounded-lg overflow-hidden flex items-center justify-center">
+                            <div className="flex-shrink-0 bg-white rounded-lg overflow-hidden flex items-center justify-center" style={{ width: '56px', height: '56px', minWidth: '56px', maxWidth: '56px' }}>
                               {product.productImageUrl ? (
                                 <img 
                                   src={product.productImageUrl} 
                                   alt={product.name}
-                                  className="w-full h-full object-contain p-1"
+                                  className="object-contain"
+                                  style={{ width: '100%', height: '100%', maxWidth: '56px', maxHeight: '56px', padding: '4px' }}
                                 />
                               ) : (
                                 <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
