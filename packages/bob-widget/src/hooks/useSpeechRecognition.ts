@@ -169,7 +169,16 @@ export const useSpeechRecognition = ({
         setInterimTranscript('');
       }, MAX_LISTENING_DURATION);
       
-      recognitionRef.current.start();
+      try {
+        recognitionRef.current.start();
+      } catch (e) {
+        // Catch InvalidStateError when recognition is already started
+        console.warn('[SpeechRecognition] start() failed (already running):', e);
+        if (safetyTimeoutRef.current) {
+          clearTimeout(safetyTimeoutRef.current);
+          safetyTimeoutRef.current = null;
+        }
+      }
     }
   };
 
