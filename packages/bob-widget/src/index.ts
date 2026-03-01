@@ -94,6 +94,7 @@ export { useBobAnimation } from './hooks/useBobAnimation';
 export { useBobAnimationData } from './hooks/useBobAnimationData';
 export { useBobStateTransitions } from './hooks/useBobStateTransitions';
 export { useSpeechRecognition } from './hooks/useSpeechRecognition';
+export { useMicPermission } from './hooks/useMicPermission';
 export { useBobBackdrop } from './hooks/useBobBackdrop';
 
 // v3.0 New hooks
