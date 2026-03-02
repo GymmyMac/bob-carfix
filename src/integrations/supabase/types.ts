@@ -365,6 +365,48 @@ export type Database = {
         }
         Relationships: []
       }
+      bob_conversations: {
+        Row: {
+          channel: string
+          had_product_match: boolean
+          id: string
+          last_message_at: string
+          led_to_cart: boolean
+          message_count: number
+          rego: string | null
+          session_id: string
+          started_at: string
+          user_id: string | null
+          vehicle_id: string | null
+        }
+        Insert: {
+          channel?: string
+          had_product_match?: boolean
+          id?: string
+          last_message_at?: string
+          led_to_cart?: boolean
+          message_count?: number
+          rego?: string | null
+          session_id: string
+          started_at?: string
+          user_id?: string | null
+          vehicle_id?: string | null
+        }
+        Update: {
+          channel?: string
+          had_product_match?: boolean
+          id?: string
+          last_message_at?: string
+          led_to_cart?: boolean
+          message_count?: number
+          rego?: string | null
+          session_id?: string
+          started_at?: string
+          user_id?: string | null
+          vehicle_id?: string | null
+        }
+        Relationships: []
+      }
       bob_error_logs: {
         Row: {
           additional_data: Json | null
