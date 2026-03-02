@@ -834,6 +834,18 @@ export type Database = {
         }
         Returns: boolean
       }
+      upsert_bob_conversation: {
+        Args: {
+          p_channel?: string
+          p_had_product_match?: boolean
+          p_led_to_cart?: boolean
+          p_rego?: string
+          p_session_id: string
+          p_user_id?: string
+          p_vehicle_id?: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

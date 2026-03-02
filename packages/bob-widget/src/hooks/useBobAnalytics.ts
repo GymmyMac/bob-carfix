@@ -7,6 +7,9 @@ import type {
 } from '../types/analytics';
 import type { HostContext, BobCallbacks } from '../types/context';
 
+// Debounce conversation tracking to avoid flooding on rapid messages
+const CONVERSATION_TRACK_DEBOUNCE_MS = 5000;
+
 // Generate a unique session ID
 const generateSessionId = (): string => {
   return `bob_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -33,6 +36,10 @@ interface UseBobAnalyticsProps {
   callbacks?: BobCallbacks;
   /** Whether analytics is enabled */
   enabled?: boolean;
+  /** Bob Supabase URL for conversation tracking */
+  bobSupabaseUrl?: string;
+  /** Bob Supabase anon key for conversation tracking */
+  bobSupabaseKey?: string;
 }
 
 interface UseBobAnalyticsReturn {
@@ -86,6 +93,13 @@ interface UseBobAnalyticsReturn {
   trackSpeechFailed: (textLength: number) => void;
   /** Track error */
   trackError: (errorType: string, errorMessage: string) => void;
+  /** Track conversation activity (upsert to bob_conversations) */
+  trackConversationActivity: (extras?: {
+    had_product_match?: boolean;
+    led_to_cart?: boolean;
+    vehicle_id?: string;
+    rego?: string;
+  }) => void;
 }
 
 /**
@@ -100,10 +114,14 @@ export function useBobAnalytics({
   hostContext,
   callbacks,
   enabled = true,
+  bobSupabaseUrl,
+  bobSupabaseKey,
 }: UseBobAnalyticsProps): UseBobAnalyticsReturn {
   // Generate session ID once per hook instance
   const sessionIdRef = useRef<string>(generateSessionId());
   const sessionStartedRef = useRef(false);
+  const conversationTrackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingConversationRef = useRef(false);
 
   // Fire GA4 event if gtag is available
   const fireGA4Event = useCallback(
@@ -313,10 +331,74 @@ export function useBobAnalytics({
     [trackEvent]
   );
 
+  // Conversation activity tracking (debounced upsert to bob_conversations)
+  const trackConversationActivity = useCallback(
+    (extras?: {
+      had_product_match?: boolean;
+      led_to_cart?: boolean;
+      vehicle_id?: string;
+      rego?: string;
+    }) => {
+      if (!enabled || !bobSupabaseUrl || !bobSupabaseKey) return;
+
+      // For led_to_cart or had_product_match, fire immediately
+      const immediate = extras?.led_to_cart || extras?.had_product_match;
+
+      const fire = () => {
+        pendingConversationRef.current = false;
+        const payload = {
+          session_id: sessionIdRef.current,
+          user_id: hostContext?.user?.id || null,
+          channel: 'web',
+          vehicle_id: extras?.vehicle_id || hostContext?.vehicle?.selectedVehicle?.vehicle_id?.toString() || null,
+          rego: extras?.rego || hostContext?.vehicle?.selectedVehicle?.rego || null,
+          had_product_match: extras?.had_product_match || false,
+          led_to_cart: extras?.led_to_cart || false,
+        };
+
+        fetch(`${bobSupabaseUrl}/functions/v1/bob-conversation-track`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: bobSupabaseKey,
+          },
+          body: JSON.stringify(payload),
+        }).catch((err) => {
+          console.warn('[BobAnalytics] Conversation track failed:', err);
+        });
+      };
+
+      if (immediate) {
+        if (conversationTrackTimerRef.current) {
+          clearTimeout(conversationTrackTimerRef.current);
+          conversationTrackTimerRef.current = null;
+        }
+        fire();
+        return;
+      }
+
+      // Debounce regular message tracking
+      if (!pendingConversationRef.current) {
+        pendingConversationRef.current = true;
+        conversationTrackTimerRef.current = setTimeout(fire, CONVERSATION_TRACK_DEBOUNCE_MS);
+      }
+    },
+    [enabled, bobSupabaseUrl, bobSupabaseKey, hostContext]
+  );
+
   // Auto-track session start on mount
   useEffect(() => {
     trackSessionStart();
   }, [trackSessionStart]);
+
+  // Cleanup debounce timer
+  useEffect(() => {
+    return () => {
+      if (conversationTrackTimerRef.current) {
+        clearTimeout(conversationTrackTimerRef.current);
+      }
+    };
+  }, []);
 
   return {
     trackEvent,
@@ -332,6 +414,7 @@ export function useBobAnalytics({
     trackSpeechPlayed,
     trackSpeechFailed,
     trackError,
+    trackConversationActivity,
   };
 }
 

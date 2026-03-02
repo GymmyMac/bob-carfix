@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.admin-auth-diagnostic]
 verify_jwt = false
+
+[functions.bob-conversation-track]
+verify_jwt = false

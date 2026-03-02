@@ -88,11 +88,12 @@ Real-time, queryable directly from the admin site, no GA4 API integration needed
 
 **Do both.** Enable GA4 for the marketing team (one config line). Build the `bob_conversations` table for the admin dashboard's real-time funnel. They serve different audiences and complement each other perfectly.
 
-### Technical details
+### Implementation Status: ✅ COMPLETE
 
-- New table: `bob_conversations` with RLS (admin SELECT, service INSERT/UPDATE)
-- New edge function: `bob-conversation-track` with upsert logic
-- Widget change: fire conversation upsert from existing `trackMessageSent` flow
-- No new secrets required — uses existing service role
+- ✅ `bob_conversations` table created with RLS (admin SELECT, service INSERT/UPDATE)
+- ✅ `upsert_bob_conversation` database function created (SECURITY DEFINER, handles ON CONFLICT upsert)
+- ✅ `bob-conversation-track` edge function created and deployed
+- ✅ `useBobAnalytics` hook updated with `trackConversationActivity()` method (debounced, fires via fetch)
+- ✅ Supports immediate fire for `led_to_cart` / `had_product_match` events
 - GA4: requires CARFIX host to add gtag.js and pass Measurement ID (host-side change, not Bob)
 
