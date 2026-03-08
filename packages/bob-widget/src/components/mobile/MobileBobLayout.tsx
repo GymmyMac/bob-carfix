@@ -226,6 +226,7 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
         visible={showProductColumn}
         counterHeightPercent={counterHeightPercent}
         hasVehicle={!!vehicle}
+        onAddToCart={onAddToCart}
         pendingVariants={pendingVariants}
         pendingVariantMake={pendingVariantMake}
         pendingVariantModel={pendingVariantModel}
