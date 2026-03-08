@@ -94,6 +94,7 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
   onProductClick,
   onPackageSelect,
   isResearching,
+  onAddToCart,
   onQuickReply,
   onInterrupt,
   vehicle,
@@ -225,6 +226,7 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
         visible={showProductColumn}
         counterHeightPercent={counterHeightPercent}
         hasVehicle={!!vehicle}
+        onAddToCart={onAddToCart}
         pendingVariants={pendingVariants}
         pendingVariantMake={pendingVariantMake}
         pendingVariantModel={pendingVariantModel}
@@ -245,7 +247,7 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
         isMuted={isMuted}
         onToggleMute={onToggleMute}
         isSpeaking={isSpeaking}
-        onAddToCart={onProductClick}
+        onAddToCart={onAddToCart}
         onProductClick={onProductClick}
         onQuickReply={onQuickReply}
         onInterrupt={onInterrupt}
