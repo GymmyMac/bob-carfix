@@ -242,6 +242,7 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
         visible={showProductColumn}
         counterHeightPercent={counterHeightPercent}
         hasVehicle={!!vehicle}
+        onAddToCart={onAddToCart}
         vehicleMakeModel={vehicle ? `${vehicle.make || ''} ${vehicle.model || ''}`.trim() : undefined}
         pendingVariants={pendingVariants}
         pendingVariantMake={pendingVariantMake}
