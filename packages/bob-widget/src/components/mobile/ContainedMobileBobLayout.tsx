@@ -265,6 +265,21 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
         <ServicePackageDetailView
           package={selectedPackage}
           onBack={handleBackToProducts}
+          onAddToCart={(tierProducts) => {
+            // Map PreparedTierProduct[] to individual onAddToCart calls
+            tierProducts.forEach((tp: any) => {
+              onAddToCart?.({
+                id: tp.sku || tp.partslotId?.toString() || 'unknown',
+                name: tp.name || tp.partslotName || 'Unknown Part',
+                brand: tp.brand,
+                price: tp.displayPrice,
+                sku: tp.sku,
+                partNumber: tp.partNumber,
+                image_url: tp.productImageUrl,
+                partslotDescription: tp.partslotName,
+              } as any);
+            });
+          }}
           onNavigateToProductPage={(sku) => {
             // Navigate to product page using SKU
             const product = products.find(p => p.sku === sku);
