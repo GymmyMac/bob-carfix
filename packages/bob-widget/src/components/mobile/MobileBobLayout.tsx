@@ -94,6 +94,7 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
   onProductClick,
   onPackageSelect,
   isResearching,
+  onAddToCart,
   onQuickReply,
   onInterrupt,
   vehicle,
