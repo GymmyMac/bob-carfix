@@ -156,4 +156,29 @@ describe("detectAvailableBrakeTypes", () => {
     expect(result.hasDisc).toBe(false);
     expect(result.hasDrum).toBe(false);
   });
+
+  it("ignores zero-priced drum products (KMT21 scenario)", () => {
+    const zeroPricedDrums = [
+      { partslotName: "BRAKE PADS REAR", displayPrice: 65 },
+      { partslotName: "BRAKE ROTORS REAR", displayPrice: 120 },
+      { partslotName: "BRAKE SHOE REAR", displayPrice: 0 },
+      { partslotName: "BRAKE DRUM REAR", displayPrice: 0 },
+      { partslotName: "BRAKE FLUID DOT4", displayPrice: 15 },
+    ];
+    const result = detectAvailableBrakeTypes([{ products: zeroPricedDrums }]);
+    expect(result.hasDisc).toBe(true);
+    expect(result.hasDrum).toBe(false);
+  });
+
+  it("ignores zero-priced disc products", () => {
+    const zeroPricedDiscs = [
+      { partslotName: "BRAKE PADS REAR", displayPrice: 0 },
+      { partslotName: "BRAKE ROTORS REAR", displayPrice: 0 },
+      { partslotName: "BRAKE SHOE REAR", displayPrice: 45 },
+      { partslotName: "BRAKE DRUM REAR", displayPrice: 80 },
+    ];
+    const result = detectAvailableBrakeTypes([{ products: zeroPricedDiscs }]);
+    expect(result.hasDisc).toBe(false);
+    expect(result.hasDrum).toBe(true);
+  });
 });

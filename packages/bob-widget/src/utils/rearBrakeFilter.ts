@@ -29,17 +29,17 @@ export function recalcTierTotal<T extends { displayPrice: number }>(products: T[
   return products.reduce((sum, p) => sum + p.displayPrice, 0);
 }
 
-export function detectAvailableBrakeTypes<T extends { partslotName: string }>(
+export function detectAvailableBrakeTypes<T extends { partslotName: string; displayPrice: number }>(
   tiers: Array<{ products: T[] }>
 ): { hasDisc: boolean; hasDrum: boolean } {
   const allProducts = tiers.flatMap(t => t.products);
   const hasDisc = allProducts.some(p => {
     const name = p.partslotName.toUpperCase();
-    return DISC_KEYWORDS.some(kw => name.includes(kw));
+    return p.displayPrice > 0 && DISC_KEYWORDS.some(kw => name.includes(kw));
   });
   const hasDrum = allProducts.some(p => {
     const name = p.partslotName.toUpperCase();
-    return DRUM_KEYWORDS.some(kw => name.includes(kw));
+    return p.displayPrice > 0 && DRUM_KEYWORDS.some(kw => name.includes(kw));
   });
   return { hasDisc, hasDrum };
 }
