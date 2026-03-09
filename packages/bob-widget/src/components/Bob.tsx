@@ -73,6 +73,7 @@ export const Bob: React.FC<BobProps> = ({
   const [highlightedPartType, setHighlightedPartType] = useState<string | null>(null);
   const [highlightedProduct, setHighlightedProduct] = useState<HighlightedProduct | null>(null);
   const [isResearching, setIsResearching] = useState(false);
+  const [scrollToCategory, setScrollToCategory] = useState<string | null>(null);
 
   // Vehicle variant selection (when multiple matches returned)
   const [pendingVariants, setPendingVariants] = useState<VariantCard[]>([]);
