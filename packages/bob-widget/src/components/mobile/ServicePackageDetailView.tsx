@@ -7,7 +7,7 @@ import {
   getServicePackageDescription
 } from "../../styles/carfix-tokens";
 import type { PreparedTier, PreparedTierProduct } from "../../types/product";
-import { isRearBrakePackage, filterByBrakeType, recalcTierTotal, type RearBrakeType } from "../../utils/rearBrakeFilter";
+import { isRearBrakePackage, filterByBrakeType, recalcTierTotal, detectAvailableBrakeTypes, type RearBrakeType } from "../../utils/rearBrakeFilter";
 
 /**
  * Service package interface - preparedTiers is the ONLY source of truth
