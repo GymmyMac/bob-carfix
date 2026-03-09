@@ -176,7 +176,7 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
           </p>
           
           {/* Disc / Drum brake type toggle - only for Rear Brake Service */}
-          {isRearBrake && (
+          {showBrakeToggle && (
             <div className="mt-3">
               <p className="text-[11px] text-[#94A3B8] mb-1.5">Select your vehicle's rear brake type</p>
               <div className="flex rounded-xl overflow-hidden border border-[#E2E8F0] bg-white">

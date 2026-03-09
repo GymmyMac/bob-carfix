@@ -148,7 +148,7 @@ export const ServicePackageDetailDialog = ({
           </div>
           
           {/* Disc / Drum brake type toggle - only for Rear Brake Service */}
-          {isRearBrake && (
+          {showBrakeToggle && (
             <div className="mt-3">
               <p className="text-xs text-muted-foreground mb-1.5">Select your vehicle's rear brake type</p>
               <div className="flex rounded-lg overflow-hidden border">

@@ -10,6 +10,7 @@ import {
   isRearBrakePackage,
   filterByBrakeType,
   recalcTierTotal,
+  detectAvailableBrakeTypes,
 } from "../utils/rearBrakeFilter";
 
 // ── Test products ──────────────────────────────────────────────
