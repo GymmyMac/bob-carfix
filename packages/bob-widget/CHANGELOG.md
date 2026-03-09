@@ -5,6 +5,13 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.4] - 2026-03-09
+
+### Fixed
+- 🛒 **Service Package Add-to-Cart**: Fixed `onAddToCart` callback receiving `undefined` fields when adding a service package tier — handler now correctly unwraps `Product[]` arrays passed by `MobileProductColumn`, iterating each item individually so all fields (`product_id`, `product_name`, `sku`, `unit_price`, `brand`, `image_url`) are populated correctly
+
+---
+
 ## [v3.2.3] - 2026-02-16
 
 ### Fixed
