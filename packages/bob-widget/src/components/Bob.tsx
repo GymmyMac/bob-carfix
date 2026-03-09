@@ -11,6 +11,7 @@ import { ContainedMobileBobLayout } from "./mobile/ContainedMobileBobLayout";
 import type { VariantCard } from "./mobile/MobileProductColumn";
 import type { Product, ServicePackage } from "../types";
 import type { HighlightedProduct } from "../types/message";
+import type { CartItem } from "../types/context";
 export type BobVariant = "inline" | "floating" | "fullscreen" | "mobile";
 
 interface BobProps {
