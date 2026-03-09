@@ -715,12 +715,10 @@ export const useBobChat = ({
               callbacks.onServicePackagesFound?.(parsed.packages);
               // v3.2.11: Eagerly populate shelfCategoriesRef so post-stream scroll matching works
               if (shelfCategoriesRef?.current) {
-                const updated = new Set(shelfCategoriesRef.current);
                 (parsed.packages as Array<{ title?: string }>).forEach((pkg) => {
-                  if (pkg.title) updated.add(pkg.title);
+                  if (pkg.title) shelfCategoriesRef.current!.add(pkg.title);
                 });
-                shelfCategoriesRef.current = updated;
-                console.log('[useBobChat] Eagerly added service package titles to shelfCategories:', Array.from(updated));
+                console.log('[useBobChat] Eagerly added service package titles to shelfCategories:', Array.from(shelfCategoriesRef.current));
               }
               continue;
             }
