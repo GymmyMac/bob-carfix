@@ -163,6 +163,8 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
   servicePackages,
   highlightedPartType,
   highlightedProduct,
+  scrollToCategory,
+  onScrollToCategoryComplete,
   onProductClick,
   onPackageSelect,
   isResearching,
