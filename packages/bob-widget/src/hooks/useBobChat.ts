@@ -726,6 +726,13 @@ export const useBobChat = ({
             if (parsed.type === "parts_found" && parsed.parts) {
               console.log('[useBobChat] Received parts_found event:', parsed.parts.length, 'parts');
               callbacks.onPartsFound?.(parsed.parts);
+              // v3.2.11: Eagerly add partslot categories to shelfCategoriesRef
+              if (shelfCategoriesRef?.current && Array.isArray(parsed.parts)) {
+                (parsed.parts as Array<{ partslot_description?: string }>).forEach((p) => {
+                  const cat = p.partslot_description || 'Other Parts';
+                  if (cat) shelfCategoriesRef.current!.add(cat);
+                });
+              }
               analytics.trackPartsViewed(
                 Array.isArray(parsed.parts) ? parsed.parts.length : 0,
                 identifiedVehicle?.vehicle_id?.toString()
