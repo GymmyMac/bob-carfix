@@ -1,74 +1,99 @@
 
 
-# Fix: Scroll Shelf to Requested Products During Follow-Up Conversations
+# Counter-Proposal: GA4 vs Custom Table for Bob Activity Tracking
 
-## Current Problem
+## Current State of Bob's Analytics
 
-When a user asks Bob for additional parts (e.g., "I want front brake pads"), Bob responds correctly but the shelf doesn't scroll to show those products. Two issues:
+Bob already has a **dual-channel analytics system** built and ready:
 
-1. **No new `parts_found` SSE event fires** — the full 500-part catalog was already loaded on vehicle identification. The brake pads are already on the shelf; there's nothing new to trigger the v3.2.7 `scrollToCategory` logic (which only fires when *new* products are merged).
+1. **GA4 Integration** (`useBobAnalytics` hook) — fires events via `window.gtag()` when a `ga4Config.measurementId` is provided. Events include `bob_session_start`, `bob_message_sent`, `bob_vehicle_identified`, `bob_parts_viewed`, `bob_product_clicked`, `bob_add_to_cart`, `bob_checkout_started`, and more.
 
-2. **No `highlight_category` SSE event fires** — the backend doesn't emit a `highlight_category` event for follow-up part requests. It only fires during diagnostic flows.
+2. **Server-side callback** (`onAnalyticsEvent`) — fires the same events to a callback function, which can POST them to the `bob-analytics` edge function → `bob_analytics_events` table.
 
-3. **The legacy keyword scan was removed in v3.2.6** — that was the only client-side mechanism that could have triggered a scroll, but it was too aggressive (fired on greetings). Now there's *nothing* triggering scrolls for follow-up requests.
+**Neither channel is currently active on the CARFIX production site.** No GA4 Measurement ID is configured, and the host site isn't wiring up the `onAnalyticsEvent` callback. The `bob_analytics_events` table contains only admin auth diagnostic events — zero conversation data.
 
-## Proposed Solution: Server-Driven `highlight_category` Events
+---
 
-The most robust approach is to have the backend emit `highlight_category` SSE events whenever Bob discusses a specific part type. This keeps the client simple — it already handles `highlight_category` correctly (line 751 of `useBobChat.ts`).
+## Option A: Use GA4 (Counter-Proposal)
 
-However, since we can't wait for a backend change, we implement a **targeted client-side fallback** that only fires when Bob's response contains product suggestions — not on every message.
+### How it works
+The CARFIX website adds Google Analytics (gtag.js) and passes the Measurement ID to Bob:
 
-### Architecture
-
-```text
-User asks for "front brake pads"
-  → bob-chat responds with text mentioning brake pads
-  → SSE stream completes
-  → Client checks: did Bob's response contain suggested products? (suggestedProducts field)
-     OR: did Bob's response mention a category that exists on the shelf?
-  → If yes → fire onHighlightPart with the matched category name
-  → MobileProductColumn scrolls to that section
+```tsx
+<BobStandalone
+  ga4Config={{ measurementId: 'G-XXXXXXXXXX' }}
+  ...
+/>
 ```
 
-### Implementation
+Bob immediately starts firing all 11 event types to GA4. The admin team queries GA4 via:
+- **GA4 Dashboard** → Explore → filter by `bob_session_start` or `bob_message_sent`
+- **GA4 Data API** (programmatic) → pull counts into their admin dashboard
+- **BigQuery Export** (if GA4 is linked) → SQL queries
 
-**File: `packages/bob-widget/src/hooks/useBobChat.ts`**
-- After the SSE stream completes, check if the backend emitted a `highlight_category` event during this stream. If it did, the existing handler (line 751) already took care of it — do nothing.
-- If no `highlight_category` was emitted AND products exist on the shelf, do a **targeted category match**: compare the assistant's response against the *actual partslot names on the shelf* (not a hardcoded keyword list). Only match if the response contains a specific partslot name like "BRAKE PADS FRONT" or close variant.
-- This is fundamentally different from the removed v3.2.6 keyword scan because it matches against **real shelf categories** rather than generic words, and only fires when the shelf has content.
+### What it satisfies
+- "How many unique sessions had a Bob interaction in the last 7 days?" — YES, via `bob_session_start` event count
+- Session-level grouping — YES, `session_id` is sent as a parameter
+- Vehicle identification tracking — YES
+- Product views and cart events — YES
 
-**New callback: `onMatchShelfCategory`**
-- Pass the current product list's category names into `useBobChat` so it can match Bob's response against actual shelf contents.
-- Alternatively, simpler: add a `shelfCategories` ref that `Bob.tsx` keeps updated from its products state.
+### What it does NOT satisfy
+- **Real-time count on the admin dashboard** — GA4 has 24-48hr data latency for reports (Realtime view exists but is limited to 30 minutes)
+- **Custom SQL queries from the admin site** — the admin team would need GA4 API credentials and a separate integration
+- **Upsert/conversation-level aggregation** — GA4 stores raw events, not conversation summaries
 
-**File: `packages/bob-widget/src/components/Bob.tsx`**
-- Maintain a `shelfCategoriesRef` that updates whenever `products` changes — a `Set<string>` of all unique `partslotDescription` values currently on the shelf.
-- Pass this ref (or a callback) to `useBobChat` so it can match against real categories.
+### Verdict
+GA4 is excellent for marketing analytics and long-term reporting, but it is **not suitable as the data source for a real-time admin dashboard funnel**. The 24-48hr latency and the need for separate GA4 API integration make it a poor fit for "Talking to Bob: X" displayed live.
 
-**File: `packages/bob-widget/src/hooks/useBobChat.ts`** (stream completion handler)
-- After stream ends, if no `highlight_category` was received during this stream:
-  1. Get the assistant's final response text
-  2. For each category in `shelfCategoriesRef.current`, check if the response text mentions it (using `matchesPartType` logic)
-  3. If a match is found, call `onHighlightPart(matchedCategory)`
-- Track whether `highlight_category` fired during the current stream with a simple boolean flag reset at stream start.
+---
 
-### Why This Is Robust
+## Option B: Lightweight `bob_conversations` Table (Recommended Hybrid)
 
-- **No hardcoded keywords** — matches against actual shelf content, so it works for any vehicle's catalog
-- **Server takes priority** — if the backend sends `highlight_category`, the client fallback is skipped
-- **Shopping list friendly** — each follow-up request triggers a scroll to the relevant section
-- **No false positives on greetings** — Bob's greeting doesn't mention specific partslot names like "BRAKE PADS FRONT"
+### Why both, not either/or
+- **Enable GA4** for marketing/attribution analytics (free, zero maintenance)
+- **Add `bob_conversations` table** for the admin dashboard's real-time funnel count
 
-## Files Changed
+### Implementation plan
 
-| File | Change |
-|---|---|
-| `useBobChat.ts` | Add `highlightCategoryReceived` flag per stream; add post-stream shelf category matching fallback; accept `shelfCategoriesRef` option |
-| `Bob.tsx` | Maintain `shelfCategoriesRef` from products state; pass to `useBobChat` |
-| `version.ts` | Bump to 3.2.9 |
-| `package.json` | Bump to 3.2.9 |
-| `CHANGELOG.md` | Document fix |
+1. **Create `bob_conversations` table** — as proposed, with upsert-on-session logic. Simplified schema:
+   - `id`, `session_id`, `started_at`, `last_message_at`, `message_count`, `channel`, `had_product_match`, `led_to_cart`, `vehicle_id`, `rego`
 
-## Scope
-~30 lines added across 2 files + version bump in 3 files.
+2. **Create `bob-conversation-track` edge function** — accepts upsert payload from Bob, uses service role to insert/update. One row per conversation, not per message.
+
+3. **Wire into Bob's existing analytics hook** — add a `trackConversationActivity()` method that fires on `bob_message_sent`. This calls the new edge function with the session_id.
+
+4. **Enable GA4 pass-through** — document that the CARFIX host site should pass `ga4Config={{ measurementId: 'G-...' }}` to get full GA4 coverage for free.
+
+### What the admin dashboard gets
+```sql
+-- Funnel count: sessions talking to Bob in last 7 days
+SELECT COUNT(DISTINCT session_id)
+FROM bob_conversations
+WHERE last_message_at >= now() - interval '7 days';
+
+-- Conversion rate
+SELECT 
+  COUNT(*) as total,
+  COUNT(*) FILTER (WHERE had_product_match) as matched,
+  COUNT(*) FILTER (WHERE led_to_cart) as carted
+FROM bob_conversations
+WHERE started_at >= now() - interval '7 days';
+```
+
+Real-time, queryable directly from the admin site, no GA4 API integration needed.
+
+---
+
+## Recommendation
+
+**Do both.** Enable GA4 for the marketing team (one config line). Build the `bob_conversations` table for the admin dashboard's real-time funnel. They serve different audiences and complement each other perfectly.
+
+### Implementation Status: ✅ COMPLETE
+
+- ✅ `bob_conversations` table created with RLS (admin SELECT, service INSERT/UPDATE)
+- ✅ `upsert_bob_conversation` database function created (SECURITY DEFINER, handles ON CONFLICT upsert)
+- ✅ `bob-conversation-track` edge function created and deployed
+- ✅ `useBobAnalytics` hook updated with `trackConversationActivity()` method (debounced, fires via fetch)
+- ✅ Supports immediate fire for `led_to_cart` / `had_product_match` events
+- GA4: requires CARFIX host to add gtag.js and pass Measurement ID (host-side change, not Bob)
 

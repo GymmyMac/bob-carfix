@@ -75,6 +75,26 @@ export const Bob: React.FC<BobProps> = ({
   const [isResearching, setIsResearching] = useState(false);
   const [scrollToCategory, setScrollToCategory] = useState<string | null>(null);
 
+  // v3.2.9: Maintain a ref of current shelf category names for post-stream scroll matching
+  const shelfCategoriesRef = useRef<Set<string>>(new Set());
+
+  // Keep shelfCategoriesRef in sync with products
+  useEffect(() => {
+    const categories = new Set(products.map(p => p.partslotDescription || 'Other Parts').filter(Boolean));
+    shelfCategoriesRef.current = categories;
+  }, [products]);
+
+  // Also include service package titles as scrollable categories
+  useEffect(() => {
+    if (servicePackages.length > 0) {
+      const current = new Set(shelfCategoriesRef.current);
+      servicePackages.forEach(pkg => {
+        if (pkg.title) current.add(pkg.title);
+      });
+      shelfCategoriesRef.current = current;
+    }
+  }, [servicePackages]);
+
   // Vehicle variant selection (when multiple matches returned)
   const [pendingVariants, setPendingVariants] = useState<VariantCard[]>([]);
   const [pendingVariantMake, setPendingVariantMake] = useState<string>("");
@@ -206,7 +226,8 @@ export const Bob: React.FC<BobProps> = ({
     },
     onAutoFetchComplete: () => {
       setIsResearching(false);
-    }
+    },
+    shelfCategoriesRef
   });
 
   // Clear pending variant selection when vehicle is confirmed (tap OR voice)

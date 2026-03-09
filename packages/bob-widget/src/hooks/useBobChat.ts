@@ -110,6 +110,8 @@ interface UseBobChatProps {
   onAutoFetchComplete?: () => void;
   /** When backend requires user to pick a vehicle variant, provide UI-ready cards for the shelf */
   onVariantSelectionRequired?: (variants: VariantCard[], make: string, model: string) => void;
+  /** Ref containing current shelf category names for post-stream scroll matching */
+  shelfCategoriesRef?: React.RefObject<Set<string>>;
 }
 
 // Keywords that indicate Bob is recommending products
@@ -163,7 +165,8 @@ export const useBobChat = ({
   onHighlightProduct,
   onNoPartsFound,
   onAutoFetchComplete,
-  onVariantSelectionRequired
+  onVariantSelectionRequired,
+  shelfCategoriesRef
 }: UseBobChatProps) => {
   const { bobConfig, hostApiConfig, hostContext, callbacks, ga4Config, analyticsEnabled } = useBobContext();
   
@@ -558,6 +561,8 @@ export const useBobChat = ({
     const customerEmail = hostContext.user?.email;
     
     // v3.2.8: Removed optimistic searching audio — canned audio disabled in Bob V2.0
+    // v3.2.9: Track whether server sent highlight_category during this stream
+    let highlightCategoryReceived = false;
     
     try {
       const requestBody: Record<string, unknown> = { 
@@ -750,6 +755,7 @@ export const useBobChat = ({
             // Handle Brain diagnostic category highlight — scroll shelf to matched category
             if (parsed.type === "highlight_category" && parsed.category) {
               console.log('[useBobChat] highlight_category event:', parsed.category);
+              highlightCategoryReceived = true;
               onHighlightPart?.(parsed.category);
               continue;
             }
@@ -857,6 +863,19 @@ export const useBobChat = ({
       const hasProductContent = PRODUCT_KEYWORDS.some(keyword => 
         assistantContent.toLowerCase().includes(keyword.toLowerCase())
       );
+
+      // v3.2.9: Post-stream shelf category matching fallback
+      // If the server didn't send highlight_category, match Bob's response against actual shelf contents
+      if (!highlightCategoryReceived && shelfCategoriesRef?.current && shelfCategoriesRef.current.size > 0) {
+        const responseLower = finalCleanContent.toLowerCase();
+        for (const category of shelfCategoriesRef.current) {
+          if (responseLower.includes(category.toLowerCase())) {
+            console.log('[useBobChat] v3.2.9 shelf category match:', category);
+            onHighlightPart?.(category);
+            break; // Only scroll to first match
+          }
+        }
+      }
       
       
       // Detect product recommendation
