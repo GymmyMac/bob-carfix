@@ -283,6 +283,29 @@ export const Bob: React.FC<BobProps> = ({
   const dbOffset = getCurrentOffset();
   const dbScale = getCurrentScale();
 
+  // ============= UNIFIED ADD-TO-CART HANDLER =============
+  // Handles both single product clicks and bundle tier arrays.
+  // Populates vehicle_id and forwards _bundleMeta to host callback.
+  const handleAddToCart = useCallback((productOrProducts: Product | Product[]) => {
+    const items = Array.isArray(productOrProducts) ? productOrProducts : [productOrProducts];
+    const vehicleId = bobChat.identifiedVehicle?.vehicle_id?.toString()
+      || bobChat.identifiedVehicle?.id?.toString();
+    items.forEach(product => {
+      const cartItem: CartItem = {
+        product_id: product.id || product.sku || '',
+        product_name: product.name,
+        quantity: product.quantity || 1,
+        unit_price: product.price,
+        sku: product.sku,
+        brand: product.brand,
+        image_url: product.image_url,
+        vehicle_id: vehicleId,
+        ...(product._bundleMeta || {}),
+      };
+      callbacks.onAddToCart?.(cartItem);
+    });
+  }, [bobChat.identifiedVehicle, callbacks]);
+
   // Mobile/fullscreen variant - full viewport takeover
   if (variant === "mobile" || variant === "fullscreen") {
     return (
