@@ -5,6 +5,14 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.13] - 2026-03-09
+
+### Fixed
+- 🛒 **ProductTile Add-to-Cart Button**: Wired `onAddToCart` callback through `ResponsiveProductCard` to `ProductTile` — the green "+" button on partslot product tiles now correctly fires the add-to-cart callback
+- 📜 **Eager Shelf Category Registration**: Service package titles and partslot categories are now populated in `shelfCategoriesRef` during SSE stream processing (on `service_packages_found` / `parts_found` events) instead of waiting for a post-render `useEffect` — fixes auto-scroll failing because `shelfCategories` was empty at match time
+
+---
+
 ## [v3.2.12] - 2026-03-09
 
 ### Fixed
