@@ -868,12 +868,21 @@ export const useBobChat = ({
       // If the server didn't send highlight_category, match Bob's response against actual shelf contents
       if (!highlightCategoryReceived && shelfCategoriesRef?.current && shelfCategoriesRef.current.size > 0) {
         const responseLower = finalCleanContent.toLowerCase();
+        let bestMatch: string | null = null;
+        let bestScore = 0;
+
         for (const category of shelfCategoriesRef.current) {
-          if (responseLower.includes(category.toLowerCase())) {
-            console.log('[useBobChat] v3.2.9 shelf category match:', category);
-            onHighlightPart?.(category);
-            break; // Only scroll to first match
+          const words = category.toLowerCase().split(/\s+/).filter(Boolean);
+          const hits = words.filter(w => responseLower.includes(w)).length;
+          if (hits === words.length && hits > bestScore) {
+            bestScore = hits;
+            bestMatch = category;
           }
+        }
+
+        if (bestMatch) {
+          console.log('[useBobChat] v3.2.10 shelf category match:', bestMatch, `(${bestScore} words)`);
+          onHighlightPart?.(bestMatch);
         }
       }
       
