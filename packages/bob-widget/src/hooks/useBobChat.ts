@@ -218,6 +218,9 @@ export const useBobChat = ({
   // NEW: Conversation state for UI hints
   const conversationStateRef = useRef<string>('AWAITING_REGO');
   
+  // Track canned/searching audio playing state (separate from TTS isSpeaking)
+  const [isAudioControllerPlaying, setIsAudioControllerPlaying] = useState(false);
+  
   // Helper: Stop all audio and reset controller
   const stopAllAudio = () => {
     const controller = audioControllerRef.current;
