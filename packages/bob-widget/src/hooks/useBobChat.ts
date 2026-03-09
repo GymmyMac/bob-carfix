@@ -561,6 +561,8 @@ export const useBobChat = ({
     const customerEmail = hostContext.user?.email;
     
     // v3.2.8: Removed optimistic searching audio — canned audio disabled in Bob V2.0
+    // v3.2.9: Track whether server sent highlight_category during this stream
+    let highlightCategoryReceived = false;
     
     try {
       const requestBody: Record<string, unknown> = { 
