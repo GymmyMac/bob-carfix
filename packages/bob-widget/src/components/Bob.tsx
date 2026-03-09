@@ -289,6 +289,8 @@ export const Bob: React.FC<BobProps> = ({
         servicePackages={servicePackages}
         highlightedPartType={highlightedPartType}
         highlightedProduct={highlightedProduct}
+        scrollToCategory={scrollToCategory}
+        onScrollToCategoryComplete={() => setScrollToCategory(null)}
         onAddToCart={(productOrProducts) => {
           const items = Array.isArray(productOrProducts) ? productOrProducts : [productOrProducts];
           items.forEach(product => {
