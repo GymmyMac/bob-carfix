@@ -112,7 +112,6 @@ export const Bob: React.FC<BobProps> = ({
           price: p["Metro Retail Price"] || p.price || 0,
           sku: p.SKU || p.sku,
           partNumber: p["Part Number"] || p.part_number || null,
-          // v3.2.1: Robust field extraction with multiple fallbacks - NEVER undefined
           partslotDescription: 
             p["Part Product Type"] || 
             p.partslot_description || 
@@ -129,15 +128,37 @@ export const Bob: React.FC<BobProps> = ({
           brandImageUrl: brand ? `https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/brand_images/${brand.replace(/\s+/g, '')}.jpg` : undefined,
         };
       });
-      // Deduplicate by SKU - API may return the same part multiple times
-      const seen = new Set<string>();
-      const dedupedProducts = mappedProducts.filter(p => {
-        if (!p.sku || seen.has(p.sku)) return false;
-        seen.add(p.sku);
-        return true;
+
+      // v3.2.7: Merge new products with existing shelf instead of replacing
+      setProducts(prev => {
+        // Build set of existing SKUs
+        const existingSkus = new Set(prev.map(p => p.sku).filter(Boolean));
+        // Build set of existing categories for scroll detection
+        const existingCategories = new Set(prev.map(p => p.partslotDescription || 'Other Parts'));
+        
+        // Deduplicate new products internally AND against existing shelf
+        const seen = new Set<string>();
+        const newUniqueProducts = mappedProducts.filter(p => {
+          if (!p.sku || seen.has(p.sku) || existingSkus.has(p.sku)) return false;
+          seen.add(p.sku);
+          return true;
+        });
+        
+        console.log('[Bob] Products mapped:', mappedProducts.length, '-> new unique:', newUniqueProducts.length, '-> existing:', prev.length);
+        
+        // Find first new category to scroll to
+        if (newUniqueProducts.length > 0 && prev.length > 0) {
+          const firstNewCategory = newUniqueProducts.find(
+            p => !existingCategories.has(p.partslotDescription || 'Other Parts')
+          )?.partslotDescription;
+          if (firstNewCategory) {
+            // Use setTimeout to ensure state update completes before scroll triggers
+            setTimeout(() => setScrollToCategory(firstNewCategory), 100);
+          }
+        }
+        
+        return [...prev, ...newUniqueProducts];
       });
-      console.log('[Bob] Products mapped:', mappedProducts.length, '-> deduped:', dedupedProducts.length);
-      setProducts(dedupedProducts);
     };
     
     handlePackagesFoundRef.current = (packages: unknown[]) => {

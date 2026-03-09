@@ -219,6 +219,22 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
     return () => clearTimeout(timer);
   }, [highlightedPartType]);
 
+  // v3.2.7: Auto-scroll to newly added category when follow-up parts arrive
+  useEffect(() => {
+    if (!scrollToCategory) return;
+    const timer = setTimeout(() => {
+      const entries = Object.entries(groupRefs.current);
+      for (const [name, el] of entries) {
+        if (el && matchesPartType(name, scrollToCategory)) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          break;
+        }
+      }
+      onScrollToCategoryComplete?.();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [scrollToCategory]);
+
   // Scroll tracking for custom indicator
   const [scrollProgress, setScrollProgress] = useState(0);
   
