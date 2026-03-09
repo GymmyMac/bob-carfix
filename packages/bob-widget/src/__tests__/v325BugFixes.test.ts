@@ -14,8 +14,8 @@ import { describe, it, expect, vi } from "vitest";
 describe("Bug #1: Quick-reply stops speech before navigating", () => {
   it("calls onInterrupt before onQuickReply in correct order", () => {
     const callOrder: string[] = [];
-    const onInterrupt = vi.fn(() => callOrder.push("interrupt"));
-    const onQuickReply = vi.fn(() => callOrder.push("quickReply"));
+    const onInterrupt = vi.fn().mockImplementation(() => callOrder.push("interrupt"));
+    const onQuickReply = vi.fn().mockImplementation(() => callOrder.push("quickReply"));
 
     // Simulate the button onClick handler from ContainedChatDrawer / MobileChatDrawer
     const handleQuickReplyClick = (url: string) => {
