@@ -236,6 +236,7 @@ export const useBobChat = ({
     controller.isPlaying = false;
     controller.source = 'none';
     controller.searchingQueue = [];
+    setIsAudioControllerPlaying(false);
     stopSpeech(); // Also stop TTS
   };
   
