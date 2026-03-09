@@ -1,96 +1,99 @@
-# Fix: Hallucinated Products + Shelf Not Scrolling (v3.2.12)
 
-## Two Root Causes Found
 
-### Issue 1: Hallucination — Follow-up bypass has NO shelf data
+# Counter-Proposal: GA4 vs Custom Table for Bob Activity Tracking
 
-The v3.2.11 follow-up bypass correctly skips the tool loop for speed, but it also skips the shelf data injection. Here's the flow:
+## Current State of Bob's Analytics
 
-```text
-Follow-up request ("tell me about front brake pads")
-  → canBypassToolLoop = true (vehicle confirmed, no symptom/cart)
-  → loopCount = maxLoops (skip tool loop)
-  → _partsToEmit = [] (never populated)
-  → _servicePackagesToEmit = [] (never populated)
-  → displayedPackages.length === 0 → NO [SHELF DATA] injected
-  → else branch: only injects cached brand context (if any)
-  → LLM has ZERO product/price data → hallucinates "Bendix rotors"
-```
+Bob already has a **dual-channel analytics system** built and ready:
 
-**Suggested Fix:** On the follow-up bypass path, re-fetch the package summaries from the API (lightweight call, ~2s) and inject them as display context. Alternatively, have the **client send a compact shelf summary** with the request so the server doesn't need to re-fetch at all.  
-  
-The client-side approach is better for latency: the client already has all 500 parts and 6 service packages. We'll send a compact `shelfContext` field in the request body containing package titles+tiers+prices and part category names. The edge function injects this as a `[SHELF DATA]` system message on the bypass path.
+1. **GA4 Integration** (`useBobAnalytics` hook) — fires events via `window.gtag()` when a `ga4Config.measurementId` is provided. Events include `bob_session_start`, `bob_message_sent`, `bob_vehicle_identified`, `bob_parts_viewed`, `bob_product_clicked`, `bob_add_to_cart`, `bob_checkout_started`, and more.
 
-### Issue 2: Scroll fails — Service packages have no scroll anchors
+2. **Server-side callback** (`onAnalyticsEvent`) — fires the same events to a callback function, which can POST them to the `bob-analytics` edge function → `bob_analytics_events` table.
 
-The word-scoring matcher correctly identifies "Front Brake Service" as the best match. `onHighlightPart("Front Brake Service")` fires. But in `MobileProductColumn.tsx`, the scroll effect at line 207 iterates `groupRefs.current` — which only contains refs for **product category sections** (line 843). Service package cards are rendered in a separate block (line 489) with NO ref registration.  
-  
-**Question/Suggestion:** Examine the volume of data being presented by the API, do we already have data that could be used to build/insert the shelf labels? e.g. Partslot name could be used to create dynamic anchors during page load, then when Bob references that part, a match can be made and the page scrolled to show that partslot. This approach would work across all vehicles and does not require additional 'heavy' data to be presented by the API. 
-
-**Fix:** Register service package sections into `groupRefs` alongside product categories, so the existing scroll logic finds them.
+**Neither channel is currently active on the CARFIX production site.** No GA4 Measurement ID is configured, and the host site isn't wiring up the `onAnalyticsEvent` callback. The `bob_analytics_events` table contains only admin auth diagnostic events — zero conversation data.
 
 ---
 
-## Implementation Plan
+## Option A: Use GA4 (Counter-Proposal)
 
-### File 1: `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`
-
-**Add ref registration to service package cards** (around line 516):
+### How it works
+The CARFIX website adds Google Analytics (gtag.js) and passes the Measurement ID to Bob:
 
 ```tsx
-<div
-  key={pkg.id}
-  ref={(el) => { groupRefs.current[pkg.title] = el; }}  // ← ADD THIS
-  className="overflow-hidden transition-all duration-300"
+<BobStandalone
+  ga4Config={{ measurementId: 'G-XXXXXXXXXX' }}
   ...
+/>
 ```
 
-This is the minimal change. The existing scroll logic in the `highlightedPartType` useEffect already uses `matchesPartType` which will match "Front Brake Service" against the ref key.
+Bob immediately starts firing all 11 event types to GA4. The admin team queries GA4 via:
+- **GA4 Dashboard** → Explore → filter by `bob_session_start` or `bob_message_sent`
+- **GA4 Data API** (programmatic) → pull counts into their admin dashboard
+- **BigQuery Export** (if GA4 is linked) → SQL queries
 
-### File 2: `packages/bob-widget/src/hooks/useBobChat.ts`
+### What it satisfies
+- "How many unique sessions had a Bob interaction in the last 7 days?" — YES, via `bob_session_start` event count
+- Session-level grouping — YES, `session_id` is sent as a parameter
+- Vehicle identification tracking — YES
+- Product views and cart events — YES
 
-**Build and send a compact shelf context** with each follow-up request. Before calling the edge function, construct a summary from the products and service packages the client already has:
+### What it does NOT satisfy
+- **Real-time count on the admin dashboard** — GA4 has 24-48hr data latency for reports (Realtime view exists but is limited to 30 minutes)
+- **Custom SQL queries from the admin site** — the admin team would need GA4 API credentials and a separate integration
+- **Upsert/conversation-level aggregation** — GA4 stores raw events, not conversation summaries
 
-```typescript
-// Build compact shelf context from client-side data
-const shelfContext = shelfCategoriesRef?.current 
-  ? Array.from(shelfCategoriesRef.current).join(', ')
-  : '';
+### Verdict
+GA4 is excellent for marketing analytics and long-term reporting, but it is **not suitable as the data source for a real-time admin dashboard funnel**. The 24-48hr latency and the need for separate GA4 API integration make it a poor fit for "Talking to Bob: X" displayed live.
+
+---
+
+## Option B: Lightweight `bob_conversations` Table (Recommended Hybrid)
+
+### Why both, not either/or
+- **Enable GA4** for marketing/attribution analytics (free, zero maintenance)
+- **Add `bob_conversations` table** for the admin dashboard's real-time funnel count
+
+### Implementation plan
+
+1. **Create `bob_conversations` table** — as proposed, with upsert-on-session logic. Simplified schema:
+   - `id`, `session_id`, `started_at`, `last_message_at`, `message_count`, `channel`, `had_product_match`, `led_to_cart`, `vehicle_id`, `rego`
+
+2. **Create `bob-conversation-track` edge function** — accepts upsert payload from Bob, uses service role to insert/update. One row per conversation, not per message.
+
+3. **Wire into Bob's existing analytics hook** — add a `trackConversationActivity()` method that fires on `bob_message_sent`. This calls the new edge function with the session_id.
+
+4. **Enable GA4 pass-through** — document that the CARFIX host site should pass `ga4Config={{ measurementId: 'G-...' }}` to get full GA4 coverage for free.
+
+### What the admin dashboard gets
+```sql
+-- Funnel count: sessions talking to Bob in last 7 days
+SELECT COUNT(DISTINCT session_id)
+FROM bob_conversations
+WHERE last_message_at >= now() - interval '7 days';
+
+-- Conversion rate
+SELECT 
+  COUNT(*) as total,
+  COUNT(*) FILTER (WHERE had_product_match) as matched,
+  COUNT(*) FILTER (WHERE led_to_cart) as carted
+FROM bob_conversations
+WHERE started_at >= now() - interval '7 days';
 ```
 
-Send this as a new `shelfContext` field in the request body alongside messages.
+Real-time, queryable directly from the admin site, no GA4 API integration needed.
 
-### File 3: `supabase/functions/bob-chat/index.ts`
+---
 
-**On the follow-up bypass path**, when `displayedPackages` is empty but `effectiveVehicleContext` exists:
+## Recommendation
 
-1. Read the `shelfContext` string from the request body
-2. Re-fetch service packages from the API (they're cached server-side, ~1s) to get actual tier prices
-3. Inject the compact summary as `[SHELF DATA]` so the LLM knows what's actually on the shelf
+**Do both.** Enable GA4 for the marketing team (one config line). Build the `bob_conversations` table for the admin dashboard's real-time funnel. They serve different audiences and complement each other perfectly.
 
-This prevents hallucination by giving the LLM real product data to reference.
+### Implementation Status: ✅ COMPLETE
 
-### File 4: Version bump files
+- ✅ `bob_conversations` table created with RLS (admin SELECT, service INSERT/UPDATE)
+- ✅ `upsert_bob_conversation` database function created (SECURITY DEFINER, handles ON CONFLICT upsert)
+- ✅ `bob-conversation-track` edge function created and deployed
+- ✅ `useBobAnalytics` hook updated with `trackConversationActivity()` method (debounced, fires via fetch)
+- ✅ Supports immediate fire for `led_to_cart` / `had_product_match` events
+- GA4: requires CARFIX host to add gtag.js and pass Measurement ID (host-side change, not Bob)
 
-- `packages/bob-widget/src/version.ts` → 3.2.12
-- `packages/bob-widget/package.json` → 3.2.12
-- `packages/bob-widget/CHANGELOG.md` → document fixes
-
-## Files Changed
-
-
-| File                      | Change                                                                 |
-| ------------------------- | ---------------------------------------------------------------------- |
-| `MobileProductColumn.tsx` | Add ref to service package cards so scroll anchors work                |
-| `useBobChat.ts`           | Send compact shelf context with follow-up requests                     |
-| `bob-chat/index.ts`       | Re-fetch package summaries on follow-up bypass; inject as [SHELF DATA] |
-| `version.ts`              | Bump to 3.2.12                                                         |
-| `package.json`            | Bump to 3.2.12                                                         |
-| `CHANGELOG.md`            | Document both fixes                                                    |
-
-
-## Expected Impact
-
-- **Hallucination**: Eliminated — LLM always has real shelf data, even on fast bypass path
-- **Scroll**: Service packages become scrollable anchors alongside product categories
-- **Latency**: ~1-2s added for package re-fetch on follow-ups (still far faster than the old 30s tool loop)

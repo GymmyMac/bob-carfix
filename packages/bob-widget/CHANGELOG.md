@@ -5,6 +5,15 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.12] - 2026-03-09
+
+### Fixed
+- 🛡️ **Anti-Hallucination on Follow-Up Bypass**: The v3.2.11 follow-up bypass skipped [SHELF DATA] injection, causing the LLM to hallucinate brands/products. The bypass path now re-fetches service packages from the API (~1-2s) and injects real tier/price data so Bob only discusses actual inventory
+- 📜 **Service Package Scroll Anchors**: Service package cards now register in `groupRefs` alongside product categories — when Bob mentions "Front Brake Service", the shelf scrolls to that package card instead of doing nothing
+- 📦 **Client Shelf Context**: `useBobChat` now sends a compact `shelfContext` field (comma-separated category names from the shelf) with every request, providing a fallback data source on the bypass path
+
+---
+
 ## [v3.2.11] - 2026-03-09
 
 ### Fixed
