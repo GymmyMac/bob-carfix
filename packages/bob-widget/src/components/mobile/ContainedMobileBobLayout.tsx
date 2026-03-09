@@ -93,6 +93,8 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
   servicePackages,
   highlightedPartType,
   highlightedProduct,
+  scrollToCategory,
+  onScrollToCategoryComplete,
   onProductClick,
   onPackageSelect,
   isResearching,

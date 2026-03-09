@@ -93,6 +93,8 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
   servicePackages,
   highlightedPartType,
   highlightedProduct,
+  scrollToCategory,
+  onScrollToCategoryComplete,
   onProductClick,
   onPackageSelect,
   isResearching,
