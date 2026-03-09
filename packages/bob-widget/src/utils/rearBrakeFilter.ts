@@ -35,7 +35,7 @@ export function detectAvailableBrakeTypes<T extends { partslotName: string; disp
   const allProducts = tiers.flatMap(t => t.products);
   const hasDisc = allProducts.some(p => {
     const name = p.partslotName.toUpperCase();
-    return DISC_KEYWORDS.some(kw => name.includes(kw));
+    return p.displayPrice > 0 && DISC_KEYWORDS.some(kw => name.includes(kw));
   });
   const hasDrum = allProducts.some(p => {
     const name = p.partslotName.toUpperCase();
