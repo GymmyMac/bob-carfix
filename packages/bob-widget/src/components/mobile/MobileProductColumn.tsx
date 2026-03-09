@@ -580,8 +580,8 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                           onClick={() => setBrakeTypes(prev => ({ ...prev, [pkg.id]: 'disc' }))}
                           className="flex-1 py-2 px-3 text-xs font-semibold transition-all"
                           style={{
-                            background: brakeType === 'disc' ? CARFIX_COLORS.primary : 'transparent',
-                            color: brakeType === 'disc' ? '#FFFFFF' : CARFIX_COLORS.mutedForeground,
+                            background: effectiveBrakeType === 'disc' ? CARFIX_COLORS.primary : 'transparent',
+                            color: effectiveBrakeType === 'disc' ? '#FFFFFF' : CARFIX_COLORS.mutedForeground,
                           }}
                         >
                           Disc Brakes (Pads + Rotors)
