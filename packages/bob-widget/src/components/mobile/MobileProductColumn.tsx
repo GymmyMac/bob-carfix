@@ -491,11 +491,23 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           {servicePackages.map((pkg) => {
             // Use preparedTiers from server (no fallback needed - API always provides them)
             const isRearBrake = isRearBrakePackage(pkg);
-            const brakeType = brakeTypes[pkg.id] || 'disc';
-            let visibleTiers = (pkg.preparedTiers || []).filter(tier => !tier.isHidden);
+            const rawVisibleTiers = (pkg.preparedTiers || []).filter(tier => !tier.isHidden);
+            
+            // Detect which brake types have real (non-zero priced) products
+            const { hasDisc, hasDrum } = isRearBrake 
+              ? detectAvailableBrakeTypes(rawVisibleTiers) 
+              : { hasDisc: false, hasDrum: false };
+            
+            // If only one type exists, force it; otherwise use user selection
+            const effectiveBrakeType: RearBrakeType = 
+              (isRearBrake && hasDisc && !hasDrum) ? 'disc' :
+              (isRearBrake && hasDrum && !hasDisc) ? 'drum' :
+              (brakeTypes[pkg.id] || 'disc');
+            
+            let visibleTiers = rawVisibleTiers;
             if (isRearBrake) {
-              visibleTiers = visibleTiers.map(tier => {
-                const filtered = filterByBrakeType(tier.products, brakeType);
+              visibleTiers = rawVisibleTiers.map(tier => {
+                const filtered = filterByBrakeType(tier.products, effectiveBrakeType);
                 return { ...tier, products: filtered, totalPrice: recalcTierTotal(filtered), productCount: filtered.length };
               });
             }
