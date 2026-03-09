@@ -2101,7 +2101,9 @@ serve(async (req) => {
       // NEW: Vehicle candidates from previous multi-match response
       vehicleCandidates,
       // NEW: Cached brand context from client (Phase 5)
-      cachedBrandContext: clientCachedBrandContext
+      cachedBrandContext: clientCachedBrandContext,
+      // v3.2.12: Compact shelf context from client for follow-up bypass
+      shelfContext: clientShelfContext
     } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
