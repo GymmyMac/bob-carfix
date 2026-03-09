@@ -521,6 +521,12 @@ export const useBobChat = ({
               if (parsed.type === "service_packages_found" && parsed.packages) {
                 console.log('[useBobChat autoFetch] Received service_packages_found:', parsed.packages.length, 'packages');
                 callbacks.onServicePackagesFound?.(parsed.packages);
+                // v3.2.11: Eagerly populate shelfCategoriesRef for scroll matching
+                if (shelfCategoriesRef?.current) {
+                  (parsed.packages as Array<{ title?: string }>).forEach((pkg) => {
+                    if (pkg.title) shelfCategoriesRef.current!.add(pkg.title);
+                  });
+                }
               }
 
               if (parsed.type === "parts_found" && parsed.parts) {
@@ -707,12 +713,26 @@ export const useBobChat = ({
             
             if (parsed.type === "service_packages_found" && parsed.packages) {
               callbacks.onServicePackagesFound?.(parsed.packages);
+              // v3.2.11: Eagerly populate shelfCategoriesRef so post-stream scroll matching works
+              if (shelfCategoriesRef?.current) {
+                (parsed.packages as Array<{ title?: string }>).forEach((pkg) => {
+                  if (pkg.title) shelfCategoriesRef.current!.add(pkg.title);
+                });
+                console.log('[useBobChat] Eagerly added service package titles to shelfCategories:', Array.from(shelfCategoriesRef.current));
+              }
               continue;
             }
             
             if (parsed.type === "parts_found" && parsed.parts) {
               console.log('[useBobChat] Received parts_found event:', parsed.parts.length, 'parts');
               callbacks.onPartsFound?.(parsed.parts);
+              // v3.2.11: Eagerly add partslot categories to shelfCategoriesRef
+              if (shelfCategoriesRef?.current && Array.isArray(parsed.parts)) {
+                (parsed.parts as Array<{ partslot_description?: string }>).forEach((p) => {
+                  const cat = p.partslot_description || 'Other Parts';
+                  if (cat) shelfCategoriesRef.current!.add(cat);
+                });
+              }
               analytics.trackPartsViewed(
                 Array.isArray(parsed.parts) ? parsed.parts.length : 0,
                 identifiedVehicle?.vehicle_id?.toString()
