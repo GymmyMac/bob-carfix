@@ -521,6 +521,14 @@ export const useBobChat = ({
               if (parsed.type === "service_packages_found" && parsed.packages) {
                 console.log('[useBobChat autoFetch] Received service_packages_found:', parsed.packages.length, 'packages');
                 callbacks.onServicePackagesFound?.(parsed.packages);
+                // v3.2.11: Eagerly populate shelfCategoriesRef for scroll matching
+                if (shelfCategoriesRef?.current) {
+                  const updated = new Set(shelfCategoriesRef.current);
+                  (parsed.packages as Array<{ title?: string }>).forEach((pkg) => {
+                    if (pkg.title) updated.add(pkg.title);
+                  });
+                  shelfCategoriesRef.current = updated;
+                }
               }
 
               if (parsed.type === "parts_found" && parsed.parts) {
