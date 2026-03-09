@@ -39,7 +39,7 @@ export function detectAvailableBrakeTypes<T extends { partslotName: string; disp
   });
   const hasDrum = allProducts.some(p => {
     const name = p.partslotName.toUpperCase();
-    return DRUM_KEYWORDS.some(kw => name.includes(kw));
+    return p.displayPrice > 0 && DRUM_KEYWORDS.some(kw => name.includes(kw));
   });
   return { hasDisc, hasDrum };
 }
