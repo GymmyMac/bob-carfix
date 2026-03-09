@@ -82,16 +82,22 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
   // Handle add to cart using preparedTiers (filtered products)
   const handleAddPreparedTierToCart = (tier: PreparedTier) => {
     const discountPct = tier.bundleDiscountPercentage || 0;
-    if (discountPct > 0) {
-      const multiplier = 1 - (discountPct / 100);
-      const discounted = tier.products.map(p => ({
-        ...p,
-        displayPrice: Math.round(p.displayPrice * multiplier * 100) / 100,
-      }));
-      onAddToCart?.(discounted);
-    } else {
-      onAddToCart?.(tier.products);
-    }
+    const multiplier = 1 - (discountPct / 100);
+    const productsWithMeta = tier.products.map(p => ({
+      ...p,
+      displayPrice: discountPct > 0
+        ? Math.round(p.displayPrice * multiplier * 100) / 100
+        : p.displayPrice,
+      // Attach bundle metadata for Bob.tsx to forward to host
+      _bundleMeta: {
+        is_bundle_item: true,
+        bundle_discount_percentage: discountPct,
+        service_package_name: pkg.title,
+        service_package_id: pkg.id,
+        quality_tier: tier.tierName,
+      },
+    }));
+    onAddToCart?.(productsWithMeta as any);
   };
 
   // Get grid columns class based on tier count

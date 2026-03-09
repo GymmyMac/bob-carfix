@@ -732,6 +732,13 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                                   image_url: p.productImageUrl,
                                   partslotDescription: p.partslotName,
                                   quantity: 1,
+                                  _bundleMeta: {
+                                    is_bundle_item: true,
+                                    bundle_discount_percentage: discountPct,
+                                    service_package_name: pkg.title,
+                                    service_package_id: pkg.id,
+                                    quality_tier: tier.tierName,
+                                  },
                                 }));
                                 onAddToCart?.(productsToAdd);
                               }}
