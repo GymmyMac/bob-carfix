@@ -10,6 +10,7 @@ import {
   isRearBrakePackage,
   filterByBrakeType,
   recalcTierTotal,
+  detectAvailableBrakeTypes,
 } from "../utils/rearBrakeFilter";
 
 // ── Test products ──────────────────────────────────────────────
@@ -102,5 +103,57 @@ describe("recalcTierTotal", () => {
 
   it("returns 0 for empty array", () => {
     expect(recalcTierTotal([])).toBe(0);
+  });
+});
+
+// ── detectAvailableBrakeTypes ──────────────────────────────────
+describe("detectAvailableBrakeTypes", () => {
+  const discOnly = [
+    { partslotName: "BRAKE PADS REAR", displayPrice: 65 },
+    { partslotName: "BRAKE ROTORS REAR", displayPrice: 120 },
+    { partslotName: "BRAKE FLUID DOT4", displayPrice: 15 },
+  ];
+
+  const drumOnly = [
+    { partslotName: "BRAKE SHOE REAR", displayPrice: 45 },
+    { partslotName: "BRAKE DRUM REAR", displayPrice: 80 },
+    { partslotName: "BRAKE FLUID DOT4", displayPrice: 15 },
+  ];
+
+  it("detects disc-only vehicle", () => {
+    const result = detectAvailableBrakeTypes([{ products: discOnly }]);
+    expect(result.hasDisc).toBe(true);
+    expect(result.hasDrum).toBe(false);
+  });
+
+  it("detects drum-only vehicle", () => {
+    const result = detectAvailableBrakeTypes([{ products: drumOnly }]);
+    expect(result.hasDisc).toBe(false);
+    expect(result.hasDrum).toBe(true);
+  });
+
+  it("detects both types when both present", () => {
+    const result = detectAvailableBrakeTypes([{ products: [...discOnly, ...drumOnly] }]);
+    expect(result.hasDisc).toBe(true);
+    expect(result.hasDrum).toBe(true);
+  });
+
+  it("detects across multiple tiers", () => {
+    const result = detectAvailableBrakeTypes([{ products: discOnly }, { products: drumOnly }]);
+    expect(result.hasDisc).toBe(true);
+    expect(result.hasDrum).toBe(true);
+  });
+
+  it("returns false for both when no brake-specific products", () => {
+    const neutral = [{ partslotName: "BRAKE FLUID DOT4", displayPrice: 15 }];
+    const result = detectAvailableBrakeTypes([{ products: neutral }]);
+    expect(result.hasDisc).toBe(false);
+    expect(result.hasDrum).toBe(false);
+  });
+
+  it("returns false for both on empty tiers", () => {
+    const result = detectAvailableBrakeTypes([]);
+    expect(result.hasDisc).toBe(false);
+    expect(result.hasDrum).toBe(false);
   });
 });

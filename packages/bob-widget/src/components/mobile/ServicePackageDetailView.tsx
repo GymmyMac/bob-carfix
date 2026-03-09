@@ -7,7 +7,7 @@ import {
   getServicePackageDescription
 } from "../../styles/carfix-tokens";
 import type { PreparedTier, PreparedTierProduct } from "../../types/product";
-import { isRearBrakePackage, filterByBrakeType, recalcTierTotal, type RearBrakeType } from "../../utils/rearBrakeFilter";
+import { isRearBrakePackage, filterByBrakeType, recalcTierTotal, detectAvailableBrakeTypes, type RearBrakeType } from "../../utils/rearBrakeFilter";
 
 /**
  * Service package interface - preparedTiers is the ONLY source of truth
@@ -44,9 +44,26 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
   onNavigateToProductPage
 }) => {
   const [showDetails, setShowDetails] = useState(false);
-  const [rearBrakeType, setRearBrakeType] = useState<RearBrakeType>('disc');
   
   const isRearBrake = useMemo(() => isRearBrakePackage(pkg), [pkg.id, pkg.title]);
+  
+  // Detect which brake types have real products
+  const { hasDisc, hasDrum } = useMemo(() => {
+    if (!isRearBrake || !pkg.preparedTiers) return { hasDisc: false, hasDrum: false };
+    const visible = pkg.preparedTiers.filter(tier => !tier.isHidden);
+    return detectAvailableBrakeTypes(visible);
+  }, [isRearBrake, pkg.preparedTiers]);
+  
+  // Auto-default to whichever type is available (disc preferred)
+  const [rearBrakeType, setRearBrakeType] = useState<RearBrakeType>('disc');
+  const effectiveBrakeType = useMemo(() => {
+    if (!isRearBrake) return 'disc';
+    if (hasDisc && !hasDrum) return 'disc';
+    if (hasDrum && !hasDisc) return 'drum';
+    return rearBrakeType;
+  }, [isRearBrake, hasDisc, hasDrum, rearBrakeType]);
+  
+  const showBrakeToggle = isRearBrake && hasDisc && hasDrum;
   
   // Filter visible tiers (not hidden) - preparedTiers is the ONLY source
   const visiblePreparedTiers = useMemo(() => {
@@ -55,10 +72,10 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
     if (!isRearBrake) return visible;
     // Apply brake type filter and recalculate prices
     return visible.map(tier => {
-      const filtered = filterByBrakeType(tier.products, rearBrakeType);
+      const filtered = filterByBrakeType(tier.products, effectiveBrakeType);
       return { ...tier, products: filtered, totalPrice: recalcTierTotal(filtered), productCount: filtered.length };
     });
-  }, [pkg.preparedTiers, isRearBrake, rearBrakeType]);
+  }, [pkg.preparedTiers, isRearBrake, effectiveBrakeType]);
   
   const hasTiers = visiblePreparedTiers.length > 0;
   
@@ -159,7 +176,7 @@ export const ServicePackageDetailView: React.FC<ServicePackageDetailViewProps> =
           </p>
           
           {/* Disc / Drum brake type toggle - only for Rear Brake Service */}
-          {isRearBrake && (
+          {showBrakeToggle && (
             <div className="mt-3">
               <p className="text-[11px] text-[#94A3B8] mb-1.5">Select your vehicle's rear brake type</p>
               <div className="flex rounded-xl overflow-hidden border border-[#E2E8F0] bg-white">
