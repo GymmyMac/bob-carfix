@@ -515,6 +515,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
             return (
               <div
                 key={pkg.id}
+                ref={(el) => { groupRefs.current[pkg.title] = el; }}
                 className="overflow-hidden transition-all duration-300"
                 style={{
                   background: CARFIX_COLORS.card,

@@ -571,6 +571,11 @@ export const useBobChat = ({
         hostContext,
       };
       
+      // v3.2.12: Send compact shelf context so follow-up bypass has real product data
+      if (shelfCategoriesRef?.current && shelfCategoriesRef.current.size > 0) {
+        requestBody.shelfContext = Array.from(shelfCategoriesRef.current).join(', ');
+      }
+      
       if (identifiedVehicle) {
         requestBody.vehicleContext = identifiedVehicle;
       }

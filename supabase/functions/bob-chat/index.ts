@@ -3812,6 +3812,8 @@ ${partsSummary}`;
       const displayedPackages = (conversationMessages as unknown as { _servicePackagesToEmit?: unknown[] })._servicePackagesToEmit || [];
       const displayedParts = (conversationMessages as unknown as { _partsToEmit?: unknown[] })._partsToEmit || [];
       
+      let hasShelfData = false;
+      
       if (displayedPackages.length > 0 || displayedParts.length > 0) {
         let displayContext = `\n\n## PRODUCTS ON SHELF (customer can see these)\n`;
         if (displayedPackages.length > 0) {
@@ -3851,6 +3853,78 @@ ${partsSummary}`;
           displayContext += `\nIndividual parts: ${displayedParts.length} available on shelf.`;
         }
         conversationMessages.push({ role: "system", content: displayContext });
+        hasShelfData = true;
+      }
+      
+      // v3.2.12: Follow-up bypass — re-fetch packages from API so LLM has real data
+      // This prevents hallucination when bypass skips the tool loop (no _servicePackagesToEmit)
+      if (!hasShelfData && effectiveVehicleContext) {
+        const vehicleIdForRefetch = effectiveVehicleContext.vehicle_id || effectiveVehicleContext.id;
+        const numericVehicleId = Number.parseInt(String(vehicleIdForRefetch), 10);
+        
+        if (Number.isFinite(numericVehicleId) && numericVehicleId > 0) {
+          console.log(`[Bypass Path] No shelf data from tool loop — re-fetching packages for vehicle ${numericVehicleId}`);
+          
+          try {
+            const refetchResult = await fetchPreparedServiceBundles(numericVehicleId, apiConfig);
+            
+            if (refetchResult.success && refetchResult.packages.length > 0) {
+              const packageLines: string[] = [];
+              const valueTierLines: string[] = [];
+              const brandNotes: string[] = [];
+              
+              for (const pkg of refetchResult.packages as any[]) {
+                if (!pkg.preparedTiers || !Array.isArray(pkg.preparedTiers)) {
+                  packageLines.push(`- ${pkg.title}: from $${pkg.from_price}`);
+                  continue;
+                }
+                const visibleTiers = pkg.preparedTiers.filter((t: any) => !t.isHidden);
+                const tierPrices = visibleTiers.map((t: any) => {
+                  let label = `${t.tierName} $${t.totalPrice?.toFixed(0) || '?'}`;
+                  if (t.isRecommended) label += ' ★VALUE';
+                  const preferred = (t.products || []).find((p: any) => p.isPreferredBrand === true);
+                  if (preferred) {
+                    label += ` (${preferred.brand} ⭐)`;
+                    brandNotes.push(`${pkg.title}: ${preferred.brand} is preferred (in ${t.tierName} at $${t.totalPrice?.toFixed(0)})`);
+                  }
+                  return label;
+                }).join(' | ');
+                packageLines.push(`- ${pkg.title}: ${tierPrices}`);
+                const valueTier = visibleTiers.find((t: any) => t.isRecommended);
+                if (valueTier) {
+                  valueTierLines.push(`${pkg.title}: ${valueTier.tierName} at $${valueTier.totalPrice?.toFixed(0)} (${valueTier.dominantBrand || 'mixed'})`);
+                }
+              }
+              
+              let displayContext = `\n\n## PRODUCTS ON SHELF (customer can see these)\nService Packs (${refetchResult.packages.length}):\n${packageLines.join('\n')}`;
+              if (valueTierLines.length > 0) displayContext += `\nCARFIX VALUE PICKS:\n${valueTierLines.join('\n')}`;
+              if (brandNotes.length > 0) {
+                displayContext += `\nPREFERRED BRANDS:\n${brandNotes.join('\n')}`;
+                conversationMessages.push({ role: "system", content: `BRAND AFFINITY CONTEXT:\n${brandNotes.join('\n')}` });
+              }
+              
+              // Also include client shelf context if available (part categories)
+              if (clientShelfContext) {
+                displayContext += `\nIndividual part categories on shelf: ${clientShelfContext}`;
+              }
+              
+              conversationMessages.push({ role: "system", content: displayContext });
+              console.log(`[Bypass Path] ✅ Injected ${refetchResult.packages.length} re-fetched packages as shelf data`);
+            } else {
+              console.warn(`[Bypass Path] Re-fetch returned no packages — using client shelf context only`);
+              if (clientShelfContext) {
+                conversationMessages.push({ role: "system", content: `[SHELF DATA]\nItems currently on the customer's shelf: ${clientShelfContext}\nIMPORTANT: Only mention products/categories listed above. Do NOT invent brands, prices, or products.` });
+              }
+            }
+          } catch (refetchErr) {
+            console.error('[Bypass Path] Package re-fetch failed:', refetchErr);
+            if (clientShelfContext) {
+              conversationMessages.push({ role: "system", content: `[SHELF DATA]\nItems currently on the customer's shelf: ${clientShelfContext}\nIMPORTANT: Only mention products/categories listed above. Do NOT invent brands, prices, or products.` });
+            }
+          }
+        } else if (clientShelfContext) {
+          conversationMessages.push({ role: "system", content: `[SHELF DATA]\nItems currently on the customer's shelf: ${clientShelfContext}\nIMPORTANT: Only mention products/categories listed above. Do NOT invent brands, prices, or products.` });
+        }
       }
 
       // Strip tool history
