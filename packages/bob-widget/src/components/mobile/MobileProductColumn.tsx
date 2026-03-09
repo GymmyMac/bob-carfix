@@ -923,6 +923,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                     isSpotlighted={isSpotlighted}
                     spotlightedRef={spotlightedRef}
                     onProductClick={onProductClick}
+                    onAddToCart={onAddToCart}
                     viewportSize={viewportSize}
                   />
                   </div>
