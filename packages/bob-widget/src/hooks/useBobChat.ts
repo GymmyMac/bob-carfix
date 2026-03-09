@@ -165,7 +165,8 @@ export const useBobChat = ({
   onHighlightProduct,
   onNoPartsFound,
   onAutoFetchComplete,
-  onVariantSelectionRequired
+  onVariantSelectionRequired,
+  shelfCategoriesRef
 }: UseBobChatProps) => {
   const { bobConfig, hostApiConfig, hostContext, callbacks, ga4Config, analyticsEnabled } = useBobContext();
   
