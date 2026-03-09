@@ -28,3 +28,18 @@ export function filterByBrakeType<T extends { partslotName: string }>(
 export function recalcTierTotal<T extends { displayPrice: number }>(products: T[]): number {
   return products.reduce((sum, p) => sum + p.displayPrice, 0);
 }
+
+export function detectAvailableBrakeTypes<T extends { partslotName: string }>(
+  tiers: Array<{ products: T[] }>
+): { hasDisc: boolean; hasDrum: boolean } {
+  const allProducts = tiers.flatMap(t => t.products);
+  const hasDisc = allProducts.some(p => {
+    const name = p.partslotName.toUpperCase();
+    return DISC_KEYWORDS.some(kw => name.includes(kw));
+  });
+  const hasDrum = allProducts.some(p => {
+    const name = p.partslotName.toUpperCase();
+    return DRUM_KEYWORDS.some(kw => name.includes(kw));
+  });
+  return { hasDisc, hasDrum };
+}
