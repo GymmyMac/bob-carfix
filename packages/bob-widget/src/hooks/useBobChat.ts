@@ -370,10 +370,10 @@ export const useBobChat = ({
     }
   });
 
-  // Expose stopSpeech to host via BobCallbacks.onStopSpeechReady
-  // Called once on mount so BobStandalone can capture the fn and expose it via ref
+  // Expose stopAllAudio to host via BobCallbacks.onStopSpeechReady
+  // Bug #2 fix: passes stopAllAudio (TTS + canned + searching) instead of just stopSpeech
   useEffect(() => {
-    callbacks.onStopSpeechReady?.(stopSpeech);
+    callbacks.onStopSpeechReady?.(stopAllAudio);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
