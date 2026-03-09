@@ -267,14 +267,20 @@ export const Bob: React.FC<BobProps> = ({
         servicePackages={servicePackages}
         highlightedPartType={highlightedPartType}
         highlightedProduct={highlightedProduct}
-        onAddToCart={(product) => callbacks.onAddToCart?.({
-          product_id: product.id,
-          product_name: product.name,
-          quantity: 1,
-          unit_price: product.price,
-          sku: product.sku,
-          brand: product.brand
-        })}
+        onAddToCart={(productOrProducts) => {
+          const items = Array.isArray(productOrProducts) ? productOrProducts : [productOrProducts];
+          items.forEach(product => {
+            callbacks.onAddToCart?.({
+              product_id: product.id,
+              product_name: product.name,
+              quantity: product.quantity || 1,
+              unit_price: product.price,
+              sku: product.sku,
+              brand: product.brand,
+              image_url: product.image_url,
+            });
+          });
+        }}
         onNavigateToProductPage={(product) => callbacks.onNavigateToProductPage?.(product)}
         onQuickReply={(url) => callbacks.onNavigateToProductPage?.({ url } as any)}
         onPackageSelect={(pkg) => console.log('[BobWidget] Package selected:', pkg)}
