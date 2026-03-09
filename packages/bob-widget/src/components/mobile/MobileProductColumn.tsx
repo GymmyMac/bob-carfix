@@ -572,7 +572,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                   </p>
                   
                   {/* Disc / Drum brake type toggle - only for Rear Brake Service */}
-                  {isRearBrake && (
+                  {isRearBrake && hasDisc && hasDrum && (
                     <div className="mt-2 mb-1">
                       <p className="text-[11px] mb-1.5" style={{ color: CARFIX_COLORS.mutedForeground }}>Select your vehicle's rear brake type</p>
                       <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: CARFIX_COLORS.border }}>
