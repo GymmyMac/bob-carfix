@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, Wrench, Package, Star, Zap, DollarSign, Award, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMemo, useState } from "react";
-import { isRearBrakePackage, filterByBrakeType, recalcTierTotal, type RearBrakeType } from "@/utils/rearBrakeFilter";
+import { isRearBrakePackage, filterByBrakeType, recalcTierTotal, detectAvailableBrakeTypes, type RearBrakeType } from "@/utils/rearBrakeFilter";
 
 interface ServicePackageDetailDialogProps {
   package_: ServicePackage | null;
