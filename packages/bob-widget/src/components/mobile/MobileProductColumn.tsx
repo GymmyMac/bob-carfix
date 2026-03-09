@@ -4,7 +4,7 @@ import { usePositionFactors } from "../../hooks/usePositionFactors";
 import { ProductTile } from "../ProductTile";
 import type { Product, ServicePackage, PreparedTierProduct } from "../../types";
 import type { HighlightedProduct } from "../../types/message";
-import { isRearBrakePackage, filterByBrakeType, recalcTierTotal, type RearBrakeType } from "../../utils/rearBrakeFilter";
+import { isRearBrakePackage, filterByBrakeType, recalcTierTotal, detectAvailableBrakeTypes, type RearBrakeType } from "../../utils/rearBrakeFilter";
 import { 
   glassCard, 
   glassCardPremium,
