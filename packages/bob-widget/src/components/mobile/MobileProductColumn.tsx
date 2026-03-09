@@ -4,7 +4,7 @@ import { usePositionFactors } from "../../hooks/usePositionFactors";
 import { ProductTile } from "../ProductTile";
 import type { Product, ServicePackage, PreparedTierProduct } from "../../types";
 import type { HighlightedProduct } from "../../types/message";
-import { isRearBrakePackage, filterByBrakeType, recalcTierTotal, type RearBrakeType } from "../../utils/rearBrakeFilter";
+import { isRearBrakePackage, filterByBrakeType, recalcTierTotal, detectAvailableBrakeTypes, type RearBrakeType } from "../../utils/rearBrakeFilter";
 import { 
   glassCard, 
   glassCardPremium,
@@ -491,11 +491,23 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           {servicePackages.map((pkg) => {
             // Use preparedTiers from server (no fallback needed - API always provides them)
             const isRearBrake = isRearBrakePackage(pkg);
-            const brakeType = brakeTypes[pkg.id] || 'disc';
-            let visibleTiers = (pkg.preparedTiers || []).filter(tier => !tier.isHidden);
+            const rawVisibleTiers = (pkg.preparedTiers || []).filter(tier => !tier.isHidden);
+            
+            // Detect which brake types have real (non-zero priced) products
+            const { hasDisc, hasDrum } = isRearBrake 
+              ? detectAvailableBrakeTypes(rawVisibleTiers) 
+              : { hasDisc: false, hasDrum: false };
+            
+            // If only one type exists, force it; otherwise use user selection
+            const effectiveBrakeType: RearBrakeType = 
+              (isRearBrake && hasDisc && !hasDrum) ? 'disc' :
+              (isRearBrake && hasDrum && !hasDisc) ? 'drum' :
+              (brakeTypes[pkg.id] || 'disc');
+            
+            let visibleTiers = rawVisibleTiers;
             if (isRearBrake) {
-              visibleTiers = visibleTiers.map(tier => {
-                const filtered = filterByBrakeType(tier.products, brakeType);
+              visibleTiers = rawVisibleTiers.map(tier => {
+                const filtered = filterByBrakeType(tier.products, effectiveBrakeType);
                 return { ...tier, products: filtered, totalPrice: recalcTierTotal(filtered), productCount: filtered.length };
               });
             }
@@ -560,7 +572,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                   </p>
                   
                   {/* Disc / Drum brake type toggle - only for Rear Brake Service */}
-                  {isRearBrake && (
+                  {isRearBrake && hasDisc && hasDrum && (
                     <div className="mt-2 mb-1">
                       <p className="text-[11px] mb-1.5" style={{ color: CARFIX_COLORS.mutedForeground }}>Select your vehicle's rear brake type</p>
                       <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: CARFIX_COLORS.border }}>
@@ -568,8 +580,8 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                           onClick={() => setBrakeTypes(prev => ({ ...prev, [pkg.id]: 'disc' }))}
                           className="flex-1 py-2 px-3 text-xs font-semibold transition-all"
                           style={{
-                            background: brakeType === 'disc' ? CARFIX_COLORS.primary : 'transparent',
-                            color: brakeType === 'disc' ? '#FFFFFF' : CARFIX_COLORS.mutedForeground,
+                            background: effectiveBrakeType === 'disc' ? CARFIX_COLORS.primary : 'transparent',
+                            color: effectiveBrakeType === 'disc' ? '#FFFFFF' : CARFIX_COLORS.mutedForeground,
                           }}
                         >
                           Disc Brakes (Pads + Rotors)
@@ -578,8 +590,8 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                           onClick={() => setBrakeTypes(prev => ({ ...prev, [pkg.id]: 'drum' }))}
                           className="flex-1 py-2 px-3 text-xs font-semibold transition-all"
                           style={{
-                            background: brakeType === 'drum' ? CARFIX_COLORS.primary : 'transparent',
-                            color: brakeType === 'drum' ? '#FFFFFF' : CARFIX_COLORS.mutedForeground,
+                            background: effectiveBrakeType === 'drum' ? CARFIX_COLORS.primary : 'transparent',
+                            color: effectiveBrakeType === 'drum' ? '#FFFFFF' : CARFIX_COLORS.mutedForeground,
                           }}
                         >
                           Drum Brakes (Shoes + Drums)

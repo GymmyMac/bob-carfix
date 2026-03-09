@@ -871,6 +871,7 @@ export const useBobChat = ({
 
       // v3.2.9: Post-stream shelf category matching fallback
       // If the server didn't send highlight_category, match Bob's response against actual shelf contents
+      console.log('[useBobChat] v3.2.10 scroll debug: highlightCategoryReceived=', highlightCategoryReceived, 'shelfCategories=', shelfCategoriesRef?.current ? Array.from(shelfCategoriesRef.current) : 'none');
       if (!highlightCategoryReceived && shelfCategoriesRef?.current && shelfCategoriesRef.current.size > 0) {
         const responseLower = finalCleanContent.toLowerCase();
         let bestMatch: string | null = null;
