@@ -86,8 +86,9 @@ const ResponsiveProductCard: React.FC<{
   isSpotlighted: boolean;
   spotlightedRef?: React.RefObject<HTMLDivElement>;
   onProductClick?: (product: Product) => void;
+  onAddToCart?: (product: Product) => void;
   viewportSize?: ViewportSize;
-}> = ({ product, isSpotlighted, spotlightedRef, onProductClick }) => {
+}> = ({ product, isSpotlighted, spotlightedRef, onProductClick, onAddToCart }) => {
   // All viewports: Use ProductTile for consistent glassmorphism design
   return (
     <div ref={isSpotlighted ? spotlightedRef : undefined}>
@@ -95,6 +96,7 @@ const ResponsiveProductCard: React.FC<{
         product={product}
         isSpotlighted={isSpotlighted}
         onProductClick={onProductClick}
+        onAddToCart={onAddToCart}
       />
     </div>
   );
