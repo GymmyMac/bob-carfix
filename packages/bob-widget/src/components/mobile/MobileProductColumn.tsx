@@ -590,8 +590,8 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                           onClick={() => setBrakeTypes(prev => ({ ...prev, [pkg.id]: 'drum' }))}
                           className="flex-1 py-2 px-3 text-xs font-semibold transition-all"
                           style={{
-                            background: brakeType === 'drum' ? CARFIX_COLORS.primary : 'transparent',
-                            color: brakeType === 'drum' ? '#FFFFFF' : CARFIX_COLORS.mutedForeground,
+                            background: effectiveBrakeType === 'drum' ? CARFIX_COLORS.primary : 'transparent',
+                            color: effectiveBrakeType === 'drum' ? '#FFFFFF' : CARFIX_COLORS.mutedForeground,
                           }}
                         >
                           Drum Brakes (Shoes + Drums)
