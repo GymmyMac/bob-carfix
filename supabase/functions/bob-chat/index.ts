@@ -2864,12 +2864,21 @@ Use light humor and be helpful while being honest about the limitation.`
     const cartKeywords = ['add to cart', 'buy', 'purchase', 'checkout', 'cart', 'order', 'pay'];
     const hasCartIntent = cartKeywords.some(kw => latestUserContentForSymptom.includes(kw));
     
-    const canBypassToolLoop = isDeterministic && (hasPartsLoaded || hasPackagesLoaded) && !hasSymptomGlobal && !hasCartIntent;
+    // Follow-up bypass: vehicle confirmed in previous turn,
+    // client already has parts/packages on the shelf — no need for tool loop
+    const isFollowUpWithVehicle = !!effectiveVehicleContext && !isDeterministic;
     
-    if (canBypassToolLoop) {
+    const canBypassToolLoop = (
+      (isDeterministic && (hasPartsLoaded || hasPackagesLoaded)) ||
+      (isFollowUpWithVehicle && !hasSymptomGlobal && !hasCartIntent)
+    ) && !hasSymptomGlobal && !hasCartIntent;
+    
+    if (canBypassToolLoop && isDeterministic) {
       console.log(`[Tool-Loop Bypass] ✅ Skipping tool loop — deterministic match with ${hasPartsLoaded ? 'parts' : 'no parts'} + ${hasPackagesLoaded ? 'packages' : 'no packages'} loaded`);
-    } else if (isDeterministic) {
-      console.log(`[Tool-Loop Bypass] ❌ Cannot bypass — symptom=${!!hasSymptomGlobal}, cart=${hasCartIntent}, parts=${hasPartsLoaded}, packages=${hasPackagesLoaded}`);
+    } else if (canBypassToolLoop && isFollowUpWithVehicle) {
+      console.log(`[Tool-Loop Bypass] ✅ Skipping tool loop — follow-up with existing vehicle context (${effectiveVehicleContext.make} ${effectiveVehicleContext.model})`);
+    } else if (isDeterministic || isFollowUpWithVehicle) {
+      console.log(`[Tool-Loop Bypass] ❌ Cannot bypass — symptom=${!!hasSymptomGlobal}, cart=${hasCartIntent}, parts=${hasPartsLoaded}, packages=${hasPackagesLoaded}, followUp=${isFollowUpWithVehicle}`);
     }
 
     // Tool calling loop - may require multiple iterations
