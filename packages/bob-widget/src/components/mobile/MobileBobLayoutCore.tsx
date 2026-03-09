@@ -238,7 +238,6 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
         visible={showProductColumn}
         counterHeightPercent={counterHeightPercent}
         hasVehicle={!!vehicle}
-        // NEW: Variant selection props
         pendingVariants={pendingVariants}
         pendingVariantMake={pendingVariantMake}
         pendingVariantModel={pendingVariantModel}

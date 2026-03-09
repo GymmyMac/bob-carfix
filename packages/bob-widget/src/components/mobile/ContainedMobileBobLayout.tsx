@@ -39,6 +39,8 @@ interface ContainedMobileBobLayoutProps {
   servicePackages: ServicePackage[];
   highlightedPartType?: string | null;
   highlightedProduct?: HighlightedProduct | null;
+  scrollToCategory?: string | null;
+  onScrollToCategoryComplete?: () => void;
   onProductClick?: (product: Product) => void;
   onPackageSelect?: (pkg: ServicePackage) => void;
   isResearching?: boolean;
@@ -91,6 +93,8 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
   servicePackages,
   highlightedPartType,
   highlightedProduct,
+  scrollToCategory,
+  onScrollToCategoryComplete,
   onProductClick,
   onPackageSelect,
   isResearching,
@@ -236,6 +240,8 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
         servicePackages={servicePackages}
         highlightedPartType={highlightedPartType}
         highlightedProduct={highlightedProduct}
+        scrollToCategory={scrollToCategory}
+        onScrollToCategoryComplete={onScrollToCategoryComplete}
         onProductClick={handleProductClick}
         onPackageSelect={handlePackageClick}
         isResearching={isResearching}

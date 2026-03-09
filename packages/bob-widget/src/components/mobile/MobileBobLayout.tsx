@@ -37,6 +37,8 @@ interface MobileBobLayoutProps {
   servicePackages: ServicePackage[];
   highlightedPartType?: string | null;
   highlightedProduct?: HighlightedProduct | null;
+  scrollToCategory?: string | null;
+  onScrollToCategoryComplete?: () => void;
   onProductClick?: (product: Product) => void;
   onPackageSelect?: (pkg: ServicePackage) => void;
   isResearching?: boolean;
@@ -91,6 +93,8 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
   servicePackages,
   highlightedPartType,
   highlightedProduct,
+  scrollToCategory,
+  onScrollToCategoryComplete,
   onProductClick,
   onPackageSelect,
   isResearching,
@@ -220,6 +224,8 @@ export const MobileBobLayout: React.FC<MobileBobLayoutProps> = ({
         servicePackages={servicePackages}
         highlightedPartType={highlightedPartType}
         highlightedProduct={highlightedProduct}
+        scrollToCategory={scrollToCategory}
+        onScrollToCategoryComplete={onScrollToCategoryComplete}
         onProductClick={onProductClick}
         onPackageSelect={onPackageSelect}
         isResearching={isResearching}
