@@ -262,6 +262,7 @@ export const useBobChat = ({
     
     audio.onplay = () => {
       console.log(`[BobWidget Audio] ${source} STARTED:`, url.split('/').pop());
+      setIsAudioControllerPlaying(true);
       if (!manualMode) safeSetState(talkingState);
     };
     
@@ -270,6 +271,7 @@ export const useBobChat = ({
       controller.currentAudio = null;
       controller.isPlaying = false;
       controller.source = 'none';
+      setIsAudioControllerPlaying(false);
       onComplete?.();
     };
     
@@ -278,6 +280,7 @@ export const useBobChat = ({
       controller.currentAudio = null;
       controller.isPlaying = false;
       controller.source = 'none';
+      setIsAudioControllerPlaying(false);
       onComplete?.();
     };
     
