@@ -110,6 +110,8 @@ interface UseBobChatProps {
   onAutoFetchComplete?: () => void;
   /** When backend requires user to pick a vehicle variant, provide UI-ready cards for the shelf */
   onVariantSelectionRequired?: (variants: VariantCard[], make: string, model: string) => void;
+  /** Ref containing current shelf category names for post-stream scroll matching */
+  shelfCategoriesRef?: React.RefObject<Set<string>>;
 }
 
 // Keywords that indicate Bob is recommending products
