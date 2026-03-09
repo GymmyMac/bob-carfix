@@ -45,7 +45,7 @@ export function recalcTierTotal<T extends { displayPrice: number }>(products: T[
  * Detect which brake types have real products in the tier data.
  * Used to conditionally show/hide the Disc/Drum toggle.
  */
-export function detectAvailableBrakeTypes<T extends { partslotName: string }>(
+export function detectAvailableBrakeTypes<T extends { partslotName: string; displayPrice: number }>(
   tiers: Array<{ products: T[] }>
 ): { hasDisc: boolean; hasDrum: boolean } {
   const allProducts = tiers.flatMap(t => t.products);
