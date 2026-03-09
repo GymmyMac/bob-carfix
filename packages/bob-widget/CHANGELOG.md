@@ -5,6 +5,13 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.6] - 2026-03-09
+
+### Fixed
+- 📜 **Shelf Auto-Scroll on Load**: Removed legacy `PART_TYPE_KEYWORDS` scan that fired `onHighlightPart` after every assistant message — generic words like "brakes" in Bob's greeting were scrolling the shelf to the bottom. Highlighting now only triggers from explicit server-side `highlight_category` SSE events
+
+---
+
 ## [v3.2.5] - 2026-03-09
 
 ### Fixed

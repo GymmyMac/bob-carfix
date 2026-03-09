@@ -875,15 +875,6 @@ export const useBobChat = ({
         assistantContent.toLowerCase().includes(keyword.toLowerCase())
       );
       
-      // Detect part type for highlighting
-      const lowerContent = assistantContent.toLowerCase();
-      for (const partType of PART_TYPE_KEYWORDS) {
-        if (lowerContent.includes(partType.toLowerCase())) {
-          const normalized = partType.replace(/s\s*$/i, '').toUpperCase();
-          onHighlightPart?.(normalized);
-          break;
-        }
-      }
       
       // Detect product recommendation
       const priceMatch = assistantContent.match(/(?:go with|recommend|suggest|grab|try)\s+(?:the\s+)?(\w+)\s+(?:at|for)\s+\$(\d+(?:\.\d{2})?)/i);
