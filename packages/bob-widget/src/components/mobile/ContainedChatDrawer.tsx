@@ -281,6 +281,7 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
                         key={i}
                         onClick={(e) => {
                           e.stopPropagation();
+                          onInterrupt?.(); // Bug #1 fix: stop speech before navigating
                           onQuickReply?.(qr.url);
                         }}
                         style={{

@@ -287,6 +287,7 @@ export const MobileChatDrawer: React.FC<MobileChatDrawerProps> = ({
                         key={i}
                         onClick={(e) => {
                           e.stopPropagation();
+                          onInterrupt?.(); // Bug #1 fix: stop speech before navigating
                           onQuickReply?.(qr.url);
                         }}
                         style={{

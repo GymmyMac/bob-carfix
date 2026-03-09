@@ -5,6 +5,15 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.5] - 2026-03-09
+
+### Fixed
+- 🔇 **Bug #1 — Quick-Reply Speech Stop**: Quick-reply/suggestion buttons now call `onInterrupt()` to stop all active speech before triggering `onNavigate`, preventing jarring audio overlap during navigation
+- 🎛️ **Bug #2 — Imperative Stop Handle**: `BobStandaloneHandle.stopSpeech()` / `.interrupt()` now calls `stopAllAudio` (TTS + canned clips + searching audio) instead of only cancelling TTS — host apps can now fully silence Bob via ref
+- 🎤 **Bug #3 — PTT Interrupt During Canned Audio**: Composite `isSpeaking` state now tracks both TTS and audio controller playback, so the PTT button correctly detects the `speaking` state during pre-recorded clips and interrupts immediately on tap
+
+---
+
 ## [v3.2.4] - 2026-03-09
 
 ### Fixed

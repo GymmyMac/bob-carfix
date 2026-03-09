@@ -218,6 +218,9 @@ export const useBobChat = ({
   // NEW: Conversation state for UI hints
   const conversationStateRef = useRef<string>('AWAITING_REGO');
   
+  // Track canned/searching audio playing state (separate from TTS isSpeaking)
+  const [isAudioControllerPlaying, setIsAudioControllerPlaying] = useState(false);
+  
   // Helper: Stop all audio and reset controller
   const stopAllAudio = () => {
     const controller = audioControllerRef.current;
@@ -233,6 +236,7 @@ export const useBobChat = ({
     controller.isPlaying = false;
     controller.source = 'none';
     controller.searchingQueue = [];
+    setIsAudioControllerPlaying(false);
     stopSpeech(); // Also stop TTS
   };
   
@@ -258,6 +262,7 @@ export const useBobChat = ({
     
     audio.onplay = () => {
       console.log(`[BobWidget Audio] ${source} STARTED:`, url.split('/').pop());
+      setIsAudioControllerPlaying(true);
       if (!manualMode) safeSetState(talkingState);
     };
     
@@ -266,6 +271,7 @@ export const useBobChat = ({
       controller.currentAudio = null;
       controller.isPlaying = false;
       controller.source = 'none';
+      setIsAudioControllerPlaying(false);
       onComplete?.();
     };
     
@@ -274,6 +280,7 @@ export const useBobChat = ({
       controller.currentAudio = null;
       controller.isPlaying = false;
       controller.source = 'none';
+      setIsAudioControllerPlaying(false);
       onComplete?.();
     };
     
@@ -363,10 +370,10 @@ export const useBobChat = ({
     }
   });
 
-  // Expose stopSpeech to host via BobCallbacks.onStopSpeechReady
-  // Called once on mount so BobStandalone can capture the fn and expose it via ref
+  // Expose stopAllAudio to host via BobCallbacks.onStopSpeechReady
+  // Bug #2 fix: passes stopAllAudio (TTS + canned + searching) instead of just stopSpeech
   useEffect(() => {
-    callbacks.onStopSpeechReady?.(stopSpeech);
+    callbacks.onStopSpeechReady?.(stopAllAudio);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1089,7 +1096,8 @@ export const useBobChat = ({
     clearMessages,
     isMuted,
     toggleMute,
-    isSpeaking,
+    // Bug #3 fix: composite isSpeaking — true when EITHER TTS or canned/searching audio is playing
+    isSpeaking: isSpeaking || isAudioControllerPlaying,
     identifiedVehicle,
     clearVehicle,
     sendDirectMessage,
