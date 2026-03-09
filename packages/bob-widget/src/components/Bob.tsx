@@ -11,6 +11,7 @@ import { ContainedMobileBobLayout } from "./mobile/ContainedMobileBobLayout";
 import type { VariantCard } from "./mobile/MobileProductColumn";
 import type { Product, ServicePackage } from "../types";
 import type { HighlightedProduct } from "../types/message";
+import type { CartItem } from "../types/context";
 export type BobVariant = "inline" | "floating" | "fullscreen" | "mobile";
 
 interface BobProps {
@@ -282,6 +283,29 @@ export const Bob: React.FC<BobProps> = ({
   const dbOffset = getCurrentOffset();
   const dbScale = getCurrentScale();
 
+  // ============= UNIFIED ADD-TO-CART HANDLER =============
+  // Handles both single product clicks and bundle tier arrays.
+  // Populates vehicle_id and forwards _bundleMeta to host callback.
+  const handleAddToCart = useCallback((productOrProducts: Product | Product[]) => {
+    const items = Array.isArray(productOrProducts) ? productOrProducts : [productOrProducts];
+    const vehicleId = bobChat.identifiedVehicle?.vehicle_id?.toString()
+      || bobChat.identifiedVehicle?.id?.toString();
+    items.forEach(product => {
+      const cartItem: CartItem = {
+        product_id: product.id || product.sku || '',
+        product_name: product.name,
+        quantity: product.quantity || 1,
+        unit_price: product.price,
+        sku: product.sku,
+        brand: product.brand,
+        image_url: product.image_url,
+        vehicle_id: vehicleId,
+        ...(product._bundleMeta || {}),
+      };
+      callbacks.onAddToCart?.(cartItem);
+    });
+  }, [bobChat.identifiedVehicle, callbacks]);
+
   // Mobile/fullscreen variant - full viewport takeover
   if (variant === "mobile" || variant === "fullscreen") {
     return (
@@ -312,20 +336,7 @@ export const Bob: React.FC<BobProps> = ({
         highlightedProduct={highlightedProduct}
         scrollToCategory={scrollToCategory}
         onScrollToCategoryComplete={() => setScrollToCategory(null)}
-        onAddToCart={(productOrProducts) => {
-          const items = Array.isArray(productOrProducts) ? productOrProducts : [productOrProducts];
-          items.forEach(product => {
-            callbacks.onAddToCart?.({
-              product_id: product.id,
-              product_name: product.name,
-              quantity: product.quantity || 1,
-              unit_price: product.price,
-              sku: product.sku,
-              brand: product.brand,
-              image_url: product.image_url,
-            });
-          });
-        }}
+        onAddToCart={handleAddToCart}
         onNavigateToProductPage={(product) => callbacks.onNavigateToProductPage?.(product)}
         onQuickReply={(url) => callbacks.onNavigateToProductPage?.({ url } as any)}
         onPackageSelect={(pkg) => console.log('[BobWidget] Package selected:', pkg)}
@@ -370,20 +381,7 @@ export const Bob: React.FC<BobProps> = ({
           highlightedProduct={highlightedProduct}
           scrollToCategory={scrollToCategory}
           onScrollToCategoryComplete={() => setScrollToCategory(null)}
-          onAddToCart={(productOrProducts) => {
-            const items = Array.isArray(productOrProducts) ? productOrProducts : [productOrProducts];
-            items.forEach(product => {
-              callbacks.onAddToCart?.({
-                product_id: product.id,
-                product_name: product.name,
-                quantity: product.quantity || 1,
-                unit_price: product.price,
-                sku: product.sku,
-                brand: product.brand,
-                image_url: product.image_url,
-              });
-            });
-          }}
+          onAddToCart={handleAddToCart}
           onNavigateToProductPage={(product) => callbacks.onNavigateToProductPage?.(product)}
           onQuickReply={(url) => callbacks.onNavigateToProductPage?.({ url } as any)}
           onPackageSelect={(pkg) => console.log('[BobWidget] Package selected:', pkg)}

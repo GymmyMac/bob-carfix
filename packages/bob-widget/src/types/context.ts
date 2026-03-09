@@ -49,6 +49,12 @@ export interface CartItem {
   sku?: string;
   brand?: string;
   image_url?: string;
+  // Bundle metadata (service package tier adds)
+  is_bundle_item?: boolean;
+  bundle_discount_percentage?: number;
+  service_package_name?: string;
+  service_package_id?: string;
+  quality_tier?: string;
 }
 
 export interface SavedItem {

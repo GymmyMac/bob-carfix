@@ -21,6 +21,14 @@ export interface Product {
   volume?: string;
   viscosity?: string;
   brandImageUrl?: string;
+  /** Bundle metadata attached by tier-add flows, forwarded to onAddToCart callback */
+  _bundleMeta?: {
+    is_bundle_item: boolean;
+    bundle_discount_percentage: number;
+    service_package_name: string;
+    service_package_id?: string;
+    quality_tier?: string;
+  };
 }
 
 /**

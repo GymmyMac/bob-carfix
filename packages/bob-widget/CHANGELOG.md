@@ -5,6 +5,15 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.14] - 2026-03-09
+
+### Fixed
+
+- **onAddToCart payload now includes vehicle_id and bundle metadata** — Both manual product clicks and bundle tier adds now populate `vehicle_id` from the identified vehicle, fixing silent cart drops on CARFIX integration.
+- **Bundle tier adds now carry full metadata** — `MobileProductColumn` and `ServicePackageDetailView` attach `_bundleMeta` (is_bundle_item, bundle_discount_percentage, service_package_name, service_package_id, quality_tier) to every product in a tier add, which `Bob.tsx` spreads into the `CartItem` payload.
+- **Unified add-to-cart handler** — Extracted duplicated inline handlers into a single `handleAddToCart` callback in `Bob.tsx`, eliminating inconsistency between mobile and inline variants.
+- **CartItem type extended** — Added `is_bundle_item`, `bundle_discount_percentage`, `service_package_name`, `service_package_id`, and `quality_tier` fields to match the CARFIX contract.
+
 ## [v3.2.13] - 2026-03-09
 
 ### Fixed
