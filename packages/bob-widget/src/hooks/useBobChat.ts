@@ -755,6 +755,7 @@ export const useBobChat = ({
             // Handle Brain diagnostic category highlight — scroll shelf to matched category
             if (parsed.type === "highlight_category" && parsed.category) {
               console.log('[useBobChat] highlight_category event:', parsed.category);
+              highlightCategoryReceived = true;
               onHighlightPart?.(parsed.category);
               continue;
             }
