@@ -863,6 +863,19 @@ export const useBobChat = ({
       const hasProductContent = PRODUCT_KEYWORDS.some(keyword => 
         assistantContent.toLowerCase().includes(keyword.toLowerCase())
       );
+
+      // v3.2.9: Post-stream shelf category matching fallback
+      // If the server didn't send highlight_category, match Bob's response against actual shelf contents
+      if (!highlightCategoryReceived && shelfCategoriesRef?.current && shelfCategoriesRef.current.size > 0) {
+        const responseLower = finalCleanContent.toLowerCase();
+        for (const category of shelfCategoriesRef.current) {
+          if (responseLower.includes(category.toLowerCase())) {
+            console.log('[useBobChat] v3.2.9 shelf category match:', category);
+            onHighlightPart?.(category);
+            break; // Only scroll to first match
+          }
+        }
+      }
       
       
       // Detect product recommendation
