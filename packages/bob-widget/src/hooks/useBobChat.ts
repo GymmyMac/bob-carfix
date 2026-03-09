@@ -557,24 +557,7 @@ export const useBobChat = ({
     const CHAT_URL = `${bobConfig.supabaseUrl}/functions/v1/bob-chat`;
     const customerEmail = hostContext.user?.email;
     
-    // v3.2.1: OPTIMISTIC AUDIO - Play searching audio IMMEDIATELY when vehicle is confirmed
-    // and user is asking about parts. This provides instant feedback before backend responds.
-    if (identifiedVehicle && !isMuted) {
-      const userText = userMessage.content.toLowerCase();
-      const isPartsRequest = PRODUCT_KEYWORDS.some(kw => userText.includes(kw.toLowerCase()));
-      
-      if (isPartsRequest) {
-        console.log('[useBobChat] 🎵 Playing optimistic searching audio');
-        // Queue the searching audio - will play immediately if nothing else is playing
-        const controller = audioControllerRef.current;
-        if (!controller.hasCannedAudio && controller.source !== 'canned') {
-          // Fetch searching audio URL from common clip
-          const searchingUrl = `${bobConfig.supabaseUrl}/storage/v1/object/public/bob-audio/parts_searching.mp3`;
-          controller.searchingQueue.push(searchingUrl);
-          playNextSearchingAudio();
-        }
-      }
-    }
+    // v3.2.8: Removed optimistic searching audio — canned audio disabled in Bob V2.0
     
     try {
       const requestBody: Record<string, unknown> = { 
