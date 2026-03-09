@@ -5,6 +5,13 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.11] - 2026-03-09
+
+### Fixed
+- ⚡ **Follow-Up Latency**: Extended `canBypassToolLoop` to skip the 3-round-trip tool-calling loop on follow-up requests when vehicle context is already confirmed — reduces "tell me about brake pads" responses from ~25-35s to ~5-8s by eliminating redundant LLM calls for data the client already has on the shelf
+
+---
+
 ## [v3.2.10] - 2026-03-09
 
 ### Fixed
