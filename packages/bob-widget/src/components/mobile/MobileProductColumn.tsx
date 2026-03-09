@@ -42,6 +42,8 @@ interface MobileProductColumnProps {
   servicePackages: ServicePackage[];
   highlightedPartType?: string | null;
   highlightedProduct?: HighlightedProduct | null;
+  scrollToCategory?: string | null;
+  onScrollToCategoryComplete?: () => void;
   onProductClick?: (product: Product) => void;
   onPackageSelect?: (pkg: ServicePackage) => void;
   isResearching?: boolean;
