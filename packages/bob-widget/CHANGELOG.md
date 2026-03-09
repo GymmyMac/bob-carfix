@@ -5,6 +5,14 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.7] - 2026-03-09
+
+### Fixed
+- 🛒 **Follow-Up Products Merge**: New products requested mid-conversation are now **merged** into the existing shelf instead of replacing it — existing items are preserved and deduplicated by SKU
+- 📜 **Auto-Scroll to New Categories**: When follow-up parts introduce a new category not already on the shelf, the shelf automatically scrolls to that section with a 300ms smooth animation
+
+---
+
 ## [v3.2.6] - 2026-03-09
 
 ### Fixed
