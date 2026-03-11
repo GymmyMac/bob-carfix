@@ -3198,6 +3198,31 @@ Use light humor and be helpful while being honest about the limitation.`
             }
           }
 
+          // ============= ADD-TO-CART → WIRE SSE EMISSION =============
+          if (toolCall.function.name === "add_to_cart") {
+            const cartResult = result as { success?: boolean; error?: string };
+            if (cartResult.success !== false && !cartResult.error) {
+              try {
+                const cartArgs = JSON.parse(toolCall.function.arguments);
+                const items = cartArgs.items || [];
+                if (items.length > 0) {
+                  (conversationMessages as unknown as { _cartItemsToEmit?: Array<{ product_id: string; product_name: string; quantity: number; unit_price: number; vehicle_id?: string; sku?: string; brand?: string }> })._cartItemsToEmit = items.map((i: any) => ({
+                    product_id: i.product_id || i.sku || '',
+                    product_name: i.product_name || '',
+                    quantity: i.quantity || 1,
+                    unit_price: i.unit_price || 0,
+                    vehicle_id: i.vehicle_id,
+                    sku: i.product_id || i.sku,
+                    brand: i.brand,
+                  }));
+                  console.log(`[add_to_cart] Stored ${items.length} items for cart_updated SSE emission`);
+                }
+              } catch (e) {
+                console.error('[add_to_cart] Failed to parse args for SSE emission:', e);
+              }
+            }
+          }
+
           // ============= BRAIN DIAGNOSIS PARTS FETCH =============
           // When Brain returns a partslot_description, fetch vehicle-specific parts filtered to that category
           if (toolCall.function.name === "diagnose_symptom") {
