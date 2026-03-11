@@ -1356,6 +1356,25 @@ const tools = [
         required: ["user_email", "vehicle_record_id"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_vehicle_to_garage",
+      description: "Save the currently confirmed vehicle to the customer's garage. Use ONLY after a vehicle has been confirmed via REGO lookup AND customer email is available. Good to call proactively after identifying a new vehicle — say something like 'I've saved your [MAKE] [MODEL] to your garage so it's ready next time'. Do NOT call if the vehicle is already in the customer's garage (check get_returning_customer_context first).",
+      parameters: {
+        type: "object",
+        properties: {
+          user_email: { type: "string", description: "Customer's email address" },
+          vehicle_id: { type: "number", description: "Numeric vehicle_id from the confirmed vehicle lookup" },
+          rego: { type: "string", description: "Vehicle registration plate" },
+          make: { type: "string", description: "Vehicle make (e.g., TOYOTA)" },
+          model: { type: "string", description: "Vehicle model (e.g., COROLLA)" },
+          year: { type: "string", description: "Vehicle year" }
+        },
+        required: ["user_email", "vehicle_id", "rego"]
+      }
+    }
   }
 ];
 
