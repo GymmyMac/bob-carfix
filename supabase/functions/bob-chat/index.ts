@@ -2025,6 +2025,8 @@ async function executeToolCall(toolCall: { function: { name: string; arguments: 
         return await getReturningCustomerContext(args.user_email, args.session_token);
       case "remove_vehicle":
         return await removeVehicle(args.user_email, args.vehicle_record_id);
+      case "add_vehicle_to_garage":
+        return await addVehicleToGarage(args.user_email, args.vehicle_id, args.rego, args.make, args.model, args.year);
       case "get_product_details":
         return await getProductDetails(args.sku);
       case "search_products":
