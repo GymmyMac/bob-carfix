@@ -1864,6 +1864,18 @@ async function removeVehicle(userEmail: string, vehicleRecordId: string): Promis
   return callPartnerAPI("remove_vehicle", { user_email: userEmail, vehicle_record_id: vehicleRecordId });
 }
 
+async function addVehicleToGarage(userEmail: string, vehicleId: number, rego: string, make?: string, model?: string, year?: string): Promise<unknown> {
+  console.log(`Adding vehicle to garage: ${rego} (${vehicleId}) for ${userEmail}`);
+  return callPartnerAPI("add_vehicle", { 
+    user_email: userEmail, 
+    vehicle_id: vehicleId, 
+    rego, 
+    make: make || '', 
+    model: model || '', 
+    year: year || '' 
+  });
+}
+
 async function getProductDetails(sku: string): Promise<unknown> {
   console.log('Getting product details for SKU:', sku);
   return callPartnerAPI("get_product_details", { sku });
