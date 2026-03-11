@@ -3647,7 +3647,7 @@ ${partsSummary}`;
           }
           
           // Check for cart items
-          const cartItemsToEmit = (conversationMessages as unknown as { _cartItemsToEmit?: Array<{ productName: string; quantity: number }> })._cartItemsToEmit;
+          const cartItemsToEmit = (conversationMessages as unknown as { _cartItemsToEmit?: Array<{ product_id: string; product_name: string; quantity: number; unit_price: number; vehicle_id?: string; sku?: string; brand?: string }> })._cartItemsToEmit;
           if (cartItemsToEmit && cartItemsToEmit.length > 0) {
             const cartEvent = `data: ${JSON.stringify({ type: "cart_updated", items: cartItemsToEmit })}\n\n`;
             controller.enqueue(encoder.encode(cartEvent));
