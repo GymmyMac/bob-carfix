@@ -850,7 +850,23 @@ export const useBobChat = ({
             }
             
             if (parsed.type === "cart_updated" && parsed.items) {
+              // Fire onCartUpdated with full items array
               callbacks.onCartUpdated?.(parsed.items);
+              // Also fire onAddToCart for each item so host handles server-initiated adds
+              // the same way as manual UI clicks
+              if (callbacks.onAddToCart) {
+                for (const item of parsed.items) {
+                  callbacks.onAddToCart({
+                    product_id: item.product_id || item.productName || '',
+                    product_name: item.product_name || item.productName || '',
+                    quantity: item.quantity || 1,
+                    unit_price: item.unit_price || 0,
+                    vehicle_id: item.vehicle_id,
+                    sku: item.sku,
+                    brand: item.brand,
+                  });
+                }
+              }
               continue;
             }
             

@@ -5,6 +5,20 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.15] - 2026-03-11
+
+### Fixed
+
+- **Server-side add-to-cart now emits `cart_updated` SSE event** — When Bob's AI adds items to the cart via the `add_to_cart` tool, the edge function now correctly populates `_cartItemsToEmit` with full `CartItem`-shaped payloads (`product_id`, `product_name`, `quantity`, `unit_price`, `vehicle_id`, `sku`, `brand`), so the `cart_updated` SSE event fires to the widget.
+- **Widget fires `onAddToCart` for server-initiated cart adds** — `useBobChat` now calls `onAddToCart` for each item in a `cart_updated` event, ensuring the host site handles AI-initiated cart adds identically to manual UI clicks.
+- **`cart_updated` payload shape aligned to `CartItem` interface** — Previously sent `{ productName, quantity }`, now sends full `CartItem` fields matching the host contract.
+
+### Added
+
+- **`add_vehicle_to_garage` tool** — Bob can now save a confirmed vehicle to the customer's garage via the Partner API. Guardrailed: requires confirmed REGO lookup and customer email. Bob proactively offers to save new vehicles.
+
+---
+
 ## [v3.2.14] - 2026-03-09
 
 ### Fixed

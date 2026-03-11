@@ -1356,6 +1356,25 @@ const tools = [
         required: ["user_email", "vehicle_record_id"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_vehicle_to_garage",
+      description: "Save the currently confirmed vehicle to the customer's garage. Use ONLY after a vehicle has been confirmed via REGO lookup AND customer email is available. Good to call proactively after identifying a new vehicle — say something like 'I've saved your [MAKE] [MODEL] to your garage so it's ready next time'. Do NOT call if the vehicle is already in the customer's garage (check get_returning_customer_context first).",
+      parameters: {
+        type: "object",
+        properties: {
+          user_email: { type: "string", description: "Customer's email address" },
+          vehicle_id: { type: "number", description: "Numeric vehicle_id from the confirmed vehicle lookup" },
+          rego: { type: "string", description: "Vehicle registration plate" },
+          make: { type: "string", description: "Vehicle make (e.g., TOYOTA)" },
+          model: { type: "string", description: "Vehicle model (e.g., COROLLA)" },
+          year: { type: "string", description: "Vehicle year" }
+        },
+        required: ["user_email", "vehicle_id", "rego"]
+      }
+    }
   }
 ];
 
@@ -1845,6 +1864,18 @@ async function removeVehicle(userEmail: string, vehicleRecordId: string): Promis
   return callPartnerAPI("remove_vehicle", { user_email: userEmail, vehicle_record_id: vehicleRecordId });
 }
 
+async function addVehicleToGarage(userEmail: string, vehicleId: number, rego: string, make?: string, model?: string, year?: string): Promise<unknown> {
+  console.log(`Adding vehicle to garage: ${rego} (${vehicleId}) for ${userEmail}`);
+  return callPartnerAPI("add_vehicle", { 
+    user_email: userEmail, 
+    vehicle_id: vehicleId, 
+    rego, 
+    make: make || '', 
+    model: model || '', 
+    year: year || '' 
+  });
+}
+
 async function getProductDetails(sku: string): Promise<unknown> {
   console.log('Getting product details for SKU:', sku);
   return callPartnerAPI("get_product_details", { sku });
@@ -1994,6 +2025,8 @@ async function executeToolCall(toolCall: { function: { name: string; arguments: 
         return await getReturningCustomerContext(args.user_email, args.session_token);
       case "remove_vehicle":
         return await removeVehicle(args.user_email, args.vehicle_record_id);
+      case "add_vehicle_to_garage":
+        return await addVehicleToGarage(args.user_email, args.vehicle_id, args.rego, args.make, args.model, args.year);
       case "get_product_details":
         return await getProductDetails(args.sku);
       case "search_products":
@@ -2506,7 +2539,7 @@ Refer to vehicle as "${year} ${make} ${model}".`;
     if (customerEmail) {
       enhancedSystemPrompt += `\n\n## CUSTOMER EMAIL FOR CART/CHECKOUT
 Customer email is: ${customerEmail}
-Use this email for add_to_cart, get_cart, create_checkout, get_returning_customer_context, and remove_vehicle calls.
+Use this email for add_to_cart, get_cart, create_checkout, get_returning_customer_context, remove_vehicle, and add_vehicle_to_garage calls.
 Do NOT ask for their email - you already have it.`;
 
       // ============= RETURNING CUSTOMER CONTEXT (Proactive Fetch) =============
@@ -3165,6 +3198,31 @@ Use light humor and be helpful while being honest about the limitation.`
             }
           }
 
+          // ============= ADD-TO-CART → WIRE SSE EMISSION =============
+          if (toolCall.function.name === "add_to_cart") {
+            const cartResult = result as { success?: boolean; error?: string };
+            if (cartResult.success !== false && !cartResult.error) {
+              try {
+                const cartArgs = JSON.parse(toolCall.function.arguments);
+                const items = cartArgs.items || [];
+                if (items.length > 0) {
+                  (conversationMessages as unknown as { _cartItemsToEmit?: Array<{ product_id: string; product_name: string; quantity: number; unit_price: number; vehicle_id?: string; sku?: string; brand?: string }> })._cartItemsToEmit = items.map((i: any) => ({
+                    product_id: i.product_id || i.sku || '',
+                    product_name: i.product_name || '',
+                    quantity: i.quantity || 1,
+                    unit_price: i.unit_price || 0,
+                    vehicle_id: i.vehicle_id,
+                    sku: i.product_id || i.sku,
+                    brand: i.brand,
+                  }));
+                  console.log(`[add_to_cart] Stored ${items.length} items for cart_updated SSE emission`);
+                }
+              } catch (e) {
+                console.error('[add_to_cart] Failed to parse args for SSE emission:', e);
+              }
+            }
+          }
+
           // ============= BRAIN DIAGNOSIS PARTS FETCH =============
           // When Brain returns a partslot_description, fetch vehicle-specific parts filtered to that category
           if (toolCall.function.name === "diagnose_symptom") {
@@ -3589,7 +3647,7 @@ ${partsSummary}`;
           }
           
           // Check for cart items
-          const cartItemsToEmit = (conversationMessages as unknown as { _cartItemsToEmit?: Array<{ productName: string; quantity: number }> })._cartItemsToEmit;
+          const cartItemsToEmit = (conversationMessages as unknown as { _cartItemsToEmit?: Array<{ product_id: string; product_name: string; quantity: number; unit_price: number; vehicle_id?: string; sku?: string; brand?: string }> })._cartItemsToEmit;
           if (cartItemsToEmit && cartItemsToEmit.length > 0) {
             const cartEvent = `data: ${JSON.stringify({ type: "cart_updated", items: cartItemsToEmit })}\n\n`;
             controller.enqueue(encoder.encode(cartEvent));
