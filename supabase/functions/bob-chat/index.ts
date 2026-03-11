@@ -2539,7 +2539,7 @@ Refer to vehicle as "${year} ${make} ${model}".`;
     if (customerEmail) {
       enhancedSystemPrompt += `\n\n## CUSTOMER EMAIL FOR CART/CHECKOUT
 Customer email is: ${customerEmail}
-Use this email for add_to_cart, get_cart, create_checkout, get_returning_customer_context, and remove_vehicle calls.
+Use this email for add_to_cart, get_cart, create_checkout, get_returning_customer_context, remove_vehicle, and add_vehicle_to_garage calls.
 Do NOT ask for their email - you already have it.`;
 
       // ============= RETURNING CUSTOMER CONTEXT (Proactive Fetch) =============
