@@ -112,6 +112,14 @@ interface UseBobChatProps {
   onVariantSelectionRequired?: (variants: VariantCard[], make: string, model: string) => void;
   /** Ref containing current shelf category names for post-stream scroll matching */
   shelfCategoriesRef?: React.RefObject<Set<string>>;
+  /** Optional pre-identified vehicle — skips REGO lookup when no session exists */
+  initialVehicle?: {
+    vehicle_id: string | number;
+    make: string;
+    model: string;
+    year: number;
+    [key: string]: unknown;
+  };
 }
 
 // Keywords that indicate Bob is recommending products
