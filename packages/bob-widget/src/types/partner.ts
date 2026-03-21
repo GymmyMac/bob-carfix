@@ -110,4 +110,13 @@ export interface StandaloneWidgetProps {
   
   /** Additional CSS class for container */
   className?: string;
+  
+  /** Optional pre-identified vehicle — Bob skips REGO lookup and goes straight to parts */
+  initialVehicle?: {
+    vehicle_id: string | number;
+    make: string;
+    model: string;
+    year: number;
+    [key: string]: unknown;
+  };
 }

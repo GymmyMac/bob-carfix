@@ -112,6 +112,14 @@ interface UseBobChatProps {
   onVariantSelectionRequired?: (variants: VariantCard[], make: string, model: string) => void;
   /** Ref containing current shelf category names for post-stream scroll matching */
   shelfCategoriesRef?: React.RefObject<Set<string>>;
+  /** Optional pre-identified vehicle — skips REGO lookup when no session exists */
+  initialVehicle?: {
+    vehicle_id: string | number;
+    make: string;
+    model: string;
+    year: number;
+    [key: string]: unknown;
+  };
 }
 
 // Keywords that indicate Bob is recommending products
@@ -166,7 +174,8 @@ export const useBobChat = ({
   onNoPartsFound,
   onAutoFetchComplete,
   onVariantSelectionRequired,
-  shelfCategoriesRef
+  shelfCategoriesRef,
+  initialVehicle
 }: UseBobChatProps) => {
   const { bobConfig, hostApiConfig, hostContext, callbacks, ga4Config, analyticsEnabled } = useBobContext();
   
@@ -194,6 +203,25 @@ export const useBobChat = ({
   const fallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioHintUrlRef = useRef<string | null>(null);
   
+  // ============= SESSION PERSISTENCE =============
+  const BOB_SESSION_KEY = 'carfix_bob_session';
+  const SESSION_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
+  const sessionRestoredRef = useRef(false);
+  
+  const saveSession = (msgs?: Message[]) => {
+    try {
+      const data = {
+        messages: msgs ?? messages,
+        vehicleCandidates: vehicleCandidatesRef.current,
+        conversationState: conversationStateRef.current,
+        savedAt: Date.now(),
+      };
+      sessionStorage.setItem(BOB_SESSION_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.warn('[BobWidget] Failed to save session:', e);
+    }
+  };
+  
   // ============= GLOBAL AUDIO CONTROLLER =============
   // Priority order: canned > searching > tts
   // Prevents audio overlap by tracking current source and state
@@ -220,6 +248,56 @@ export const useBobChat = ({
   
   // NEW: Conversation state for UI hints
   const conversationStateRef = useRef<string>('AWAITING_REGO');
+  
+  // ============= SESSION RESTORE ON MOUNT =============
+  useEffect(() => {
+    if (sessionRestoredRef.current) return;
+    sessionRestoredRef.current = true;
+    
+    try {
+      const raw = sessionStorage.getItem(BOB_SESSION_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        const age = Date.now() - (saved.savedAt || 0);
+        
+        if (age < SESSION_TTL_MS && Array.isArray(saved.messages) && saved.messages.length > 0) {
+          console.log('[BobWidget] Restoring session:', saved.messages.length, 'messages, state:', saved.conversationState);
+          setMessages(saved.messages);
+          initialGreetingSentRef.current = true; // skip greeting
+          if (Array.isArray(saved.vehicleCandidates)) {
+            vehicleCandidatesRef.current = saved.vehicleCandidates;
+          }
+          if (saved.conversationState) {
+            conversationStateRef.current = saved.conversationState;
+          }
+          return; // session restored — skip initialVehicle
+        } else {
+          console.log('[BobWidget] Session expired, clearing');
+          sessionStorage.removeItem(BOB_SESSION_KEY);
+        }
+      }
+    } catch (e) {
+      console.warn('[BobWidget] Failed to restore session:', e);
+      sessionStorage.removeItem(BOB_SESSION_KEY);
+    }
+    
+    // No valid session — apply initialVehicle if provided
+    if (initialVehicle) {
+      console.log('[BobWidget] Applying initialVehicle:', initialVehicle.make, initialVehicle.model);
+      vehicleCandidatesRef.current = [initialVehicle];
+      conversationStateRef.current = 'VEHICLE_CONFIRMED';
+      setIdentifiedVehicle(initialVehicle as unknown as Vehicle);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  
+  // Save session whenever messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      saveSession(messages);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
   
   // Track canned/searching audio playing state (separate from TTS isSpeaking)
   const [isAudioControllerPlaying, setIsAudioControllerPlaying] = useState(false);
@@ -668,6 +746,7 @@ export const useBobChat = ({
               } else {
                 console.log('[useBobChat] ⚠️ conversation_state had no candidates array');
               }
+              saveSession();
               continue;
             }
 
@@ -693,6 +772,7 @@ export const useBobChat = ({
               // Clear candidates when vehicle is confirmed
               vehicleCandidatesRef.current = [];
               conversationStateRef.current = 'VEHICLE_CONFIRMED';
+              saveSession();
               callbacks.onVehicleIdentified?.(parsed.vehicle);
               analytics.trackVehicleIdentified({
                 make: parsed.vehicle.make,
@@ -708,6 +788,7 @@ export const useBobChat = ({
               console.log('[useBobChat] 📦 vehicle_candidates_found event received:', parsed.candidates.length, 'candidates');
               vehicleCandidatesRef.current = parsed.candidates;
               console.log('[useBobChat] ✅ Candidates stored in ref. First:', JSON.stringify(parsed.candidates[0]));
+              saveSession();
               continue;
             }
             
@@ -1092,6 +1173,9 @@ export const useBobChat = ({
   const handleInputBlur = () => {};
 
   const clearMessages = () => {
+    sessionStorage.removeItem(BOB_SESSION_KEY);
+    vehicleCandidatesRef.current = [];
+    conversationStateRef.current = 'AWAITING_REGO';
     setMessages([{
       role: "assistant",
       content: "G'day! Bob from CARFIX here. How can I help ya today?"

@@ -34,6 +34,14 @@ interface BobProps {
    * @default false
    */
   embedded?: boolean;
+  /** Optional pre-identified vehicle — Bob skips REGO lookup */
+  initialVehicle?: {
+    vehicle_id: string | number;
+    make: string;
+    model: string;
+    year: number;
+    [key: string]: unknown;
+  };
 }
 
 export const Bob: React.FC<BobProps> = ({
@@ -48,7 +56,8 @@ export const Bob: React.FC<BobProps> = ({
   verticalOffset = 0,
   scale = 100,
   sessionToken,
-  embedded = false
+  embedded = false,
+  initialVehicle
 }) => {
   const { callbacks } = useBobContext();
   
@@ -228,7 +237,8 @@ export const Bob: React.FC<BobProps> = ({
     onAutoFetchComplete: () => {
       setIsResearching(false);
     },
-    shelfCategoriesRef
+    shelfCategoriesRef,
+    initialVehicle
   });
 
   // Clear pending variant selection when vehicle is confirmed (tap OR voice)
