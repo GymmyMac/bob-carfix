@@ -773,6 +773,7 @@ export const useBobChat = ({
               // Clear candidates when vehicle is confirmed
               vehicleCandidatesRef.current = [];
               conversationStateRef.current = 'VEHICLE_CONFIRMED';
+              saveSession();
               callbacks.onVehicleIdentified?.(parsed.vehicle);
               analytics.trackVehicleIdentified({
                 make: parsed.vehicle.make,
