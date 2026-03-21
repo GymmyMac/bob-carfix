@@ -237,7 +237,8 @@ export const Bob: React.FC<BobProps> = ({
     onAutoFetchComplete: () => {
       setIsResearching(false);
     },
-    shelfCategoriesRef
+    shelfCategoriesRef,
+    initialVehicle
   });
 
   // Clear pending variant selection when vehicle is confirmed (tap OR voice)

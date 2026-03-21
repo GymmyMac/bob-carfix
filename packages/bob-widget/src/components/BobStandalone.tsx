@@ -254,6 +254,7 @@ export const BobStandalone = React.forwardRef<BobStandaloneHandle, StandaloneWid
         <Bob
           variant="inline"
           sessionToken={sessionToken}
+          initialVehicle={initialVehicle}
         />
         {showDebug && (
           <BobDebugOverlay 
