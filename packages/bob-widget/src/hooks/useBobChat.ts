@@ -1173,6 +1173,9 @@ export const useBobChat = ({
   const handleInputBlur = () => {};
 
   const clearMessages = () => {
+    sessionStorage.removeItem(BOB_SESSION_KEY);
+    vehicleCandidatesRef.current = [];
+    conversationStateRef.current = 'AWAITING_REGO';
     setMessages([{
       role: "assistant",
       content: "G'day! Bob from CARFIX here. How can I help ya today?"
