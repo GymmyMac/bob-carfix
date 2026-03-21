@@ -154,6 +154,7 @@ export const BobStandalone = React.forwardRef<BobStandaloneHandle, StandaloneWid
   onError,
   debug = false,
   className = '',
+  initialVehicle,
 }, ref) => {
   // Capture stopSpeech from useBobChat so we can expose it imperatively via ref
   const stopSpeechRef = useRef<(() => void) | null>(null);
