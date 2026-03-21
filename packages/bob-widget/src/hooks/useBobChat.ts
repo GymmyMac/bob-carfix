@@ -271,6 +271,10 @@ export const useBobChat = ({
           if (saved.conversationState) {
             conversationStateRef.current = saved.conversationState;
           }
+          if (saved.identifiedVehicle) {
+            setIdentifiedVehicle(saved.identifiedVehicle);
+            console.log('[BobWidget] Restored identifiedVehicle:', saved.identifiedVehicle.make, saved.identifiedVehicle.model);
+          }
           return; // session restored — skip initialVehicle
         } else {
           console.log('[BobWidget] Session expired, clearing');
