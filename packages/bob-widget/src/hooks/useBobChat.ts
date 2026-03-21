@@ -208,12 +208,13 @@ export const useBobChat = ({
   const SESSION_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
   const sessionRestoredRef = useRef(false);
   
-  const saveSession = (msgs?: Message[]) => {
+  const saveSession = (msgs?: Message[], vehicle?: Vehicle | null) => {
     try {
       const data = {
         messages: msgs ?? messages,
         vehicleCandidates: vehicleCandidatesRef.current,
         conversationState: conversationStateRef.current,
+        identifiedVehicle: vehicle !== undefined ? vehicle : identifiedVehicle,
         savedAt: Date.now(),
       };
       sessionStorage.setItem(BOB_SESSION_KEY, JSON.stringify(data));
