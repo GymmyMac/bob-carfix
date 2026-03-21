@@ -5,6 +5,15 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.16] - 2026-03-21
+
+### Added
+
+- **Session persistence via `sessionStorage`** — Bob's conversation (messages, vehicle candidates, conversation state) is now saved to `sessionStorage` and restored on mount if less than 4 hours old. Navigating away and returning preserves the full chat context. Cleared on explicit conversation reset.
+- **`initialVehicle` prop on `BobStandalone`** — Hosts can pass a pre-identified vehicle to skip the REGO lookup flow. Session takes priority: if a valid session exists, `initialVehicle` is ignored.
+
+---
+
 ## [v3.2.15] - 2026-03-11
 
 ### Fixed
