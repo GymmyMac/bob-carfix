@@ -789,6 +789,7 @@ export const useBobChat = ({
               console.log('[useBobChat] 📦 vehicle_candidates_found event received:', parsed.candidates.length, 'candidates');
               vehicleCandidatesRef.current = parsed.candidates;
               console.log('[useBobChat] ✅ Candidates stored in ref. First:', JSON.stringify(parsed.candidates[0]));
+              saveSession();
               continue;
             }
             
