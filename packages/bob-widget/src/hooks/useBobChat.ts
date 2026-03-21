@@ -174,7 +174,8 @@ export const useBobChat = ({
   onNoPartsFound,
   onAutoFetchComplete,
   onVariantSelectionRequired,
-  shelfCategoriesRef
+  shelfCategoriesRef,
+  initialVehicle
 }: UseBobChatProps) => {
   const { bobConfig, hostApiConfig, hostContext, callbacks, ga4Config, analyticsEnabled } = useBobContext();
   
@@ -201,6 +202,25 @@ export const useBobChat = ({
   const speechStartedRef = useRef(false);
   const fallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioHintUrlRef = useRef<string | null>(null);
+  
+  // ============= SESSION PERSISTENCE =============
+  const BOB_SESSION_KEY = 'carfix_bob_session';
+  const SESSION_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
+  const sessionRestoredRef = useRef(false);
+  
+  const saveSession = (msgs?: Message[]) => {
+    try {
+      const data = {
+        messages: msgs ?? messages,
+        vehicleCandidates: vehicleCandidatesRef.current,
+        conversationState: conversationStateRef.current,
+        savedAt: Date.now(),
+      };
+      sessionStorage.setItem(BOB_SESSION_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.warn('[BobWidget] Failed to save session:', e);
+    }
+  };
   
   // ============= GLOBAL AUDIO CONTROLLER =============
   // Priority order: canned > searching > tts
