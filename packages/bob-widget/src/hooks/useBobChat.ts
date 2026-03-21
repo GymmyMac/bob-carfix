@@ -208,12 +208,13 @@ export const useBobChat = ({
   const SESSION_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
   const sessionRestoredRef = useRef(false);
   
-  const saveSession = (msgs?: Message[]) => {
+  const saveSession = (msgs?: Message[], vehicle?: Vehicle | null) => {
     try {
       const data = {
         messages: msgs ?? messages,
         vehicleCandidates: vehicleCandidatesRef.current,
         conversationState: conversationStateRef.current,
+        identifiedVehicle: vehicle !== undefined ? vehicle : identifiedVehicle,
         savedAt: Date.now(),
       };
       sessionStorage.setItem(BOB_SESSION_KEY, JSON.stringify(data));
@@ -269,6 +270,10 @@ export const useBobChat = ({
           }
           if (saved.conversationState) {
             conversationStateRef.current = saved.conversationState;
+          }
+          if (saved.identifiedVehicle) {
+            setIdentifiedVehicle(saved.identifiedVehicle);
+            console.log('[BobWidget] Restored identifiedVehicle:', saved.identifiedVehicle.make, saved.identifiedVehicle.model);
           }
           return; // session restored — skip initialVehicle
         } else {
@@ -772,7 +777,7 @@ export const useBobChat = ({
               // Clear candidates when vehicle is confirmed
               vehicleCandidatesRef.current = [];
               conversationStateRef.current = 'VEHICLE_CONFIRMED';
-              saveSession();
+              saveSession(undefined, parsed.vehicle);
               callbacks.onVehicleIdentified?.(parsed.vehicle);
               analytics.trackVehicleIdentified({
                 make: parsed.vehicle.make,

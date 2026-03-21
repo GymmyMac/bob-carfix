@@ -5,6 +5,14 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.17] - 2026-03-21
+
+### Fixed
+
+- **`identifiedVehicle` now persisted in session** — Previously, navigating away and returning restored messages and conversation state but lost the identified vehicle. This caused `vehicleContext` to be `null` in subsequent requests, breaking `add_to_cart` and other vehicle-dependent tools. The vehicle is now saved/restored alongside all other session data.
+
+---
+
 ## [v3.2.16] - 2026-03-21
 
 ### Added
