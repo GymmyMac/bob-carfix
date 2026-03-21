@@ -249,6 +249,56 @@ export const useBobChat = ({
   // NEW: Conversation state for UI hints
   const conversationStateRef = useRef<string>('AWAITING_REGO');
   
+  // ============= SESSION RESTORE ON MOUNT =============
+  useEffect(() => {
+    if (sessionRestoredRef.current) return;
+    sessionRestoredRef.current = true;
+    
+    try {
+      const raw = sessionStorage.getItem(BOB_SESSION_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        const age = Date.now() - (saved.savedAt || 0);
+        
+        if (age < SESSION_TTL_MS && Array.isArray(saved.messages) && saved.messages.length > 0) {
+          console.log('[BobWidget] Restoring session:', saved.messages.length, 'messages, state:', saved.conversationState);
+          setMessages(saved.messages);
+          initialGreetingSentRef.current = true; // skip greeting
+          if (Array.isArray(saved.vehicleCandidates)) {
+            vehicleCandidatesRef.current = saved.vehicleCandidates;
+          }
+          if (saved.conversationState) {
+            conversationStateRef.current = saved.conversationState;
+          }
+          return; // session restored — skip initialVehicle
+        } else {
+          console.log('[BobWidget] Session expired, clearing');
+          sessionStorage.removeItem(BOB_SESSION_KEY);
+        }
+      }
+    } catch (e) {
+      console.warn('[BobWidget] Failed to restore session:', e);
+      sessionStorage.removeItem(BOB_SESSION_KEY);
+    }
+    
+    // No valid session — apply initialVehicle if provided
+    if (initialVehicle) {
+      console.log('[BobWidget] Applying initialVehicle:', initialVehicle.make, initialVehicle.model);
+      vehicleCandidatesRef.current = [initialVehicle];
+      conversationStateRef.current = 'VEHICLE_CONFIRMED';
+      setIdentifiedVehicle(initialVehicle as unknown as Vehicle);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  
+  // Save session whenever messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      saveSession(messages);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
+  
   // Track canned/searching audio playing state (separate from TTS isSpeaking)
   const [isAudioControllerPlaying, setIsAudioControllerPlaying] = useState(false);
   
