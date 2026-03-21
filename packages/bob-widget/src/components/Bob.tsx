@@ -34,6 +34,14 @@ interface BobProps {
    * @default false
    */
   embedded?: boolean;
+  /** Optional pre-identified vehicle — Bob skips REGO lookup */
+  initialVehicle?: {
+    vehicle_id: string | number;
+    make: string;
+    model: string;
+    year: number;
+    [key: string]: unknown;
+  };
 }
 
 export const Bob: React.FC<BobProps> = ({
