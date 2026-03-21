@@ -743,11 +743,10 @@ export const useBobChat = ({
                 vehicleCandidatesRef.current = parsed.candidates;
                 console.log('[useBobChat] ✅ Stored', parsed.candidates.length, 'vehicle candidates from state event');
                 console.log('[useBobChat] First candidate:', JSON.stringify(parsed.candidates[0]));
-              }
-              saveSession();
               } else {
                 console.log('[useBobChat] ⚠️ conversation_state had no candidates array');
               }
+              saveSession();
               continue;
             }
 
