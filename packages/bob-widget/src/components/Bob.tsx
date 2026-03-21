@@ -56,7 +56,8 @@ export const Bob: React.FC<BobProps> = ({
   verticalOffset = 0,
   scale = 100,
   sessionToken,
-  embedded = false
+  embedded = false,
+  initialVehicle
 }) => {
   const { callbacks } = useBobContext();
   
