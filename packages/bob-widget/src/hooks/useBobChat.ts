@@ -1040,8 +1040,7 @@ export const useBobChat = ({
     clearMessages,
     isMuted,
     toggleMute,
-    // Bug #3 fix: composite isSpeaking — true when EITHER TTS or canned/searching audio is playing
-    isSpeaking: isSpeaking || isAudioControllerPlaying,
+    isSpeaking,
     identifiedVehicle,
     clearVehicle,
     sendDirectMessage,
