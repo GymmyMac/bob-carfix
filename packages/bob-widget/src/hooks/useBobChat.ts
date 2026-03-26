@@ -680,7 +680,13 @@ export const useBobChat = ({
               continue;
             }
             
-            // Handle vehicle candidates for multi-variant selection
+            // v3.2.18: Handle researching_parts event — show shelf spinner
+            if (parsed.type === "researching_parts") {
+              console.log('[useBobChat] 🔍 researching_parts event — showing shelf spinner');
+              onPartsResearchStart?.();
+              continue;
+            }
+            
             if (parsed.type === "vehicle_candidates_found" && parsed.candidates) {
               console.log('[useBobChat] 📦 vehicle_candidates_found event received:', parsed.candidates.length, 'candidates');
               vehicleCandidatesRef.current = parsed.candidates;
