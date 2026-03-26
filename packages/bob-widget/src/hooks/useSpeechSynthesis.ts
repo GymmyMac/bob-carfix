@@ -69,49 +69,6 @@ export const useSpeechSynthesis = ({
     }
   }, []);
 
-  // Fetch pre-recorded audio clip from database with caching
-  const fetchAudioClip = useCallback(async (clipKey: string): Promise<{ audio_url: string } | null> => {
-    if (clipCache.has(clipKey)) {
-      const cached = clipCache.get(clipKey);
-      return cached || null;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('bob_audio_clips')
-        .select('audio_url')
-        .eq('clip_key', clipKey)
-        .eq('is_active', true)
-        .single();
-
-      if (error || !data) {
-        clipCache.set(clipKey, null);
-        return null;
-      }
-
-      clipCache.set(clipKey, data);
-      return data;
-    } catch (error) {
-      console.warn(`[BobWidget TTS] Clip lookup failed for ${clipKey}:`, error);
-      clipCache.set(clipKey, null);
-      return null;
-    }
-  }, [supabase]);
-
-  // Try to match text against pre-recorded clip patterns
-  const tryMatchPrerecordedClip = useCallback(async (text: string): Promise<string | null> => {
-    for (const [clipKey, pattern] of Object.entries(CLIP_PATTERNS)) {
-      if (pattern.test(text)) {
-        console.log(`[BobWidget TTS] Pattern matched: ${clipKey}`);
-        const clip = await fetchAudioClip(clipKey);
-        if (clip?.audio_url) {
-          return clip.audio_url;
-        }
-      }
-    }
-    return null;
-  }, [fetchAudioClip]);
-
   // Process the speech queue
   const processQueue = useCallback(async () => {
     if (isProcessingRef.current || speechQueueRef.current.length === 0) {
