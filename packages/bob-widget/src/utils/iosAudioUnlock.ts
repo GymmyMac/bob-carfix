@@ -88,7 +88,7 @@ export const playAudioBuffer = async (
   const ac = getAudioContext();
 
   // Ensure the context is running (may have been suspended by the OS)
-  if (ac.state !== 'running') {
+  if ((ac.state as string) !== 'running') {
     await ac.resume();
   }
 
