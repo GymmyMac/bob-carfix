@@ -15,22 +15,34 @@ const SILENT_WAV =
   'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
 
 let unlocked = false;
+let unlockInFlight = false;
 
 /**
  * Play a silent audio buffer – called on the first user gesture.
  * Resolves immediately if audio is already unlocked.
  */
-const unlock = async (): Promise<void> => {
-  if (unlocked) return;
+const unlock = async (): Promise<boolean> => {
+  if (unlocked) return true;
+  if (unlockInFlight) return false;
+
+  unlockInFlight = true;
   try {
     const a = new Audio(SILENT_WAV);
+    a.muted = true;
     a.volume = 0;
+    a.setAttribute('playsinline', 'true');
+    a.setAttribute('webkit-playsinline', 'true');
     await a.play();
+    a.pause();
     unlocked = true;
     console.log('[BobWidget] iOS audio unlocked via user gesture');
+    return true;
   } catch (e) {
     // Not critical – TTS will still attempt play() on its own
     console.warn('[BobWidget] iOS audio unlock failed:', e);
+    return false;
+  } finally {
+    unlockInFlight = false;
   }
 };
 
@@ -43,17 +55,22 @@ export const setupIOSAudioUnlock = (
 ): (() => void) => {
   if (!root || unlocked) return () => {};
 
-  const handler = () => {
-    unlock();
+  const handler = async () => {
+    const didUnlock = await unlock();
+    if (!didUnlock) return;
+
     root.removeEventListener('touchstart', handler, true);
+    root.removeEventListener('pointerdown', handler, true);
     root.removeEventListener('click', handler, true);
   };
 
   root.addEventListener('touchstart', handler, { capture: true, passive: true });
+  root.addEventListener('pointerdown', handler, { capture: true });
   root.addEventListener('click', handler, { capture: true });
 
   return () => {
     root.removeEventListener('touchstart', handler, true);
+    root.removeEventListener('pointerdown', handler, true);
     root.removeEventListener('click', handler, true);
   };
 };

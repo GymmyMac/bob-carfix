@@ -179,10 +179,12 @@ export const BobStandalone = React.forwardRef<BobStandaloneHandle, StandaloneWid
     });
   }, [partner, sessionToken, debug]);
 
-  // iOS Safari: unlock audio on first user gesture so TTS playback works reliably.
+  // iOS Safari: attach unlock only once the real widget root is mounted
+  // (initial loading/error renders do not include rootRef).
   useEffect(() => {
+    if (isLoading || !config || !supabaseClient) return;
     return setupIOSAudioUnlock(rootRef.current);
-  }, []);
+  }, [isLoading, config?.id, supabaseClient]);
 
   // ✅ CRITICAL: All hooks MUST be called before any conditional returns
   // Build callbacks - map essential callbacks to full BobCallbacks interface
