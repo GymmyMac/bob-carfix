@@ -186,7 +186,7 @@ export const useSpeechSynthesis = ({
       isProcessingRef.current = false;
       processQueue();
     }
-  }, [bobConfig.supabaseUrl, bobConfig.supabaseKey, clearTtsTimeout, triggerFallbackStart, tryMatchPrerecordedClip]);
+  }, [bobConfig.supabaseUrl, bobConfig.supabaseKey, clearTtsTimeout, triggerFallbackStart]);
 
   const speak = useCallback((text: string, isGreeting = false) => {
     if (!text.trim()) return;
