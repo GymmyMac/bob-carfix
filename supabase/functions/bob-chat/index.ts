@@ -2225,44 +2225,7 @@ serve(async (req) => {
       }
     }
 
-    // ============= CANNED RESPONSE SYSTEM =============
-    // Check if we can bypass AI entirely for common triggers
-    // NOTE: Only check canned response if we didn't just force a REGO lookup
-    const cannedResponse = (!forcedLookupResult && !forcedCandidates.length && !forcedSingleVehicle)
-      ? await checkCannedResponse(messages, vehicleContext, customerEmail)
-      : null;
-    
-    if (cannedResponse) {
-      console.log(`[Canned Response] Bypassing AI with: "${cannedResponse.transcript.substring(0, 50)}..."`);
-      
-      // Return canned response as SSE stream (no AI call)
-      const encoder = new TextEncoder();
-      const stream = new ReadableStream({
-        start(controller) {
-          // Emit the canned text as if it were streamed
-          const textEvent = `data: ${JSON.stringify({
-            choices: [{ delta: { content: cannedResponse.transcript } }]
-          })}\n\n`;
-          controller.enqueue(encoder.encode(textEvent));
-          
-          // Emit audio_url hint for frontend to play exact audio
-          const audioHint = `data: ${JSON.stringify({
-            type: 'audio_hint',
-            audio_url: cannedResponse.audio_url,
-            clip_key: cannedResponse.clip_key
-          })}\n\n`;
-          controller.enqueue(encoder.encode(audioHint));
-          
-          // End stream
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-          controller.close();
-        }
-      });
-
-      return new Response(stream, {
-        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
-      });
-    }
+    // Canned response system removed in v3.2.18 — all responses go through AI
 
     // ============= STATE-DRIVEN RESPONSE GENERATION =============
     // Determine conversation state BEFORE deciding whether to call AI
