@@ -15,20 +15,6 @@ interface UseSpeechSynthesisProps {
 // Timeout for TTS requests - generous to allow longer responses
 const TTS_TIMEOUT_MS = 15000;
 
-// Pattern matching for pre-recorded audio clips
-const CLIP_PATTERNS: Record<string, RegExp> = {
-  greeting_returning: /ah hey|you again|what you after this time/i,
-  greeting_welcome: /g'?day|welcome.*carfix|bob.*here/i,
-  ask_rego: /need your rego|rego.*get cracking|what('?s| is) your rego/i,
-  vehicle_not_found: /couldn'?t find that|double.?check.*plate/i,
-  no_parts_found: /nothing came up|no results|sorry.*search/i,
-  checkout_ready: /ready to checkout|checkout.*ready|choice.*checkout/i,
-  rego_searching: /let('?s| us) see what car|sweet.*searching|searching for/i,
-};
-
-// In-memory cache for clip lookups (persists across renders)
-const clipCache = new Map<string, { audio_url: string } | null>();
-
 // Sanitize text for TTS - fix pronunciation issues
 const sanitizeForTTS = (text: string): string => {
   return text.replace(/\bya\b/gi, 'you');
