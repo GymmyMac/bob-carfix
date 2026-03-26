@@ -782,45 +782,7 @@ export const useBobChat = ({
               continue;
             }
             
-            // Handle audio_hint for canned responses - bypass TTS entirely
-            if (parsed.type === "audio_hint" && parsed.audio_url) {
-              console.log('[useBobChat] Audio hint received:', parsed.clip_key, parsed.audio_url);
-              // CRITICAL: Mark that we have canned audio - this prevents TTS from playing
-              const controller = audioControllerRef.current;
-              controller.hasCannedAudio = true;
-              controller.cannedUrl = parsed.audio_url;
-              // Stop any searching audio since canned takes priority
-              stopAllAudio();
-              continue;
-            }
-            
-            // Handle bob_searching event - play audio AND show transcript so text matches voice
-            if (parsed.type === "bob_searching" && parsed.audio_url) {
-              console.log('[useBobChat] Bob searching:', parsed.search_type, parsed.clip_key);
-              
-              // ✅ ADD transcript to chat messages so text matches voice
-              if (parsed.transcript) {
-                setMessages(prev => {
-                  const last = prev[prev.length - 1];
-                  // Only add if not already the last message (prevent duplicates)
-                  if (last?.role !== "assistant" || last?.content !== parsed.transcript) {
-                    return [...prev, { role: "assistant", content: parsed.transcript }];
-                  }
-                  return prev;
-                });
-              }
-              
-              // Queue the audio using global audio controller
-              const controller = audioControllerRef.current;
-              controller.searchingQueue.push(parsed.audio_url);
-              
-              // Start playing if not already and canned audio isn't pending
-              if (!controller.isPlaying && !controller.hasCannedAudio && !isMuted) {
-                playNextSearchingAudio();
-              }
-              
-              continue;
-            }
+            // (Canned speech and searching audio removed in v3.2.18)
             
             if (parsed.type === "cart_updated" && parsed.items) {
               // Fire onCartUpdated with full items array
