@@ -58,7 +58,7 @@ export const resumeAudioContext = async (): Promise<boolean> => {
 
 /** Check whether the AudioContext is in the "running" state */
 export const isAudioContextReady = (): boolean =>
-  ctx?.state === 'running';
+  (ctx?.state as string) === 'running';
 
 /** Legacy compat — kept so existing callers still work */
 export const isAudioUnlocked = (): boolean => isAudioContextReady();
