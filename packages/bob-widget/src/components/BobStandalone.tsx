@@ -32,6 +32,7 @@ import { BobProvider } from '../BobProvider';
 import { Bob } from './Bob';
 import { BobDebugOverlay } from './BobDebugOverlay';
 import { usePartnerConfig, getFeatureFlag } from '../hooks/usePartnerConfig';
+import { setupIOSAudioUnlock } from '../utils/iosAudioUnlock';
 import { BOB_VERSION } from '../version';
 import type { StandaloneWidgetProps } from '../types/partner';
 import type { BobCallbacks, HostContext } from '../types/context';
@@ -158,6 +159,7 @@ export const BobStandalone = React.forwardRef<BobStandaloneHandle, StandaloneWid
 }, ref) => {
   // Capture stopSpeech from useBobChat so we can expose it imperatively via ref
   const stopSpeechRef = useRef<(() => void) | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => ({
     stopSpeech: () => stopSpeechRef.current?.(),
@@ -176,6 +178,11 @@ export const BobStandalone = React.forwardRef<BobStandaloneHandle, StandaloneWid
       debug,
     });
   }, [partner, sessionToken, debug]);
+
+  // iOS Safari: unlock audio on first user gesture so TTS playback works reliably.
+  useEffect(() => {
+    return setupIOSAudioUnlock(rootRef.current);
+  }, []);
 
   // ✅ CRITICAL: All hooks MUST be called before any conditional returns
   // Build callbacks - map essential callbacks to full BobCallbacks interface
@@ -226,6 +233,7 @@ export const BobStandalone = React.forwardRef<BobStandaloneHandle, StandaloneWid
 
   return (
     <div 
+      ref={rootRef}
       className={`bob-widget-root ${className}`} 
       style={{ 
         width: '100%', 
