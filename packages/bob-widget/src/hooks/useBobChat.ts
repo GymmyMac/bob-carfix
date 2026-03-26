@@ -669,6 +669,8 @@ export const useBobChat = ({
               conversationStateRef.current = 'VEHICLE_CONFIRMED';
               saveSession(undefined, parsed.vehicle);
               callbacks.onVehicleIdentified?.(parsed.vehicle);
+              // v3.2.18: Vehicle confirmed → parts are being fetched, show shelf spinner
+              onPartsResearchStart?.();
               analytics.trackVehicleIdentified({
                 make: parsed.vehicle.make,
                 model: parsed.vehicle.model,
