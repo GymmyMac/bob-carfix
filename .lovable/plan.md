@@ -1,65 +1,94 @@
+# Understanding Bob's Pre-Vehicle State & Loading Spinner Issue
 
+## How It Works Today
 
-# iOS TTS Fix — Web Audio API Approach
+The widget has a **3-state visual system** controlled by `MobileBobLayoutCore`:
 
-## Root Cause
+1. `**panelState**` — `hidden` | `loading` | `transitioning` | `visible`
+2. `**bobPosition**` — `center` | `partial-left` | `hidden`
+3. `**isResearching**` — boolean, set by `Bob.tsx` callbacks
 
-**All browsers on iOS use WebKit** (Apple's requirement). Chrome on iOS = Safari's engine with a Chrome skin. The current fix plays a silent WAV via a throwaway `new Audio()` element, but iOS WebKit does **not** transfer that "unlock" to different `Audio` elements created later after an async `fetch()`. The user gesture call stack is gone by the time the TTS response arrives.
-
-## Solution
-
-Replace `new Audio(url).play()` with a **shared `AudioContext` singleton** that gets `.resume()`'d on the first user gesture and stays unlocked permanently. All TTS audio is then decoded and played as `AudioBufferSourceNode`s through this context.
-
-### Files to change
-
-1. **`packages/bob-widget/src/utils/iosAudioUnlock.ts`** — Rewrite to:
-   - Create a singleton `AudioContext` (with `webkitAudioContext` fallback)
-   - Export `resumeAudioContext()` — called on first gesture, resumes the context permanently
-   - Export `playAudioBuffer(arrayBuffer, onStart, onEnded)` — decodes raw audio bytes and plays through the shared context, returns a stop handle
-   - Export `isAudioContextReady()` for diagnostics
-   - Keep the `setupIOSAudioUnlock()` entry point but have it call `resumeAudioContext()` instead of playing a silent WAV
-
-2. **`packages/bob-widget/src/hooks/useSpeechSynthesis.ts`** — Modify `processQueue`:
-   - Fetch TTS response as `.arrayBuffer()` instead of `.blob()`
-   - For pre-recorded clips, fetch the URL as arrayBuffer too
-   - Play via `playAudioBuffer()` instead of `new Audio(url).play()`
-   - Wire `onStart`/`onEnded` callbacks through the buffer source node
-   - Use `source.stop()` for interrupts instead of `audio.pause()`
-   - Remove `audioRef` (HTMLAudioElement) and replace with `sourceRef` (AudioBufferSourceNode)
-
-3. **`packages/bob-widget/CHANGELOG.md`** — Document the fix
-
-### Key code approach
+### The Flow
 
 ```text
-┌─────────────────────────────────────────────┐
-│  User taps widget (first interaction)       │
-│  → setupIOSAudioUnlock calls resume()       │
-│  → AudioContext.state becomes "running"     │
-│  → Context stays unlocked for page lifetime │
-└─────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────┐
-│  TTS response arrives (async, no gesture)   │
-│  → fetch → .arrayBuffer()                   │
-│  → ctx.decodeAudioData(buffer)              │
-│  → source = ctx.createBufferSource()        │
-│  → source.connect(ctx.destination)          │
-│  → source.start(0)  ← works because ctx    │
-│    was already unlocked                     │
-└─────────────────────────────────────────────┘
+Page loads → Bob appears center → User types REGO
+→ streamChat fires → onResearchStart sets isResearching=true
+→ MobileBobLayoutCore sees isResearching, moves Bob partial-left
+→ MobileProductColumn shows with "Searching shelves..." spinner
+→ Backend sends parts_found/service_packages_found SSE events
+→ Products populate → isResearching=false → Shelf shows products
 ```
 
-### CarFix Dev Team Prompt
+### The Problem
 
-As part of the plan output, I will include a ready-to-copy prompt for the CarFix development team covering CSP headers, Permissions-Policy, and iframe `allow` attributes they should verify on their end.
+The `isResearching` flag is set to `true` when the user sends a message (via `onResearchStart` callback in `Bob.tsx` line 218). This triggers the product column to become visible with a loading spinner. But **before any vehicle is identified**, there's nothing meaningful to show — just an empty shelf with a spinner that says "Searching shelves..." while Bob is just doing conversational REGO lookup.
 
-## Technical Details
+The spinner persists because:
 
-- `AudioContext` is supported on all iOS browsers (Safari, Chrome, Firefox — all WebKit)
-- Once resumed during a user gesture, it stays in `"running"` state until the page is closed
-- `decodeAudioData` handles MP3 natively on all modern browsers
-- The `stop()` method on `AudioBufferSourceNode` is the equivalent of `audio.pause()` for interrupts
-- Pre-recorded clip URLs will be fetched as ArrayBuffers via `fetch(url).then(r => r.arrayBuffer())` before decoding
+- `isResearching` is set true on **every** message send (not just parts searches)
+- If the vehicle lookup takes multiple turns (e.g., variant selection), the spinner stays visible throughout
+- The `panelState` transitions to `loading` and never goes back to `hidden` unless `hasContent` changes AND `isResearching` becomes false simultaneously
 
+Additionally, **before the customer has even typed anything**, the store is just Bob standing in front of his CARFIX shop backdrop — which is fine as we are already in CARFIX.co.nz.
+
+## Pre-Vehicle State (What the user sees before typing)
+
+Currently: Bob centered, no shelf, no products. This is actually clean. The issue is when the user **starts chatting** and `isResearching` fires prematurely, showing a spinner with no products incoming.
+
+## Proposed Solution
+
+### Option A: Only show loading shelf when vehicle is confirmed
+
+- Don't set `isResearching=true` until a `vehicle_identified` or `parts_found` SSE event actually arrives
+- This means the shelf stays hidden during conversational REGO lookup / variant selection
+- Simplest fix, removes the premature spinner
+
+### Option B: Auto-load last vehicle from garage
+
+- On mount, check if `customerEmail` is available via session handoff
+- Call `get_returning_customer_context` to fetch garage vehicles
+- Auto-load the most recently used vehicle and fetch its parts catalog
+- User sees products immediately without needing to type their REGO
+- More complex but provides a richer initial experience
+
+### Option C: Both (recommended)
+
+- Fix the premature spinner (Option A) — always needed
+- Add auto-load from garage as an enhancement — only works when customer email is available
+
+## Implementation Plan
+
+### Step 1: Fix premature loading spinner
+
+`**packages/bob-widget/src/components/Bob.tsx**`
+
+- Change `onResearchStart` to NOT set `isResearching=true` unconditionally
+- Instead, only set it when we know parts are actually being fetched (i.e., vehicle is already identified OR a `parts_found` event is incoming)
+- Add a new SSE event handler: when `type === "researching_parts"` arrives from backend, THEN set `isResearching=true`
+
+`**packages/bob-widget/src/hooks/useBobChat.ts**`
+
+- Add a `onPartsResearchStart` callback that fires only when the backend actually starts a parts lookup (detectable via tool_call events or a new SSE event type)
+- Keep `onResearchStart` for animation state changes (thinking state) but decouple it from product shelf visibility
+
+### Step 2: Clean pre-vehicle store appearance
+
+- Ensure `MobileProductColumn` is fully hidden (not just invisible) when there's no vehicle and no products
+- Remove the "Searching shelves..." text when no vehicle context exists
+
+### Step 3 (Enhancement): Auto-load garage vehicle
+
+- In `useBobChat`, after session restore, if `customerEmail` exists but no `identifiedVehicle`:
+  - Send a lightweight request to bob-chat with a `autoLoadGarage: true` flag
+  - Backend fetches garage via `get_returning_customer_context` and returns the most recent vehicle
+  - Widget auto-confirms that vehicle and fetches its parts catalog
+- This gives returning customers an immediate product shelf on load
+
+### Files to modify
+
+1. `packages/bob-widget/src/components/Bob.tsx` — Decouple `isResearching` from general message sends
+2. `packages/bob-widget/src/hooks/useBobChat.ts` — Add `onPartsResearchStart` callback, auto-garage logic
+3. `packages/bob-widget/src/components/mobile/MobileBobLayoutCore.tsx` — Only show product column when there's actual content or confirmed research
+4. `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx` — Clean up loading state text
+5. `supabase/functions/bob-chat/index.ts` — Emit `researching_parts` SSE event before tool execution, handle `autoLoadGarage` flag
+6. `packages/bob-widget/CHANGELOG.md` — Document changes
