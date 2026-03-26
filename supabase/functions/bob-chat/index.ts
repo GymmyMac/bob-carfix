@@ -3373,6 +3373,14 @@ ${partsSummary}`;
           // Track emitted package IDs to prevent duplicates
           const emittedPackageIds = new Set<string>();
           
+          // v3.2.18: Emit researching_parts before parts/packages so client can show spinner
+          const hasPartsOrPackages = (partsToEmit && partsToEmit.length > 0) || (servicePackagesToEmit && servicePackagesToEmit.length > 0);
+          if (hasPartsOrPackages && confirmedVehicleStored) {
+            const researchingEvent = `data: ${JSON.stringify({ type: "researching_parts" })}\n\n`;
+            controller.enqueue(encoder.encode(researchingEvent));
+            console.log("[Stream] Emitted researching_parts event");
+          }
+          
           // Process service packages
           let packagesToSend = servicePackagesToEmit;
           if (packagesToSend && packagesToSend.length > 0) {
