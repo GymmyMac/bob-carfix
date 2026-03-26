@@ -965,6 +965,12 @@ export const useBobChat = ({
     console.log('[BobWidget STATE] User sent message - switching to RESEARCH state:', thinkingState);
     onResearchStart?.();
     
+    // v3.2.18: Only show shelf spinner if vehicle is already confirmed
+    // (otherwise the shelf shows prematurely during REGO lookup)
+    if (identifiedVehicle) {
+      onPartsResearchStart?.();
+    }
+    
     if (!manualMode) {
       safeSetState(thinkingState);
     }
