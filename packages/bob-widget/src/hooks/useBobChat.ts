@@ -103,6 +103,8 @@ interface UseBobChatProps {
   onStreamComplete?: () => void;
   onShowingProduct?: () => void;
   onResearchStart?: () => void;
+  /** v3.2.18: Fires only when parts/packages are actually being fetched (not on every message) */
+  onPartsResearchStart?: () => void;
   onReadyToSpeak?: () => void;
   onHighlightPart?: (partType: string) => void;
   onHighlightProduct?: (product: HighlightedProduct) => void;
@@ -168,6 +170,7 @@ export const useBobChat = ({
   onStreamComplete,
   onShowingProduct,
   onResearchStart,
+  onPartsResearchStart,
   onReadyToSpeak,
   onHighlightPart,
   onHighlightProduct,
@@ -666,6 +669,8 @@ export const useBobChat = ({
               conversationStateRef.current = 'VEHICLE_CONFIRMED';
               saveSession(undefined, parsed.vehicle);
               callbacks.onVehicleIdentified?.(parsed.vehicle);
+              // v3.2.18: Vehicle confirmed → parts are being fetched, show shelf spinner
+              onPartsResearchStart?.();
               analytics.trackVehicleIdentified({
                 make: parsed.vehicle.make,
                 model: parsed.vehicle.model,
@@ -675,7 +680,13 @@ export const useBobChat = ({
               continue;
             }
             
-            // Handle vehicle candidates for multi-variant selection
+            // v3.2.18: Handle researching_parts event — show shelf spinner
+            if (parsed.type === "researching_parts") {
+              console.log('[useBobChat] 🔍 researching_parts event — showing shelf spinner');
+              onPartsResearchStart?.();
+              continue;
+            }
+            
             if (parsed.type === "vehicle_candidates_found" && parsed.candidates) {
               console.log('[useBobChat] 📦 vehicle_candidates_found event received:', parsed.candidates.length, 'candidates');
               vehicleCandidatesRef.current = parsed.candidates;
@@ -960,6 +971,12 @@ export const useBobChat = ({
     console.log('[BobWidget STATE] User sent message - switching to RESEARCH state:', thinkingState);
     onResearchStart?.();
     
+    // v3.2.18: Only show shelf spinner if vehicle is already confirmed
+    // (otherwise the shelf shows prematurely during REGO lookup)
+    if (identifiedVehicle) {
+      onPartsResearchStart?.();
+    }
+    
     if (!manualMode) {
       safeSetState(thinkingState);
     }
@@ -1021,6 +1038,10 @@ export const useBobChat = ({
     setMessages(prev => [...prev, userMessage]);
 
     onResearchStart?.();
+    // v3.2.18: Only show shelf spinner if vehicle already confirmed
+    if (identifiedVehicle) {
+      onPartsResearchStart?.();
+    }
     if (!manualMode) safeSetState(thinkingState);
 
     setIsLoading(true);

@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Canned speech / pre-recorded audio clips fully stripped** — Removed all `audio_hint`, `bob_searching` audio, clip pattern matching, `AudioController` priority system, `getSearchingClip()`, `checkCannedResponse()`, and `fetchAudioClip()`. All responses now go through AI → ElevenLabs TTS exclusively. The `AUDIO DISABLED` rule was also removed from the LLM system prompt (`rules_and_guardrails`).
 
+- **Premature product shelf spinner fixed** — Decoupled `isResearching` from general message sends. The product shelf loading spinner now only appears when parts are actually being fetched (after vehicle identification or when the backend emits a `researching_parts` SSE event). Previously, the spinner showed on every message send, even during conversational REGO lookup. Added `onPartsResearchStart` callback to separate animation state (thinking) from shelf visibility.
+
 ---
 
 ## [v3.2.17] - 2026-03-26

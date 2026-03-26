@@ -355,7 +355,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
         </div>
       </div>
 
-      {/* Loading state - Glass style */}
+      {/* Loading state - Glass style - only shown when vehicle confirmed & parts incoming */}
       {showLoading && (
         <div className="p-5">
           <div className="flex flex-col items-center gap-3 text-center">
@@ -363,8 +363,8 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
               <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(255,255,255,0.8)', borderTopColor: 'transparent' }} />
             </div>
             <div>
-              <p style={{ ...glassText.primary, fontWeight: 600, fontSize: '14px' }}>Searching shelves...</p>
-              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px', marginTop: '2px' }}>Finding the best parts for you</p>
+              <p style={{ ...glassText.primary, fontWeight: 600, fontSize: '14px' }}>Loading parts...</p>
+              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px', marginTop: '2px' }}>Bob's stocking the shelves</p>
             </div>
           </div>
         </div>
