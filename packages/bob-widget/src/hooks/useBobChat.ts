@@ -223,26 +223,7 @@ export const useBobChat = ({
     }
   };
   
-  // ============= GLOBAL AUDIO CONTROLLER =============
-  // Priority order: canned > searching > tts
-  // Prevents audio overlap by tracking current source and state
-  interface AudioControllerState {
-    source: 'none' | 'searching' | 'canned' | 'tts';
-    isPlaying: boolean;
-    hasCannedAudio: boolean;
-    cannedUrl: string | null;
-    currentAudio: HTMLAudioElement | null;
-    searchingQueue: string[];
-  }
-  
-  const audioControllerRef = useRef<AudioControllerState>({
-    source: 'none',
-    isPlaying: false,
-    hasCannedAudio: false,
-    cannedUrl: null,
-    currentAudio: null,
-    searchingQueue: [],
-  });
+  // ============= AUDIO STATE =============
   
   // NEW: Vehicle candidates for multi-variant selection persistence
   const vehicleCandidatesRef = useRef<unknown[]>([]);
