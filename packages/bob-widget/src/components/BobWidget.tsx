@@ -125,6 +125,13 @@ export const BobWidget: React.FC<BobWidgetProps> = ({
   // before the user taps PTT, not mid-conversation
   const { micPermission } = useMicPermission(true);
 
+  // iOS audio unlock: on the first user touch, play a silent buffer so
+  // subsequent Audio.play() calls from TTS succeed without gesture gates.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    return setupIOSAudioUnlock(rootRef.current);
+  }, []);
+
   // Debug logging for external host troubleshooting
   useEffect(() => {
     console.log('[BobWidget] Initialized', {
@@ -140,7 +147,7 @@ export const BobWidget: React.FC<BobWidgetProps> = ({
   }, [variant, bottomOffset, zIndexBase, bobConfig.supabaseUrl, hostApiConfig.baseUrl, analyticsEnabled, micPermission]);
 
   return (
-    <div className="bob-widget-root" style={{ width: '100%', height: '100%' }}>
+    <div ref={rootRef} className="bob-widget-root" style={{ width: '100%', height: '100%' }}>
       <BobProvider
         bobConfig={bobConfig}
         hostApiConfig={hostApiConfig}
