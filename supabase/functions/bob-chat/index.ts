@@ -3343,22 +3343,7 @@ ${partsSummary}`;
           let vehicleEmitted = false;
           let partsEmitted = false;
           
-          // ============= EMIT SEARCHING EVENTS FIRST =============
-          const searchingEventsToEmit = (conversationMessages as unknown as { _searchingEventsToEmit?: Array<{
-            type: string;
-            search_type: string;
-            transcript: string;
-            audio_url: string;
-            clip_key: string;
-          }> })._searchingEventsToEmit;
-          
-          if (searchingEventsToEmit && searchingEventsToEmit.length > 0) {
-            for (const searchEvent of searchingEventsToEmit) {
-              const event = `data: ${JSON.stringify(searchEvent)}\n\n`;
-              controller.enqueue(encoder.encode(event));
-              console.log(`[Stream] Emitted bob_searching: ${searchEvent.search_type}`);
-            }
-          }
+          // (Searching audio events removed in v3.2.18)
           
           // ============= EMIT VEHICLE CANDIDATES (for client storage) =============
           if (vehicleCandidatesToEmit && vehicleCandidatesToEmit.length > 0 && multipleVehiclesFound) {
