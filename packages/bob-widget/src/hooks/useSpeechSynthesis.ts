@@ -135,8 +135,7 @@ export const useSpeechSynthesis = ({
           throw new Error("TTS request failed");
         }
 
-        audioArrayBuffer = await response.arrayBuffer();
-      }
+        const audioArrayBuffer = await response.arrayBuffer();
 
       // ========== Play via shared AudioContext ==========
       // Ensure context is resumed (may have been suspended by OS)
