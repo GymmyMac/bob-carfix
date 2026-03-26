@@ -223,26 +223,7 @@ export const useBobChat = ({
     }
   };
   
-  // ============= GLOBAL AUDIO CONTROLLER =============
-  // Priority order: canned > searching > tts
-  // Prevents audio overlap by tracking current source and state
-  interface AudioControllerState {
-    source: 'none' | 'searching' | 'canned' | 'tts';
-    isPlaying: boolean;
-    hasCannedAudio: boolean;
-    cannedUrl: string | null;
-    currentAudio: HTMLAudioElement | null;
-    searchingQueue: string[];
-  }
-  
-  const audioControllerRef = useRef<AudioControllerState>({
-    source: 'none',
-    isPlaying: false,
-    hasCannedAudio: false,
-    cannedUrl: null,
-    currentAudio: null,
-    searchingQueue: [],
-  });
+  // ============= AUDIO STATE =============
   
   // NEW: Vehicle candidates for multi-variant selection persistence
   const vehicleCandidatesRef = useRef<unknown[]>([]);
@@ -304,103 +285,9 @@ export const useBobChat = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
   
-  // Track canned/searching audio playing state (separate from TTS isSpeaking)
-  const [isAudioControllerPlaying, setIsAudioControllerPlaying] = useState(false);
-  
-  // Helper: Stop all audio and reset controller
+  // Helper: Stop all audio
   const stopAllAudio = () => {
-    const controller = audioControllerRef.current;
-    if (controller.currentAudio) {
-      try {
-        controller.currentAudio.pause();
-        controller.currentAudio.currentTime = 0;
-      } catch (e) {
-        console.warn('[BobWidget] Error stopping audio:', e);
-      }
-      controller.currentAudio = null;
-    }
-    controller.isPlaying = false;
-    controller.source = 'none';
-    controller.searchingQueue = [];
-    setIsAudioControllerPlaying(false);
-    stopSpeech(); // Also stop TTS
-  };
-  
-  // Helper: Play audio with tracking
-  const playControlledAudio = (url: string, source: 'searching' | 'canned', onComplete?: () => void) => {
-    const controller = audioControllerRef.current;
-    
-    // Stop any current audio if this is higher priority
-    if (controller.isPlaying) {
-      if (source === 'canned' || (source === 'searching' && controller.source === 'tts')) {
-        stopAllAudio();
-      } else if (controller.source === 'canned') {
-        // Don't interrupt canned audio with searching
-        console.log('[BobWidget Audio] Skipping lower priority audio while canned is playing');
-        return;
-      }
-    }
-    
-    const audio = new Audio(url);
-    controller.currentAudio = audio;
-    controller.source = source;
-    controller.isPlaying = true;
-    
-    audio.onplay = () => {
-      console.log(`[BobWidget Audio] ${source} STARTED:`, url.split('/').pop());
-      setIsAudioControllerPlaying(true);
-      if (!manualMode) safeSetState(talkingState);
-    };
-    
-    audio.onended = () => {
-      console.log(`[BobWidget Audio] ${source} ENDED`);
-      controller.currentAudio = null;
-      controller.isPlaying = false;
-      controller.source = 'none';
-      setIsAudioControllerPlaying(false);
-      onComplete?.();
-    };
-    
-    audio.onerror = () => {
-      console.warn(`[BobWidget Audio] ${source} FAILED:`, url);
-      controller.currentAudio = null;
-      controller.isPlaying = false;
-      controller.source = 'none';
-      setIsAudioControllerPlaying(false);
-      onComplete?.();
-    };
-    
-    audio.play().catch((err) => {
-      console.warn(`[BobWidget Audio] ${source} autoplay blocked:`, err);
-      controller.currentAudio = null;
-      controller.isPlaying = false;
-      controller.source = 'none';
-      onComplete?.();
-    });
-  };
-  
-  // Sequential audio player for searching events
-  const playNextSearchingAudio = () => {
-    const controller = audioControllerRef.current;
-    
-    // Don't play searching audio if canned audio is pending or playing
-    if (controller.hasCannedAudio || controller.source === 'canned') {
-      console.log('[BobWidget Audio] Skipping searching audio - canned audio takes priority');
-      controller.searchingQueue = [];
-      return;
-    }
-    
-    if (controller.searchingQueue.length === 0) {
-      if (!manualMode && controller.source === 'searching') {
-        safeSetState(thinkingState);
-      }
-      return;
-    }
-    
-    const url = controller.searchingQueue.shift()!;
-    playControlledAudio(url, 'searching', () => {
-      playNextSearchingAudio();
-    });
+    stopSpeech();
   };
 
   const clearFallbackTimeout = () => {
@@ -895,45 +782,7 @@ export const useBobChat = ({
               continue;
             }
             
-            // Handle audio_hint for canned responses - bypass TTS entirely
-            if (parsed.type === "audio_hint" && parsed.audio_url) {
-              console.log('[useBobChat] Audio hint received:', parsed.clip_key, parsed.audio_url);
-              // CRITICAL: Mark that we have canned audio - this prevents TTS from playing
-              const controller = audioControllerRef.current;
-              controller.hasCannedAudio = true;
-              controller.cannedUrl = parsed.audio_url;
-              // Stop any searching audio since canned takes priority
-              stopAllAudio();
-              continue;
-            }
-            
-            // Handle bob_searching event - play audio AND show transcript so text matches voice
-            if (parsed.type === "bob_searching" && parsed.audio_url) {
-              console.log('[useBobChat] Bob searching:', parsed.search_type, parsed.clip_key);
-              
-              // ✅ ADD transcript to chat messages so text matches voice
-              if (parsed.transcript) {
-                setMessages(prev => {
-                  const last = prev[prev.length - 1];
-                  // Only add if not already the last message (prevent duplicates)
-                  if (last?.role !== "assistant" || last?.content !== parsed.transcript) {
-                    return [...prev, { role: "assistant", content: parsed.transcript }];
-                  }
-                  return prev;
-                });
-              }
-              
-              // Queue the audio using global audio controller
-              const controller = audioControllerRef.current;
-              controller.searchingQueue.push(parsed.audio_url);
-              
-              // Start playing if not already and canned audio isn't pending
-              if (!controller.isPlaying && !controller.hasCannedAudio && !isMuted) {
-                playNextSearchingAudio();
-              }
-              
-              continue;
-            }
+            // (Canned speech and searching audio removed in v3.2.18)
             
             if (parsed.type === "cart_updated" && parsed.items) {
               // Fire onCartUpdated with full items array
@@ -1022,52 +871,14 @@ export const useBobChat = ({
         onHighlightProduct?.({ brand, price: parseFloat(price) });
       }
 
-      // Handle speech - SANITIZE specifically for TTS
-      // Use global audio controller to prevent overlap
-      const audioController = audioControllerRef.current;
-      
+      // Handle speech via TTS only (canned audio removed in v3.2.18)
       if (!isMuted && latestAssistantMessageRef.current.trim()) {
         speechStartedRef.current = false;
         clearFallbackTimeout();
         
-        // Check if canned audio is queued (has priority over TTS)
-        if (audioController.hasCannedAudio && audioController.cannedUrl) {
-          console.log('[BobWidget] Playing canned audio (priority):', audioController.cannedUrl);
-          
-          // Stop any searching audio
-          stopAllAudio();
-          
-          playControlledAudio(audioController.cannedUrl, 'canned', () => {
-            // Reset canned audio state
-            audioController.hasCannedAudio = false;
-            audioController.cannedUrl = null;
-            
-            clearFallbackTimeout();
-            if (!manualMode) {
-              if (hasProductContent && onShowingProduct) {
-                onShowingProduct();
-              } else if (onStreamComplete) {
-                onStreamComplete();
-              } else {
-                safeSetState(completeState);
-                setTimeout(() => safeSetState(listenState), 3000);
-              }
-            }
-          });
-          
-          // Mark speech as started for the fallback
-          speechStartedRef.current = true;
-          onReadyToSpeak?.();
-          
-        } else if (!audioController.isPlaying) {
-          // Only use TTS if no audio is currently playing
-          const ttsText = sanitizeForTTS(latestAssistantMessageRef.current);
-          console.log('[BobWidget] Playing TTS (no canned audio)');
-          speak(ttsText);
-        } else {
-          // Audio is playing - skip TTS
-          console.log('[BobWidget] Skipping TTS - audio already playing:', audioController.source);
-        }
+        const ttsText = sanitizeForTTS(latestAssistantMessageRef.current);
+        console.log('[BobWidget] Playing TTS');
+        speak(ttsText);
         
         fallbackTimeoutRef.current = setTimeout(() => {
           if (!speechStartedRef.current) {
@@ -1229,8 +1040,7 @@ export const useBobChat = ({
     clearMessages,
     isMuted,
     toggleMute,
-    // Bug #3 fix: composite isSpeaking — true when EITHER TTS or canned/searching audio is playing
-    isSpeaking: isSpeaking || isAudioControllerPlaying,
+    isSpeaking,
     identifiedVehicle,
     clearVehicle,
     sendDirectMessage,

@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **iOS TTS now works on ALL iOS browsers (Safari, Chrome, Firefox)** — Replaced the silent-WAV `HTMLAudioElement` unlock with a shared **Web Audio API `AudioContext`** singleton. The context is `.resume()`'d on the first user gesture and stays unlocked for the page lifetime. All TTS playback now routes through `decodeAudioData()` → `AudioBufferSourceNode`, which succeeds even after async `fetch()` calls. This fixes the root cause: iOS WebKit does not transfer an audio "unlock" between different `Audio` elements.
 
+### Removed
+
+- **Canned speech / pre-recorded audio clips fully stripped** — Removed all `audio_hint`, `bob_searching` audio, clip pattern matching, `AudioController` priority system, `getSearchingClip()`, `checkCannedResponse()`, and `fetchAudioClip()`. All responses now go through AI → ElevenLabs TTS exclusively. The `AUDIO DISABLED` rule was also removed from the LLM system prompt (`rules_and_guardrails`).
+
 ---
 
 ## [v3.2.17] - 2026-03-26

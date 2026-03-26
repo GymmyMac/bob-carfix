@@ -877,7 +877,7 @@ function matchUserInputToCandidate(
   return null;
 }
 
-// ============= CANNED RESPONSE SYSTEM =============
+// ============= REGO DETECTION UTILITIES =============
 
 // NZ Registration plate pattern detection
 // Patterns: ABC123, ABC-123, AB1234, AB-1234, ABC12, 123ABC (older format)
@@ -989,134 +989,7 @@ async function logErrorEvent(
   }
 }
 
-interface CannedResponseClip {
-  transcript: string;
-  audio_url: string;
-  clip_key: string;
-}
-
-interface SearchingClip {
-  transcript: string;
-  audio_url: string;
-  clip_key: string;
-}
-
-/**
- * Fetch a "searching" audio clip for real-time feedback during tool execution.
- * Returns null if no clip is configured or active.
- */
-async function getSearchingClip(
-  searchType: 'vehicle' | 'parts'
-): Promise<SearchingClip | null> {
-  // V2.0: Audio disabled - short-circuit to null (architecture preserved)
-  console.log(`[Searching Clip] V2.0: Audio disabled, skipping ${searchType} clip lookup`);
-  return null;
-
-  const triggerMap = {
-    vehicle: 'searching_vehicle',
-    parts: 'searching_parts'
-  };
-  
-  try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    
-    if (!supabaseUrl || !supabaseKey) {
-      console.log('[Searching Clip] Missing Supabase credentials');
-      return null;
-    }
-    
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    
-    const { data, error } = await supabase
-      .from('bob_audio_clips')
-      .select('transcript, audio_url, clip_key')
-      .eq('response_trigger', triggerMap[searchType])
-      .eq('is_active', true)
-      .single();
-    
-    if (error || !data) {
-      console.log(`[Searching Clip] No clip found for ${searchType}:`, error?.message);
-      return null;
-    }
-    
-    const clipData = data as { transcript: string; audio_url: string; clip_key: string };
-    console.log(`[Searching Clip] Found clip for ${searchType}:`, clipData.clip_key);
-    return clipData;
-  } catch (err) {
-    console.error(`[Searching Clip] Error fetching ${searchType} clip:`, err);
-    return null;
-  }
-}
-
-/**
- * Check if we should bypass AI and return a canned response.
- * Returns the matching clip data or null if no match.
- */
-async function checkCannedResponse(
-  messages: Array<{ role: string; content: string }>,
-  vehicleContext: unknown,
-  customerEmail: string | null
-): Promise<CannedResponseClip | null> {
-  // V2.0: Audio/canned responses disabled - short-circuit to null (architecture preserved)
-  console.log('[Canned Response] V2.0: Canned responses disabled, passing to AI');
-  return null;
-
-  // Only check last user message
-  const lastMessage = messages.filter(m => m.role === 'user').pop();
-  if (!lastMessage) return null;
-  
-  const userText = lastMessage.content.toLowerCase();
-  
-  // Check if this is a vehicle-specific request without vehicle context
-  const isVehicleSpecificRequest = VEHICLE_SPECIFIC_KEYWORDS.some(kw => 
-    userText.includes(kw.toLowerCase())
-  );
-  
-  const hasVehicleContext = !!vehicleContext;
-  
-  // NEW: Check if user already provided a REGO in their message
-  const userProvidedRego = containsRegoPattern(lastMessage.content);
-  
-  // Trigger: User asks for parts but no vehicle identified AND didn't provide REGO
-  // If user provided REGO, let AI process it and call lookup_vehicle
-  if (isVehicleSpecificRequest && !hasVehicleContext && !userProvidedRego) {
-    console.log(`[Canned Response] Vehicle-specific request without REGO - triggering need_rego`);
-    try {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL");
-      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-      
-      if (!supabaseUrl || !supabaseKey) {
-        console.log('[Canned Response] Missing Supabase credentials');
-        return null;
-      }
-      
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      
-      // Look for an active canned response for 'need_rego' trigger
-      const { data, error } = await supabase
-        .from('bob_audio_clips')
-        .select('transcript, audio_url, clip_key')
-        .eq('response_trigger', 'need_rego')
-        .eq('bypass_ai', true)
-        .eq('is_active', true)
-        .single();
-      
-      if (error || !data) {
-        console.log('[Canned Response] No matching clip found:', error?.message);
-        return null;
-      }
-      
-      console.log(`[Canned Response] Matched 'need_rego' trigger for: "${userText.substring(0, 30)}..."`);
-      return data as CannedResponseClip;
-    } catch (err) {
-      console.error('[Canned Response] Error checking clips:', err);
-      return null;
-    }
-  }
-  
-  return null;
-}
+// Canned response system removed in v3.2.18 — all responses go through AI + TTS
 
 const tools = [
   {
@@ -2352,44 +2225,7 @@ serve(async (req) => {
       }
     }
 
-    // ============= CANNED RESPONSE SYSTEM =============
-    // Check if we can bypass AI entirely for common triggers
-    // NOTE: Only check canned response if we didn't just force a REGO lookup
-    const cannedResponse = (!forcedLookupResult && !forcedCandidates.length && !forcedSingleVehicle)
-      ? await checkCannedResponse(messages, vehicleContext, customerEmail)
-      : null;
-    
-    if (cannedResponse) {
-      console.log(`[Canned Response] Bypassing AI with: "${cannedResponse.transcript.substring(0, 50)}..."`);
-      
-      // Return canned response as SSE stream (no AI call)
-      const encoder = new TextEncoder();
-      const stream = new ReadableStream({
-        start(controller) {
-          // Emit the canned text as if it were streamed
-          const textEvent = `data: ${JSON.stringify({
-            choices: [{ delta: { content: cannedResponse.transcript } }]
-          })}\n\n`;
-          controller.enqueue(encoder.encode(textEvent));
-          
-          // Emit audio_url hint for frontend to play exact audio
-          const audioHint = `data: ${JSON.stringify({
-            type: 'audio_hint',
-            audio_url: cannedResponse.audio_url,
-            clip_key: cannedResponse.clip_key
-          })}\n\n`;
-          controller.enqueue(encoder.encode(audioHint));
-          
-          // End stream
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-          controller.close();
-        }
-      });
-
-      return new Response(stream, {
-        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
-      });
-    }
+    // Canned response system removed in v3.2.18 — all responses go through AI
 
     // ============= STATE-DRIVEN RESPONSE GENERATION =============
     // Determine conversation state BEFORE deciding whether to call AI
@@ -2999,49 +2835,7 @@ Use light humor and be helpful while being honest about the limitation.`
         for (const toolCall of assistantMessage.tool_calls) {
           console.log('Tool call:', toolCall.function.name, toolCall.function.arguments);
           
-          // Check for searching audio clips before executing tool
-          if (toolCall.function.name === 'lookup_vehicle') {
-            const searchingClip = await getSearchingClip('vehicle');
-            if (searchingClip) {
-              const existingEvents = (conversationMessages as unknown as { _searchingEventsToEmit?: unknown[] })._searchingEventsToEmit || [];
-              (conversationMessages as unknown as { _searchingEventsToEmit?: unknown[] })._searchingEventsToEmit = [
-                ...existingEvents,
-                {
-                  type: 'bob_searching',
-                  search_type: 'vehicle',
-                  transcript: searchingClip.transcript,
-                  audio_url: searchingClip.audio_url,
-                  clip_key: searchingClip.clip_key
-                }
-              ];
-            }
-          } else if (toolCall.function.name === 'retrieve_parts' || toolCall.function.name === 'retrieve_service_packages') {
-            // Only play parts searching audio if vehicle is ALREADY confirmed
-            // (effectiveVehicleContext exists from session or previous confirmation)
-            if (effectiveVehicleContext) {
-              const searchingClip = await getSearchingClip('parts');
-              if (searchingClip) {
-                const existingEvents = (conversationMessages as unknown as { _searchingEventsToEmit?: unknown[] })._searchingEventsToEmit || [];
-                // Only add parts searching if not already queued
-                const alreadyHasParts = existingEvents.some((e: any) => e.search_type === 'parts');
-                if (!alreadyHasParts) {
-                  console.log(`[Searching Audio] Vehicle confirmed, queuing parts searching audio`);
-                  (conversationMessages as unknown as { _searchingEventsToEmit?: unknown[] })._searchingEventsToEmit = [
-                    ...existingEvents,
-                    {
-                      type: 'bob_searching',
-                      search_type: 'parts',
-                      transcript: searchingClip.transcript,
-                      audio_url: searchingClip.audio_url,
-                      clip_key: searchingClip.clip_key
-                    }
-                  ];
-                }
-              }
-            } else {
-              console.log(`[Searching Audio] Vehicle NOT confirmed yet, skipping parts searching audio`);
-            }
-          }
+          // (Searching audio clips removed in v3.2.18)
           
           const result = await executeToolCall(toolCall, apiConfig);
           
@@ -3549,22 +3343,7 @@ ${partsSummary}`;
           let vehicleEmitted = false;
           let partsEmitted = false;
           
-          // ============= EMIT SEARCHING EVENTS FIRST =============
-          const searchingEventsToEmit = (conversationMessages as unknown as { _searchingEventsToEmit?: Array<{
-            type: string;
-            search_type: string;
-            transcript: string;
-            audio_url: string;
-            clip_key: string;
-          }> })._searchingEventsToEmit;
-          
-          if (searchingEventsToEmit && searchingEventsToEmit.length > 0) {
-            for (const searchEvent of searchingEventsToEmit) {
-              const event = `data: ${JSON.stringify(searchEvent)}\n\n`;
-              controller.enqueue(encoder.encode(event));
-              console.log(`[Stream] Emitted bob_searching: ${searchEvent.search_type}`);
-            }
-          }
+          // (Searching audio events removed in v3.2.18)
           
           // ============= EMIT VEHICLE CANDIDATES (for client storage) =============
           if (vehicleCandidatesToEmit && vehicleCandidatesToEmit.length > 0 && multipleVehiclesFound) {
