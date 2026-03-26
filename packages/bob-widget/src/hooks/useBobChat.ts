@@ -871,52 +871,14 @@ export const useBobChat = ({
         onHighlightProduct?.({ brand, price: parseFloat(price) });
       }
 
-      // Handle speech - SANITIZE specifically for TTS
-      // Use global audio controller to prevent overlap
-      const audioController = audioControllerRef.current;
-      
+      // Handle speech via TTS only (canned audio removed in v3.2.18)
       if (!isMuted && latestAssistantMessageRef.current.trim()) {
         speechStartedRef.current = false;
         clearFallbackTimeout();
         
-        // Check if canned audio is queued (has priority over TTS)
-        if (audioController.hasCannedAudio && audioController.cannedUrl) {
-          console.log('[BobWidget] Playing canned audio (priority):', audioController.cannedUrl);
-          
-          // Stop any searching audio
-          stopAllAudio();
-          
-          playControlledAudio(audioController.cannedUrl, 'canned', () => {
-            // Reset canned audio state
-            audioController.hasCannedAudio = false;
-            audioController.cannedUrl = null;
-            
-            clearFallbackTimeout();
-            if (!manualMode) {
-              if (hasProductContent && onShowingProduct) {
-                onShowingProduct();
-              } else if (onStreamComplete) {
-                onStreamComplete();
-              } else {
-                safeSetState(completeState);
-                setTimeout(() => safeSetState(listenState), 3000);
-              }
-            }
-          });
-          
-          // Mark speech as started for the fallback
-          speechStartedRef.current = true;
-          onReadyToSpeak?.();
-          
-        } else if (!audioController.isPlaying) {
-          // Only use TTS if no audio is currently playing
-          const ttsText = sanitizeForTTS(latestAssistantMessageRef.current);
-          console.log('[BobWidget] Playing TTS (no canned audio)');
-          speak(ttsText);
-        } else {
-          // Audio is playing - skip TTS
-          console.log('[BobWidget] Skipping TTS - audio already playing:', audioController.source);
-        }
+        const ttsText = sanitizeForTTS(latestAssistantMessageRef.current);
+        console.log('[BobWidget] Playing TTS');
+        speak(ttsText);
         
         fallbackTimeoutRef.current = setTimeout(() => {
           if (!speechStartedRef.current) {
