@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { BobProvider } from '../BobProvider';
 import { Bob, BobVariant } from './Bob';
 import { BOB_VERSION } from '../version';
 import { useMicPermission } from '../hooks/useMicPermission';
+import { setupIOSAudioUnlock } from '../utils/iosAudioUnlock';
 import type {
   BobConfig,
   HostApiConfig,
