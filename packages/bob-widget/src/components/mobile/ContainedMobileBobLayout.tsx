@@ -201,7 +201,10 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
       style={{
         overflow: 'clip',
         isolation: 'isolate',
-      }}
+        WebkitUserSelect: 'none',
+        userSelect: 'none',
+        WebkitTouchCallout: 'none',
+      } as React.CSSProperties}
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* Background - v3.1.10: Config-driven blur via CSS variable */}

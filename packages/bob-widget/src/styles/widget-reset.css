@@ -57,10 +57,14 @@
 }
 
 /* Reset inputs - override CarFix's !important font-size: 16px */
+/* Re-enable text selection on inputs so users can type and select text */
 .bob-widget-root input,
 .bob-widget-root textarea {
   /* Targeted overrides only - NOT using all: unset */
   font-size: 16px !important;
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important;
 }
 
 /* Reset focus states - Bob's own focus indicators */
