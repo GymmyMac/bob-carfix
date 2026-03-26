@@ -43,12 +43,13 @@ export const getAudioContext = (): AudioContext => {
 export const resumeAudioContext = async (): Promise<boolean> => {
   const ac = getAudioContext();
   if (!ac) return false;
-  if (ac.state === 'running') return true;
+  const state = ac.state as string;
+  if (state === 'running') return true;
 
   try {
     await ac.resume();
     console.log('[BobWidget] AudioContext resumed →', ac.state);
-    return ac.state === 'running';
+    return (ac.state as string) === 'running';
   } catch (e) {
     console.warn('[BobWidget] AudioContext resume failed:', e);
     return false;
