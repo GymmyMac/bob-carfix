@@ -2835,49 +2835,7 @@ Use light humor and be helpful while being honest about the limitation.`
         for (const toolCall of assistantMessage.tool_calls) {
           console.log('Tool call:', toolCall.function.name, toolCall.function.arguments);
           
-          // Check for searching audio clips before executing tool
-          if (toolCall.function.name === 'lookup_vehicle') {
-            const searchingClip = await getSearchingClip('vehicle');
-            if (searchingClip) {
-              const existingEvents = (conversationMessages as unknown as { _searchingEventsToEmit?: unknown[] })._searchingEventsToEmit || [];
-              (conversationMessages as unknown as { _searchingEventsToEmit?: unknown[] })._searchingEventsToEmit = [
-                ...existingEvents,
-                {
-                  type: 'bob_searching',
-                  search_type: 'vehicle',
-                  transcript: searchingClip.transcript,
-                  audio_url: searchingClip.audio_url,
-                  clip_key: searchingClip.clip_key
-                }
-              ];
-            }
-          } else if (toolCall.function.name === 'retrieve_parts' || toolCall.function.name === 'retrieve_service_packages') {
-            // Only play parts searching audio if vehicle is ALREADY confirmed
-            // (effectiveVehicleContext exists from session or previous confirmation)
-            if (effectiveVehicleContext) {
-              const searchingClip = await getSearchingClip('parts');
-              if (searchingClip) {
-                const existingEvents = (conversationMessages as unknown as { _searchingEventsToEmit?: unknown[] })._searchingEventsToEmit || [];
-                // Only add parts searching if not already queued
-                const alreadyHasParts = existingEvents.some((e: any) => e.search_type === 'parts');
-                if (!alreadyHasParts) {
-                  console.log(`[Searching Audio] Vehicle confirmed, queuing parts searching audio`);
-                  (conversationMessages as unknown as { _searchingEventsToEmit?: unknown[] })._searchingEventsToEmit = [
-                    ...existingEvents,
-                    {
-                      type: 'bob_searching',
-                      search_type: 'parts',
-                      transcript: searchingClip.transcript,
-                      audio_url: searchingClip.audio_url,
-                      clip_key: searchingClip.clip_key
-                    }
-                  ];
-                }
-              }
-            } else {
-              console.log(`[Searching Audio] Vehicle NOT confirmed yet, skipping parts searching audio`);
-            }
-          }
+          // (Searching audio clips removed in v3.2.18)
           
           const result = await executeToolCall(toolCall, apiConfig);
           
