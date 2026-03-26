@@ -184,6 +184,10 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
         touchAction: 'manipulation',
         // CRITICAL: Create single stacking context for deterministic z-index
         isolation: 'isolate',
+        // Prevent long-press selection of images on mobile (PTT hold fix)
+        WebkitUserSelect: 'none',
+        userSelect: 'none',
+        WebkitTouchCallout: 'none',
       }}
     >
       {/* Background - v3.1.10: Config-driven blur via CSS variable */}
