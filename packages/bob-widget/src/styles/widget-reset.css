@@ -21,6 +21,11 @@
   isolation: isolate;
   contain: layout style;
   
+  /* Prevent long-press selection of images/elements on mobile (PTT hold fix) */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  
   /* Override CarFix's box model */
   box-sizing: border-box;
   
