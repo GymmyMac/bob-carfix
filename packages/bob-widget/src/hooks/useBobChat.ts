@@ -1032,6 +1032,10 @@ export const useBobChat = ({
     setMessages(prev => [...prev, userMessage]);
 
     onResearchStart?.();
+    // v3.2.18: Only show shelf spinner if vehicle already confirmed
+    if (identifiedVehicle) {
+      onPartsResearchStart?.();
+    }
     if (!manualMode) safeSetState(thinkingState);
 
     setIsLoading(true);
