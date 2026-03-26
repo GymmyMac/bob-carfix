@@ -170,6 +170,7 @@ export const useBobChat = ({
   onStreamComplete,
   onShowingProduct,
   onResearchStart,
+  onPartsResearchStart,
   onReadyToSpeak,
   onHighlightPart,
   onHighlightProduct,
