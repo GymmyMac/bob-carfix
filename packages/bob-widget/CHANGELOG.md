@@ -5,6 +5,14 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.18] - 2026-03-26
+
+### Fixed
+
+- **iOS TTS now works on ALL iOS browsers (Safari, Chrome, Firefox)** — Replaced the silent-WAV `HTMLAudioElement` unlock with a shared **Web Audio API `AudioContext`** singleton. The context is `.resume()`'d on the first user gesture and stays unlocked for the page lifetime. All TTS playback now routes through `decodeAudioData()` → `AudioBufferSourceNode`, which succeeds even after async `fetch()` calls. This fixes the root cause: iOS WebKit does not transfer an audio "unlock" between different `Audio` elements.
+
+---
+
 ## [v3.2.17] - 2026-03-26
 
 ### Fixed

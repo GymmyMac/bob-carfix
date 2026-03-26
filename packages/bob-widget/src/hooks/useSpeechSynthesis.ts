@@ -1,5 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useBobContext } from "../BobProvider";
+import {
+  playAudioBuffer,
+  resumeAudioContext,
+  type PlaybackHandle,
+} from "../utils/iosAudioUnlock";
 
 interface UseSpeechSynthesisProps {
   onStart?: () => void;
@@ -11,7 +16,6 @@ interface UseSpeechSynthesisProps {
 const TTS_TIMEOUT_MS = 15000;
 
 // Pattern matching for pre-recorded audio clips
-// These patterns identify standard phrases that can use cached MP3s
 const CLIP_PATTERNS: Record<string, RegExp> = {
   greeting_returning: /ah hey|you again|what you after this time/i,
   greeting_welcome: /g'?day|welcome.*carfix|bob.*here/i,
@@ -37,25 +41,27 @@ export const useSpeechSynthesis = ({
 }: UseSpeechSynthesisProps = {}) => {
   const { bobConfig, bobSupabase: supabase } = useBobContext();
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Replaced HTMLAudioElement ref with Web Audio API PlaybackHandle
+  const playbackRef = useRef<PlaybackHandle | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startTriggeredRef = useRef(false);
-  
+
   // Queue for speech requests - greetings get priority
   const speechQueueRef = useRef<Array<{ text: string; isGreeting: boolean }>>([]);
   const isProcessingRef = useRef(false);
   const greetingPlayingRef = useRef(false);
-  
+
   // Store pending greeting for user interaction retry
   const pendingGreetingRef = useRef<string | null>(null);
-  
+
   // Track last queued greeting to prevent duplicates
   const lastQueuedGreetingRef = useRef<string | null>(null);
-  
+
   const onStartRef = useRef(onStart);
   const onEndRef = useRef(onEnd);
   const onFailedRef = useRef(onFailed);
-  
+
   useEffect(() => {
     onStartRef.current = onStart;
     onEndRef.current = onEnd;
@@ -79,15 +85,12 @@ export const useSpeechSynthesis = ({
 
   // Fetch pre-recorded audio clip from database with caching
   const fetchAudioClip = useCallback(async (clipKey: string): Promise<{ audio_url: string } | null> => {
-    // Check cache first
     if (clipCache.has(clipKey)) {
       const cached = clipCache.get(clipKey);
-      console.log(`[BobWidget TTS] Cache hit for clip: ${clipKey}`, cached ? 'found' : 'null');
       return cached || null;
     }
 
     try {
-      console.log(`[BobWidget TTS] Fetching clip from DB: ${clipKey}`);
       const { data, error } = await supabase
         .from('bob_audio_clips')
         .select('audio_url')
@@ -96,12 +99,10 @@ export const useSpeechSynthesis = ({
         .single();
 
       if (error || !data) {
-        console.log(`[BobWidget TTS] No clip found for: ${clipKey}`);
         clipCache.set(clipKey, null);
         return null;
       }
 
-      console.log(`[BobWidget TTS] Clip found: ${clipKey} -> ${data.audio_url}`);
       clipCache.set(clipKey, data);
       return data;
     } catch (error) {
@@ -130,27 +131,28 @@ export const useSpeechSynthesis = ({
     if (isProcessingRef.current || speechQueueRef.current.length === 0) {
       return;
     }
-    
+
     isProcessingRef.current = true;
     const item = speechQueueRef.current.shift();
-    
+
     if (!item) {
       isProcessingRef.current = false;
       return;
     }
-    
+
     const { text, isGreeting } = item;
-    
+
     if (isGreeting) {
       greetingPlayingRef.current = true;
     }
-    
+
     startTriggeredRef.current = false;
     clearTtsTimeout();
 
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
+    // Stop any current playback
+    if (playbackRef.current) {
+      playbackRef.current.stop();
+      playbackRef.current = null;
     }
 
     // Set timeout for this speech attempt
@@ -161,24 +163,29 @@ export const useSpeechSynthesis = ({
       greetingPlayingRef.current = false;
       onEndRef.current?.();
       onFailedRef.current?.();
-      audioRef.current = null;
+      playbackRef.current = null;
       isProcessingRef.current = false;
-      // Process next in queue
       processQueue();
     }, TTS_TIMEOUT_MS);
 
     try {
-      let audioUrl: string | null = null;
+      let audioArrayBuffer: ArrayBuffer | null = null;
 
-      // ========== NEW: Try pre-recorded clip first ==========
-      audioUrl = await tryMatchPrerecordedClip(text);
-      
-      if (audioUrl) {
+      // ========== Try pre-recorded clip first ==========
+      const clipUrl = await tryMatchPrerecordedClip(text);
+
+      if (clipUrl) {
         console.log("[BobWidget TTS] Using pre-recorded audio (fast path)");
-      } else {
-        // ========== FALLBACK: Use ElevenLabs TTS ==========
+        const clipResp = await fetch(clipUrl);
+        if (clipResp.ok) {
+          audioArrayBuffer = await clipResp.arrayBuffer();
+        }
+      }
+
+      // ========== Fallback: ElevenLabs TTS ==========
+      if (!audioArrayBuffer) {
         console.log("[BobWidget TTS] No pre-recorded clip, using ElevenLabs TTS");
-        
+
         const sanitizedText = sanitizeForTTS(text);
         const response = await fetch(
           `${bobConfig.supabaseUrl}/functions/v1/bob-tts-elevenlabs`,
@@ -198,74 +205,49 @@ export const useSpeechSynthesis = ({
           throw new Error("TTS request failed");
         }
 
-        const audioBlob = await response.blob();
-        audioUrl = URL.createObjectURL(audioBlob);
+        audioArrayBuffer = await response.arrayBuffer();
       }
-      
-      // ========== UNCHANGED: Audio playback with animation callbacks ==========
-      // This works identically for pre-recorded OR TTS audio
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
 
-      audio.onplay = () => {
-        clearTtsTimeout();
-        pendingGreetingRef.current = null;
-        if (!startTriggeredRef.current) {
-          startTriggeredRef.current = true;
-          setIsSpeaking(true);
-          console.log("[BobWidget TTS] Audio playing, triggering onStart (animation: TALKING)");
-          onStartRef.current?.();  // ← Bob starts TALKING animation
-        }
-      };
+      // ========== Play via shared AudioContext ==========
+      // Ensure context is resumed (may have been suspended by OS)
+      await resumeAudioContext();
 
-      audio.onended = () => {
-        clearTtsTimeout();
-        setIsSpeaking(false);
-        greetingPlayingRef.current = false;
-        console.log("[BobWidget TTS] Audio ended, triggering onEnd (animation: COMPLETE/IDLE)");
-        onEndRef.current?.();  // ← Bob transitions to COMPLETE/IDLE
-        audioRef.current = null;
-        isProcessingRef.current = false;
-        // Process next in queue
-        processQueue();
-      };
+      const handle = await playAudioBuffer(
+        audioArrayBuffer,
+        // onStart — audio is actually playing
+        () => {
+          clearTtsTimeout();
+          pendingGreetingRef.current = null;
+          if (!startTriggeredRef.current) {
+            startTriggeredRef.current = true;
+            setIsSpeaking(true);
+            console.log("[BobWidget TTS] Audio playing via AudioContext, triggering onStart");
+            onStartRef.current?.();
+          }
+        },
+        // onEnded — buffer finished
+        () => {
+          clearTtsTimeout();
+          setIsSpeaking(false);
+          greetingPlayingRef.current = false;
+          console.log("[BobWidget TTS] Audio ended, triggering onEnd");
+          onEndRef.current?.();
+          playbackRef.current = null;
+          isProcessingRef.current = false;
+          processQueue();
+        },
+      );
 
-      audio.onerror = (e) => {
-        clearTtsTimeout();
-        console.warn("[BobWidget TTS] Audio playback error:", e);
-        triggerFallbackStart();
-        setIsSpeaking(false);
-        greetingPlayingRef.current = false;
-        onEndRef.current?.();
-        onFailedRef.current?.();  // ← Graceful fallback
-        audioRef.current = null;
-        isProcessingRef.current = false;
-        // Process next in queue
-        processQueue();
-      };
-
-      try {
-        await audio.play();
-      } catch (playError) {
-        console.warn("[BobWidget TTS] Audio play() failed (autoplay policy):", playError);
-        clearTtsTimeout();
-        
-        // Store greeting for retry on user interaction
-        if (isGreeting) {
-          pendingGreetingRef.current = text;
-          console.log("[BobWidget TTS] Greeting stored for retry on user interaction");
-        }
-        
-        triggerFallbackStart();
-        setIsSpeaking(false);
-        greetingPlayingRef.current = false;
-        onEndRef.current?.();
-        isProcessingRef.current = false;
-        // Process next in queue
-        processQueue();
-      }
+      playbackRef.current = handle;
     } catch (error) {
       clearTtsTimeout();
+
+      // If it's a greeting and AudioContext isn't running, store for retry
+      if (isGreeting) {
+        pendingGreetingRef.current = text;
+        console.log("[BobWidget TTS] Greeting stored for retry on user interaction");
+      }
+
       console.error("[BobWidget TTS] Speech synthesis error:", error);
       triggerFallbackStart();
       setIsSpeaking(false);
@@ -273,7 +255,6 @@ export const useSpeechSynthesis = ({
       onEndRef.current?.();
       onFailedRef.current?.();
       isProcessingRef.current = false;
-      // Process next in queue
       processQueue();
     }
   }, [bobConfig.supabaseUrl, bobConfig.supabaseKey, clearTtsTimeout, triggerFallbackStart, tryMatchPrerecordedClip]);
@@ -288,7 +269,6 @@ export const useSpeechSynthesis = ({
         return;
       }
       lastQueuedGreetingRef.current = text;
-      // Clear pending since we're about to queue it
       pendingGreetingRef.current = null;
     }
 
@@ -305,14 +285,13 @@ export const useSpeechSynthesis = ({
     } else {
       speechQueueRef.current.push({ text, isGreeting });
     }
-    
+
     processQueue();
   }, [processQueue]);
 
   // Retry pending greeting on user interaction
   const retryPendingGreeting = useCallback(() => {
-    // Only retry if we have a pending greeting AND audio isn't already playing
-    if (pendingGreetingRef.current && !audioRef.current && !isProcessingRef.current) {
+    if (pendingGreetingRef.current && !playbackRef.current && !isProcessingRef.current) {
       console.log("[BobWidget TTS] Retrying pending greeting on user interaction");
       const greetingText = pendingGreetingRef.current;
       pendingGreetingRef.current = null;
@@ -322,38 +301,39 @@ export const useSpeechSynthesis = ({
 
   const stop = useCallback((suppressCallbacks = false) => {
     clearTtsTimeout();
-    speechQueueRef.current = []; // Clear queue
-    if (audioRef.current) {
-      // Remove listeners BEFORE pausing so onended doesn't fire
-      audioRef.current.onended = null;
-      audioRef.current.onerror = null;
-      audioRef.current.pause();
-      audioRef.current = null;
+    speechQueueRef.current = [];
+    if (playbackRef.current) {
+      playbackRef.current.stop();
+      playbackRef.current = null;
     }
     setIsSpeaking(false);
     greetingPlayingRef.current = false;
     isProcessingRef.current = false;
-    // Fire onEnd so the animation state machine exits TALK state immediately
     if (!suppressCallbacks) {
       onEndRef.current?.();
     }
   }, [clearTtsTimeout]);
 
   const pause = useCallback(() => {
-    audioRef.current?.pause();
+    // Web Audio API doesn't support pause on BufferSourceNode
+    // Stop is the equivalent — the queue will continue with next item
+    if (playbackRef.current) {
+      playbackRef.current.stop();
+    }
   }, []);
 
   const resume = useCallback(() => {
-    audioRef.current?.play();
+    // No-op: Web Audio BufferSourceNode can't be resumed after stop
+    // Left for API compatibility
   }, []);
 
   useEffect(() => {
     return () => {
       clearTtsTimeout();
       speechQueueRef.current = [];
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
+      if (playbackRef.current) {
+        playbackRef.current.stop();
+        playbackRef.current = null;
       }
     };
   }, [clearTtsTimeout]);
