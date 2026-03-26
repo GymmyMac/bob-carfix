@@ -877,7 +877,7 @@ function matchUserInputToCandidate(
   return null;
 }
 
-// ============= CANNED RESPONSE SYSTEM =============
+// ============= REGO DETECTION UTILITIES =============
 
 // NZ Registration plate pattern detection
 // Patterns: ABC123, ABC-123, AB1234, AB-1234, ABC12, 123ABC (older format)
