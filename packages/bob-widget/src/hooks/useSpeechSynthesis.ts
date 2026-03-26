@@ -112,22 +112,9 @@ export const useSpeechSynthesis = ({
     }, TTS_TIMEOUT_MS);
 
     try {
-      let audioArrayBuffer: ArrayBuffer | null = null;
-
-      // ========== Try pre-recorded clip first ==========
-      const clipUrl = await tryMatchPrerecordedClip(text);
-
-      if (clipUrl) {
-        console.log("[BobWidget TTS] Using pre-recorded audio (fast path)");
-        const clipResp = await fetch(clipUrl);
-        if (clipResp.ok) {
-          audioArrayBuffer = await clipResp.arrayBuffer();
-        }
-      }
-
-      // ========== Fallback: ElevenLabs TTS ==========
-      if (!audioArrayBuffer) {
-        console.log("[BobWidget TTS] No pre-recorded clip, using ElevenLabs TTS");
+      // ========== ElevenLabs TTS ==========
+      {
+        console.log("[BobWidget TTS] Using ElevenLabs TTS");
 
         const sanitizedText = sanitizeForTTS(text);
         const response = await fetch(
