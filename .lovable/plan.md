@@ -1,48 +1,65 @@
 
 
-## Confirming: Does the Plan Preserve Touch Interactions?
+# iOS TTS Fix — Web Audio API Approach
 
-**Yes — both concerns are already handled by the scoped approach.**
+## Root Cause
 
-### 1. Product shelf items remain tappable
+**All browsers on iOS use WebKit** (Apple's requirement). Chrome on iOS = Safari's engine with a Chrome skin. The current fix plays a silent WAV via a throwaway `new Audio()` element, but iOS WebKit does **not** transfer that "unlock" to different `Audio` elements created later after an async `fetch()`. The user gesture call stack is gone by the time the TTS response arrives.
 
-`user-select: none` only suppresses **text/image selection** (the blue highlight on long-press). It does **not** block `click`, `touchstart`, `touchend`, or `pointerdown` events. All product tiles, service package cards, variant selection cards, and "Add to Cart" buttons will continue to fire their `onClick` / `onProductClick` / `onPackageSelect` handlers exactly as before.
+## Solution
 
-### 2. Host page elements remain selectable
+Replace `new Audio(url).play()` with a **shared `AudioContext` singleton** that gets `.resume()`'d on the first user gesture and stays unlocked permanently. All TTS audio is then decoded and played as `AudioBufferSourceNode`s through this context.
 
-Every CSS rule is scoped to `.bob-widget-root`:
+### Files to change
 
-```css
-.bob-widget-root {
-  -webkit-user-select: none;
-  user-select: none;
-}
+1. **`packages/bob-widget/src/utils/iosAudioUnlock.ts`** — Rewrite to:
+   - Create a singleton `AudioContext` (with `webkitAudioContext` fallback)
+   - Export `resumeAudioContext()` — called on first gesture, resumes the context permanently
+   - Export `playAudioBuffer(arrayBuffer, onStart, onEnded)` — decodes raw audio bytes and plays through the shared context, returns a stop handle
+   - Export `isAudioContextReady()` for diagnostics
+   - Keep the `setupIOSAudioUnlock()` entry point but have it call `resumeAudioContext()` instead of playing a silent WAV
+
+2. **`packages/bob-widget/src/hooks/useSpeechSynthesis.ts`** — Modify `processQueue`:
+   - Fetch TTS response as `.arrayBuffer()` instead of `.blob()`
+   - For pre-recorded clips, fetch the URL as arrayBuffer too
+   - Play via `playAudioBuffer()` instead of `new Audio(url).play()`
+   - Wire `onStart`/`onEnded` callbacks through the buffer source node
+   - Use `source.stop()` for interrupts instead of `audio.pause()`
+   - Remove `audioRef` (HTMLAudioElement) and replace with `sourceRef` (AudioBufferSourceNode)
+
+3. **`packages/bob-widget/CHANGELOG.md`** — Document the fix
+
+### Key code approach
+
+```text
+┌─────────────────────────────────────────────┐
+│  User taps widget (first interaction)       │
+│  → setupIOSAudioUnlock calls resume()       │
+│  → AudioContext.state becomes "running"     │
+│  → Context stays unlocked for page lifetime │
+└─────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────┐
+│  TTS response arrives (async, no gesture)   │
+│  → fetch → .arrayBuffer()                   │
+│  → ctx.decodeAudioData(buffer)              │
+│  → source = ctx.createBufferSource()        │
+│  → source.connect(ctx.destination)          │
+│  → source.start(0)  ← works because ctx    │
+│    was already unlocked                     │
+└─────────────────────────────────────────────┘
 ```
 
-Elements **outside** `.bob-widget-root` (CarFix navigation, page content, forms) are completely unaffected. The widget is rendered inside its own isolated container, so host-page selectability is untouched.
+### CarFix Dev Team Prompt
 
-### 3. Chat input still allows text editing
+As part of the plan output, I will include a ready-to-copy prompt for the CarFix development team covering CSP headers, Permissions-Policy, and iframe `allow` attributes they should verify on their end.
 
-The plan explicitly re-enables selection on inputs:
+## Technical Details
 
-```css
-.bob-widget-root input,
-.bob-widget-root textarea {
-  -webkit-user-select: text !important;
-  user-select: text !important;
-}
-```
-
----
-
-### Summary
-
-| Interaction | Affected? |
-|---|---|
-| Tap product tiles / service packages | No — taps still work |
-| Long-press PTT button | Fixed — no more image selection |
-| Type in chat input | No — text selection re-enabled on inputs |
-| Select text on host page | No — rules scoped to `.bob-widget-root` only |
-
-**The plan is safe to implement as-is. No modifications needed.**
+- `AudioContext` is supported on all iOS browsers (Safari, Chrome, Firefox — all WebKit)
+- Once resumed during a user gesture, it stays in `"running"` state until the page is closed
+- `decodeAudioData` handles MP3 natively on all modern browsers
+- The `stop()` method on `AudioBufferSourceNode` is the equivalent of `audio.pause()` for interrupts
+- Pre-recorded clip URLs will be fetched as ArrayBuffers via `fetch(url).then(r => r.arrayBuffer())` before decoding
 
