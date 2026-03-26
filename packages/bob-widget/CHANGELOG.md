@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **`identifiedVehicle` now persisted in session** — Previously, navigating away and returning restored messages and conversation state but lost the identified vehicle. This caused `vehicleContext` to be `null` in subsequent requests, breaking `add_to_cart` and other vehicle-dependent tools. The vehicle is now saved/restored alongside all other session data.
+- **Long-press on PTT no longer selects images on mobile** — Added scoped `user-select: none` and `-webkit-touch-callout: none` to the widget root and layout containers. Text selection is re-enabled on `<input>` and `<textarea>` elements. Product tiles, variant cards, and host-page elements remain fully interactive and selectable.
 
 ---
 
