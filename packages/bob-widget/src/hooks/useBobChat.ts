@@ -390,7 +390,7 @@ export const useBobChat = ({
         const vehicleName = `${selectedVehicle.year} ${selectedVehicle.make} ${selectedVehicle.model}`;
         greetingMessage = `G'day! Saw you've got the ${vehicleName} - choice wagon! What can I help you find for it today?`;
       } else {
-        greetingMessage = "G'day! Bob from CARFIX here. How can I help ya today?";
+        greetingMessage = "Hey Bro, welcome to CARFIX - what can I get ya?";
       }
       
       setMessages([{ role: "assistant", content: greetingMessage }]);
