@@ -112,38 +112,34 @@ export const useSpeechSynthesis = ({
     }, TTS_TIMEOUT_MS);
 
     try {
-      // ========== ElevenLabs TTS ==========
-      {
-        console.log("[BobWidget TTS] Using ElevenLabs TTS");
+      console.log("[BobWidget TTS] Using ElevenLabs TTS");
 
-        const sanitizedText = sanitizeForTTS(text);
-        const response = await fetch(
-          `${bobConfig.supabaseUrl}/functions/v1/bob-tts-elevenlabs`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${bobConfig.supabaseKey}`,
-            },
-            body: JSON.stringify({ text: sanitizedText }),
-          }
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          console.error("[BobWidget TTS] Request failed:", errorData);
-          throw new Error("TTS request failed");
+      const sanitizedText = sanitizeForTTS(text);
+      const response = await fetch(
+        `${bobConfig.supabaseUrl}/functions/v1/bob-tts-elevenlabs`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${bobConfig.supabaseKey}`,
+          },
+          body: JSON.stringify({ text: sanitizedText }),
         }
+      );
 
-        const audioArrayBuffer = await response.arrayBuffer();
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("[BobWidget TTS] Request failed:", errorData);
+        throw new Error("TTS request failed");
+      }
+
+      const audioArrayBuffer = await response.arrayBuffer();
 
       // ========== Play via shared AudioContext ==========
-      // Ensure context is resumed (may have been suspended by OS)
       await resumeAudioContext();
 
       const handle = await playAudioBuffer(
         audioArrayBuffer,
-        // onStart — audio is actually playing
         () => {
           clearTtsTimeout();
           pendingGreetingRef.current = null;
@@ -154,7 +150,6 @@ export const useSpeechSynthesis = ({
             onStartRef.current?.();
           }
         },
-        // onEnded — buffer finished
         () => {
           clearTtsTimeout();
           setIsSpeaking(false);
