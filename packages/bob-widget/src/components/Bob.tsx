@@ -215,9 +215,14 @@ export const Bob: React.FC<BobProps> = ({
       setAnimationState(availableStates.find(s => s.includes('idle')) || 'idle');
     },
     onResearchStart: () => {
-      setIsResearching(true);
+      // v3.2.18: Animation-only — do NOT set isResearching here.
+      // The shelf spinner is now driven by onPartsResearchStart / SSE events only.
       // NOTE: Do NOT clear pendingVariants here - variant cards must stay visible
       // while Bob processes the selection. They are cleared only when identifiedVehicle is set.
+    },
+    onPartsResearchStart: () => {
+      // Only fires when we actually know parts are being fetched
+      setIsResearching(true);
     },
     onVariantSelectionRequired: (variants, make, model) => {
       // Stop the loading state so the shelf can show the selection cards

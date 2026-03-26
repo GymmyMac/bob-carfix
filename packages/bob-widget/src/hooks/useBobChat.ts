@@ -103,6 +103,8 @@ interface UseBobChatProps {
   onStreamComplete?: () => void;
   onShowingProduct?: () => void;
   onResearchStart?: () => void;
+  /** v3.2.18: Fires only when parts/packages are actually being fetched (not on every message) */
+  onPartsResearchStart?: () => void;
   onReadyToSpeak?: () => void;
   onHighlightPart?: (partType: string) => void;
   onHighlightProduct?: (product: HighlightedProduct) => void;
