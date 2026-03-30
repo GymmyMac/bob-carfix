@@ -200,10 +200,14 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
 
   return (
     <div 
+      ref={rootRef}
       className="absolute inset-0"
       style={{
+        // v3.2.20: Use observed pixel height to prevent dvh gap on mobile Safari
+        height: observedHeight ? `${observedHeight}px` : '100%',
         overflow: 'clip',
         isolation: 'isolate',
+        willChange: 'height',
         WebkitUserSelect: 'none',
         userSelect: 'none',
         WebkitTouchCallout: 'none',
