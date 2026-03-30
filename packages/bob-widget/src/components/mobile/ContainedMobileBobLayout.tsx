@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useContainerHeight } from "../../hooks/useContainerHeight";
 import { MobileBobCharacter } from "./MobileBobCharacter";
 import { MobileProductColumn, type VariantCard } from "./MobileProductColumn";
 import { ContainedChatDrawer } from "./ContainedChatDrawer";
@@ -111,6 +112,8 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
   bobOffset = 0,
   bobScale = 100
 }) => {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const observedHeight = useContainerHeight(rootRef);
   const [bobPosition, setBobPosition] = useState<'center' | 'partial-left'>('center');
   const [panelState, setPanelState] = useState<PanelState>('hidden');
   const [currentView, setCurrentView] = useState<ViewState>('products');
@@ -197,10 +200,14 @@ export const ContainedMobileBobLayout: React.FC<ContainedMobileBobLayoutProps> =
 
   return (
     <div 
+      ref={rootRef}
       className="absolute inset-0"
       style={{
+        // v3.2.20: Use observed pixel height to prevent dvh gap on mobile Safari
+        height: observedHeight ? `${observedHeight}px` : '100%',
         overflow: 'clip',
         isolation: 'isolate',
+        willChange: 'height',
         WebkitUserSelect: 'none',
         userSelect: 'none',
         WebkitTouchCallout: 'none',

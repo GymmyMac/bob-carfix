@@ -2,7 +2,7 @@
 // Demo route with mock CARFIX layout for testing BobStandalone
 // This mirrors the actual CARFIX production setup
 
-import React from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { BobStandalone } from '../../packages/bob-widget/src';
 
 /**
@@ -88,16 +88,53 @@ function MockCarfixBottomNav() {
  * - Bob Container: fills space between (calc(100dvh - 144px))
  */
 export default function AskBobPage() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = useState<number | null>(null);
+
+  /**
+   * Defensive height calculation using visualViewport + ResizeObserver.
+   * This ensures the Bob container always has a concrete pixel height,
+   * immune to dvh recalculations on mobile Safari (URL bar, keyboard).
+   *
+   * CARFIX production should replicate this pattern.
+   */
+  const recalcHeight = useCallback(() => {
+    const vp = window.visualViewport;
+    const vpHeight = vp ? vp.height : window.innerHeight;
+    // 72px header + 72px bottom nav = 144px reserved
+    setContainerHeight(vpHeight - 144);
+  }, []);
+
+  useEffect(() => {
+    recalcHeight();
+
+    const vp = window.visualViewport;
+    if (vp) {
+      vp.addEventListener('resize', recalcHeight);
+      vp.addEventListener('scroll', recalcHeight);
+    }
+    window.addEventListener('resize', recalcHeight);
+
+    return () => {
+      if (vp) {
+        vp.removeEventListener('resize', recalcHeight);
+        vp.removeEventListener('scroll', recalcHeight);
+      }
+      window.removeEventListener('resize', recalcHeight);
+    };
+  }, [recalcHeight]);
+
   return (
     <>
       {/* CARFIX Header - 72px fixed at top */}
       <MockCarfixHeader />
       
-      {/* Bob Container - fills space between header and nav */}
+      {/* Bob Container - explicit pixel height, immune to dvh fluctuations */}
       <main
+        ref={containerRef}
         className="mt-[72px]"
         style={{
-          height: 'calc(100dvh - 144px - env(safe-area-inset-bottom, 0px))',
+          height: containerHeight ? `${containerHeight}px` : 'calc(100dvh - 144px)',
           position: 'relative',
           overflow: 'hidden',
           width: '100%',
