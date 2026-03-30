@@ -5,6 +5,16 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.20] - 2026-03-30
+
+### Fixed
+
+- **Mobile height gap between chat drawer and bottom nav** — Replaced CSS percentage height inheritance (`absolute inset-0`) with explicit pixel heights via a new `useContainerHeight` hook backed by `ResizeObserver`. On mobile Safari, `dvh` recalculations during URL-bar show/hide and virtual keyboard transitions caused the container height to fluctuate, detaching the chat drawer from the bottom of the screen. The widget now observes its parent's actual pixel height and applies it directly, immune to `dvh` drift.
+- **Chat drawer GPU layer stability** — Added `will-change: transform, height` to `ContainedChatDrawer` to prevent compositor layer detachment during height transitions.
+- **AskBob demo page updated** — Reference implementation now uses `visualViewport` listeners to set explicit pixel height on the Bob container, serving as a guide for CARFIX production integration.
+
+---
+
 ## [v3.2.19] - 2026-03-26
 
 ### Fixed
