@@ -2,7 +2,7 @@
 // Demo route with mock CARFIX layout for testing BobStandalone
 // This mirrors the actual CARFIX production setup
 
-import React from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { BobStandalone } from '../../packages/bob-widget/src';
 
 /**
