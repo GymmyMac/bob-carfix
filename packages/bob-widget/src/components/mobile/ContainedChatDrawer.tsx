@@ -182,6 +182,8 @@ export const ContainedChatDrawer: React.FC<ContainedChatDrawerProps> = ({
         backfaceVisibility: 'hidden',
         WebkitBackfaceVisibility: 'hidden',
         isolation: 'isolate',
+        // v3.2.20: Hint to compositor — stabilises layer during dvh transitions
+        willChange: 'transform, height',
         ...glassPanel,
         // v3.2.2: Opaque dark background to prevent backdrop bleed-through (orange shelf behind)
         background: 'rgba(15, 23, 42, 0.92)',

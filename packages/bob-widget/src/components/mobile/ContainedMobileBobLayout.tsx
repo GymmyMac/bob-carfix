@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useContainerHeight } from "../../hooks/useContainerHeight";
 import { MobileBobCharacter } from "./MobileBobCharacter";
 import { MobileProductColumn, type VariantCard } from "./MobileProductColumn";
 import { ContainedChatDrawer } from "./ContainedChatDrawer";
