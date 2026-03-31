@@ -291,14 +291,39 @@
   -ms-overflow-style: none;
 }
 
-/* Hide scrollbar on horizontal product/tier scroll rows */
-.bob-widget-root .product-scroll-row::-webkit-scrollbar {
-  display: none;
+/* Hide scrollbar on mobile/tablet for product/tier scroll rows */
+@media (max-width: 1023px) {
+  .bob-widget-root .product-scroll-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .bob-widget-root .product-scroll-row {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
 }
 
-.bob-widget-root .product-scroll-row {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+/* Show thin styled scrollbar on desktop */
+@media (min-width: 1024px) {
+  .bob-widget-root .product-scroll-row::-webkit-scrollbar {
+    display: block;
+    height: 6px;
+  }
+  .bob-widget-root .product-scroll-row::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+  }
+  .bob-widget-root .product-scroll-row::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 3px;
+  }
+  .bob-widget-root .product-scroll-row::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.6);
+  }
+  .bob-widget-root .product-scroll-row {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.4) rgba(255,255,255,0.1);
+  }
 }
 
 /* ============================================
