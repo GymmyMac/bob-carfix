@@ -534,7 +534,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
               >
                 {/* Package Header - Clean gradient */}
                 <div 
-                  className="px-4 py-3.5"
+                  className="px-4 py-3.5 overflow-hidden"
                   style={{
                     background: `linear-gradient(135deg, ${CARFIX_COLORS.primary} 0%, #0066DD 100%)`,
                     borderRadius: '20px 20px 0 0',
