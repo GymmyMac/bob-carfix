@@ -986,7 +986,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                     data-testid="partslot-product"
                     className="snap-start flex-shrink-0"
                     style={{
-                      width: viewportSize === 'desktop' ? '32%' : viewportSize === 'tablet' ? '45%' : '75%',
+                      width: viewportSize === 'desktop' ? '32%' : viewportSize === 'tablet' ? '45%' : '65%',
                     }}
                   >
                     <ResponsiveProductCard

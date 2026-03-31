@@ -291,6 +291,16 @@
   -ms-overflow-style: none;
 }
 
+/* Hide scrollbar on horizontal product/tier scroll rows */
+.bob-widget-root .product-scroll-row::-webkit-scrollbar {
+  display: none;
+}
+
+.bob-widget-root .product-scroll-row {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
 /* ============================================
    High Contrast Input Placeholder Styling
    ============================================ */
