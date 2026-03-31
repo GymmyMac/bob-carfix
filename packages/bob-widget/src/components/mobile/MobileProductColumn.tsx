@@ -486,21 +486,17 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
         </div>
       )}
 
-      {/* Service Packages - CARFIX Tier Cards with Inline Accordion */}
-      {/* Service Packages - CARFIX Tier Cards with Inline Accordion */}
+      {/* Service Packages - Premium Tier Cards */}
       {showContent && servicePackages.length > 0 && (
         <div className="space-y-4">
           {servicePackages.map((pkg) => {
-            // Use preparedTiers from server (no fallback needed - API always provides them)
             const isRearBrake = isRearBrakePackage(pkg);
             const rawVisibleTiers = (pkg.preparedTiers || []).filter(tier => !tier.isHidden);
             
-            // Detect which brake types have real (non-zero priced) products
             const { hasDisc, hasDrum } = isRearBrake 
               ? detectAvailableBrakeTypes(rawVisibleTiers) 
               : { hasDisc: false, hasDrum: false };
             
-            // If only one type exists, force it; otherwise use user selection
             const effectiveBrakeType: RearBrakeType = 
               (isRearBrake && hasDisc && !hasDrum) ? 'disc' :
               (isRearBrake && hasDrum && !hasDisc) ? 'drum' :
@@ -514,16 +510,13 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
               });
             }
             
-            // Track selected tier for this package (default to recommended or first)
             const defaultTier = visibleTiers.find(t => t.isRecommended)?.tierName || visibleTiers[0]?.tierName || '';
             const selectedTierName = selectedTiers[pkg.id] || defaultTier;
             const selectedTier = visibleTiers.find(t => t.tierName === selectedTierName);
             
-            // Get description
             const description = getServicePackageDescription(pkg.title);
             const shortDescription = description.split('.')[0] + '.';
             
-            // Is this package expanded?
             const isExpanded = expandedPackageId === pkg.id;
             
             return (
@@ -532,155 +525,191 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                 ref={(el) => { groupRefs.current[pkg.title] = el; }}
                 className="overflow-hidden transition-all duration-300"
                 style={{
-                  background: CARFIX_COLORS.card,
-                  borderRadius: '16px',
-                  border: `1px solid ${CARFIX_COLORS.border}`,
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                  borderRadius: '20px',
+                  background: 'linear-gradient(145deg, rgba(255,255,255,0.97) 0%, rgba(248,250,252,0.95) 100%)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)',
+                  border: '1px solid rgba(226,232,240,0.8)',
                 }}
               >
-                {/* Package Header */}
+                {/* Package Header - Clean gradient */}
                 <div 
-                  className="px-4 py-3"
+                  className="px-4 py-3.5"
                   style={{
-                    background: `linear-gradient(135deg, ${CARFIX_COLORS.primary} 0%, ${CARFIX_COLORS.primaryHover} 100%)`,
+                    background: `linear-gradient(135deg, ${CARFIX_COLORS.primary} 0%, #0066DD 100%)`,
+                    borderRadius: '20px 20px 0 0',
                   }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 rounded-2xl bg-white/15 flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
                       <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                       </svg>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-white font-bold text-base leading-tight truncate">{pkg.title}</h3>
+                      <h3 className="text-white font-bold text-[15px] leading-tight truncate">{pkg.title}</h3>
                       {pkg.estimated_time && (
-                        <div className="flex items-center gap-3 mt-0.5">
-                          <span className="text-white/70 text-xs flex items-center gap-1">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            {pkg.estimated_time}
-                          </span>
-                        </div>
+                        <span className="text-white/60 text-[11px] flex items-center gap-1 mt-0.5">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {pkg.estimated_time}
+                        </span>
                       )}
                     </div>
                   </div>
                 </div>
                 
-                {/* Description */}
-                <div className="px-4 py-3 border-b" style={{ borderColor: CARFIX_COLORS.border }}>
-                  <p className="text-sm leading-relaxed" style={{ color: CARFIX_COLORS.mutedForeground }}>
+                {/* Description - Concise */}
+                <div className="px-4 py-2.5">
+                  <p className="text-[12px] leading-relaxed" style={{ color: CARFIX_COLORS.mutedForeground }}>
                     {shortDescription}
                   </p>
                   
-                  {/* Disc / Drum brake type toggle - only for Rear Brake Service */}
+                  {/* Disc / Drum brake type toggle */}
                   {isRearBrake && hasDisc && hasDrum && (
-                    <div className="mt-2 mb-1">
-                      <p className="text-[11px] mb-1.5" style={{ color: CARFIX_COLORS.mutedForeground }}>Select your vehicle's rear brake type</p>
-                      <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: CARFIX_COLORS.border }}>
+                    <div className="mt-2">
+                      <div className="flex rounded-xl overflow-hidden" style={{ border: `1px solid ${CARFIX_COLORS.border}` }}>
                         <button
                           onClick={() => setBrakeTypes(prev => ({ ...prev, [pkg.id]: 'disc' }))}
-                          className="flex-1 py-2 px-3 text-xs font-semibold transition-all"
+                          className="flex-1 py-1.5 px-3 text-[11px] font-semibold transition-all"
                           style={{
                             background: effectiveBrakeType === 'disc' ? CARFIX_COLORS.primary : 'transparent',
                             color: effectiveBrakeType === 'disc' ? '#FFFFFF' : CARFIX_COLORS.mutedForeground,
                           }}
                         >
-                          Disc Brakes (Pads + Rotors)
+                          Disc Brakes
                         </button>
                         <button
                           onClick={() => setBrakeTypes(prev => ({ ...prev, [pkg.id]: 'drum' }))}
-                          className="flex-1 py-2 px-3 text-xs font-semibold transition-all"
+                          className="flex-1 py-1.5 px-3 text-[11px] font-semibold transition-all"
                           style={{
                             background: effectiveBrakeType === 'drum' ? CARFIX_COLORS.primary : 'transparent',
                             color: effectiveBrakeType === 'drum' ? '#FFFFFF' : CARFIX_COLORS.mutedForeground,
                           }}
                         >
-                          Drum Brakes (Shoes + Drums)
+                          Drum Brakes
                         </button>
                       </div>
                     </div>
                   )}
                 </div>
                 
-                {/* Tier Selection Cards - Vertical Brand Logo, Add to Cart per tier */}
+                {/* Tier Cards - Horizontal Scroll Snap */}
                 {visibleTiers.length > 0 && (
-                  <div className="p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1" style={{ color: CARFIX_COLORS.mutedForeground }}>
-                      Choose Your Value Level
-                    </p>
-                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(visibleTiers.length, 4)}, 1fr)` }}>
+                  <div className="pb-3">
+                    <div 
+                      className="flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x snap-mandatory"
+                      style={{ 
+                        scrollbarWidth: 'none',
+                        msOverflowStyle: 'none',
+                        WebkitOverflowScrolling: 'touch',
+                      }}
+                    >
                       {visibleTiers.map((tier) => {
                         const tierConfig = QUALITY_TIER_CONFIG[tier.tierName as keyof typeof QUALITY_TIER_CONFIG];
                         const isSelected = tier.tierName === selectedTierName;
+                        const hasSavings = tier.savingsAmount && tier.savingsAmount > 0;
                         
                         return (
                           <div
                             key={tier.tierName}
                             onClick={() => setSelectedTiers(prev => ({ ...prev, [pkg.id]: tier.tierName }))}
-                            className="relative rounded-xl text-center transition-all cursor-pointer"
+                            className="snap-start flex-shrink-0 cursor-pointer transition-all duration-200"
                             style={{
-                              padding: visibleTiers.length >= 4 ? '6px 4px' : '8px',
+                              width: visibleTiers.length <= 2 ? '48%' : visibleTiers.length === 3 ? '38%' : '140px',
+                              minWidth: '130px',
+                              borderRadius: '16px',
+                              padding: '12px 10px',
                               background: tier.isRecommended 
-                                ? `${CARFIX_COLORS.primary}10` 
+                                ? 'linear-gradient(145deg, rgba(0,82,204,0.06) 0%, rgba(56,189,248,0.06) 100%)' 
                                 : isSelected 
-                                  ? `${CARFIX_COLORS.primary}05`
-                                  : CARFIX_COLORS.background,
-                              border: `2px solid ${
-                                tier.isRecommended 
-                                  ? CARFIX_COLORS.primary 
-                                  : isSelected 
-                                    ? CARFIX_COLORS.primary + '80'
-                                    : CARFIX_COLORS.border
-                              }`,
+                                  ? 'rgba(248,250,252,1)'
+                                  : '#FFFFFF',
+                              border: tier.isRecommended 
+                                ? `2px solid ${CARFIX_COLORS.primary}` 
+                                : isSelected 
+                                  ? `2px solid ${CARFIX_COLORS.primary}60`
+                                  : '1.5px solid #E2E8F0',
+                              boxShadow: tier.isRecommended 
+                                ? '0 4px 16px rgba(0,82,204,0.15)' 
+                                : isSelected 
+                                  ? '0 2px 12px rgba(0,0,0,0.06)' 
+                                  : '0 1px 4px rgba(0,0,0,0.04)',
+                              position: 'relative' as const,
+                              display: 'flex',
+                              flexDirection: 'column' as const,
+                              alignItems: 'center',
+                              textAlign: 'center' as const,
                             }}
                           >
-                            {/* Carfix Value Badge */}
+                            {/* CARFIX Value badge - inline ribbon */}
                             {tier.isRecommended && (
                               <div 
-                                className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide whitespace-nowrap"
-                                style={{ background: CARFIX_COLORS.primary, color: 'white' }}
+                                style={{ 
+                                  position: 'absolute' as const,
+                                  top: '-1px',
+                                  left: '-1px',
+                                  right: '-1px',
+                                  background: CARFIX_COLORS.primary,
+                                  color: 'white',
+                                  fontSize: '9px',
+                                  fontWeight: 700,
+                                  letterSpacing: '0.05em',
+                                  textAlign: 'center' as const,
+                                  padding: '3px 0',
+                                  borderRadius: '14px 14px 0 0',
+                                }}
                               >
-                                Carfix Value
+                                ★ CARFIX VALUE
                               </div>
                             )}
                             
-                            {/* Tier Name - Larger for readability */}
-                            <p className="text-sm font-bold mt-1" style={{ color: tierConfig?.textColor || CARFIX_COLORS.foreground }}>
-                              {tierConfig?.emoji} {tier.displayName}
-                            </p>
+                            {/* Tier icon + name */}
+                            <div style={{ marginTop: tier.isRecommended ? '14px' : '0' }}>
+                              <span style={{ fontSize: '20px' }}>{tierConfig?.emoji}</span>
+                              <p 
+                                style={{ 
+                                  fontSize: '12px', 
+                                  fontWeight: 700, 
+                                  marginTop: '2px',
+                                  color: tierConfig?.textColor || CARFIX_COLORS.foreground,
+                                }}
+                              >
+                                {tier.displayName}
+                              </p>
+                            </div>
                             
-                            {/* Brand Logo - Single prominent logo with corrected URL fallback */}
-                            <div className="flex flex-col items-center gap-1 mt-2" style={{ minHeight: visibleTiers.length >= 4 ? '40px' : '48px' }}>
+                            {/* Brand Logo - single prominent */}
+                            <div style={{ margin: '8px 0', minHeight: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               {tier.brands.slice(0, 1).map((brand, idx) => {
-                                // Construct corrected URL using fullName (removes spaces, adds .jpg)
-                                const correctedImageUrl = `https://flpzjbasdsfwoeruyxgp.supabase.co/storage/v1/object/public/brand_images/${brand.fullName.replace(/\s+/g, '')}.jpg`;
-                                
+                                const correctedImageUrl = `${IMAGE_URLS.storageBase}/brand_images/${brand.fullName.replace(/\s+/g, '')}.jpg`;
                                 return (
                                   <div 
                                     key={idx}
-                                    className="w-full bg-white rounded-lg flex items-center justify-center overflow-hidden"
                                     style={{ 
-                                      height: visibleTiers.length >= 4 ? '36px' : '44px',
-                                      maxWidth: visibleTiers.length >= 4 ? '64px' : '80px',
-                                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)', 
-                                      border: '1px solid #F1F5F9' 
+                                      background: '#FFFFFF',
+                                      borderRadius: '10px',
+                                      padding: '4px 8px',
+                                      boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                                      border: '1px solid #F1F5F9',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      height: '36px',
+                                      maxWidth: '80px',
                                     }}
                                   >
                                     <img 
                                       src={brand.imageUrl}
                                       alt={brand.fullName}
-                                      className="w-auto object-contain"
-                                      style={{ height: visibleTiers.length >= 4 ? '26px' : '32px' }}
+                                      style={{ height: '24px', width: 'auto', objectFit: 'contain' as const }}
                                       onError={(e) => {
                                         const img = e.target as HTMLImageElement;
-                                        // Try corrected URL using fullName if different from current src
                                         if (img.src !== correctedImageUrl) {
                                           img.src = correctedImageUrl;
                                         } else {
-                                          // If corrected URL also fails, show text fallback
                                           img.style.display = 'none';
-                                          img.parentElement!.innerHTML = `<span class="text-[10px] font-semibold text-gray-600 truncate px-1">${brand.fullName}</span>`;
+                                          img.parentElement!.innerHTML = `<span style="font-size:10px;font-weight:600;color:#475569">${brand.fullName}</span>`;
                                         }
                                       }}
                                     />
@@ -689,32 +718,47 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                               })}
                             </div>
                             
-                            {/* Parts Count - Slightly larger */}
-                            <p className="text-[10px] mt-2" style={{ color: CARFIX_COLORS.mutedForeground }}>
+                            {/* Parts count */}
+                            <p style={{ fontSize: '10px', color: CARFIX_COLORS.mutedForeground }}>
                               {tier.productCount} {tier.productCount === 1 ? 'part' : 'parts'}
                             </p>
                             
-                            {/* Price with bundle discount display */}
-                            {tier.savingsAmount && tier.savingsAmount > 0 ? (
-                              <>
-                                <p className="text-[11px] line-through" style={{ color: CARFIX_COLORS.mutedForeground }}>
-                                  {formatNZD(tier.originalTotalPrice!)}
-                                </p>
-                                <p className="text-base font-bold" style={{ color: CARFIX_COLORS.success }}>
+                            {/* Price */}
+                            <div style={{ marginTop: '6px' }}>
+                              {hasSavings ? (
+                                <>
+                                  <p style={{ fontSize: '11px', textDecoration: 'line-through', color: '#94A3B8' }}>
+                                    {formatNZD(tier.originalTotalPrice!)}
+                                  </p>
+                                  <p style={{ fontSize: '18px', fontWeight: 800, color: CARFIX_COLORS.success, letterSpacing: '-0.02em' }}>
+                                    {formatNZD(tier.totalPrice)}
+                                  </p>
+                                  <p style={{ 
+                                    fontSize: '9px', 
+                                    fontWeight: 700, 
+                                    color: CARFIX_COLORS.success, 
+                                    background: `${CARFIX_COLORS.success}12`,
+                                    padding: '2px 6px',
+                                    borderRadius: '8px',
+                                    marginTop: '2px',
+                                  }}>
+                                    SAVE {tier.bundleDiscountPercentage}%
+                                  </p>
+                                </>
+                              ) : (
+                                <p style={{ 
+                                  fontSize: '18px', 
+                                  fontWeight: 800, 
+                                  color: tier.isRecommended ? CARFIX_COLORS.primary : CARFIX_COLORS.foreground,
+                                  letterSpacing: '-0.02em',
+                                }}>
                                   {formatNZD(tier.totalPrice)}
                                 </p>
-                                <p className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full mt-0.5" style={{ background: `${CARFIX_COLORS.success}15`, color: CARFIX_COLORS.success }}>
-                                  SAVE {formatNZD(tier.savingsAmount)} — {tier.bundleDiscountPercentage}% Bundle Deal
-                                </p>
-                              </>
-                            ) : (
-                              <p className="text-base font-bold mt-1" style={{ color: CARFIX_COLORS.foreground }}>
-                                {formatNZD(tier.totalPrice)}
-                              </p>
-                            )}
-                            <p className="text-[10px]" style={{ color: CARFIX_COLORS.mutedForeground }}>inc GST</p>
+                              )}
+                              <p style={{ fontSize: '9px', color: CARFIX_COLORS.mutedForeground, marginTop: '1px' }}>inc GST</p>
+                            </div>
                             
-                            {/* Add to Cart button per tier */}
+                            {/* Add button */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -727,9 +771,10 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                                   price: discountPct > 0
                                     ? Math.round(p.displayPrice * discountMultiplier * 100) / 100
                                     : p.displayPrice,
+                                  image_url: p.productImageUrl,
+                                  brandImageUrl: p.brandImageUrl,
                                   sku: p.sku,
                                   partNumber: p.partNumber || undefined,
-                                  image_url: p.productImageUrl,
                                   partslotDescription: p.partslotName,
                                   quantity: 1,
                                   _bundleMeta: {
@@ -742,12 +787,21 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                                 }));
                                 onAddToCart?.(productsToAdd);
                               }}
-                              className="w-full mt-2 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
                               style={{
-                                background: tier.isRecommended ? CARFIX_COLORS.success : '#F1F5F9',
+                                marginTop: '8px',
+                                width: '100%',
+                                padding: '7px 0',
+                                borderRadius: '10px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                transition: 'all 0.15s ease',
+                                cursor: 'pointer',
+                                border: 'none',
+                                background: tier.isRecommended 
+                                  ? 'linear-gradient(135deg, #22C55E 0%, #16A34A 100%)' 
+                                  : '#F1F5F9',
                                 color: tier.isRecommended ? 'white' : CARFIX_COLORS.success,
-                                border: tier.isRecommended ? 'none' : '1px solid #E2E8F0',
-                                textAlign: 'center',
+                                boxShadow: tier.isRecommended ? '0 4px 12px rgba(34,197,94,0.3)' : 'none',
                               }}
                             >
                               Add
@@ -759,21 +813,21 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                   </div>
                 )}
                 
-                {/* Product Details Toggle - Minimal Chevron */}
+                {/* Product Details Toggle */}
                 <div 
                   onClick={() => setExpandedPackageId(isExpanded ? null : pkg.id)}
-                  className="flex items-center justify-center gap-1.5 py-2 cursor-pointer hover:bg-gray-50 transition-colors border-t"
-                  style={{ borderColor: CARFIX_COLORS.border }}
+                  className="flex items-center justify-center gap-1.5 py-2 cursor-pointer transition-colors"
+                  style={{ borderTop: `1px solid ${CARFIX_COLORS.border}` }}
                 >
-                  <span className="text-xs" style={{ color: CARFIX_COLORS.mutedForeground }}>
+                  <span style={{ fontSize: '11px', color: CARFIX_COLORS.mutedForeground }}>
                     {isExpanded ? 'Hide details' : 'Show details'}
                   </span>
                   <svg 
-                    className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} 
+                    className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} 
+                    style={{ width: '14px', height: '14px', color: CARFIX_COLORS.mutedForeground }}
                     fill="none" 
                     stroke="currentColor" 
                     viewBox="0 0 24 24"
-                    style={{ color: CARFIX_COLORS.mutedForeground }}
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
@@ -782,8 +836,8 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                 {/* Accordion Content - Products for Selected Tier */}
                 {isExpanded && selectedTier && (
                   <div 
-                    className="px-4 pb-4 border-t animate-in slide-in-from-top-2 duration-200"
-                    style={{ borderColor: CARFIX_COLORS.border }}
+                    className="px-4 pb-4"
+                    style={{ borderTop: `1px solid ${CARFIX_COLORS.border}` }}
                   >
                     <div className="pt-3">
                       <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: CARFIX_COLORS.mutedForeground }}>
@@ -796,23 +850,20 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                             className="flex items-center gap-3 p-2 rounded-lg"
                             style={{ background: CARFIX_COLORS.background, border: `1px solid ${CARFIX_COLORS.border}` }}
                           >
-                            {/* Product Image */}
-                            <div className="flex-shrink-0 bg-white rounded-lg overflow-hidden flex items-center justify-center" style={{ width: '56px', height: '56px', minWidth: '56px', maxWidth: '56px' }}>
+                            <div className="flex-shrink-0 bg-white rounded-lg overflow-hidden flex items-center justify-center" style={{ width: '48px', height: '48px', minWidth: '48px' }}>
                               {product.productImageUrl ? (
                                 <img 
                                   src={product.productImageUrl} 
                                   alt={product.name}
                                   className="object-contain"
-                                  style={{ width: '100%', height: '100%', maxWidth: '56px', maxHeight: '56px', padding: '4px' }}
+                                  style={{ width: '100%', height: '100%', padding: '4px' }}
                                 />
                               ) : (
-                                <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                               )}
                             </div>
-                            
-                            {/* Product Info */}
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-medium truncate" style={{ color: CARFIX_COLORS.foreground }}>
                                 {product.name}
@@ -827,12 +878,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[10px] mt-0.5" style={{ color: CARFIX_COLORS.mutedForeground }}>
-                                {product.partslotName}
-                              </p>
                             </div>
-                            
-                            {/* Price */}
                             <div className="text-right flex-shrink-0">
                               <p className="text-sm font-bold" style={{ color: CARFIX_COLORS.primary }}>
                                 {formatNZD(product.displayPrice)}
