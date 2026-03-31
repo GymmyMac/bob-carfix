@@ -1,51 +1,33 @@
+# Fresh Session on Page Load (v3.2.20 addition)
 
+## Current Behavior
 
-# Fix: Bob Widget Height Gap on Mobile (v3.2.20)
+Bob widget persists the full conversation (messages, vehicle, state) to `sessionStorage` with a 4-hour TTL. On page re-entry, it restores everything — so Bob "remembers" the last vehicle even on a fresh page load.
 
-## The Gap (from CARFIX screenshot)
+## Desired Behavior
 
-The uploaded screenshot shows the issue clearly: after Bob starts talking and products are displayed, there is a visible empty space between the chat drawer's bottom edge and the CARFIX bottom navigation bar (Home / Garage / Parts / Cart). Once it appears, it persists.
+- Each new page load = clean session (no vehicle, fresh welcome greeting)
+- Bob still has access to the customer's garage (via `get_returning_customer_context` tool when email is available)
+- Bob still guides through REGO lookup flow as normal
+- Session persistence should only survive **within** a single website session (e.g., navigating between pages on the carfix website), not between sessions to the website. i.e. if I close the browser or tab and start a new session, Bob does not start the conversation with my car loaded. 
 
-## Root Cause
+## The Fix???
 
-The `ContainedMobileBobLayout` root div uses `absolute inset-0` — relying on CSS percentage inheritance from the host container. On mobile Safari, `dvh` recalculations during URL bar show/hide or keyboard transitions cause the parent's computed height to fluctuate. The chat drawer is anchored `bottom: 0` within this container, but when the container's height shrinks (stale `dvh` value), the drawer detaches from the visual bottom of the screen, creating the gap.
+### File: `packages/bob-widget/src/hooks/useBobChat.ts`
 
-## Solution
+**Remove or disable the session restore on mount** (lines 238-280). Instead of restoring the previous conversation from `sessionStorage`, always start fresh. The `saveSession` function can remain for mid-session use (e.g., if Bob needs to survive a soft re-render), but the mount-time restore that carries over the vehicle should be removed.
 
-### 1. New hook: `useContainerHeight.ts`
-- Uses `ResizeObserver` on the widget's root element to get actual pixel height
-- Falls back to `100%` if `ResizeObserver` unavailable
-- Provides a stable, concrete height value immune to `dvh` fluctuations
+Specifically:
 
-### 2. Update `ContainedMobileBobLayout.tsx`
-- Attach a ref to the root `div`
-- Use `useContainerHeight` to get observed pixel height
-- Set `height: ${observedHeight}px` instead of relying on `inset-0` alone
-- Add `will-change: height` for smooth transitions
+1. **Clear `sessionStorage` on mount** — call `sessionStorage.removeItem(BOB_SESSION_KEY)` at the start of the mount effect, so every fresh page load starts clean
+2. Keep the `initialVehicle` prop path intact (lines 274-279) — this is used by session handoff when CARFIX passes a vehicle via `?session=TOKEN`, which is intentional
+3. The `saveSession` calls throughout the file can stay — they just won't be restored on next page load
 
-### 3. Stabilize `ContainedChatDrawer.tsx`
-- Add `will-change: transform` to prevent GPU layer detachment during height transitions
-- Ensure `bottom: 0` is computed against the explicitly-sized parent
-
-### 4. Update `AskBob.tsx` demo page
-- Add `ResizeObserver` / `visualViewport` listener as reference implementation
-- Set explicit pixel height on the Bob container div
-- Serves as documentation for CARFIX production integration
-
-### 5. Version bump to `3.2.20`
-- `packages/bob-widget/package.json`
-- `packages/bob-widget/src/version.ts`
-- `packages/bob-widget/CHANGELOG.md`
+This is a ~5 line change in one file. No CARFIX-side changes needed.
 
 ## Files
 
-| File | Action |
-|------|--------|
-| `packages/bob-widget/src/hooks/useContainerHeight.ts` | New — ResizeObserver hook |
-| `packages/bob-widget/src/components/mobile/ContainedMobileBobLayout.tsx` | Use observed height on root div |
-| `packages/bob-widget/src/components/mobile/ContainedChatDrawer.tsx` | Add `will-change: transform` |
-| `src/pages/AskBob.tsx` | Reference implementation with ResizeObserver |
-| `packages/bob-widget/src/version.ts` | Bump to 3.2.20 |
-| `packages/bob-widget/package.json` | Bump to 3.2.20 |
-| `packages/bob-widget/CHANGELOG.md` | Document fix |
 
+| File                                          | Change                                                |
+| --------------------------------------------- | ----------------------------------------------------- |
+| `packages/bob-widget/src/hooks/useBobChat.ts` | Clear sessionStorage on mount instead of restoring it |
