@@ -488,7 +488,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
 
       {/* Service Packages - Premium Tier Cards */}
       {showContent && servicePackages.length > 0 && (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {servicePackages.map((pkg) => {
             const isRearBrake = isRearBrakePackage(pkg);
             const rawVisibleTiers = (pkg.preparedTiers || []).filter(tier => !tier.isHidden);
