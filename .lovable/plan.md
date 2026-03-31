@@ -1,33 +1,59 @@
 
 
-# Horizontal Scroll for Product Cards
+# Fix: Product Cards Not Loading
 
-## What Changes
+## Root Cause Analysis
 
-Convert the vertical stack of product cards within each category (e.g. "SPARK PLUGS", "OIL FILTERS") into a horizontal swipeable row — matching the same scroll-snap pattern already used for service package tier cards.
+Two issues compound to create this bug:
 
-## File: `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`
+### Issue 1: Session Restore Loses Products (Primary Cause)
+The v3.2.20 session restore correctly brings back `identifiedVehicle` and `conversationState: VEHICLE_CONFIRMED` from sessionStorage, but **products and service packages are NOT persisted** -- they live in `useState([])` in `Bob.tsx` and reset to empty on every mount. When the user navigates back to `/ask-bob`, Bob has the vehicle context but an empty shelf. The backend doesn't re-send parts because the conversation already identified the vehicle.
 
-**Lines 967-985** — Replace the vertical `flex-col` layout with a horizontal scroll container:
+Console evidence: `conversationStateRef.current: VEHICLE_CONFIRMED` but `shelfCategories= []` and no `parts_found` events.
 
-1. Change outer div from `flex flex-col gap-3` to `flex gap-3 overflow-x-auto snap-x snap-mandatory` with hidden scrollbar styles
-2. Each product card gets `snap-start flex-shrink-0` with a fixed width (~75% viewport or ~280px) so ~1.3 cards are visible, hinting there's more to swipe
-3. Keep the existing `ResponsiveProductCard` component inside — just wrap it in the snap container
+### Issue 2: No Auto-Re-Fetch Mechanism
+When a session is restored with a confirmed vehicle but no products on the shelf, nothing triggers a new parts fetch. The `autoFetch` mechanism only works for `hostContext.vehicle.selectedVehicle` (external handoff), not for restored sessions.
 
-### Desktop behavior
-On desktop/tablet viewports, the cards should show 2-3 per row. Use viewport-aware width: mobile = 75%, tablet = 45%, desktop = 32%.
+## The Fix
 
-## File: `packages/bob-widget/src/components/ProductTile.tsx`
+### File: `packages/bob-widget/src/hooks/useBobChat.ts`
 
-Minor tweak: ensure the tile doesn't force `w-full` when inside the horizontal scroll (it already uses `w-full` which will fill the snap container width — this should work as-is).
+Add a new effect that fires after session restore: when `identifiedVehicle` exists (restored from session) AND no products have arrived yet, trigger a silent re-fetch of parts and service packages using the same SSE flow as autoFetch.
 
-## Visual Result
-- Category header pill stays full-width above
-- Below it: horizontally swipeable product cards with snap points
-- ~1.3 cards visible = clear affordance to swipe
-- Matches the tier card UX pattern already in use
+1. Add a `sessionAutoFetchRef` flag to prevent double-triggers
+2. After session restore sets `identifiedVehicle`, a new `useEffect` on `identifiedVehicle` checks:
+   - `sessionRestoredRef.current === true` (we just restored)
+   - `autoFetchTriggeredRef.current === false` (no external auto-fetch running)
+   - `identifiedVehicle?.vehicle_id` exists
+3. If all true, fire a lightweight fetch to `bob-chat` with `autoFetchParts: true` and the vehicle context -- same as the existing autoFetch block but triggered from session restore
+4. Set `autoFetchTriggeredRef.current = true` to prevent re-runs
+
+### File: `packages/bob-widget/src/hooks/useBobChat.ts` (saveSession)
+
+Also persist products and service packages in the session for instant shelf population on restore, as a complementary measure:
+- This requires the `saveSession` function to accept product/package arrays, OR we persist them separately in sessionStorage from `Bob.tsx`
+
+**Simpler approach**: Handle it entirely in `Bob.tsx` by listening for when `identifiedVehicle` is set (from session restore) but `products.length === 0`. Fire `onPartsResearchStart` to show the loading spinner, then call the existing auto-fetch mechanism.
+
+### File: `packages/bob-widget/src/components/Bob.tsx`
+
+Add effect:
+```
+useEffect(() => {
+  if (bobChat.identifiedVehicle?.vehicle_id && products.length === 0 && servicePackages.length === 0) {
+    // Vehicle restored from session but shelf is empty -- trigger re-fetch
+    bobChat.refetchPartsForVehicle();
+  }
+}, [bobChat.identifiedVehicle?.vehicle_id]);
+```
+
+This requires exposing a `refetchPartsForVehicle()` method from `useBobChat`.
+
+## Implementation Summary
 
 | File | Change |
 |------|--------|
-| `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx` | Convert product grid to horizontal scroll-snap row |
+| `packages/bob-widget/src/hooks/useBobChat.ts` | Add `refetchPartsForVehicle()` that re-runs the autoFetch SSE call for the current `identifiedVehicle` |
+| `packages/bob-widget/src/hooks/useBobChat.ts` | Return `refetchPartsForVehicle` from the hook |
+| `packages/bob-widget/src/components/Bob.tsx` | Add effect: when vehicle exists but shelf is empty, call `refetchPartsForVehicle()` |
 
