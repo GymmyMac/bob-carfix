@@ -1,79 +1,85 @@
 
-Goal: make desktop product rows clearly scrollable when there are more cards than fit on screen, instead of relying on a native scrollbar that may be hidden or clipped by the browser/OS.
+Goal: fix the desktop arrow so clicking it actually scrolls the product row, and make the control more visible.
 
-What I found
-- The desktop rows already use `overflow-x-auto` and the `product-scroll-row` class.
-- The CSS for a thin desktop scrollbar exists in `packages/bob-widget/src/styles/widget-reset.css`.
-- There are no console errors, so this is not a JS failure.
-- The problem is structural/discoverability:
-  1. native desktop scrollbars can still be invisible in some environments even when styled,
-  2. the outer layout uses clipping/hidden overflow wrappers, so a thin bottom scrollbar can be hard to see or visually clipped,
-  3. product cards use percentage widths on desktop (`32%`), so overflow may be slight and the scrollbar affordance is weak.
+What’s broken
+- The arrow is rendering, so overflow detection is at least partially working.
+- But `DesktopScrollArrows` is calling `scrollBy()` on its own wrapper div, not on the actual horizontal scroller.
+- In `MobileProductColumn.tsx`, the real scrollable element is the nested child with:
+  - `overflow-x-auto`
+  - `product-scroll-row`
+- In `DesktopScrollArrows.tsx`, the ref is attached to an outer wrapper around `{children}`. That wrapper does not own the overflow, so clicking the arrow does nothing.
+
+Why this happened
+```text
+Current structure:
+DesktopScrollArrows
+  └─ div(ref=scrollRef)   <- NOT the real scroller
+       └─ div.product-scroll-row overflow-x-auto  <- actual scroller
+
+Result:
+arrow click -> scrollBy() on wrong element -> no movement
+```
 
 Plan
-1. Fix the desktop product row itself
-- In `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`, change desktop product cards from percentage width to a fixed width/min-width so overflow is guaranteed and consistent.
-- Add a row-level desktop wrapper that reserves bottom space for controls so nothing gets hidden.
+1. Refactor `DesktopScrollArrows.tsx` so it controls the real scroll element
+- Stop wrapping an already-scrollable child with another ref container.
+- Update the component so the element with `ref={scrollRef}` is also the horizontal scroller.
+- Best approach: let `DesktopScrollArrows` render the scroll row itself via `className`, `style`, and `children`, instead of expecting a nested scrollable div.
 
-2. Stop depending on the browser’s native scrollbar as the main desktop affordance
-- Add explicit desktop left/right scroll controls to each overflowing product row.
-- Only show them on desktop and only when the row actually overflows.
-- Keep mobile exactly as-is with swipe scrolling.
+2. Update usage in `MobileProductColumn.tsx`
+- Replace:
+  - `<DesktopScrollArrows><div className="... product-scroll-row ...">...</div></DesktopScrollArrows>`
+- With:
+  - `<DesktopScrollArrows className="... product-scroll-row ..." style={...}>...</DesktopScrollArrows>`
+- Keep all current row behavior:
+  - `overflow-x-auto`
+  - `snap-x snap-mandatory`
+  - touch scrolling
+  - `product-scroll-row` class
 
-3. Measure overflow in the component
-- For each `product-scroll-row`, detect:
+3. Keep desktop-only arrow behavior
+- Arrows should still only show when:
+  - `viewportSize === 'desktop'`
+  - row actually overflows
+- Continue using:
   - `scrollWidth > clientWidth`
-  - whether the row is at the far left, middle, or far right
-- Use that state to:
-  - show/hide arrows,
-  - disable the left arrow at the start,
-  - disable the right arrow at the end.
+  - `scrollLeft` checks for left/right enablement
 
-4. Improve desktop visual affordance
-- Add a visible “scroll for more” treatment on desktop:
-  - left/right arrow buttons over the row edges, and/or
-  - subtle edge fade masks to indicate hidden content off-screen.
-- Keep the thin native scrollbar as a secondary fallback, not the primary control.
-
-5. Adjust CSS so controls are not clipped
-- Update `packages/bob-widget/src/styles/widget-reset.css` and, if needed, the relevant row/container styles in `MobileProductColumn.tsx` so desktop controls have enough bottom/side space.
-- Ensure the arrows sit inside the row section and above the cards with appropriate z-index.
+4. Improve button visibility
+- Update `widget-reset.css` so the desktop arrow stands out more:
+  - brighter accent background or stronger contrast
+  - stronger border / glow
+  - clearer hover state
+- Keep fade masks secondary to the arrow.
 
 Files to update
+- `packages/bob-widget/src/components/DesktopScrollArrows.tsx`
 - `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`
 - `packages/bob-widget/src/styles/widget-reset.css`
 
 Expected result
-- On desktop, any row with more items than fit will clearly show that it can scroll.
-- Users can click left/right controls to move through all products.
-- Mobile swipe behaviour remains unchanged.
-- Native scrollbar visibility differences between operating systems will no longer block usability.
+- Desktop rows with overflow show a clearly visible right arrow.
+- Clicking the arrow moves the row horizontally.
+- Left arrow appears after moving right.
+- Mobile swipe behavior remains unchanged.
 
 Technical details
 ```text
-Current issue:
-Desktop row relies on native scrollbar visibility
-        +
-OS/browser may hide overlay scrollbar
-        +
-row sits inside visually dense / clipped layout
-        =
-user sees overflow but no clear control
+Fix target:
+Attach the ref and onScroll handler to the same element that has overflow-x-auto.
 
-Proposed desktop behavior:
-[<]  product row ..................................  [>]
-     cards overflow horizontally
-     arrows appear only if row overflows
-     arrows update enabled/disabled state as user scrolls
+Correct structure:
+DesktopScrollArrows
+  └─ div(ref=scrollRef, className="overflow-x-auto product-scroll-row ...")
+       └─ cards...
+
+Then:
+scrollBy() -> correct element -> row moves
 ```
 
-Why this approach
-- It solves the actual user problem: discoverable desktop navigation.
-- It avoids fighting OS-level scrollbar behavior.
-- It is more robust than trying to force a thin native scrollbar to always appear.
-
 Acceptance checks
-- Desktop: rows with 1–3 visible cards and no overflow show no arrows.
-- Desktop: rows with overflow show arrows and can scroll fully left/right.
-- Desktop: brake pads row with many products can be navigated across all items.
-- Mobile/tablet: swipe interaction still works and desktop arrows do not appear.
+- VW Golf brake pad row scrolls when right arrow is clicked.
+- Left arrow appears after first movement.
+- Right arrow disappears at end of row.
+- Button is visually obvious on desktop.
+- No regression to mobile/tablet scrolling.
