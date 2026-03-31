@@ -239,7 +239,6 @@ export const useBobChat = ({
   // (e.g. clicking between pages on CARFIX) but clears automatically
   // when the tab/browser is closed — exactly the desired behaviour.
   // A 4-hour TTL guards against stale sessions left in long-lived tabs.
-  const SESSION_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
   useEffect(() => {
     if (sessionRestoredRef.current) return;
