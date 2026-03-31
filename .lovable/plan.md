@@ -1,59 +1,40 @@
 
 
-# Fix: Product Cards Not Loading
+# Fix Horizontal Scroll for Product Rows
 
-## Root Cause Analysis
+## Root Cause
 
-Two issues compound to create this bug:
+The horizontal scroll on product rows is **completely blocked** by two things on the outer shelf container (line 291):
 
-### Issue 1: Session Restore Loses Products (Primary Cause)
-The v3.2.20 session restore correctly brings back `identifiedVehicle` and `conversationState: VEHICLE_CONFIRMED` from sessionStorage, but **products and service packages are NOT persisted** -- they live in `useState([])` in `Bob.tsx` and reset to empty on every mount. When the user navigates back to `/ask-bob`, Bob has the vehicle context but an empty shelf. The backend doesn't re-send parts because the conversation already identified the vehicle.
+1. **`overflow-x-hidden`** — clips any horizontal scroll within child elements
+2. **`touchAction: 'pan-y'`** (line 313) — tells the browser to only allow vertical touch gestures, blocking all horizontal swipe
 
-Console evidence: `conversationStateRef.current: VEHICLE_CONFIRMED` but `shelfCategories= []` and no `parts_found` events.
-
-### Issue 2: No Auto-Re-Fetch Mechanism
-When a session is restored with a confirmed vehicle but no products on the shelf, nothing triggers a new parts fetch. The `autoFetch` mechanism only works for `hostContext.vehicle.selectedVehicle` (external handoff), not for restored sessions.
+The tier cards for service packages happen to work (or partially work) because they sit inside their own `overflow-x-auto` container, but the parent `overflow-x-hidden` + `pan-y` still fights them.
 
 ## The Fix
 
-### File: `packages/bob-widget/src/hooks/useBobChat.ts`
+### File: `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`
 
-Add a new effect that fires after session restore: when `identifiedVehicle` exists (restored from session) AND no products have arrived yet, trigger a silent re-fetch of parts and service packages using the same SSE flow as autoFetch.
+**Change 1 — Outer container (line 291):**
+- Remove `overflow-x-hidden` from the className — change to just `overflow-y-auto`
+- Change `touchAction: 'pan-y'` to `touchAction: 'auto'` so the browser can detect both horizontal and vertical gestures
 
-1. Add a `sessionAutoFetchRef` flag to prevent double-triggers
-2. After session restore sets `identifiedVehicle`, a new `useEffect` on `identifiedVehicle` checks:
-   - `sessionRestoredRef.current === true` (we just restored)
-   - `autoFetchTriggeredRef.current === false` (no external auto-fetch running)
-   - `identifiedVehicle?.vehicle_id` exists
-3. If all true, fire a lightweight fetch to `bob-chat` with `autoFetchParts: true` and the vehicle context -- same as the existing autoFetch block but triggered from session restore
-4. Set `autoFetchTriggeredRef.current = true` to prevent re-runs
+**Change 2 — Each horizontal scroll row (line 968-974):**
+- Add `touchAction: 'pan-x'` on the horizontal scroll rows so when a user touches inside a product row, the browser prioritizes horizontal scrolling
+- Add the CSS class `product-scroll-row` to the div so the webkit scrollbar-hide rule actually applies (currently the class is defined in a `<style>` tag but never applied to the element)
 
-### File: `packages/bob-widget/src/hooks/useBobChat.ts` (saveSession)
+**Change 3 — Service package tier row (line 600-606):**
+- Same treatment: add `touchAction: 'pan-x'` for consistent swipe behavior
 
-Also persist products and service packages in the session for instant shelf population on restore, as a complementary measure:
-- This requires the `saveSession` function to accept product/package arrays, OR we persist them separately in sessionStorage from `Bob.tsx`
+## Summary
 
-**Simpler approach**: Handle it entirely in `Bob.tsx` by listening for when `identifiedVehicle` is set (from session restore) but `products.length === 0`. Fire `onPartsResearchStart` to show the loading spinner, then call the existing auto-fetch mechanism.
+| Line | Current | Fix |
+|------|---------|-----|
+| 291 | `overflow-y-auto overflow-x-hidden` | `overflow-y-auto` (remove x-hidden) |
+| 313 | `touchAction: 'pan-y'` | `touchAction: 'auto'` |
+| 968 | No touchAction on product row | Add `touchAction: 'pan-x'` |
+| 601 | No touchAction on tier row | Add `touchAction: 'pan-x'` |
+| 968 | Missing class `product-scroll-row` | Add the class so scrollbar-hide CSS applies |
 
-### File: `packages/bob-widget/src/components/Bob.tsx`
-
-Add effect:
-```
-useEffect(() => {
-  if (bobChat.identifiedVehicle?.vehicle_id && products.length === 0 && servicePackages.length === 0) {
-    // Vehicle restored from session but shelf is empty -- trigger re-fetch
-    bobChat.refetchPartsForVehicle();
-  }
-}, [bobChat.identifiedVehicle?.vehicle_id]);
-```
-
-This requires exposing a `refetchPartsForVehicle()` method from `useBobChat`.
-
-## Implementation Summary
-
-| File | Change |
-|------|--------|
-| `packages/bob-widget/src/hooks/useBobChat.ts` | Add `refetchPartsForVehicle()` that re-runs the autoFetch SSE call for the current `identifiedVehicle` |
-| `packages/bob-widget/src/hooks/useBobChat.ts` | Return `refetchPartsForVehicle` from the hook |
-| `packages/bob-widget/src/components/Bob.tsx` | Add effect: when vehicle exists but shelf is empty, call `refetchPartsForVehicle()` |
+This is a 3-line fix at its core. Each horizontal row will scroll independently — swiping one row won't affect the row above or below.
 
