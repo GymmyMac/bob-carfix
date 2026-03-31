@@ -964,21 +964,36 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
               </span>
             </div>
             
-            {/* Products Grid - No wrapper padding */}
-            <div className="flex flex-col gap-3">
+            {/* Products Row - Horizontal scroll-snap */}
+            <div 
+              className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2"
+              style={{
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+                WebkitOverflowScrolling: 'touch',
+              }}
+            >
+              <style>{`.product-scroll-row::-webkit-scrollbar { display: none; }`}</style>
               {groupProducts.map((product, index) => {
                 const isSpotlighted = !!(highlightedProduct && productMatchesSpotlight(product, highlightedProduct));
                 
                 return (
-                  <div key={`${product.id}-${index}`} data-testid="partslot-product">
-                  <ResponsiveProductCard
-                    product={product}
-                    isSpotlighted={isSpotlighted}
-                    spotlightedRef={spotlightedRef}
-                    onProductClick={onProductClick}
-                    onAddToCart={onAddToCart}
-                    viewportSize={viewportSize}
-                  />
+                  <div 
+                    key={`${product.id}-${index}`} 
+                    data-testid="partslot-product"
+                    className="snap-start flex-shrink-0"
+                    style={{
+                      width: viewportSize === 'desktop' ? '32%' : viewportSize === 'tablet' ? '45%' : '75%',
+                    }}
+                  >
+                    <ResponsiveProductCard
+                      product={product}
+                      isSpotlighted={isSpotlighted}
+                      spotlightedRef={spotlightedRef}
+                      onProductClick={onProductClick}
+                      onAddToCart={onAddToCart}
+                      viewportSize={viewportSize}
+                    />
                   </div>
                 );
               })}
