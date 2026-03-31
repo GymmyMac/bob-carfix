@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useMemo, useState } from "react";
 import { useViewportSize, type ViewportSize } from "../../hooks/useViewportSize";
 import { usePositionFactors } from "../../hooks/usePositionFactors";
 import { ProductTile } from "../ProductTile";
+import { DesktopScrollArrows } from "../DesktopScrollArrows";
 import type { Product, ServicePackage, PreparedTierProduct } from "../../types";
 import type { HighlightedProduct } from "../../types/message";
 import { isRearBrakePackage, filterByBrakeType, recalcTierTotal, detectAvailableBrakeTypes, type RearBrakeType } from "../../utils/rearBrakeFilter";
@@ -970,39 +971,42 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
               </span>
             </div>
             
-            {/* Products Row - Horizontal scroll-snap */}
-            <div 
-              className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 product-scroll-row"
-              style={{
-                WebkitOverflowScrolling: 'touch',
-                touchAction: 'pan-x',
-                overscrollBehavior: 'contain',
-              }}
-            >
-              {groupProducts.map((product, index) => {
-                const isSpotlighted = !!(highlightedProduct && productMatchesSpotlight(product, highlightedProduct));
-                
-                return (
-                  <div 
-                    key={`${product.id}-${index}`} 
-                    data-testid="partslot-product"
-                    className="snap-start flex-shrink-0"
-                    style={{
-                      width: viewportSize === 'desktop' ? '32%' : viewportSize === 'tablet' ? '45%' : '65%',
-                    }}
-                  >
-                    <ResponsiveProductCard
-                      product={product}
-                      isSpotlighted={isSpotlighted}
-                      spotlightedRef={spotlightedRef}
-                      onProductClick={onProductClick}
-                      onAddToCart={onAddToCart}
-                      viewportSize={viewportSize}
-                    />
-                  </div>
-                );
-              })}
-            </div>
+            {/* Products Row - Horizontal scroll-snap with desktop arrows */}
+            <DesktopScrollArrows isDesktop={viewportSize === 'desktop'}>
+              <div 
+                className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 product-scroll-row"
+                style={{
+                  WebkitOverflowScrolling: 'touch',
+                  touchAction: 'pan-x',
+                  overscrollBehavior: 'contain',
+                }}
+              >
+                {groupProducts.map((product, index) => {
+                  const isSpotlighted = !!(highlightedProduct && productMatchesSpotlight(product, highlightedProduct));
+                  
+                  return (
+                    <div 
+                      key={`${product.id}-${index}`} 
+                      data-testid="partslot-product"
+                      className="snap-start flex-shrink-0"
+                      style={{
+                        width: viewportSize === 'desktop' ? '250px' : viewportSize === 'tablet' ? '45%' : '65%',
+                        minWidth: viewportSize === 'desktop' ? '250px' : undefined,
+                      }}
+                    >
+                      <ResponsiveProductCard
+                        product={product}
+                        isSpotlighted={isSpotlighted}
+                        spotlightedRef={spotlightedRef}
+                        onProductClick={onProductClick}
+                        onAddToCart={onAddToCart}
+                        viewportSize={viewportSize}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </DesktopScrollArrows>
           </section>
         );
       })}
