@@ -92,6 +92,7 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
       <div 
         className="absolute"
         style={{
+          zIndex: 60,
           bottom: `${bottomPercent}%`,
           left: getLeftPosition(),
           maxHeight: `${100 - counterHeightPercent - 2}%`,
