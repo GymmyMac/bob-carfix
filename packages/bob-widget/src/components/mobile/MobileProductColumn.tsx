@@ -604,6 +604,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                         msOverflowStyle: 'none',
                         WebkitOverflowScrolling: 'touch',
                         touchAction: 'pan-x',
+                        overscrollBehavior: 'contain',
                       }}
                     >
                       {visibleTiers.map((tier) => {
@@ -973,9 +974,9 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                 msOverflowStyle: 'none',
                 WebkitOverflowScrolling: 'touch',
                 touchAction: 'pan-x',
+                overscrollBehavior: 'contain',
               }}
             >
-              <style>{`.product-scroll-row::-webkit-scrollbar { display: none; }`}</style>
               {groupProducts.map((product, index) => {
                 const isSpotlighted = !!(highlightedProduct && productMatchesSpotlight(product, highlightedProduct));
                 
@@ -985,7 +986,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                     data-testid="partslot-product"
                     className="snap-start flex-shrink-0"
                     style={{
-                      width: viewportSize === 'desktop' ? '32%' : viewportSize === 'tablet' ? '45%' : '75%',
+                      width: viewportSize === 'desktop' ? '32%' : viewportSize === 'tablet' ? '45%' : '65%',
                     }}
                   >
                     <ResponsiveProductCard

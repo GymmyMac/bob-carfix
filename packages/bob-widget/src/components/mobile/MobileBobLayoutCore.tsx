@@ -177,11 +177,11 @@ export const MobileBobLayoutCore: React.FC<MobileBobLayoutCoreProps> = ({
 
   return (
     <div 
-      className="absolute inset-0 overflow-hidden"
+      className="absolute inset-0 overflow-clip"
       style={{
         width: '100%',
         height: '100%',
-        touchAction: 'manipulation',
+        touchAction: 'auto',
         // CRITICAL: Create single stacking context for deterministic z-index
         isolation: 'isolate',
         // Prevent long-press selection of images on mobile (PTT hold fix)
