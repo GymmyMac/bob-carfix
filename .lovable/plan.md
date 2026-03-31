@@ -1,49 +1,45 @@
 
 
-# Fix: Independent Horizontal Scrolling for Service Pack and Product Rows
+# Why Horizontal Scrolling Is Broken — Root Cause Analysis
 
-## Problem
+## Problem 1: `overflow-hidden` on the service package card (LINE 526)
 
-Horizontal scrolling on service pack tier rows and product rows is blocked by two ancestor containers:
+Each service package is wrapped in a `<div className="overflow-hidden">` with `borderRadius: '20px'`. This is the **primary blocker** — it clips ALL overflow from children, which means the tier card row's `overflow-x-auto` scrollable area is clipped to the card's visible bounds. The browser creates a scroll container but the content is visually and physically clipped by the parent.
 
-1. **`MobileBobLayoutCore.tsx` (line 180)**: `className="absolute inset-0 overflow-hidden"` — clips all overflow from descendants, killing horizontal scroll.
-2. **`MobileBobLayoutCore.tsx` (line 184)**: `touchAction: 'manipulation'` — collapses panning to a single axis per gesture, which combined with the vertical-scrolling shelf, prevents horizontal swipe from being recognized on inner elements.
+**Why it's there:** `overflow-hidden` was added to make `borderRadius: '20px'` work cleanly (rounded corners require overflow clipping). But it kills horizontal scroll on every child.
 
-The product shelf itself (`MobileProductColumn.tsx` line 291) now correctly uses `touchAction: 'auto'`, and each row uses `touchAction: 'pan-x'` — but the grandparent container above kills both via clipping and gesture restriction.
+## Problem 2: Tier card widths don't exceed the container
 
-## Fix Plan
+The tier cards use percentage widths (line 621): `width: '48%'` for 2 tiers, `'38%'` for 3, `'140px'` for 4+. When there are only 2-3 tiers, these percentages fit inside the container width — there's **nothing to scroll to** because the total content width doesn't exceed the container. The `overflow-x-auto` only activates when content exceeds the scrollable area.
 
-### File 1: `packages/bob-widget/src/components/mobile/MobileBobLayoutCore.tsx`
+## Problem 3: The white background stops at the card edge
 
-**Line 180** — Change `overflow-hidden` to `overflow-clip` (or remove it). `overflow-clip` prevents visual bleed but does NOT create a scroll container, so it won't intercept touch gestures from descendants. This is the key difference: `overflow-hidden` creates a scroll context that eats horizontal swipes.
+The user expects the white background of each service pack section to extend to the screen edge. Currently, the outer scroll container has `paddingRight: '16px'` and `paddingLeft: '16px'` (lines 305-306), plus each card has its own internal padding (`px-4`). This means the white card sits inset from both edges, with a gap on each side.
 
-**Line 184** — Change `touchAction: 'manipulation'` to `touchAction: 'auto'`. The `manipulation` value disables double-tap zoom but also prevents the browser from recognizing horizontal pan gestures on nested scroll containers.
+## The Fix
 
-### File 2: `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`
+### File: `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`
 
-**Tier card row (line 601)** — Ensure `overscrollBehavior: 'contain'` is set on each horizontal scroll row to prevent scroll-chaining to the vertical shelf.
+**Fix 1 — Remove `overflow-hidden` from service package card (line 526):**
+Change to `overflow-visible` or remove the class. To keep rounded corners on the header, apply `borderRadius` and `overflow-hidden` only to the header div (line 535-539), not the whole card wrapper.
 
-**Product card row (line 970)** — Same treatment: add `overscrollBehavior: 'contain'`.
+**Fix 2 — Force tier cards to have fixed pixel widths that cause overflow:**
+Instead of percentage widths that fit inside the container, use fixed widths like `min-width: 65%` (matching product cards) so that 2+ tiers always overflow and become scrollable. This gives the half-card peek effect.
 
-**Card widths** — Adjust so roughly 1.5 cards are visible (half card peek):
-- Service pack tiers: already ~48% for 2 tiers, keep as-is since they already have good sizing
-- Product cards: change mobile width from `75%` to `65%` so ~1.5 cards are visible, making the "half card" peek obvious
+**Fix 3 — Extend service pack cards edge-to-edge:**
+Remove or reduce the outer container's horizontal padding (`paddingRight`/`paddingLeft` on line 305-306) from `16px` to `0`, and instead apply horizontal padding only to elements that need inset (like the shelf header). The service package white cards should stretch to the full column width, giving the edge-to-edge white background the user expects.
 
-**Row height** — Add `max-height` or fixed height to the horizontal rows so they stay consistent and don't grow with content.
+Alternatively, apply negative margins (`-mx-4`) on each service package card to break out of the parent padding, with the card's own internal padding providing the content inset.
 
-### File 3: `packages/bob-widget/src/styles/widget-reset.css`
+**Fix 4 — Same treatment for product category rows (line 970):**
+Product rows also sit inside the padded container. Apply negative margins so the scrollable row extends edge-to-edge, with padding on the first card to maintain visual inset.
 
-Add CSS rule for `.product-scroll-row::-webkit-scrollbar { display: none; }` scoped under `.bob-widget-root` so it persists regardless of inline `<style>` tag rendering order. Remove the inline `<style>` tag from `MobileProductColumn.tsx` line 978.
+### Summary
 
-## Summary
-
-| File | Line(s) | Change |
-|------|---------|--------|
-| `MobileBobLayoutCore.tsx` | 180 | `overflow-hidden` → `overflow-clip` |
-| `MobileBobLayoutCore.tsx` | 184 | `touchAction: 'manipulation'` → `touchAction: 'auto'` |
-| `MobileProductColumn.tsx` | 601-607 | Add `overscrollBehavior: 'contain'` to tier row |
-| `MobileProductColumn.tsx` | 970-976 | Add `overscrollBehavior: 'contain'` to product row |
-| `MobileProductColumn.tsx` | 988 | Mobile card width `75%` → `65%` for half-card peek |
-| `MobileProductColumn.tsx` | 978 | Remove inline `<style>` tag |
-| `widget-reset.css` | ~283 | Add `.bob-widget-root .product-scroll-row` scrollbar hide rule |
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| Can't scroll tier cards | `overflow-hidden` on parent card div | Remove `overflow-hidden`, scope it to header only |
+| Nothing to scroll (2-3 tiers) | Percentage widths fit inside container | Use `min-width: 65%` fixed sizing |
+| White background doesn't reach edge | 16px padding on outer container | Remove outer padding, use per-element padding or negative margins |
+| Product rows same issue | Same padding constraint | Same negative margin treatment |
 
