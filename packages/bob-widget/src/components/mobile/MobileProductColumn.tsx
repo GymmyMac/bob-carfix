@@ -523,13 +523,24 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
               <div
                 key={pkg.id}
                 ref={(el) => { groupRefs.current[pkg.title] = el; }}
-                className="overflow-hidden transition-all duration-300"
+                className="overflow-x-auto product-scroll-row mb-2"
+                style={{
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
+                  WebkitOverflowScrolling: 'touch',
+                  touchAction: 'pan-x',
+                  overscrollBehavior: 'contain',
+                }}
+              >
+              <div
+                className="transition-all duration-300"
                 style={{
                   borderRadius: '20px',
                   background: 'linear-gradient(145deg, rgba(255,255,255,0.97) 0%, rgba(248,250,252,0.95) 100%)',
                   boxShadow: '0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)',
                   border: '1px solid rgba(226,232,240,0.8)',
-                  margin: '0 -0px',
+                  minWidth: '100%',
+                  width: 'max-content',
                 }}
               >
                 {/* Package Header - Clean gradient */}
