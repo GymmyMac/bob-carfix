@@ -523,7 +523,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
               <div
                 key={pkg.id}
                 ref={(el) => { groupRefs.current[pkg.title] = el; }}
-                className="overflow-visible transition-all duration-300"
+                className="overflow-hidden transition-all duration-300"
                 style={{
                   borderRadius: '20px',
                   background: 'linear-gradient(145deg, rgba(255,255,255,0.97) 0%, rgba(248,250,252,0.95) 100%)',
