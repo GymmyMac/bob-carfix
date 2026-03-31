@@ -340,17 +340,17 @@
   top: 50%;
   transform: translateY(-50%);
   z-index: 10;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: rgba(0, 51, 102, 0.85) !important;
+  background: rgba(255, 140, 0, 0.95) !important;
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  border: 2px solid rgba(255, 255, 255, 0.3) !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+  border: 2px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 4px 20px rgba(255, 140, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3) !important;
   transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   -webkit-appearance: none !important;
   appearance: none !important;
@@ -360,9 +360,9 @@
 }
 
 .bob-widget-root .desktop-scroll-arrow:hover {
-  background: rgba(0, 102, 204, 0.95) !important;
-  box-shadow: 0 6px 24px rgba(0, 102, 204, 0.4) !important;
-  transform: translateY(-50%) scale(1.1);
+  background: rgba(255, 165, 0, 1) !important;
+  box-shadow: 0 6px 28px rgba(255, 140, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  transform: translateY(-50%) scale(1.15);
 }
 
 .bob-widget-root .desktop-scroll-arrow:active {
