@@ -910,6 +910,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                   </div>
                 )}
               </div>
+              </div>
             );
           })}
         </div>
