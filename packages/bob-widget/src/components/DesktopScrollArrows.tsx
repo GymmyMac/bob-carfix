@@ -51,7 +51,9 @@ export const DesktopScrollArrows: React.FC<DesktopScrollArrowsProps> = ({
     };
   }, [checkScroll, children]);
 
-  const scroll = (direction: "left" | "right") => {
+  const scroll = (direction: "left" | "right", e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
     const el = scrollRef.current;
     if (!el) return;
     const scrollAmount = el.clientWidth * 0.75;
