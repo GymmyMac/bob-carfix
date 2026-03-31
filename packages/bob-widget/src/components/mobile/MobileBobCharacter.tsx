@@ -87,8 +87,8 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
   };
   
   return (
-    <div className="absolute inset-0 pointer-events-none z-[60]" style={{ overflow: 'visible' }}>
-      {/* Bob Character - 3-position system */}
+    <div className="absolute inset-0 pointer-events-none" style={{ overflow: 'visible', zIndex: 60 }}>
+      {/* Bob Character - 3-position system — inline zIndex to beat widget CSS reset */}
       <div 
         className="absolute z-[60]"
         style={{
