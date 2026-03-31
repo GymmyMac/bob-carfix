@@ -288,7 +288,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
       <div 
         ref={scrollRef}
         onScroll={handleScroll}
-        className={`absolute overflow-y-auto overflow-x-hidden flex flex-col gap-3 md:gap-4 transition-all duration-400 ease-out product-scroll ${
+        className={`absolute overflow-y-auto flex flex-col gap-3 md:gap-4 transition-all duration-400 ease-out product-scroll ${
           shouldBeVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-12 pointer-events-none"
         }`}
         style={{
@@ -310,7 +310,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           zIndex: 55,
           pointerEvents: 'auto' as const,
           // Ensure touch scroll works on mobile - prevent scroll chaining to parent
-          touchAction: 'pan-y',
+          touchAction: 'auto',
           overscrollBehavior: 'contain',
           WebkitOverflowScrolling: 'touch',
           // Hide default scrollbar
@@ -598,11 +598,12 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                 {visibleTiers.length > 0 && (
                   <div className="pb-3">
                     <div 
-                      className="flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x snap-mandatory"
+                      className="flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x snap-mandatory product-scroll-row"
                       style={{ 
                         scrollbarWidth: 'none',
                         msOverflowStyle: 'none',
                         WebkitOverflowScrolling: 'touch',
+                        touchAction: 'pan-x',
                       }}
                     >
                       {visibleTiers.map((tier) => {
@@ -966,11 +967,12 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
             
             {/* Products Row - Horizontal scroll-snap */}
             <div 
-              className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2"
+              className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 product-scroll-row"
               style={{
                 scrollbarWidth: 'none',
                 msOverflowStyle: 'none',
                 WebkitOverflowScrolling: 'touch',
+                touchAction: 'pan-x',
               }}
             >
               <style>{`.product-scroll-row::-webkit-scrollbar { display: none; }`}</style>
