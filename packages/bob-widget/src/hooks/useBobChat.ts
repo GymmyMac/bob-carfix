@@ -234,43 +234,20 @@ export const useBobChat = ({
   // NEW: Conversation state for UI hints
   const conversationStateRef = useRef<string>('AWAITING_REGO');
   
-  // ============= SESSION RESTORE ON MOUNT =============
+  // ============= FRESH SESSION ON MOUNT =============
+  // Always start clean — no vehicle, fresh greeting.
+  // Session saves still happen mid-session (for soft re-renders),
+  // but we clear on every full page load so Bob never "remembers"
+  // a vehicle from a previous browser session.
   useEffect(() => {
     if (sessionRestoredRef.current) return;
     sessionRestoredRef.current = true;
     
-    try {
-      const raw = sessionStorage.getItem(BOB_SESSION_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw);
-        const age = Date.now() - (saved.savedAt || 0);
-        
-        if (age < SESSION_TTL_MS && Array.isArray(saved.messages) && saved.messages.length > 0) {
-          console.log('[BobWidget] Restoring session:', saved.messages.length, 'messages, state:', saved.conversationState);
-          setMessages(saved.messages);
-          initialGreetingSentRef.current = true; // skip greeting
-          if (Array.isArray(saved.vehicleCandidates)) {
-            vehicleCandidatesRef.current = saved.vehicleCandidates;
-          }
-          if (saved.conversationState) {
-            conversationStateRef.current = saved.conversationState;
-          }
-          if (saved.identifiedVehicle) {
-            setIdentifiedVehicle(saved.identifiedVehicle);
-            console.log('[BobWidget] Restored identifiedVehicle:', saved.identifiedVehicle.make, saved.identifiedVehicle.model);
-          }
-          return; // session restored — skip initialVehicle
-        } else {
-          console.log('[BobWidget] Session expired, clearing');
-          sessionStorage.removeItem(BOB_SESSION_KEY);
-        }
-      }
-    } catch (e) {
-      console.warn('[BobWidget] Failed to restore session:', e);
-      sessionStorage.removeItem(BOB_SESSION_KEY);
-    }
+    // Clear any stale session — every page load starts fresh
+    sessionStorage.removeItem(BOB_SESSION_KEY);
+    console.log('[BobWidget] Fresh session — cleared previous session data');
     
-    // No valid session — apply initialVehicle if provided
+    // Apply initialVehicle if provided (session handoff via ?session=TOKEN)
     if (initialVehicle) {
       console.log('[BobWidget] Applying initialVehicle:', initialVehicle.make, initialVehicle.model);
       vehicleCandidatesRef.current = [initialVehicle];
