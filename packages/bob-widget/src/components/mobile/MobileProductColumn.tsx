@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useMemo, useState } from "react";
 import { useViewportSize, type ViewportSize } from "../../hooks/useViewportSize";
 import { usePositionFactors } from "../../hooks/usePositionFactors";
 import { ProductTile } from "../ProductTile";
+import { DesktopScrollArrows } from "../DesktopScrollArrows";
 import type { Product, ServicePackage, PreparedTierProduct } from "../../types";
 import type { HighlightedProduct } from "../../types/message";
 import { isRearBrakePackage, filterByBrakeType, recalcTierTotal, detectAvailableBrakeTypes, type RearBrakeType } from "../../utils/rearBrakeFilter";
