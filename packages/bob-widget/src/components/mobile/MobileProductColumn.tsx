@@ -523,13 +523,24 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
               <div
                 key={pkg.id}
                 ref={(el) => { groupRefs.current[pkg.title] = el; }}
-                className="overflow-hidden transition-all duration-300"
+                className="overflow-x-auto product-scroll-row mb-2"
+                style={{
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
+                  WebkitOverflowScrolling: 'touch',
+                  touchAction: 'pan-x',
+                  overscrollBehavior: 'contain',
+                }}
+              >
+              <div
+                className="transition-all duration-300"
                 style={{
                   borderRadius: '20px',
                   background: 'linear-gradient(145deg, rgba(255,255,255,0.97) 0%, rgba(248,250,252,0.95) 100%)',
                   boxShadow: '0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)',
                   border: '1px solid rgba(226,232,240,0.8)',
-                  margin: '0 -0px',
+                  minWidth: '100%',
+                  width: 'max-content',
                 }}
               >
                 {/* Package Header - Clean gradient */}
@@ -599,14 +610,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                 {visibleTiers.length > 0 && (
                   <div className="pb-3">
                     <div 
-                      className="flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x snap-mandatory product-scroll-row"
-                      style={{ 
-                        scrollbarWidth: 'none',
-                        msOverflowStyle: 'none',
-                        WebkitOverflowScrolling: 'touch',
-                        touchAction: 'pan-x',
-                        overscrollBehavior: 'contain',
-                      }}
+                      className="flex gap-2.5 px-4 pb-2"
                     >
                       {visibleTiers.map((tier) => {
                         const tierConfig = QUALITY_TIER_CONFIG[tier.tierName as keyof typeof QUALITY_TIER_CONFIG];
@@ -617,9 +621,9 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                           <div
                             key={tier.tierName}
                             onClick={() => setSelectedTiers(prev => ({ ...prev, [pkg.id]: tier.tierName }))}
-                            className="snap-start flex-shrink-0 cursor-pointer transition-all duration-200"
+                            className="flex-shrink-0 cursor-pointer transition-all duration-200"
                             style={{
-                              width: viewportSize === 'desktop' ? '32%' : viewportSize === 'tablet' ? '45%' : '65%',
+                              width: viewportSize === 'desktop' ? '220px' : viewportSize === 'tablet' ? '180px' : '150px',
                               minWidth: '130px',
                               borderRadius: '16px',
                               padding: '12px 10px',
@@ -898,6 +902,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                     </div>
                   </div>
                 )}
+              </div>
               </div>
             );
           })}
