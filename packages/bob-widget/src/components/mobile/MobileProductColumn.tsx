@@ -619,7 +619,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                             onClick={() => setSelectedTiers(prev => ({ ...prev, [pkg.id]: tier.tierName }))}
                             className="snap-start flex-shrink-0 cursor-pointer transition-all duration-200"
                             style={{
-                              width: visibleTiers.length <= 2 ? '48%' : visibleTiers.length === 3 ? '38%' : '140px',
+                              width: viewportSize === 'desktop' ? '32%' : viewportSize === 'tablet' ? '45%' : '65%',
                               minWidth: '130px',
                               borderRadius: '16px',
                               padding: '12px 10px',
