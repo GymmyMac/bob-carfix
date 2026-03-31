@@ -100,7 +100,7 @@ export const DesktopScrollArrows: React.FC<DesktopScrollArrowsProps> = ({
           <div className="desktop-scroll-fade desktop-scroll-fade-right" />
           <button
             type="button"
-            onClick={() => scroll("right")}
+            onClick={(e) => scroll("right", e)}
             className="desktop-scroll-arrow desktop-scroll-arrow-right"
             aria-label="Scroll right"
           >
