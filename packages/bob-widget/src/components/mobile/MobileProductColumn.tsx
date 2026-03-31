@@ -610,14 +610,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                 {visibleTiers.length > 0 && (
                   <div className="pb-3">
                     <div 
-                      className="flex gap-2.5 overflow-x-auto px-4 pb-2 snap-x snap-mandatory product-scroll-row"
-                      style={{ 
-                        scrollbarWidth: 'none',
-                        msOverflowStyle: 'none',
-                        WebkitOverflowScrolling: 'touch',
-                        touchAction: 'pan-x',
-                        overscrollBehavior: 'contain',
-                      }}
+                      className="flex gap-2.5 px-4 pb-2"
                     >
                       {visibleTiers.map((tier) => {
                         const tierConfig = QUALITY_TIER_CONFIG[tier.tierName as keyof typeof QUALITY_TIER_CONFIG];
