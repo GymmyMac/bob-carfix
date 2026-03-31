@@ -302,8 +302,8 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
             ? 'calc(100px + env(safe-area-inset-bottom, 0px))'  // v3.1.16: Reduced from 180px
             : '52px',
           paddingTop: '4px',
-          paddingRight: '16px',
-          paddingLeft: '16px',
+          paddingRight: '8px',
+          paddingLeft: '8px',
           paddingBottom: '8px',
           // z-index 55: Below Bob (z-60) and counter (z-70) for visual layering
           // Touch still reaches here because Bob's wrapper has pointer-events: none
@@ -523,17 +523,18 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
               <div
                 key={pkg.id}
                 ref={(el) => { groupRefs.current[pkg.title] = el; }}
-                className="overflow-hidden transition-all duration-300"
+                className="overflow-visible transition-all duration-300"
                 style={{
                   borderRadius: '20px',
                   background: 'linear-gradient(145deg, rgba(255,255,255,0.97) 0%, rgba(248,250,252,0.95) 100%)',
                   boxShadow: '0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)',
                   border: '1px solid rgba(226,232,240,0.8)',
+                  margin: '0 -0px',
                 }}
               >
                 {/* Package Header - Clean gradient */}
                 <div 
-                  className="px-4 py-3.5"
+                  className="px-4 py-3.5 overflow-hidden"
                   style={{
                     background: `linear-gradient(135deg, ${CARFIX_COLORS.primary} 0%, #0066DD 100%)`,
                     borderRadius: '20px 20px 0 0',
@@ -618,7 +619,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                             onClick={() => setSelectedTiers(prev => ({ ...prev, [pkg.id]: tier.tierName }))}
                             className="snap-start flex-shrink-0 cursor-pointer transition-all duration-200"
                             style={{
-                              width: visibleTiers.length <= 2 ? '48%' : visibleTiers.length === 3 ? '38%' : '140px',
+                              width: viewportSize === 'desktop' ? '32%' : viewportSize === 'tablet' ? '45%' : '65%',
                               minWidth: '130px',
                               borderRadius: '16px',
                               padding: '12px 10px',
