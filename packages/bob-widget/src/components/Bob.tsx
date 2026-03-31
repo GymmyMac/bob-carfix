@@ -265,6 +265,24 @@ export const Bob: React.FC<BobProps> = ({
     setIsSpeakingForAnimation(bobChat.isSpeaking);
   }, [bobChat.isSpeaking]);
 
+  // ============= SESSION RESTORE: AUTO RE-FETCH PRODUCTS =============
+  // When vehicle is restored from sessionStorage but shelf is empty, trigger re-fetch
+  const sessionRefetchDoneRef = useRef(false);
+  useEffect(() => {
+    if (sessionRefetchDoneRef.current) return;
+    if (!bobChat.identifiedVehicle?.vehicle_id && !(bobChat.identifiedVehicle as any)?.id) return;
+    if (products.length > 0 || servicePackages.length > 0) return;
+    // Small delay to allow normal SSE events to populate shelf first
+    const timer = setTimeout(() => {
+      if (products.length === 0 && servicePackages.length === 0) {
+        sessionRefetchDoneRef.current = true;
+        console.log('[Bob] Session restore: vehicle present but shelf empty — re-fetching parts');
+        bobChat.refetchPartsForVehicle();
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [bobChat.identifiedVehicle]);
+
   // Wire up callbacks to update local state using STABLE refs
   // This prevents callback recreation on every render which was causing state loss
   useEffect(() => {

@@ -1044,6 +1044,95 @@ export const useBobChat = ({
     streamChat(userMessage).finally(() => setIsLoading(false));
   };
 
+  // ============= SESSION RESTORE: RE-FETCH PARTS =============
+  // Exposed so Bob.tsx can trigger a parts re-fetch when a vehicle is restored
+  // from sessionStorage but the product shelf is empty.
+  const sessionRefetchTriggeredRef = useRef(false);
+
+  const refetchPartsForVehicle = async () => {
+    if (!identifiedVehicle || sessionRefetchTriggeredRef.current) return;
+    sessionRefetchTriggeredRef.current = true;
+
+    const rawVehicleId = (identifiedVehicle as Vehicle & { vehicle_id?: string | number; id?: string | number }).vehicle_id
+      ?? (identifiedVehicle as Vehicle & { id?: string | number }).id;
+    const vehicleIdNum = Number.parseInt(String(rawVehicleId), 10);
+    if (!Number.isFinite(vehicleIdNum)) {
+      console.warn('[BobWidget] refetchPartsForVehicle: invalid vehicle_id');
+      return;
+    }
+
+    console.log('[BobWidget] refetchPartsForVehicle: re-fetching for vehicle', vehicleIdNum);
+    onPartsResearchStart?.();
+
+    const CHAT_URL = `${bobConfig.supabaseUrl}/functions/v1/bob-chat`;
+    const vehicleContext = { ...identifiedVehicle, vehicle_id: String(vehicleIdNum) };
+    const customerEmail = hostContext.user?.email;
+
+    try {
+      const response = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${bobConfig.supabaseKey}`,
+        },
+        body: JSON.stringify({
+          messages: [],
+          vehicleContext,
+          customerEmail,
+          autoFetchParts: true,
+          hostConfig: hostApiConfig,
+          hostContext,
+        }),
+      });
+
+      if (!response.ok || !response.body) {
+        console.error('[BobWidget] refetchPartsForVehicle failed:', response.status);
+        onAutoFetchComplete?.();
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            if (parsed.type === "service_packages_found" && parsed.packages) {
+              callbacks.onServicePackagesFound?.(parsed.packages);
+            }
+            if (parsed.type === "parts_found" && parsed.parts) {
+              callbacks.onPartsFound?.(parsed.parts);
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        }
+      }
+
+      onAutoFetchComplete?.();
+    } catch (error) {
+      console.error('[BobWidget] refetchPartsForVehicle error:', error);
+      onAutoFetchComplete?.();
+    }
+  };
+
   return {
     messages,
     input,
@@ -1062,5 +1151,6 @@ export const useBobChat = ({
     clearVehicle,
     sendDirectMessage,
     stopAllAudio,
+    refetchPartsForVehicle,
   };
 };
