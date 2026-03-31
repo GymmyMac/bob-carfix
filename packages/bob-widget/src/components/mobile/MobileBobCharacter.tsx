@@ -116,7 +116,7 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
       {/* Counter Overlay - v3.1.15: Use object-fill to stretch to configured height */}
       {counterOverlayUrl && (
         <div 
-          className="absolute bottom-0 left-0 right-0 z-[70]"
+          className="absolute bottom-0 left-0 right-0"
           style={{ 
             height: `${counterHeightPercent}%`,
             pointerEvents: 'none'
