@@ -525,8 +525,6 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                 ref={(el) => { groupRefs.current[pkg.title] = el; }}
                 className="overflow-x-auto product-scroll-row mb-2"
                 style={{
-                  scrollbarWidth: 'none',
-                  msOverflowStyle: 'none',
                   WebkitOverflowScrolling: 'touch',
                   touchAction: 'pan-x',
                   overscrollBehavior: 'contain',
