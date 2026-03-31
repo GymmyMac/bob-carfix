@@ -310,7 +310,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
           zIndex: 55,
           pointerEvents: 'auto' as const,
           // Ensure touch scroll works on mobile - prevent scroll chaining to parent
-          touchAction: 'pan-y',
+          touchAction: 'auto',
           overscrollBehavior: 'contain',
           WebkitOverflowScrolling: 'touch',
           // Hide default scrollbar
