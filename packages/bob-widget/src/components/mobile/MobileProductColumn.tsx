@@ -302,8 +302,8 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
             ? 'calc(100px + env(safe-area-inset-bottom, 0px))'  // v3.1.16: Reduced from 180px
             : '52px',
           paddingTop: '4px',
-          paddingRight: '0px',
-          paddingLeft: '0px',
+          paddingRight: '8px',
+          paddingLeft: '8px',
           paddingBottom: '8px',
           // z-index 55: Below Bob (z-60) and counter (z-70) for visual layering
           // Touch still reaches here because Bob's wrapper has pointer-events: none
