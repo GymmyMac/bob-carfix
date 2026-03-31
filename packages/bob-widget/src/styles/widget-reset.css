@@ -327,6 +327,79 @@
 }
 
 /* ============================================
+   Desktop Scroll Arrow Controls
+   Left/right navigation for overflowing rows
+   ============================================ */
+
+.bob-widget-root .desktop-scroll-wrapper {
+  position: relative;
+}
+
+.bob-widget-root .desktop-scroll-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 51, 102, 0.85) !important;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  padding: 0 !important;
+  min-height: unset !important;
+  min-width: unset !important;
+}
+
+.bob-widget-root .desktop-scroll-arrow:hover {
+  background: rgba(0, 102, 204, 0.95) !important;
+  box-shadow: 0 6px 24px rgba(0, 102, 204, 0.4) !important;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.bob-widget-root .desktop-scroll-arrow:active {
+  transform: translateY(-50%) scale(0.95) !important;
+}
+
+.bob-widget-root .desktop-scroll-arrow-left {
+  left: -4px;
+}
+
+.bob-widget-root .desktop-scroll-arrow-right {
+  right: -4px;
+}
+
+/* Edge fade masks - gradient overlay to hint at more content */
+.bob-widget-root .desktop-scroll-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.bob-widget-root .desktop-scroll-fade-left {
+  left: 0;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.15), transparent);
+  border-radius: 8px 0 0 8px;
+}
+
+.bob-widget-root .desktop-scroll-fade-right {
+  right: 0;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.15), transparent);
+  border-radius: 0 8px 8px 0;
+}
+
+/* ============================================
    High Contrast Input Placeholder Styling
    ============================================ */
 .bob-widget-root .high-contrast-input::placeholder {
