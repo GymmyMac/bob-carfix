@@ -51,7 +51,9 @@ export const DesktopScrollArrows: React.FC<DesktopScrollArrowsProps> = ({
     };
   }, [checkScroll, children]);
 
-  const scroll = (direction: "left" | "right") => {
+  const scroll = (direction: "left" | "right", e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
     const el = scrollRef.current;
     if (!el) return;
     const scrollAmount = el.clientWidth * 0.75;
@@ -64,14 +66,14 @@ export const DesktopScrollArrows: React.FC<DesktopScrollArrowsProps> = ({
   const showArrows = isDesktop && hasOverflow;
 
   return (
-    <div className="desktop-scroll-wrapper" style={{ position: "relative" }}>
+    <div className="desktop-scroll-wrapper" style={{ position: "relative", width: "100%", overflow: "hidden" }}>
       {/* Left fade mask + arrow */}
       {showArrows && canScrollLeft && (
         <>
           <div className="desktop-scroll-fade desktop-scroll-fade-left" />
           <button
             type="button"
-            onClick={() => scroll("left")}
+            onClick={(e) => scroll("left", e)}
             className="desktop-scroll-arrow desktop-scroll-arrow-left"
             aria-label="Scroll left"
           >
@@ -98,7 +100,7 @@ export const DesktopScrollArrows: React.FC<DesktopScrollArrowsProps> = ({
           <div className="desktop-scroll-fade desktop-scroll-fade-right" />
           <button
             type="button"
-            onClick={() => scroll("right")}
+            onClick={(e) => scroll("right", e)}
             className="desktop-scroll-arrow desktop-scroll-arrow-right"
             aria-label="Scroll right"
           >

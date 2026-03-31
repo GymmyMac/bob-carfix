@@ -974,7 +974,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
             {/* Products Row - Horizontal scroll-snap with desktop arrows */}
             <DesktopScrollArrows
               isDesktop={viewportSize === 'desktop'}
-              className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 product-scroll-row"
+              className={`flex gap-3 overflow-x-auto pb-2 product-scroll-row ${viewportSize !== 'desktop' ? 'snap-x snap-mandatory' : ''}`}
               style={{
                 WebkitOverflowScrolling: 'touch',
                 touchAction: 'pan-x',
