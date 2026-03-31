@@ -87,11 +87,12 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
   };
   
   return (
-    <div className="absolute inset-0 pointer-events-none z-[60]" style={{ overflow: 'visible' }}>
-      {/* Bob Character - 3-position system */}
+    <div className="absolute inset-0 pointer-events-none" style={{ overflow: 'visible', zIndex: 60 }}>
+      {/* Bob Character - 3-position system — inline zIndex to beat widget CSS reset */}
       <div 
-        className="absolute z-[60]"
+        className="absolute"
         style={{
+          zIndex: 60,
           bottom: `${bottomPercent}%`,
           left: getLeftPosition(),
           maxHeight: `${100 - counterHeightPercent - 2}%`,
@@ -115,8 +116,9 @@ export const MobileBobCharacter: React.FC<MobileBobCharacterProps> = ({
       {/* Counter Overlay - v3.1.15: Use object-fill to stretch to configured height */}
       {counterOverlayUrl && (
         <div 
-          className="absolute bottom-0 left-0 right-0 z-[70]"
+          className="absolute bottom-0 left-0 right-0"
           style={{ 
+            zIndex: 70,
             height: `${counterHeightPercent}%`,
             pointerEvents: 'none'
           }}
