@@ -1,40 +1,49 @@
 
 
-# Fix Horizontal Scroll for Product Rows
+# Fix: Independent Horizontal Scrolling for Service Pack and Product Rows
 
-## Root Cause
+## Problem
 
-The horizontal scroll on product rows is **completely blocked** by two things on the outer shelf container (line 291):
+Horizontal scrolling on service pack tier rows and product rows is blocked by two ancestor containers:
 
-1. **`overflow-x-hidden`** — clips any horizontal scroll within child elements
-2. **`touchAction: 'pan-y'`** (line 313) — tells the browser to only allow vertical touch gestures, blocking all horizontal swipe
+1. **`MobileBobLayoutCore.tsx` (line 180)**: `className="absolute inset-0 overflow-hidden"` — clips all overflow from descendants, killing horizontal scroll.
+2. **`MobileBobLayoutCore.tsx` (line 184)**: `touchAction: 'manipulation'` — collapses panning to a single axis per gesture, which combined with the vertical-scrolling shelf, prevents horizontal swipe from being recognized on inner elements.
 
-The tier cards for service packages happen to work (or partially work) because they sit inside their own `overflow-x-auto` container, but the parent `overflow-x-hidden` + `pan-y` still fights them.
+The product shelf itself (`MobileProductColumn.tsx` line 291) now correctly uses `touchAction: 'auto'`, and each row uses `touchAction: 'pan-x'` — but the grandparent container above kills both via clipping and gesture restriction.
 
-## The Fix
+## Fix Plan
 
-### File: `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`
+### File 1: `packages/bob-widget/src/components/mobile/MobileBobLayoutCore.tsx`
 
-**Change 1 — Outer container (line 291):**
-- Remove `overflow-x-hidden` from the className — change to just `overflow-y-auto`
-- Change `touchAction: 'pan-y'` to `touchAction: 'auto'` so the browser can detect both horizontal and vertical gestures
+**Line 180** — Change `overflow-hidden` to `overflow-clip` (or remove it). `overflow-clip` prevents visual bleed but does NOT create a scroll container, so it won't intercept touch gestures from descendants. This is the key difference: `overflow-hidden` creates a scroll context that eats horizontal swipes.
 
-**Change 2 — Each horizontal scroll row (line 968-974):**
-- Add `touchAction: 'pan-x'` on the horizontal scroll rows so when a user touches inside a product row, the browser prioritizes horizontal scrolling
-- Add the CSS class `product-scroll-row` to the div so the webkit scrollbar-hide rule actually applies (currently the class is defined in a `<style>` tag but never applied to the element)
+**Line 184** — Change `touchAction: 'manipulation'` to `touchAction: 'auto'`. The `manipulation` value disables double-tap zoom but also prevents the browser from recognizing horizontal pan gestures on nested scroll containers.
 
-**Change 3 — Service package tier row (line 600-606):**
-- Same treatment: add `touchAction: 'pan-x'` for consistent swipe behavior
+### File 2: `packages/bob-widget/src/components/mobile/MobileProductColumn.tsx`
+
+**Tier card row (line 601)** — Ensure `overscrollBehavior: 'contain'` is set on each horizontal scroll row to prevent scroll-chaining to the vertical shelf.
+
+**Product card row (line 970)** — Same treatment: add `overscrollBehavior: 'contain'`.
+
+**Card widths** — Adjust so roughly 1.5 cards are visible (half card peek):
+- Service pack tiers: already ~48% for 2 tiers, keep as-is since they already have good sizing
+- Product cards: change mobile width from `75%` to `65%` so ~1.5 cards are visible, making the "half card" peek obvious
+
+**Row height** — Add `max-height` or fixed height to the horizontal rows so they stay consistent and don't grow with content.
+
+### File 3: `packages/bob-widget/src/styles/widget-reset.css`
+
+Add CSS rule for `.product-scroll-row::-webkit-scrollbar { display: none; }` scoped under `.bob-widget-root` so it persists regardless of inline `<style>` tag rendering order. Remove the inline `<style>` tag from `MobileProductColumn.tsx` line 978.
 
 ## Summary
 
-| Line | Current | Fix |
-|------|---------|-----|
-| 291 | `overflow-y-auto overflow-x-hidden` | `overflow-y-auto` (remove x-hidden) |
-| 313 | `touchAction: 'pan-y'` | `touchAction: 'auto'` |
-| 968 | No touchAction on product row | Add `touchAction: 'pan-x'` |
-| 601 | No touchAction on tier row | Add `touchAction: 'pan-x'` |
-| 968 | Missing class `product-scroll-row` | Add the class so scrollbar-hide CSS applies |
-
-This is a 3-line fix at its core. Each horizontal row will scroll independently — swiping one row won't affect the row above or below.
+| File | Line(s) | Change |
+|------|---------|--------|
+| `MobileBobLayoutCore.tsx` | 180 | `overflow-hidden` → `overflow-clip` |
+| `MobileBobLayoutCore.tsx` | 184 | `touchAction: 'manipulation'` → `touchAction: 'auto'` |
+| `MobileProductColumn.tsx` | 601-607 | Add `overscrollBehavior: 'contain'` to tier row |
+| `MobileProductColumn.tsx` | 970-976 | Add `overscrollBehavior: 'contain'` to product row |
+| `MobileProductColumn.tsx` | 988 | Mobile card width `75%` → `65%` for half-card peek |
+| `MobileProductColumn.tsx` | 978 | Remove inline `<style>` tag |
+| `widget-reset.css` | ~283 | Add `.bob-widget-root .product-scroll-row` scrollbar hide rule |
 
