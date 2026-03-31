@@ -604,6 +604,7 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                         msOverflowStyle: 'none',
                         WebkitOverflowScrolling: 'touch',
                         touchAction: 'pan-x',
+                        overscrollBehavior: 'contain',
                       }}
                     >
                       {visibleTiers.map((tier) => {
