@@ -234,25 +234,44 @@ export const useBobChat = ({
   // NEW: Conversation state for UI hints
   const conversationStateRef = useRef<string>('AWAITING_REGO');
   
-  // ============= FRESH SESSION ON MOUNT =============
-  // Always start clean — no vehicle, fresh greeting.
-  // Session saves still happen mid-session (for soft re-renders),
-  // but we clear on every full page load so Bob never "remembers"
-  // a vehicle from a previous browser session.
+  // ============= SESSION RESTORE ON MOUNT =============
+  // sessionStorage is tab-scoped: it persists across same-tab navigations
+  // (e.g. clicking between pages on CARFIX) but clears automatically
+  // when the tab/browser is closed — exactly the desired behaviour.
+  // A 4-hour TTL guards against stale sessions left in long-lived tabs.
+
   useEffect(() => {
     if (sessionRestoredRef.current) return;
     sessionRestoredRef.current = true;
-    
-    // Clear any stale session — every page load starts fresh
-    sessionStorage.removeItem(BOB_SESSION_KEY);
-    console.log('[BobWidget] Fresh session — cleared previous session data');
-    
-    // Apply initialVehicle if provided (session handoff via ?session=TOKEN)
+
+    // initialVehicle prop (session handoff) always takes priority
     if (initialVehicle) {
       console.log('[BobWidget] Applying initialVehicle:', initialVehicle.make, initialVehicle.model);
       vehicleCandidatesRef.current = [initialVehicle];
       conversationStateRef.current = 'VEHICLE_CONFIRMED';
       setIdentifiedVehicle(initialVehicle as unknown as Vehicle);
+      return;
+    }
+
+    // Attempt to restore session from sessionStorage
+    try {
+      const raw = sessionStorage.getItem(BOB_SESSION_KEY);
+      if (raw) {
+        const session = JSON.parse(raw);
+        const age = Date.now() - (session.savedAt ?? 0);
+        if (age < SESSION_TTL_MS) {
+          if (session.messages?.length) setMessages(session.messages);
+          if (session.identifiedVehicle) setIdentifiedVehicle(session.identifiedVehicle);
+          if (session.vehicleCandidates) vehicleCandidatesRef.current = session.vehicleCandidates;
+          if (session.conversationState) conversationStateRef.current = session.conversationState;
+          console.log('[BobWidget] Session restored from sessionStorage');
+        } else {
+          sessionStorage.removeItem(BOB_SESSION_KEY);
+          console.log('[BobWidget] Session expired (4h TTL) — starting fresh');
+        }
+      }
+    } catch (e) {
+      console.warn('[BobWidget] Failed to restore session:', e);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
