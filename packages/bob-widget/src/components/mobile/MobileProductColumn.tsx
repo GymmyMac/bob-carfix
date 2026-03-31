@@ -972,15 +972,15 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
             </div>
             
             {/* Products Row - Horizontal scroll-snap with desktop arrows */}
-            <DesktopScrollArrows isDesktop={viewportSize === 'desktop'}>
-              <div 
-                className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 product-scroll-row"
-                style={{
-                  WebkitOverflowScrolling: 'touch',
-                  touchAction: 'pan-x',
-                  overscrollBehavior: 'contain',
-                }}
-              >
+            <DesktopScrollArrows
+              isDesktop={viewportSize === 'desktop'}
+              className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 product-scroll-row"
+              style={{
+                WebkitOverflowScrolling: 'touch',
+                touchAction: 'pan-x',
+                overscrollBehavior: 'contain',
+              }}
+            >
                 {groupProducts.map((product, index) => {
                   const isSpotlighted = !!(highlightedProduct && productMatchesSpotlight(product, highlightedProduct));
                   
@@ -1005,7 +1005,6 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                     </div>
                   );
                 })}
-              </div>
             </DesktopScrollArrows>
           </section>
         );
