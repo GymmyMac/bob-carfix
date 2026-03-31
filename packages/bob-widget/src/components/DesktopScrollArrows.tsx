@@ -66,7 +66,7 @@ export const DesktopScrollArrows: React.FC<DesktopScrollArrowsProps> = ({
   const showArrows = isDesktop && hasOverflow;
 
   return (
-    <div className="desktop-scroll-wrapper" style={{ position: "relative" }}>
+    <div className="desktop-scroll-wrapper" style={{ position: "relative", width: "100%", overflow: "hidden" }}>
       {/* Left fade mask + arrow */}
       {showArrows && canScrollLeft && (
         <>
