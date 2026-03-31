@@ -974,9 +974,9 @@ export const MobileProductColumn: React.FC<MobileProductColumnProps> = ({
                 msOverflowStyle: 'none',
                 WebkitOverflowScrolling: 'touch',
                 touchAction: 'pan-x',
+                overscrollBehavior: 'contain',
               }}
             >
-              <style>{`.product-scroll-row::-webkit-scrollbar { display: none; }`}</style>
               {groupProducts.map((product, index) => {
                 const isSpotlighted = !!(highlightedProduct && productMatchesSpotlight(product, highlightedProduct));
                 
