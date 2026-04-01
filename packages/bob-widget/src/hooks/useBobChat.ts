@@ -493,7 +493,7 @@ export const useBobChat = ({
                 // v3.2.11: Eagerly populate shelfCategoriesRef for scroll matching
                 if (shelfCategoriesRef?.current) {
                   (parsed.packages as Array<{ title?: string }>).forEach((pkg) => {
-                    if (pkg.title) shelfCategoriesRef.current!.add(pkg.title);
+                    if (pkg.title) shelfCategoriesRef.current!.set(pkg.title, 'package');
                   });
                 }
               }
