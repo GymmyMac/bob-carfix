@@ -333,6 +333,14 @@
 
 .bob-widget-root .desktop-scroll-wrapper {
   position: relative;
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Force the scroll row inside the wrapper to respect parent width */
+.bob-widget-root .desktop-scroll-wrapper > .product-scroll-row {
+  max-width: 100% !important;
+  width: 100% !important;
 }
 
 .bob-widget-root .desktop-scroll-arrow {
