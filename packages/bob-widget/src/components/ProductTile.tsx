@@ -13,11 +13,6 @@ interface ProductTileProps {
   onAddToCart?: (product: Product) => void;
 }
 
-/**
- * ProductTile — Clean card design, visually lighter than TierCard.
- *
- * Image fallback: product photo → brand logo → brand name text.
- */
 export const ProductTile: React.FC<ProductTileProps> = ({
   product,
   isSpotlighted = false,
@@ -87,15 +82,33 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         </div>
       )}
 
-      {/* Hero image — shorter than TierCard */}
+      {/* Product description — primary position */}
+      <div style={{ padding: "12px 10px 0" }}>
+        <p
+          style={{
+            fontSize: "13px",
+            fontWeight: 700,
+            color: CARFIX_COLORS.foreground,
+            lineHeight: 1.3,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: "vertical" as const,
+            margin: 0,
+          }}
+        >
+          {displayName}
+        </p>
+      </div>
+
+      {/* Product image — secondary, below description */}
       <div
         style={{
-          height: "90px",
-          background: "#F8FAFC",
+          height: "80px",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "8px 10px",
+          padding: "6px 10px",
           overflow: "hidden",
         }}
       >
@@ -114,9 +127,9 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         ) : (
           <span
             style={{
-              fontSize: "14px",
-              fontWeight: 700,
-              color: "#64748B",
+              fontSize: "13px",
+              fontWeight: 600,
+              color: "#94A3B8",
               textAlign: "center",
             }}
           >
@@ -125,71 +138,51 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         )}
       </div>
 
-      {/* Details */}
-      <div style={{ padding: "8px 10px 0" }}>
-        {/* Product name */}
-        <p
-          style={{
-            fontSize: "12px",
-            fontWeight: 600,
-            color: CARFIX_COLORS.foreground,
-            lineHeight: 1.3,
-            overflow: "hidden",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical" as const,
-            margin: 0,
-          }}
-        >
-          {displayName}
-        </p>
-
-        {/* Brand + part number row */}
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px", flexWrap: "wrap" }}>
-          {product.brand && (
-            <span
-              style={{
-                fontSize: "10px",
-                fontWeight: 600,
-                color: CARFIX_COLORS.mutedForeground,
-                background: "#F1F5F9",
-                padding: "1px 6px",
-                borderRadius: "6px",
-                border: "1px solid #E2E8F0",
-              }}
-            >
-              {product.brand}
-            </span>
-          )}
-          {product.perCarQty && product.perCarQty > 1 && (
-            <span
-              style={{
-                fontSize: "10px",
-                fontWeight: 600,
-                color: CARFIX_COLORS.accent,
-                background: `${CARFIX_COLORS.accent}12`,
-                padding: "1px 6px",
-                borderRadius: "6px",
-              }}
-            >
-              Qty: {product.perCarQty}
-            </span>
-          )}
-        </div>
-
-        {/* Oil specs */}
-        {(product.viscosity || product.volume) && (
-          <p style={{ fontSize: "10px", color: CARFIX_COLORS.mutedForeground, marginTop: "2px" }}>
-            {[product.viscosity, product.volume].filter(Boolean).join(" / ")}
-          </p>
+      {/* Brand + qty badges */}
+      <div style={{ padding: "0 10px", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+        {product.brand && (
+          <span
+            style={{
+              fontSize: "10px",
+              fontWeight: 600,
+              color: CARFIX_COLORS.mutedForeground,
+              background: "#F1F5F9",
+              padding: "1px 6px",
+              borderRadius: "6px",
+              border: "1px solid #E2E8F0",
+            }}
+          >
+            {product.brand}
+          </span>
+        )}
+        {product.perCarQty && product.perCarQty > 1 && (
+          <span
+            style={{
+              fontSize: "10px",
+              fontWeight: 600,
+              color: CARFIX_COLORS.accent,
+              background: `${CARFIX_COLORS.accent}12`,
+              padding: "1px 6px",
+              borderRadius: "6px",
+            }}
+          >
+            Qty: {product.perCarQty}
+          </span>
         )}
       </div>
 
-      {/* Price — prominent but smaller than TierCard */}
-      <div style={{ padding: "6px 10px 0" }}>
+      {/* Oil specs */}
+      {(product.viscosity || product.volume) && (
+        <p style={{ fontSize: "10px", color: CARFIX_COLORS.mutedForeground, margin: "2px 0 0", padding: "0 10px" }}>
+          {[product.viscosity, product.volume].filter(Boolean).join(" / ")}
+        </p>
+      )}
+
+      {/* Price — same layout as TierCard but smaller to echo lesser importance */}
+      <div style={{ padding: "6px 10px 0", textAlign: "left" }}>
         <p
           style={{
-            fontSize: "20px",
+            fontSize: "18px",
             fontWeight: 800,
             color: CARFIX_COLORS.foreground,
             letterSpacing: "-0.02em",
@@ -202,7 +195,7 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         <p style={{ fontSize: "9px", color: CARFIX_COLORS.mutedForeground, margin: "1px 0 0" }}>inc GST</p>
       </div>
 
-      {/* Add button — simple, less prominent than TierCard */}
+      {/* Add button */}
       <div style={{ padding: "8px 10px 10px", marginTop: "auto" }}>
         <button
           onClick={(e) => {
@@ -228,12 +221,7 @@ export const ProductTile: React.FC<ProductTileProps> = ({
 
       {/* Part type tag */}
       {product.partslotDescription && (
-        <div
-          style={{
-            borderTop: "1px solid #F1F5F9",
-            padding: "4px 10px 6px",
-          }}
-        >
+        <div style={{ borderTop: "1px solid #F1F5F9", padding: "4px 10px 6px" }}>
           <span style={{ fontSize: "9px", color: CARFIX_COLORS.mutedForeground }}>
             {product.partslotDescription}
           </span>
