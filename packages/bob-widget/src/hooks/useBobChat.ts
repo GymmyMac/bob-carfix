@@ -847,25 +847,59 @@ export const useBobChat = ({
         assistantContent.toLowerCase().includes(keyword.toLowerCase())
       );
 
-      // v3.2.9: Post-stream shelf category matching fallback
-      // If the server didn't send highlight_category, match Bob's response against actual shelf contents
-      console.log('[useBobChat] v3.2.10 scroll debug: highlightCategoryReceived=', highlightCategoryReceived, 'shelfCategories=', shelfCategoriesRef?.current ? Array.from(shelfCategoriesRef.current) : 'none');
+      // v3.3.0: Priority-aware shelf category matching
+      // Rule 3: Server-side highlight_category takes absolute priority (already handled above)
+      // Rules 1+2: Intent-aware two-pass matching with package priority
+      console.log('[useBobChat] v3.3.0 scroll debug: highlightCategoryReceived=', highlightCategoryReceived, 'shelfCategories=', shelfCategoriesRef?.current ? Array.from(shelfCategoriesRef.current.entries()) : 'none');
       if (!highlightCategoryReceived && shelfCategoriesRef?.current && shelfCategoriesRef.current.size > 0) {
         const responseLower = finalCleanContent.toLowerCase();
+
+        // Rule 2: Detect intent from Bob's response
+        const PACKAGE_SIGNALS = ['service pack', 'package', 'bundle', 'service', 'complete', 'kit'];
+        const PART_SIGNALS = ['individual', 'just the', 'single', 'grab a'];
+        const packageIntent = PACKAGE_SIGNALS.some(s => responseLower.includes(s));
+        const partIntent = PART_SIGNALS.some(s => responseLower.includes(s));
+
+        // Separate categories by type
+        const packageTitles: string[] = [];
+        const partslotNames: string[] = [];
+        for (const [name, type] of shelfCategoriesRef.current) {
+          if (type === 'package') packageTitles.push(name);
+          else partslotNames.push(name);
+        }
+
+        // Build candidate pool based on intent
+        let candidates: Array<{ name: string; type: 'package' | 'partslot' }>;
+        if (packageIntent && !partIntent) {
+          candidates = packageTitles.map(n => ({ name: n, type: 'package' as const }));
+        } else if (partIntent && !packageIntent) {
+          candidates = partslotNames.map(n => ({ name: n, type: 'partslot' as const }));
+        } else {
+          // Ambiguous — both compete
+          candidates = [
+            ...packageTitles.map(n => ({ name: n, type: 'package' as const })),
+            ...partslotNames.map(n => ({ name: n, type: 'partslot' as const })),
+          ];
+        }
+
         let bestMatch: string | null = null;
         let bestScore = 0;
 
-        for (const category of shelfCategoriesRef.current) {
-          const words = category.toLowerCase().split(/\s+/).filter(Boolean);
+        for (const { name, type } of candidates) {
+          const words = name.toLowerCase().split(/\s+/).filter(Boolean);
           const hits = words.filter(w => responseLower.includes(w)).length;
-          if (hits === words.length && hits > bestScore) {
-            bestScore = hits;
-            bestMatch = category;
+          if (hits < words.length) continue; // Must match ALL words
+          // Rule 1: Packages get +1 bonus in ambiguous scenarios
+          const score = hits + (type === 'package' && !partIntent ? 1 : 0);
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = name;
           }
         }
 
         if (bestMatch) {
-          console.log('[useBobChat] v3.2.10 shelf category match:', bestMatch, `(${bestScore} words)`);
+          const matchType = shelfCategoriesRef.current.get(bestMatch);
+          console.log(`[useBobChat] v3.3.0 shelf match: "${bestMatch}" (type=${matchType}, score=${bestScore}, packageIntent=${packageIntent}, partIntent=${partIntent})`);
           onHighlightPart?.(bestMatch);
         }
       }

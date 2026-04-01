@@ -85,23 +85,32 @@ export const Bob: React.FC<BobProps> = ({
   const [isResearching, setIsResearching] = useState(false);
   const [scrollToCategory, setScrollToCategory] = useState<string | null>(null);
 
-  // v3.2.9: Maintain a ref of current shelf category names for post-stream scroll matching
-  const shelfCategoriesRef = useRef<Set<string>>(new Set());
+  // v3.2.9: Maintain a ref of current shelf category names with type tags for priority matching
+  const shelfCategoriesRef = useRef<Map<string, 'package' | 'partslot'>>(new Map());
 
-  // Keep shelfCategoriesRef in sync with products
+  // Keep shelfCategoriesRef in sync with products (partslot entries)
   useEffect(() => {
-    const categories = new Set(products.map(p => p.partslotDescription || 'Other Parts').filter(Boolean));
-    shelfCategoriesRef.current = categories;
+    const updated = new Map<string, 'package' | 'partslot'>();
+    // Preserve existing package entries
+    for (const [key, type] of shelfCategoriesRef.current) {
+      if (type === 'package') updated.set(key, 'package');
+    }
+    // Add partslot entries from products
+    products.forEach(p => {
+      const cat = p.partslotDescription || 'Other Parts';
+      if (cat) updated.set(cat, 'partslot');
+    });
+    shelfCategoriesRef.current = updated;
   }, [products]);
 
-  // Also include service package titles as scrollable categories
+  // Also include service package titles as scrollable categories (tagged as 'package')
   useEffect(() => {
     if (servicePackages.length > 0) {
-      const current = new Set(shelfCategoriesRef.current);
+      const updated = new Map(shelfCategoriesRef.current);
       servicePackages.forEach(pkg => {
-        if (pkg.title) current.add(pkg.title);
+        if (pkg.title) updated.set(pkg.title, 'package');
       });
-      shelfCategoriesRef.current = current;
+      shelfCategoriesRef.current = updated;
     }
   }, [servicePackages]);
 
