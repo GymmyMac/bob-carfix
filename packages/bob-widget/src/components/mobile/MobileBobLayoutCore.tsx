@@ -1,27 +1,14 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { MobileBobCharacter, type BobPosition } from "./MobileBobCharacter";
 import { ShelfColumn as MobileProductColumn } from "../shelf";
+import type { VariantCard } from "../shelf";
 import { useViewportSize } from "../../hooks/useViewportSize";
 import { usePositionFactors } from "../../hooks/usePositionFactors";
 import type { Product, ServicePackage } from "../../types";
 import type { HighlightedProduct } from "../../types/message";
 import type { Vehicle } from "../../types/vehicle";
 
-// Variant card type for vehicle selection UI
-export interface VariantCard {
-  vehicle_id: number;
-  optionNumber: number;
-  displayTitle: string;
-  displaySubtitle: string;
-  characterization: string;
-  kw?: number | null;
-  cc?: number | null;
-  ccDisplay?: string | null;
-  fuelType?: string | null;
-  engineCode?: string | null;
-  make: string;
-  model: string;
-}
+export type { VariantCard };
 
 type PanelState = 'hidden' | 'loading' | 'transitioning' | 'visible';
 
