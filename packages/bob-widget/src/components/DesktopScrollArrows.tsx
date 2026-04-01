@@ -55,12 +55,30 @@ export const DesktopScrollArrows: React.FC<DesktopScrollArrowsProps> = ({
     e.stopPropagation();
     e.preventDefault();
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el) {
+      console.warn("[DesktopScrollArrows] No scroll element ref");
+      return;
+    }
     const scrollAmount = el.clientWidth * 0.75;
+    console.log("[DesktopScrollArrows] scroll", direction, {
+      scrollLeft: el.scrollLeft,
+      scrollWidth: el.scrollWidth,
+      clientWidth: el.clientWidth,
+      scrollAmount,
+      overflowX: getComputedStyle(el).overflowX,
+      elWidth: el.getBoundingClientRect().width,
+      parentWidth: el.parentElement?.getBoundingClientRect().width,
+    });
     el.scrollBy({
       left: direction === "left" ? -scrollAmount : scrollAmount,
       behavior: "smooth",
     });
+    // Check position after scroll
+    setTimeout(() => {
+      console.log("[DesktopScrollArrows] after scroll", {
+        scrollLeft: el.scrollLeft,
+      });
+    }, 500);
   };
 
   const showArrows = isDesktop && hasOverflow;
