@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import type { ServicePackage, PreparedTier, Product } from "../../types";
+import type { ServicePackage, Product } from "../../types";
 import type { ViewportSize } from "../../hooks/useViewportSize";
 import { HorizontalRow } from "./HorizontalRow";
 import { TierCard } from "./TierCard";
