@@ -205,9 +205,11 @@ export const TierCard: React.FC<TierCardProps> = ({
         )}
       </div>
 
-      {/* Parts count — left-aligned */}
-      <p style={{ fontSize: "10px", color: CARFIX_COLORS.mutedForeground, textAlign: "left", margin: "2px 0 0", padding: "0 12px" }}>
-        {tier.productCount} {tier.productCount === 1 ? "part" : "parts"}
+      {/* Parts count — featured callout */}
+      <p style={{ fontSize: "12px", fontWeight: 600, color: CARFIX_COLORS.foreground, textAlign: "left", margin: "3px 0 0", padding: "0 12px" }}>
+        {tier.productCount} {tier.productCount === 1 ? "part" : "parts"}{" "}
+        <span style={{ color: CARFIX_COLORS.mutedForeground, fontWeight: 400 }}>for</span>{" "}
+        <span style={{ fontWeight: 700, color: CARFIX_COLORS.success }}>{formatNZD(tier.totalPrice)}</span>
       </p>
 
       {/* Price section — large & proud */}
