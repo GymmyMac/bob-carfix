@@ -884,16 +884,24 @@ export const useBobChat = ({
 
         let bestMatch: string | null = null;
         let bestScore = 0;
+        let bestWordCount = 0; // Track raw word count for tiebreaking
 
         for (const { name, type } of candidates) {
           const words = name.toLowerCase().split(/\s+/).filter(Boolean);
           const hits = words.filter(w => responseLower.includes(w)).length;
           if (hits < words.length) continue; // Must match ALL words
-          // Rule 1: Packages get +1 bonus in ambiguous scenarios
-          const score = hits + (type === 'package' && !partIntent ? 1 : 0);
-          if (score > bestScore) {
+
+          // Rule 1: Packages get tiebreaker bonus only when:
+          // - Not in explicit part-intent mode
+          // - The match has at least 2 raw word hits (prevents "Wipers" beating "Front Brake Service")
+          const bonus = (type === 'package' && !partIntent && hits >= 2) ? 0.5 : 0;
+          const score = hits + bonus;
+
+          // Prefer longer matches (more specific) when scores are equal
+          if (score > bestScore || (score === bestScore && hits > bestWordCount)) {
             bestScore = score;
             bestMatch = name;
+            bestWordCount = hits;
           }
         }
 
