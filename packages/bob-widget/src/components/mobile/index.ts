@@ -1,7 +1,8 @@
 export { MobileBobCharacter } from './MobileBobCharacter';
 export { MobileBobLayoutCore } from './MobileBobLayoutCore';
 export { MobileChatDrawer } from './MobileChatDrawer';
-export { MobileProductColumn } from './MobileProductColumn';
+export { ShelfColumn as MobileProductColumn } from '../shelf';
+export type { VariantCard } from '../shelf';
 export { MobileBobLayout } from './MobileBobLayout';
 export { ContainedMobileBobLayout } from './ContainedMobileBobLayout';
 export { ContainedChatDrawer } from './ContainedChatDrawer';

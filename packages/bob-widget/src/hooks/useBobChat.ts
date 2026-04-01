@@ -5,7 +5,7 @@ import { useBobAnalytics } from "./useBobAnalytics";
 import { useReturningUser } from "./useReturningUser";
 import { BOB_VERSION } from "../version";
 import type { Vehicle } from "../types/vehicle";
-import type { VariantCard } from "../components/mobile/MobileProductColumn";
+import type { VariantCard } from "../components/shelf";
 
 import type { Message, HighlightedProduct } from "../types/message";
 

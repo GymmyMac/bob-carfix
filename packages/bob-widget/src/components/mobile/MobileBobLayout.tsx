@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { MobileBobCharacter } from "./MobileBobCharacter";
-import { MobileProductColumn, type VariantCard } from "./MobileProductColumn";
+import { ShelfColumn as MobileProductColumn, type VariantCard } from "../shelf";
 import { MobileChatDrawer } from "./MobileChatDrawer";
 import { useViewportSize } from "../../hooks/useViewportSize";
 import type { Message } from "../../types/message";
