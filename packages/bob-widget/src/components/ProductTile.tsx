@@ -48,13 +48,13 @@ export const ProductTile: React.FC<ProductTileProps> = ({
       className="flex-shrink-0 cursor-pointer transition-all duration-200"
       style={{
         borderRadius: "14px",
-        background: "#FFFFFF",
+        background: "#0F172A",
         border: isSpotlighted
           ? `2px solid ${CARFIX_COLORS.primary}`
-          : "1px solid #E2E8F0",
+          : "1px solid #1E293B",
         boxShadow: isSpotlighted
-          ? "0 4px 16px rgba(0,82,204,0.12)"
-          : "0 1px 3px rgba(0,0,0,0.04)",
+          ? "0 4px 16px rgba(0,82,204,0.25)"
+          : "0 2px 8px rgba(0,0,0,0.2)",
         position: "relative",
         display: "flex",
         flexDirection: "column",
@@ -82,33 +82,15 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         </div>
       )}
 
-      {/* Product description — primary position */}
-      <div style={{ padding: "12px 10px 0" }}>
-        <p
-          style={{
-            fontSize: "13px",
-            fontWeight: 700,
-            color: CARFIX_COLORS.foreground,
-            lineHeight: 1.3,
-            overflow: "hidden",
-            display: "-webkit-box",
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: "vertical" as const,
-            margin: 0,
-          }}
-        >
-          {displayName}
-        </p>
-      </div>
-
-      {/* Product image — secondary, below description */}
+      {/* Hero image */}
       <div
         style={{
-          height: "80px",
+          height: "90px",
+          background: "#1E293B",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "6px 10px",
+          padding: "8px 10px",
           overflow: "hidden",
         }}
       >
@@ -127,8 +109,8 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         ) : (
           <span
             style={{
-              fontSize: "13px",
-              fontWeight: 600,
+              fontSize: "14px",
+              fontWeight: 700,
               color: "#94A3B8",
               textAlign: "center",
             }}
@@ -138,18 +120,37 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         )}
       </div>
 
+      {/* Product name */}
+      <div style={{ padding: "8px 10px 0" }}>
+        <p
+          style={{
+            fontSize: "12px",
+            fontWeight: 600,
+            color: "#E2E8F0",
+            lineHeight: 1.3,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical" as const,
+            margin: 0,
+          }}
+        >
+          {displayName}
+        </p>
+      </div>
+
       {/* Brand + qty badges */}
-      <div style={{ padding: "0 10px", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+      <div style={{ padding: "4px 10px 0", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
         {product.brand && (
           <span
             style={{
               fontSize: "10px",
               fontWeight: 600,
-              color: CARFIX_COLORS.mutedForeground,
-              background: "#F1F5F9",
+              color: "#94A3B8",
+              background: "rgba(255,255,255,0.08)",
               padding: "1px 6px",
               borderRadius: "6px",
-              border: "1px solid #E2E8F0",
+              border: "1px solid #334155",
             }}
           >
             {product.brand}
@@ -161,7 +162,7 @@ export const ProductTile: React.FC<ProductTileProps> = ({
               fontSize: "10px",
               fontWeight: 600,
               color: CARFIX_COLORS.accent,
-              background: `${CARFIX_COLORS.accent}12`,
+              background: `${CARFIX_COLORS.accent}18`,
               padding: "1px 6px",
               borderRadius: "6px",
             }}
@@ -173,18 +174,18 @@ export const ProductTile: React.FC<ProductTileProps> = ({
 
       {/* Oil specs */}
       {(product.viscosity || product.volume) && (
-        <p style={{ fontSize: "10px", color: CARFIX_COLORS.mutedForeground, margin: "2px 0 0", padding: "0 10px" }}>
+        <p style={{ fontSize: "10px", color: "#64748B", margin: "2px 0 0", padding: "0 10px" }}>
           {[product.viscosity, product.volume].filter(Boolean).join(" / ")}
         </p>
       )}
 
-      {/* Price — same layout as TierCard but smaller to echo lesser importance */}
+      {/* Price — bold, light on dark */}
       <div style={{ padding: "6px 10px 0", textAlign: "left" }}>
         <p
           style={{
-            fontSize: "18px",
+            fontSize: "22px",
             fontWeight: 800,
-            color: CARFIX_COLORS.foreground,
+            color: "#FFFFFF",
             letterSpacing: "-0.02em",
             lineHeight: 1,
             margin: 0,
@@ -192,10 +193,10 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         >
           {product.price > 0 ? formatNZD(product.price) : "POA"}
         </p>
-        <p style={{ fontSize: "9px", color: CARFIX_COLORS.mutedForeground, margin: "1px 0 0" }}>inc GST</p>
+        <p style={{ fontSize: "9px", color: "#64748B", margin: "1px 0 0" }}>inc GST</p>
       </div>
 
-      {/* Add button */}
+      {/* Green Add button */}
       <div style={{ padding: "8px 10px 10px", marginTop: "auto" }}>
         <button
           onClick={(e) => {
@@ -204,14 +205,15 @@ export const ProductTile: React.FC<ProductTileProps> = ({
           }}
           style={{
             width: "100%",
-            padding: "7px 0",
+            padding: "8px 0",
             borderRadius: "10px",
             fontSize: "12px",
-            fontWeight: 600,
+            fontWeight: 700,
             cursor: "pointer",
-            border: "1px solid #E2E8F0",
-            background: "#FFFFFF",
-            color: CARFIX_COLORS.foreground,
+            border: "none",
+            background: "linear-gradient(135deg, #22C55E 0%, #16A34A 100%)",
+            color: "white",
+            boxShadow: "0 4px 12px rgba(34,197,94,0.3)",
             transition: "all 0.15s ease",
           }}
         >
@@ -221,8 +223,8 @@ export const ProductTile: React.FC<ProductTileProps> = ({
 
       {/* Part type tag */}
       {product.partslotDescription && (
-        <div style={{ borderTop: "1px solid #F1F5F9", padding: "4px 10px 6px" }}>
-          <span style={{ fontSize: "9px", color: CARFIX_COLORS.mutedForeground }}>
+        <div style={{ borderTop: "1px solid #1E293B", padding: "4px 10px 6px" }}>
+          <span style={{ fontSize: "9px", color: "#475569" }}>
             {product.partslotDescription}
           </span>
         </div>
