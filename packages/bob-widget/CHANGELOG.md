@@ -5,6 +5,16 @@ All notable changes to the `@gymmymac/bob-widget` package will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v3.2.21] - 2026-04-01
+
+### Changed
+
+- **Product tile visual refinements** — Inverted product tiles to dark navy theme (`#0F172A`) with light text, distinguishing individual parts from white service package cards. Hero image zone uses a white background so product image edges blend seamlessly. Price font increased to 28px bold for prominence. Brand fallback text enlarged to 22px for better readability when no product image is available.
+- **Heart/wishlist button on product tiles** — Added a red heart (♡) icon button alongside the green "Add" button, allowing customers to save individual products to their wishlist, matching the service package tier card pattern.
+- **Green gradient Add button** — Product tile CTA now uses a vibrant green gradient (`#22C55E → #16A34A`) with drop shadow for high visibility on the dark card background.
+
+---
+
 ## [v3.2.20] - 2026-03-30
 
 ### Fixed
