@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { MobileBobCharacter, type BobPosition } from "./MobileBobCharacter";
-import { MobileProductColumn } from "./MobileProductColumn";
+import { ShelfColumn as MobileProductColumn } from "../shelf";
 import { useViewportSize } from "../../hooks/useViewportSize";
 import { usePositionFactors } from "../../hooks/usePositionFactors";
 import type { Product, ServicePackage } from "../../types";

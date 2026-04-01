@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useContainerHeight } from "../../hooks/useContainerHeight";
 import { MobileBobCharacter } from "./MobileBobCharacter";
-import { MobileProductColumn, type VariantCard } from "./MobileProductColumn";
+import { ShelfColumn as MobileProductColumn, type VariantCard } from "../shelf";
 import { ContainedChatDrawer } from "./ContainedChatDrawer";
 import { ProductDetailView } from "./ProductDetailView";
 import { ServicePackageDetailView } from "./ServicePackageDetailView";

@@ -8,7 +8,7 @@ import { BobCharacter } from "./BobCharacter";
 import { ChatInterface } from "./ChatInterface";
 import { MobileBobLayout } from "./mobile/MobileBobLayout";
 import { ContainedMobileBobLayout } from "./mobile/ContainedMobileBobLayout";
-import type { VariantCard } from "./mobile/MobileProductColumn";
+import type { VariantCard } from "./shelf";
 import type { Product, ServicePackage } from "../types";
 import type { HighlightedProduct } from "../types/message";
 import type { CartItem } from "../types/context";
