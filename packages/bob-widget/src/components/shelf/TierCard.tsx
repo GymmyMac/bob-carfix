@@ -36,8 +36,7 @@ export const TierCard: React.FC<TierCardProps> = ({
     ? `${IMAGE_URLS.storageBase}/brand_images/${firstBrand.fullName.replace(/\s+/g, "")}.jpg`
     : "";
 
-  // Image fallback: brand logo → corrected URL → text
-  const [heroFailed, setHeroFailed] = useState(0); // 0=primary, 1=corrected, 2=text
+  const [heroFailed, setHeroFailed] = useState(0);
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -74,12 +73,12 @@ export const TierCard: React.FC<TierCardProps> = ({
         minWidth: "140px",
         borderRadius: "16px",
         background: tier.isRecommended
-          ? "linear-gradient(145deg, rgba(0,82,204,0.06) 0%, rgba(56,189,248,0.06) 100%)"
+          ? "linear-gradient(145deg, rgba(0,82,204,0.04) 0%, rgba(56,189,248,0.04) 100%)"
           : isSelected
             ? "rgba(248,250,252,1)"
             : "#FFFFFF",
         border: tier.isRecommended
-          ? `2px solid ${CARFIX_COLORS.primary}`
+          ? `2.5px solid ${CARFIX_COLORS.primary}`
           : isSelected
             ? `2px solid ${CARFIX_COLORS.primary}60`
             : "1.5px solid #E2E8F0",
@@ -100,28 +99,27 @@ export const TierCard: React.FC<TierCardProps> = ({
           style={{
             background: CARFIX_COLORS.primary,
             color: "white",
-            fontSize: "9px",
+            fontSize: "10px",
             fontWeight: 700,
-            letterSpacing: "0.05em",
+            letterSpacing: "0.06em",
             textAlign: "center",
-            padding: "4px 0",
+            padding: "5px 0",
           }}
         >
           ★ CARFIX VALUE
         </div>
       )}
 
-      {/* Hero image zone */}
+      {/* Hero image zone — fills top of card */}
       <div
         style={{
-          height: "100px",
-          background: "#F8FAFC",
+          height: "120px",
+          background: "#FFFFFF",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          borderBottom: "1px solid #F1F5F9",
-          padding: "12px",
-          marginTop: tier.isRecommended ? 0 : 0,
+          padding: "8px",
+          overflow: "hidden",
         }}
       >
         {firstBrand && heroFailed < 2 ? (
@@ -129,8 +127,8 @@ export const TierCard: React.FC<TierCardProps> = ({
             src={heroFailed === 0 ? firstBrand.imageUrl : correctedUrl}
             alt={firstBrand.fullName}
             style={{
-              maxHeight: "48px",
-              maxWidth: "100%",
+              width: "100%",
+              height: "100%",
               objectFit: "contain",
             }}
             onError={() => {
@@ -144,10 +142,11 @@ export const TierCard: React.FC<TierCardProps> = ({
         ) : (
           <span
             style={{
-              fontSize: "16px",
-              fontWeight: 700,
-              color: "#475569",
+              fontSize: "18px",
+              fontWeight: 800,
+              color: "#334155",
               textAlign: "center",
+              lineHeight: 1.2,
             }}
           >
             {firstBrand?.fullName || tier.dominantBrand}
@@ -155,106 +154,117 @@ export const TierCard: React.FC<TierCardProps> = ({
         )}
       </div>
 
-      {/* Tier info row + parts count */}
-      <div style={{ padding: "8px 10px 0" }}>
-        <div
+      {/* Tier info row — emoji + name + small brand pill */}
+      <div style={{ padding: "6px 10px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+        <span style={{ fontSize: "14px", lineHeight: 1 }}>{tierConfig?.emoji}</span>
+        <span
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "6px",
+            fontSize: "13px",
+            fontWeight: 700,
+            color: tierConfig?.textColor || CARFIX_COLORS.foreground,
           }}
         >
-          <span style={{ fontSize: "16px" }}>{tierConfig?.emoji}</span>
-          <span
+          {tier.displayName}
+        </span>
+        {/* Small brand logo pill */}
+        {firstBrand && heroFailed < 2 && (
+          <div
             style={{
-              fontSize: "12px",
-              fontWeight: 700,
-              color: tierConfig?.textColor || CARFIX_COLORS.foreground,
+              background: "#F8FAFC",
+              borderRadius: "6px",
+              padding: "2px 4px",
+              border: "1px solid #E2E8F0",
+              display: "flex",
+              alignItems: "center",
+              height: "22px",
             }}
           >
-            {tier.displayName}
-          </span>
-        </div>
-        <p
-          style={{
-            fontSize: "10px",
-            color: CARFIX_COLORS.mutedForeground,
-            textAlign: "center",
-            marginTop: "2px",
-          }}
-        >
-          {tier.productCount} {tier.productCount === 1 ? "part" : "parts"}
-        </p>
+            <img
+              src={heroFailed === 0 ? firstBrand.imageUrl : correctedUrl}
+              alt={firstBrand.fullName}
+              style={{ height: "14px", width: "auto", objectFit: "contain" }}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+          </div>
+        )}
       </div>
 
-      {/* Price section */}
-      <div style={{ padding: "6px 10px 0", textAlign: "center" }}>
+      {/* Parts count */}
+      <p style={{ fontSize: "10px", color: CARFIX_COLORS.mutedForeground, textAlign: "center", margin: "2px 0 0" }}>
+        {tier.productCount} {tier.productCount === 1 ? "part" : "parts"}
+      </p>
+
+      {/* Price section — large & proud */}
+      <div style={{ padding: "4px 10px 0", textAlign: "center" }}>
         {hasSavings ? (
           <>
-            <p style={{ fontSize: "11px", textDecoration: "line-through", color: "#94A3B8", margin: 0 }}>
+            <p style={{ fontSize: "12px", textDecoration: "line-through", color: "#94A3B8", margin: "0 0 1px" }}>
               {formatNZD(tier.originalTotalPrice!)}
             </p>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: "5px", flexWrap: "wrap" }}>
               <span
                 style={{
-                  fontSize: "24px",
+                  fontSize: viewportSize === "mobile" ? "22px" : "26px",
                   fontWeight: 800,
-                  color: CARFIX_COLORS.success,
-                  letterSpacing: "-0.02em",
-                  lineHeight: 1.1,
+                  color: CARFIX_COLORS.foreground,
+                  letterSpacing: "-0.03em",
+                  lineHeight: 1,
                 }}
               >
                 {formatNZD(tier.totalPrice)}
               </span>
               <span
                 style={{
-                  fontSize: "9px",
+                  fontSize: "10px",
                   fontWeight: 700,
                   color: "white",
                   background: CARFIX_COLORS.success,
                   padding: "2px 6px",
-                  borderRadius: "8px",
+                  borderRadius: "6px",
                   whiteSpace: "nowrap",
+                  lineHeight: 1.4,
                 }}
               >
                 SAVE {tier.bundleDiscountPercentage}%
               </span>
             </div>
+            <p style={{ fontSize: "9px", color: CARFIX_COLORS.mutedForeground, margin: "2px 0 0" }}>inc GST</p>
           </>
         ) : (
-          <p
-            style={{
-              fontSize: "24px",
-              fontWeight: 800,
-              color: tier.isRecommended ? CARFIX_COLORS.primary : CARFIX_COLORS.foreground,
-              letterSpacing: "-0.02em",
-              lineHeight: 1.1,
-              margin: 0,
-            }}
-          >
-            {formatNZD(tier.totalPrice)}
-          </p>
+          <>
+            <p
+              style={{
+                fontSize: viewportSize === "mobile" ? "22px" : "26px",
+                fontWeight: 800,
+                color: tier.isRecommended ? CARFIX_COLORS.primary : CARFIX_COLORS.foreground,
+                letterSpacing: "-0.03em",
+                lineHeight: 1,
+                margin: 0,
+              }}
+            >
+              {formatNZD(tier.totalPrice)}
+            </p>
+            <p style={{ fontSize: "9px", color: CARFIX_COLORS.mutedForeground, margin: "2px 0 0" }}>inc GST</p>
+          </>
         )}
-        <p style={{ fontSize: "9px", color: CARFIX_COLORS.mutedForeground, marginTop: "2px" }}>inc GST</p>
       </div>
 
       {/* Bottom row: Add + Heart */}
-      <div style={{ padding: "6px 10px 10px", display: "flex", gap: "6px", marginTop: "auto" }}>
+      <div style={{ padding: "8px 10px 10px", display: "flex", gap: "6px", marginTop: "auto" }}>
         <button
           onClick={handleAdd}
           style={{
             flex: 1,
-            padding: "8px 0",
+            padding: "9px 0",
             borderRadius: "10px",
-            fontSize: "12px",
+            fontSize: "13px",
             fontWeight: 700,
             cursor: "pointer",
-            border: "none",
+            border: tier.isRecommended ? "none" : "1.5px solid #E2E8F0",
             background: tier.isRecommended
               ? "linear-gradient(135deg, #22C55E 0%, #16A34A 100%)"
-              : "#F1F5F9",
-            color: tier.isRecommended ? "white" : CARFIX_COLORS.success,
+              : "#FFFFFF",
+            color: tier.isRecommended ? "white" : CARFIX_COLORS.foreground,
             boxShadow: tier.isRecommended ? "0 4px 12px rgba(34,197,94,0.3)" : "none",
             transition: "all 0.15s ease",
           }}
@@ -264,11 +274,11 @@ export const TierCard: React.FC<TierCardProps> = ({
         <button
           onClick={(e) => e.stopPropagation()}
           style={{
-            width: "36px",
-            minWidth: "36px",
-            padding: "8px 0",
+            width: "38px",
+            minWidth: "38px",
+            padding: "9px 0",
             borderRadius: "10px",
-            fontSize: "14px",
+            fontSize: "16px",
             cursor: "pointer",
             border: "1.5px solid #E2E8F0",
             background: "#FFFFFF",
@@ -276,6 +286,7 @@ export const TierCard: React.FC<TierCardProps> = ({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            color: "#EF4444",
           }}
         >
           ♡
