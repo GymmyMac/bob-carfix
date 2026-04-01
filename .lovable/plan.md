@@ -1,77 +1,60 @@
 
 
-# Shelf Navigation Coordination — Rules-Based System
+# TierCard Redesign — Image-Hero Layout (Based on Right-Hand Tile Sketch)
 
-## The Problem
+## Reference Design (from your sketch — right tile)
 
-Bob says "I've got a Front Brake Service package for you" but the shelf scrolls to the "BRAKE PADS" partslot section instead. This happens because:
+The right-hand tile shows:
+1. **★ CARFIX VALUE** banner across the top
+2. **Large brand logo** (Repco) dominating the upper ~40% of the card
+3. **Tier emoji + name + small brand logo** on a single row below the hero image (⚡ Performance + small Repco logo)
+4. **Large bold price** ($115.00) with **SAVE 15%** badge inline, plus "inc.GST" suffix
+5. **Green "Add" button** + **red heart icon** side by side at the bottom
 
-1. **No priority system** — service package titles and partslot names compete equally in the word-matching algorithm
-2. **Greedy matching** — "brake" appears in both "Front Brake Service" (package) and "BRAKE PADS" (partslot), so whichever scores highest by raw word count wins
-3. **No intent awareness** — the matcher doesn't know whether Bob is recommending a package or a part
+## Changes to `TierCard.tsx`
 
-## The Fix: Priority-Aware Shelf Navigation
-
-### Rule 1: Service Packages Always Win Ties
-When Bob's response matches both a service package title AND a partslot name, the service package takes priority. This aligns with the sales workflow (packages first, parts second).
-
-### Rule 2: Intent Keywords Boost Priority
-Certain phrases signal Bob is talking about a package vs a part:
-- **Package signals**: "service pack", "package", "bundle", "service", "complete", "kit"
-- **Part signals**: "individual", "just the", "single", "part", "grab a"
-
-When a package signal is detected, only service package titles are considered. When a part signal is detected, only partslot names are considered. When neither is detected, both compete but packages get a tiebreaker bonus.
-
-### Rule 3: Server-Side Hint Takes Absolute Priority
-If the SSE stream sends a `highlight_category` event, that overrides all client-side matching (this already works but is rarely sent).
-
-### Rule 4: Highlighted Product Scrolls to Its Section
-When `onHighlightProduct` fires (Bob recommends a specific brand + price), the shelf should scroll to the section containing that product, not just highlight the card in place.
-
-## Implementation
-
-### Changes to `useBobChat.ts` (post-stream matching block, ~lines 850-871)
-
-Replace the single flat loop with a two-pass system:
+### New layout structure (top to bottom):
 
 ```text
-1. Separate shelfCategoriesRef into two sets:
-   - packageTitles (from servicePackages)
-   - partslotNames (from products)
-
-2. Detect intent from Bob's response text:
-   - packageIntent = response contains package signal words
-   - partIntent = response contains part signal words
-
-3. Match against the appropriate set:
-   - If packageIntent → match only packageTitles
-   - If partIntent → match only partslotNames  
-   - If ambiguous → match both, but packageTitles get +1 bonus score
-
-4. Fire onHighlightPart with the winning match
+┌──────────────────────────┐
+│    ★ CARFIX VALUE        │  ← Blue banner (recommended only)
+│                          │
+│  ┌────────────────────┐  │
+│  │                    │  │
+│  │   BRAND LOGO       │  │  ← Hero zone: ~100px, white bg
+│  │   (large, proud)   │  │     brandImageUrl → fallback chain
+│  │                    │  │
+│  └────────────────────┘  │
+│                          │
+│  ⚡ Performance  [logo]  │  ← Tier name + small brand pill
+│       3 parts            │
+│                          │
+│  ~$133.00~               │  ← Strikethrough original (if savings)
+│  $115.00  SAVE 15%       │  ← Large price + inline savings badge
+│           inc.GST        │
+│                          │
+│  [ Add ]  ❤️             │  ← Green button + heart icon row
+└──────────────────────────┘
 ```
 
-### Changes to `Bob.tsx` (shelfCategoriesRef management)
+### Specific changes:
 
-Store categories with their type so the matcher can distinguish them:
+1. **Hero image zone** — 100px tall container with white background and subtle border. Displays the first brand's logo at **48px height** (up from 24px). Uses existing `brandImageUrl` → corrected URL → text fallback chain.
 
-```text
-shelfCategoriesRef: Map<string, 'package' | 'partslot'>
-  - Service package titles → tagged as 'package'
-  - Product partslot descriptions → tagged as 'partslot'
-```
+2. **Tier info row** — Horizontal row: tier emoji + tier name + small brand logo pill (24px). Replaces the current vertical stack.
 
-### Changes to `ShelfColumn.tsx` (scroll targeting)
+3. **Price section** — Price font increased to **24px** (from 18px). "SAVE X%" badge rendered inline next to the price instead of below it. "inc.GST" as small suffix.
 
-When `highlightedPartType` is set and matches a service package title, scroll to the service package section first (it renders above parts sections in the DOM, so this mostly works already — but the `matchesPartType` function needs to check service package refs too, which it currently does).
+4. **Bottom row** — "Add" button takes ~75% width, a **heart button** (❤️) takes ~25% width beside it. Heart is a placeholder for future "save to wishlist" functionality (fires no callback yet, just visual).
 
-### No visual changes needed
-The shelf already highlights headers and scrolls smoothly. The only change is **which section gets targeted**.
+5. **Card widths** — Mobile: 160px, Tablet: 190px, Desktop: 240px (slight increase to fit hero image).
 
-## Files Modified
-1. **`packages/bob-widget/src/hooks/useBobChat.ts`** — Replace flat word-matching with priority-aware two-pass matcher
-2. **`packages/bob-widget/src/components/Bob.tsx`** — Change `shelfCategoriesRef` from `Set<string>` to `Map<string, 'package' | 'partslot'>`
+### What stays the same:
+- All props, data flow, `handleAdd` logic unchanged
+- CARFIX VALUE banner logic unchanged  
+- `onAddToCart` callback mapping unchanged
+- Brand image fallback chain (same `onError` pattern)
 
-## Estimated Scope
-~50 lines changed across 2 files. No new components. No visual changes.
+## File
+Single file: `packages/bob-widget/src/components/shelf/TierCard.tsx`
 
