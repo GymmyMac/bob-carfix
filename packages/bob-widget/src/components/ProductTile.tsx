@@ -109,10 +109,11 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         ) : (
           <span
             style={{
-              fontSize: "14px",
-              fontWeight: 700,
+              fontSize: "22px",
+              fontWeight: 800,
               color: "#94A3B8",
               textAlign: "center",
+              letterSpacing: "0.02em",
             }}
           >
             {product.brand || "No Image"}
