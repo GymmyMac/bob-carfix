@@ -55,42 +55,33 @@ export const DesktopScrollArrows: React.FC<DesktopScrollArrowsProps> = ({
     e.stopPropagation();
     e.preventDefault();
     const el = scrollRef.current;
-    if (!el) {
-      console.warn("[DesktopScrollArrows] No scroll element ref");
-      return;
-    }
+    if (!el) return;
     const scrollAmount = el.clientWidth * 0.75;
-    console.log("[DesktopScrollArrows] scroll", direction, {
-      scrollLeft: el.scrollLeft,
-      scrollWidth: el.scrollWidth,
-      clientWidth: el.clientWidth,
-      scrollAmount,
-      overflowX: getComputedStyle(el).overflowX,
-      elWidth: el.getBoundingClientRect().width,
-      parentWidth: el.parentElement?.getBoundingClientRect().width,
-    });
-    el.scrollBy({
-      left: direction === "left" ? -scrollAmount : scrollAmount,
+    el.scrollTo({
+      left: el.scrollLeft + (direction === "left" ? -scrollAmount : scrollAmount),
       behavior: "smooth",
     });
-    // Check position after scroll
-    setTimeout(() => {
-      console.log("[DesktopScrollArrows] after scroll", {
-        scrollLeft: el.scrollLeft,
-      });
-    }, 500);
   };
 
   const showArrows = isDesktop && hasOverflow;
 
   return (
-    <div className="desktop-scroll-wrapper" style={{ position: "relative", width: "100%", overflow: "hidden" }}>
+    <div
+      className="desktop-scroll-wrapper"
+      style={{
+        position: "relative",
+        width: "100%",
+        maxWidth: "100%",
+        overflow: "hidden",
+      }}
+    >
       {/* Left fade mask + arrow */}
       {showArrows && canScrollLeft && (
         <>
           <div className="desktop-scroll-fade desktop-scroll-fade-left" />
           <button
             type="button"
+            onPointerDown={(e) => { e.stopPropagation(); }}
             onClick={(e) => scroll("left", e)}
             className="desktop-scroll-arrow desktop-scroll-arrow-left"
             aria-label="Scroll left"
@@ -102,11 +93,15 @@ export const DesktopScrollArrows: React.FC<DesktopScrollArrowsProps> = ({
         </>
       )}
 
-      {/* Scrollable row */}
+      {/* Scrollable row - explicit width constraint to force overflow */}
       <div
         ref={scrollRef}
         className={className}
-        style={style}
+        style={{
+          ...style,
+          width: "100%",
+          maxWidth: "100%",
+        }}
         onScroll={checkScroll}
       >
         {children}
@@ -118,6 +113,7 @@ export const DesktopScrollArrows: React.FC<DesktopScrollArrowsProps> = ({
           <div className="desktop-scroll-fade desktop-scroll-fade-right" />
           <button
             type="button"
+            onPointerDown={(e) => { e.stopPropagation(); }}
             onClick={(e) => scroll("right", e)}
             className="desktop-scroll-arrow desktop-scroll-arrow-right"
             aria-label="Scroll right"
