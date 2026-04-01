@@ -82,16 +82,16 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         </div>
       )}
 
-      {/* Hero image */}
+      {/* Hero image — white background so edges blend */}
       <div
         style={{
-          height: "90px",
-          background: "#1E293B",
+          height: "100px",
+          background: "#FFFFFF",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "8px 10px",
           overflow: "hidden",
+          borderRadius: "13px 13px 0 0",
         }}
       >
         {imgSrc && imgStage < 2 ? (
@@ -179,7 +179,7 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         </p>
       )}
 
-      {/* Price — bold, light on dark */}
+      {/* Price */}
       <div style={{ padding: "6px 10px 0", textAlign: "left" }}>
         <p
           style={{
@@ -196,15 +196,15 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         <p style={{ fontSize: "9px", color: "#64748B", margin: "1px 0 0" }}>inc GST</p>
       </div>
 
-      {/* Green Add button */}
-      <div style={{ padding: "8px 10px 10px", marginTop: "auto" }}>
+      {/* Add + Heart row */}
+      <div style={{ padding: "8px 10px 10px", display: "flex", gap: "6px", marginTop: "auto" }}>
         <button
           onClick={(e) => {
             e.stopPropagation();
             onAddToCart?.(product);
           }}
           style={{
-            width: "100%",
+            flex: 1,
             padding: "8px 0",
             borderRadius: "10px",
             fontSize: "12px",
@@ -218,6 +218,26 @@ export const ProductTile: React.FC<ProductTileProps> = ({
           }}
         >
           Add
+        </button>
+        <button
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            width: "36px",
+            minWidth: "36px",
+            padding: "8px 0",
+            borderRadius: "10px",
+            fontSize: "15px",
+            cursor: "pointer",
+            border: "1px solid #334155",
+            background: "rgba(255,255,255,0.05)",
+            transition: "all 0.15s ease",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#EF4444",
+          }}
+        >
+          ♡
         </button>
       </div>
 
