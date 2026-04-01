@@ -184,7 +184,7 @@ export const ProductTile: React.FC<ProductTileProps> = ({
       <div style={{ padding: "6px 10px 0", textAlign: "left" }}>
         <p
           style={{
-            fontSize: "22px",
+            fontSize: "28px",
             fontWeight: 800,
             color: "#FFFFFF",
             letterSpacing: "-0.02em",
@@ -194,7 +194,7 @@ export const ProductTile: React.FC<ProductTileProps> = ({
         >
           {product.price > 0 ? formatNZD(product.price) : "POA"}
         </p>
-        <p style={{ fontSize: "9px", color: "#64748B", margin: "1px 0 0" }}>inc GST</p>
+        <p style={{ fontSize: "10px", color: "#64748B", margin: "2px 0 0" }}>inc GST</p>
       </div>
 
       {/* Add + Heart row */}
