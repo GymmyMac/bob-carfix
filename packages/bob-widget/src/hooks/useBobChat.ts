@@ -710,7 +710,7 @@ export const useBobChat = ({
               if (shelfCategoriesRef?.current && Array.isArray(parsed.parts)) {
                 (parsed.parts as Array<{ partslot_description?: string }>).forEach((p) => {
                   const cat = p.partslot_description || 'Other Parts';
-                  if (cat) shelfCategoriesRef.current!.add(cat);
+                  if (cat) shelfCategoriesRef.current!.set(cat, 'partslot');
                 });
               }
               analytics.trackPartsViewed(
