@@ -129,7 +129,7 @@ export const ServicePackageCard: React.FC<ServicePackageCardProps> = ({
       {/* Tier Cards — Horizontal scroll */}
       {visibleTiers.length > 0 && (
         <div className="pb-3">
-          <HorizontalRow viewportSize={viewportSize} className="gap-2.5 px-4 pb-2">
+          <HorizontalRow viewportSize={viewportSize} className="gap-4 px-4 pb-2">
             {visibleTiers.map((tier) => (
               <TierCard
                 key={tier.tierName}
