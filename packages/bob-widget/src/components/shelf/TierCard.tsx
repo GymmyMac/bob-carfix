@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import type { PreparedTier, Product } from "../../types";
 import type { ViewportSize } from "../../hooks/useViewportSize";
 import {
@@ -29,7 +29,15 @@ export const TierCard: React.FC<TierCardProps> = ({
 }) => {
   const tierConfig = QUALITY_TIER_CONFIG[tier.tierName as keyof typeof QUALITY_TIER_CONFIG];
   const hasSavings = tier.savingsAmount && tier.savingsAmount > 0;
-  const cardWidth = viewportSize === "desktop" ? "220px" : viewportSize === "tablet" ? "180px" : "150px";
+  const cardWidth = viewportSize === "desktop" ? "240px" : viewportSize === "tablet" ? "190px" : "160px";
+
+  const firstBrand = tier.brands[0];
+  const correctedUrl = firstBrand
+    ? `${IMAGE_URLS.storageBase}/brand_images/${firstBrand.fullName.replace(/\s+/g, "")}.jpg`
+    : "";
+
+  // Image fallback: brand logo → corrected URL → text
+  const [heroFailed, setHeroFailed] = useState(0); // 0=primary, 1=corrected, 2=text
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -63,9 +71,8 @@ export const TierCard: React.FC<TierCardProps> = ({
       className="flex-shrink-0 cursor-pointer transition-all duration-200 snap-start"
       style={{
         width: cardWidth,
-        minWidth: "130px",
+        minWidth: "140px",
         borderRadius: "16px",
-        padding: "12px 10px",
         background: tier.isRecommended
           ? "linear-gradient(145deg, rgba(0,82,204,0.06) 0%, rgba(56,189,248,0.06) 100%)"
           : isSelected
@@ -84,143 +91,196 @@ export const TierCard: React.FC<TierCardProps> = ({
         position: "relative",
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        textAlign: "center",
+        overflow: "hidden",
       }}
     >
-      {/* CARFIX Value badge */}
+      {/* CARFIX Value banner */}
       {tier.isRecommended && (
         <div
           style={{
-            position: "absolute",
-            top: "-1px",
-            left: "-1px",
-            right: "-1px",
             background: CARFIX_COLORS.primary,
             color: "white",
             fontSize: "9px",
             fontWeight: 700,
             letterSpacing: "0.05em",
             textAlign: "center",
-            padding: "3px 0",
-            borderRadius: "14px 14px 0 0",
+            padding: "4px 0",
           }}
         >
           ★ CARFIX VALUE
         </div>
       )}
 
-      {/* Tier icon + name */}
-      <div style={{ marginTop: tier.isRecommended ? "14px" : "0" }}>
-        <span style={{ fontSize: "20px" }}>{tierConfig?.emoji}</span>
-        <p style={{ fontSize: "12px", fontWeight: 700, marginTop: "2px", color: tierConfig?.textColor || CARFIX_COLORS.foreground }}>
-          {tier.displayName}
+      {/* Hero image zone */}
+      <div
+        style={{
+          height: "100px",
+          background: "#F8FAFC",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          borderBottom: "1px solid #F1F5F9",
+          padding: "12px",
+          marginTop: tier.isRecommended ? 0 : 0,
+        }}
+      >
+        {firstBrand && heroFailed < 2 ? (
+          <img
+            src={heroFailed === 0 ? firstBrand.imageUrl : correctedUrl}
+            alt={firstBrand.fullName}
+            style={{
+              maxHeight: "48px",
+              maxWidth: "100%",
+              objectFit: "contain",
+            }}
+            onError={() => {
+              if (heroFailed === 0 && correctedUrl) {
+                setHeroFailed(1);
+              } else {
+                setHeroFailed(2);
+              }
+            }}
+          />
+        ) : (
+          <span
+            style={{
+              fontSize: "16px",
+              fontWeight: 700,
+              color: "#475569",
+              textAlign: "center",
+            }}
+          >
+            {firstBrand?.fullName || tier.dominantBrand}
+          </span>
+        )}
+      </div>
+
+      {/* Tier info row + parts count */}
+      <div style={{ padding: "8px 10px 0" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "6px",
+          }}
+        >
+          <span style={{ fontSize: "16px" }}>{tierConfig?.emoji}</span>
+          <span
+            style={{
+              fontSize: "12px",
+              fontWeight: 700,
+              color: tierConfig?.textColor || CARFIX_COLORS.foreground,
+            }}
+          >
+            {tier.displayName}
+          </span>
+        </div>
+        <p
+          style={{
+            fontSize: "10px",
+            color: CARFIX_COLORS.mutedForeground,
+            textAlign: "center",
+            marginTop: "2px",
+          }}
+        >
+          {tier.productCount} {tier.productCount === 1 ? "part" : "parts"}
         </p>
       </div>
 
-      {/* Brand Logo */}
-      <div style={{ margin: "8px 0", minHeight: "36px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        {tier.brands.slice(0, 1).map((brand, idx) => {
-          const correctedUrl = `${IMAGE_URLS.storageBase}/brand_images/${brand.fullName.replace(/\s+/g, "")}.jpg`;
-          return (
-            <div
-              key={idx}
-              style={{
-                background: "#FFFFFF",
-                borderRadius: "10px",
-                padding: "4px 8px",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                border: "1px solid #F1F5F9",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                height: "36px",
-                maxWidth: "80px",
-              }}
-            >
-              <img
-                src={brand.imageUrl}
-                alt={brand.fullName}
-                style={{ height: "24px", width: "auto", objectFit: "contain" }}
-                onError={(e) => {
-                  const img = e.target as HTMLImageElement;
-                  if (img.src !== correctedUrl) {
-                    img.src = correctedUrl;
-                  } else {
-                    img.style.display = "none";
-                    img.parentElement!.innerHTML = `<span style="font-size:10px;font-weight:600;color:#475569">${brand.fullName}</span>`;
-                  }
-                }}
-              />
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Parts count */}
-      <p style={{ fontSize: "10px", color: CARFIX_COLORS.mutedForeground }}>
-        {tier.productCount} {tier.productCount === 1 ? "part" : "parts"}
-      </p>
-
-      {/* Price */}
-      <div style={{ marginTop: "6px" }}>
+      {/* Price section */}
+      <div style={{ padding: "6px 10px 0", textAlign: "center" }}>
         {hasSavings ? (
           <>
-            <p style={{ fontSize: "11px", textDecoration: "line-through", color: "#94A3B8" }}>
+            <p style={{ fontSize: "11px", textDecoration: "line-through", color: "#94A3B8", margin: 0 }}>
               {formatNZD(tier.originalTotalPrice!)}
             </p>
-            <p style={{ fontSize: "18px", fontWeight: 800, color: CARFIX_COLORS.success, letterSpacing: "-0.02em" }}>
-              {formatNZD(tier.totalPrice)}
-            </p>
-            <p
-              style={{
-                fontSize: "9px",
-                fontWeight: 700,
-                color: CARFIX_COLORS.success,
-                background: `${CARFIX_COLORS.success}12`,
-                padding: "2px 6px",
-                borderRadius: "8px",
-                marginTop: "2px",
-              }}
-            >
-              SAVE {tier.bundleDiscountPercentage}%
-            </p>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+              <span
+                style={{
+                  fontSize: "24px",
+                  fontWeight: 800,
+                  color: CARFIX_COLORS.success,
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1.1,
+                }}
+              >
+                {formatNZD(tier.totalPrice)}
+              </span>
+              <span
+                style={{
+                  fontSize: "9px",
+                  fontWeight: 700,
+                  color: "white",
+                  background: CARFIX_COLORS.success,
+                  padding: "2px 6px",
+                  borderRadius: "8px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                SAVE {tier.bundleDiscountPercentage}%
+              </span>
+            </div>
           </>
         ) : (
           <p
             style={{
-              fontSize: "18px",
+              fontSize: "24px",
               fontWeight: 800,
               color: tier.isRecommended ? CARFIX_COLORS.primary : CARFIX_COLORS.foreground,
               letterSpacing: "-0.02em",
+              lineHeight: 1.1,
+              margin: 0,
             }}
           >
             {formatNZD(tier.totalPrice)}
           </p>
         )}
-        <p style={{ fontSize: "9px", color: CARFIX_COLORS.mutedForeground, marginTop: "1px" }}>inc GST</p>
+        <p style={{ fontSize: "9px", color: CARFIX_COLORS.mutedForeground, marginTop: "2px" }}>inc GST</p>
       </div>
 
-      {/* Add button */}
-      <button
-        onClick={handleAdd}
-        style={{
-          marginTop: "8px",
-          width: "100%",
-          padding: "7px 0",
-          borderRadius: "10px",
-          fontSize: "11px",
-          fontWeight: 700,
-          cursor: "pointer",
-          border: "none",
-          background: tier.isRecommended ? "linear-gradient(135deg, #22C55E 0%, #16A34A 100%)" : "#F1F5F9",
-          color: tier.isRecommended ? "white" : CARFIX_COLORS.success,
-          boxShadow: tier.isRecommended ? "0 4px 12px rgba(34,197,94,0.3)" : "none",
-          transition: "all 0.15s ease",
-        }}
-      >
-        Add
-      </button>
+      {/* Bottom row: Add + Heart */}
+      <div style={{ padding: "6px 10px 10px", display: "flex", gap: "6px", marginTop: "auto" }}>
+        <button
+          onClick={handleAdd}
+          style={{
+            flex: 1,
+            padding: "8px 0",
+            borderRadius: "10px",
+            fontSize: "12px",
+            fontWeight: 700,
+            cursor: "pointer",
+            border: "none",
+            background: tier.isRecommended
+              ? "linear-gradient(135deg, #22C55E 0%, #16A34A 100%)"
+              : "#F1F5F9",
+            color: tier.isRecommended ? "white" : CARFIX_COLORS.success,
+            boxShadow: tier.isRecommended ? "0 4px 12px rgba(34,197,94,0.3)" : "none",
+            transition: "all 0.15s ease",
+          }}
+        >
+          Add
+        </button>
+        <button
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            width: "36px",
+            minWidth: "36px",
+            padding: "8px 0",
+            borderRadius: "10px",
+            fontSize: "14px",
+            cursor: "pointer",
+            border: "1.5px solid #E2E8F0",
+            background: "#FFFFFF",
+            transition: "all 0.15s ease",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          ♡
+        </button>
+      </div>
     </div>
   );
 };
