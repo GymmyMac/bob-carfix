@@ -152,8 +152,8 @@ serve(async (req) => {
   } catch (error) {
     console.error("[bob-tts-elevenlabs] Error:", error);
     return new Response(
-      JSON.stringify({ error: "Internal server error", details: String(error) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: "TTS_SERVICE_FAILED", fallback: true, details: String(error) }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
