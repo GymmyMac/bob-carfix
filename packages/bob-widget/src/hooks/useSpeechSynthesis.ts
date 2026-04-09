@@ -51,8 +51,8 @@ export const useSpeechSynthesis = ({
   const { bobConfig, bobSupabase: supabase } = useBobContext();
   const [isSpeaking, setIsSpeaking] = useState(false);
 
-  // Replaced HTMLAudioElement ref with Web Audio API PlaybackHandle
-  const playbackRef = useRef<PlaybackHandle | null>(null);
+  // Ref for current playback - either Web Audio or browser TTS fallback
+  const playbackRef = useRef<{ stop: () => void } | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startTriggeredRef = useRef(false);
 
