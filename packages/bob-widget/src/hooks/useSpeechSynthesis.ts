@@ -20,6 +20,29 @@ const sanitizeForTTS = (text: string): string => {
   return text.replace(/\bya\b/gi, 'you');
 };
 
+// Browser Speech Synthesis fallback
+const browserTTSFallback = (
+  text: string,
+  onStart: () => void,
+  onEnd: () => void,
+  onFailed: () => void,
+): { stop: () => void } => {
+  if (!('speechSynthesis' in window)) {
+    console.warn("[BobWidget TTS] Browser SpeechSynthesis not available");
+    onStart();
+    onEnd();
+    return { stop: () => {} };
+  }
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'en-NZ';
+  utterance.rate = 1.0;
+  utterance.onstart = () => onStart();
+  utterance.onend = () => onEnd();
+  utterance.onerror = () => { onEnd(); onFailed(); };
+  window.speechSynthesis.speak(utterance);
+  return { stop: () => window.speechSynthesis.cancel() };
+};
+
 export const useSpeechSynthesis = ({
   onStart,
   onEnd,
