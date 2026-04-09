@@ -20,6 +20,29 @@ const sanitizeForTTS = (text: string): string => {
   return text.replace(/\bya\b/gi, 'you');
 };
 
+// Browser Speech Synthesis fallback
+const browserTTSFallback = (
+  text: string,
+  onStart: () => void,
+  onEnd: () => void,
+  onFailed: () => void,
+): { stop: () => void } => {
+  if (!('speechSynthesis' in window)) {
+    console.warn("[BobWidget TTS] Browser SpeechSynthesis not available");
+    onStart();
+    onEnd();
+    return { stop: () => {} };
+  }
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'en-NZ';
+  utterance.rate = 1.0;
+  utterance.onstart = () => onStart();
+  utterance.onend = () => onEnd();
+  utterance.onerror = () => { onEnd(); onFailed(); };
+  window.speechSynthesis.speak(utterance);
+  return { stop: () => window.speechSynthesis.cancel() };
+};
+
 export const useSpeechSynthesis = ({
   onStart,
   onEnd,
@@ -28,8 +51,8 @@ export const useSpeechSynthesis = ({
   const { bobConfig, bobSupabase: supabase } = useBobContext();
   const [isSpeaking, setIsSpeaking] = useState(false);
 
-  // Replaced HTMLAudioElement ref with Web Audio API PlaybackHandle
-  const playbackRef = useRef<PlaybackHandle | null>(null);
+  // Ref for current playback - either Web Audio or browser TTS fallback
+  const playbackRef = useRef<{ stop: () => void } | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startTriggeredRef = useRef(false);
 
@@ -131,6 +154,37 @@ export const useSpeechSynthesis = ({
         const errorData = await response.json().catch(() => ({}));
         console.error("[BobWidget TTS] Request failed:", errorData);
         throw new Error("TTS request failed");
+      }
+
+      // Check for JSON fallback signal (server returns 200 + JSON on rate-limit)
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        const fallbackData = await response.json();
+        if (fallbackData.fallback) {
+          console.warn("[BobWidget TTS] ElevenLabs unavailable, falling back to browser TTS");
+          clearTtsTimeout();
+          const fallbackHandle = browserTTSFallback(
+            text,
+            () => {
+              if (!startTriggeredRef.current) {
+                startTriggeredRef.current = true;
+                setIsSpeaking(true);
+                onStartRef.current?.();
+              }
+            },
+            () => {
+              setIsSpeaking(false);
+              greetingPlayingRef.current = false;
+              onEndRef.current?.();
+              playbackRef.current = null;
+              isProcessingRef.current = false;
+              processQueue();
+            },
+            () => onFailedRef.current?.(),
+          );
+          playbackRef.current = fallbackHandle;
+          return;
+        }
       }
 
       const audioArrayBuffer = await response.arrayBuffer();
