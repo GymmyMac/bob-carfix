@@ -156,6 +156,37 @@ export const useSpeechSynthesis = ({
         throw new Error("TTS request failed");
       }
 
+      // Check for JSON fallback signal (server returns 200 + JSON on rate-limit)
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        const fallbackData = await response.json();
+        if (fallbackData.fallback) {
+          console.warn("[BobWidget TTS] ElevenLabs unavailable, falling back to browser TTS");
+          clearTtsTimeout();
+          const fallbackHandle = browserTTSFallback(
+            text,
+            () => {
+              if (!startTriggeredRef.current) {
+                startTriggeredRef.current = true;
+                setIsSpeaking(true);
+                onStartRef.current?.();
+              }
+            },
+            () => {
+              setIsSpeaking(false);
+              greetingPlayingRef.current = false;
+              onEndRef.current?.();
+              playbackRef.current = null;
+              isProcessingRef.current = false;
+              processQueue();
+            },
+            () => onFailedRef.current?.(),
+          );
+          playbackRef.current = fallbackHandle;
+          return;
+        }
+      }
+
       const audioArrayBuffer = await response.arrayBuffer();
 
       // ========== Play via shared AudioContext ==========
