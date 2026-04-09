@@ -122,6 +122,17 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("[bob-tts-elevenlabs] ElevenLabs API error:", response.status, errorText);
+
+      // For rate-limit (429) or server errors (5xx), return 200 with fallback signal
+      const isFallbackable = response.status === 429 || response.status >= 500;
+      if (isFallbackable) {
+        console.warn("[bob-tts-elevenlabs] Returning fallback signal to client");
+        return new Response(
+          JSON.stringify({ error: "TTS_SERVICE_UNAVAILABLE", fallback: true, details: errorText }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       return new Response(
         JSON.stringify({ error: "ElevenLabs TTS failed", details: errorText }),
         { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
