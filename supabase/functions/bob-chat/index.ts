@@ -1365,7 +1365,7 @@ interface ApiConfig {
 function buildApiConfig(hostConfig?: HostConfig): ApiConfig {
   // Default CARFIX API configuration
   const defaultConfig: ApiConfig = {
-    baseUrl: 'https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1',
+    baseUrl: `${Deno.env.get('SUPABASE_URL') || 'https://flpzjbasdsfwoeruyxgp.supabase.co'}/functions/v1`,
     apiKey: Deno.env.get('CARFIX_SERVICE_ROLE_KEY') || '',
     customHeaders: {
       'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZscHpqYmFzZHNmd29lcnV5eGdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2NTIwNzQsImV4cCI6MjA3MTIyODA3NH0.wKoJ51_VPro_BrJz-A-NRpSmUW0XBP-7TJJcrhvYwxE'
@@ -1670,7 +1670,8 @@ async function searchGeneralProducts(query: string): Promise<unknown> {
 }
 
 // ============= PARTNER API CALLS =============
-const PARTNER_API_URL = 'https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1/partner-api';
+const CARFIX_BASE_URL = Deno.env.get('SUPABASE_URL') || 'https://flpzjbasdsfwoeruyxgp.supabase.co';
+const PARTNER_API_URL = `${CARFIX_BASE_URL}/functions/v1/partner-api`;
 const PARTNER_API_KEY = Deno.env.get('CARFIX_PARTNER_API_KEY') || 'bob_carfix_p4rtner_2024_x7kL9mNqR3wY5vBc';
 
 async function callPartnerAPI(action: string, params: Record<string, unknown>): Promise<unknown> {
@@ -1767,7 +1768,7 @@ async function checkVehicleFitment(sku: string, vehicleId: string): Promise<unkn
 }
 
 // ============= BRAIN DIAGNOSTIC API =============
-const CARFIX_BRAIN_BASE = 'https://flpzjbasdsfwoeruyxgp.supabase.co/functions/v1';
+const CARFIX_BRAIN_BASE = `${CARFIX_BASE_URL}/functions/v1`;
 const CARFIX_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZscHpqYmFzZHNmd29lcnV5eGdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2NTIwNzQsImV4cCI6MjA3MTIyODA3NH0.wKoJ51_VPro_BrJz-A-NRpSmUW0XBP-7TJJcrhvYwxE';
 
 async function diagnoseBrainSymptom(userQuery: string): Promise<unknown> {

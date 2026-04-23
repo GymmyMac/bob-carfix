@@ -10,8 +10,9 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { PartnerConfig, PartnerFeatureFlags } from '../types/partner';
 
 // Bob's default Supabase credentials (public, read-only access to config)
-const BOB_DEFAULT_SUPABASE_URL = 'https://gjoguxzstsihhxvdgpto.supabase.co';
-const BOB_DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdqb2d1eHpzdHNpaGh4dmRncHRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5MzgyODEsImV4cCI6MjA3OTUxNDI4MX0.detu4TKB7RjC6l6CrVaPYoi0Hhz2asDt6zxNx1cdzq8';
+// Consolidated to CARFIX Supabase — single source of truth
+const BOB_DEFAULT_SUPABASE_URL = 'https://flpzjbasdsfwoeruyxgp.supabase.co';
+const BOB_DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZscHpqYmFzZHNmd29lcnV5eGdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2NTIwNzQsImV4cCI6MjA3MTIyODA3NH0.wKoJ51_VPro_BrJz-A-NRpSmUW0XBP-7TJJcrhvYwxE';
 
 export interface UsePartnerConfigResult {
   /** Loaded partner configuration */
