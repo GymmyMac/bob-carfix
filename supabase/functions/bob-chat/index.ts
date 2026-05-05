@@ -2059,11 +2059,7 @@ serve(async (req) => {
       shelfContext: clientShelfContext
     } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
+    const llmConfig = await fetchLLMConfig();
 
     // Build API config from hostConfig or use defaults
     const apiConfig = buildApiConfig(hostConfig as HostConfig | undefined);
