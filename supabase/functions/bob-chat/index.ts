@@ -183,6 +183,52 @@ function buildPromotionContextBlock(promotions: PromotionRow[]): string {
   return `\n\n=== ACTIVE PROMOTIONS (OVERRIDE DEFAULT RECOMMENDATION) ===\n${lines.join('\n\n')}\nPRIORITY: Lead with promoted product. If declined, fall back to affinity brand, then CARFIX Value.\n===`;
 }
 
+// ============= LLM CONFIG (OpenRouter / hot-swap) =============
+interface LLMConfig {
+  endpoint: string;
+  apiKey: string;
+  model: string;
+}
+
+const llmConfigCache: { config: LLMConfig | null; timestamp: number } = { config: null, timestamp: 0 };
+const LLM_CACHE_TTL_MS = 5 * 60 * 1000;
+
+async function fetchLLMConfig(): Promise<LLMConfig> {
+  const now = Date.now();
+  if (llmConfigCache.config && (now - llmConfigCache.timestamp) < LLM_CACHE_TTL_MS) {
+    return llmConfigCache.config;
+  }
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !supabaseKey) throw new Error("Missing Supabase credentials");
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data, error } = await supabase
+      .from("bob_llm_config")
+      .select("endpoint, api_key_secret_name, model")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+    if (error || !data) throw new Error("No active LLM config found");
+    const apiKey = Deno.env.get(data.api_key_secret_name);
+    if (!apiKey) throw new Error(`Secret not found: ${data.api_key_secret_name}`);
+    const config: LLMConfig = { endpoint: data.endpoint, apiKey, model: data.model };
+    llmConfigCache.config = config;
+    llmConfigCache.timestamp = now;
+    console.log(`[LLM] Config loaded: model=${config.model} endpoint=${config.endpoint}`);
+    return config;
+  } catch (err) {
+    console.error("[LLM] fetchLLMConfig failed, using fallback:", err);
+    const fallbackKey = Deno.env.get("LOVABLE_API_KEY") || Deno.env.get("OPENROUTER_API_KEY") || "";
+    return {
+      endpoint: "https://openrouter.ai/api/v1/chat/completions",
+      apiKey: fallbackKey,
+      model: "google/gemini-2.0-flash",
+    };
+  }
+}
+
 // ============= VEHICLE CANDIDATE TYPE =============
 interface VehicleCandidate {
   vehicle_id: number | null;   // TecDoc ID - null if not in catalog
