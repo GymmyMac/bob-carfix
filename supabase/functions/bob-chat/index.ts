@@ -2821,14 +2821,16 @@ Use light humor and be helpful while being honest about the limitation.`
       }
       
       // Make non-streaming request to check for tool calls
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch(llmConfig.endpoint, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${llmConfig.apiKey}`,
           "Content-Type": "application/json",
+          "HTTP-Referer": "https://carfix.co.nz",
+          "X-Title": "CARFIX Bob",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: llmConfig.model,
           messages: conversationMessages,
           tools: tools,
           tool_choice: toolChoiceOverride,
@@ -3339,14 +3341,16 @@ ${partsSummary}`;
       }
       
       // Make streaming request for final response
-      const streamResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const streamResponse = await fetch(llmConfig.endpoint, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${llmConfig.apiKey}`,
           "Content-Type": "application/json",
+          "HTTP-Referer": "https://carfix.co.nz",
+          "X-Title": "CARFIX Bob",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: llmConfig.model,
           messages: streamMessages,
           stream: true,
         }),
@@ -3846,14 +3850,16 @@ ${partsSummary}`;
         });
       }
 
-      const streamResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const streamResponse = await fetch(llmConfig.endpoint, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${llmConfig.apiKey}`,
           "Content-Type": "application/json",
+          "HTTP-Referer": "https://carfix.co.nz",
+          "X-Title": "CARFIX Bob",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: llmConfig.model,
           messages: streamMessages,
           stream: true,
         }),
