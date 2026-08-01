@@ -1,3 +1,5 @@
+> **STATUS: PARKED** — this package is the future partner/tenant-embed asset. The live customer-facing Bob is carfix-beta's `src/components/bob`. Do not make customer-facing Bob fixes here.
+
 # @gymmymac/bob-widget
 
 AI-powered automotive parts assistant widget for partner websites.

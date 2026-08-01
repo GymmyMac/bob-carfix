@@ -1,5 +1,9 @@
 # Welcome to your Lovable project
 
+## Ownership
+
+This project is Bob's admin control panel (prompts, animation states/looks, promos, brand affinity, voice, tenants). It does NOT own the bob-chat edge function — the production bob-chat brain is the deployed Supabase function (v31+), managed outside this repo. Never re-add `supabase/functions/bob-chat` here. The customer-facing Bob widget lives in the carfix-beta project (`src/components/bob`); `packages/bob-widget` here is a parked partner-embed asset, not the live customer Bob.
+
 ## Project info
 
 **URL**: https://lovable.dev/projects/bfd7529a-583b-4b61-b606-7f9f7df6bde3
